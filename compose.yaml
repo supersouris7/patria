@@ -1,0 +1,11 @@
+services:
+  patrimoine:
+    build: .
+    env_file: .env
+    ports:
+      - "127.0.0.1:${PORT:-8000}:8000"
+    volumes:
+      - patrimoine_data:/data
+    restart: unless-stopped
+volumes:
+  patrimoine_data:
