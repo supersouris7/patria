@@ -13,7 +13,7 @@ RUN $JAVA_HOME/bin/jlink \
     --strip-debug \
     --no-man-pages \
     --no-header-files \
-    --output /opt/java
+    --output /runtime
 
 FROM debian:bookworm-slim
 
@@ -22,7 +22,7 @@ RUN groupadd --gid 10001 patria \
     && useradd --uid 10001 --gid patria --create-home patria \
     && mkdir /data \
     && chown patria:patria /data
-COPY --from=runtime /opt/java /opt/java
+COPY --from=runtime /runtime /opt/java
 COPY --from=build --chown=patria:patria /build/target/patria.jar /app/patria.jar
 
 USER patria
