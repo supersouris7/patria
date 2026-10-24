@@ -25,6 +25,7 @@ RUN groupadd --gid 10001 patria \
 COPY --from=runtime /runtime /opt/java
 COPY --from=build --chown=patria:patria /build/target/patria.jar /app/patria.jar
 
+ENV PATH="/opt/java/bin:${PATH}"
 USER patria
 EXPOSE 8080
 ENTRYPOINT ["/opt/java/bin/java", "-Xms16m", "-Xmx96m", "-jar", "/app/patria.jar"]
