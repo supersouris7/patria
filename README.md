@@ -8,6 +8,7 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 - Gestion de plusieurs biens : type, commune, code INSEE, surface, achat et estimation.
 - Gestion des prets associes : capital, solde de reference, taux, duree et mensualite.
 - Persistance SQLite dans le volume Docker historique `patrimoine_data`.
+- Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.
 
 L'amortissement detaille, les evenements de pret, DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
 
@@ -31,7 +32,7 @@ docker compose pull
 docker compose up -d
 ```
 
-`APP_PASSWORD` est obligatoire. Il peut etre fourni en clair ou sous la forme d'un hash Spring Security `{bcrypt}...`. Ne commitez jamais `.env` ni le volume de donnees.
+`APP_PASSWORD` est obligatoire et doit etre un mot de passe long. Un hash `{bcrypt}...` reste accepte lors d'une migration. Ne commitez jamais `.env` ni le volume de donnees.
 
 ## Developpement
 
@@ -39,7 +40,8 @@ Prerequis : Java 21 et Maven 3.9+.
 
 ```bash
 mvn verify
-APP_PASSWORD=mot-de-passe-local mvn spring-boot:run
+APP_PASSWORD=mot-de-passe-local mvn package
+DATABASE_PATH=./patria.sqlite3 java -Xms16m -Xmx96m -jar target/patria.jar
 ```
 
 La base de developpement est definie par `DATABASE_PATH` ; sa valeur par defaut est `/data/immobilier.sqlite3`.
