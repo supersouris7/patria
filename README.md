@@ -1,39 +1,54 @@
-# Patria — suivi immobilier personnel
+# Patria
 
-Application web en français, auto-hébergée, pour suivre plusieurs biens et prêts. **Périmètre : immobilier uniquement** ; aucune connexion bancaire ni boursière. Base SQLite dans un volume Docker, authentification par mot de passe, sauvegarde JSON.
+Patria est une application web francaise auto-hebergee de suivi immobilier. Cette premiere version Java permet de se connecter, d'enregistrer des biens et d'y associer des prets. Elle ne se connecte a aucune banque ni service financier.
 
-## Démarrage
+## Fonctionnalites actuelles
 
-Docker et Docker Compose sont nécessaires. Dans ce dossier :
+- Authentification par mot de passe.
+- Gestion de plusieurs biens : type, commune, code INSEE, surface, achat et estimation.
+- Gestion des prets associes : capital, solde de reference, taux, duree et mensualite.
+- Persistance SQLite dans le volume Docker historique `patrimoine_data`.
+
+L'amortissement detaille, les evenements de pret, DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
+
+## Demarrage avec Docker
+
+Creer un fichier `.env` a partir de l'exemple et y definir un mot de passe long :
 
 ```bash
 cp .env.example .env
-python3 -c 'import secrets; print(secrets.token_urlsafe(48))'  # reporter la valeur dans SECRET_KEY de .env
-# Remplacer également APP_PASSWORD par un mot de passe personnel long dans .env
-docker compose up -d --build
+# Modifier APP_PASSWORD dans .env
+docker compose up -d
 ```
 
-Ouvrir **http://127.0.0.1:18080** (ou le port `PORT` choisi dans `.env`). Le service écoute seulement en local par défaut ; pour un autre appareil, installer un proxy HTTPS authentifié ou modifier explicitement la liaison `ports` dans `compose.yaml`. Pour arrêter : `docker compose down` (conserve le volume). Pour les journaux : `docker compose logs -f patrimoine`. Pour les tests : `docker compose run --rm patrimoine python -m pytest -q -p no:cacheprovider`.
+L'application est disponible sur `http://127.0.0.1:8101` par defaut. Le service n'ecoute que localement : placer un reverse proxy HTTPS devant lui pour l'exposer sur le reseau. Les donnees restent dans le volume Docker `patrimoine_data` lorsque le conteneur est arrete. Ce nom est conserve afin de reutiliser la base des versions Python precedentes.
 
-Les variables `APP_PASSWORD` et `SECRET_KEY` sont obligatoires ; l'application refuse de servir les pages sans elles. Un hash Werkzeug `scrypt:` ou `pbkdf2:` peut remplacer le mot de passe en clair dans `.env`. Ne partagez pas `.env`, le volume ni les sauvegardes JSON.
+Commandes utiles :
 
-## Utilisation
+```bash
+docker compose logs -f patria
+docker compose pull
+docker compose up -d
+```
 
-1. Dans **Administration**, ajouter un bien : type maison/appartement, commune, **code INSEE**, surface, prix et date d'achat, estimation personnelle et date.
-2. Ajouter autant de prêts que nécessaire, chacun associé à un bien. La mensualité saisie est **hors assurance** ; l'assurance est ajoutée séparément à l'échéancier.
-3. Saisir un capital restant dû **de référence**, tiré d'un relevé bancaire, avec sa date. L'application projette ensuite les échéances mensuelles (capital + intérêts + assurance) et considère les échéances datées passées comme payées. Si la réalité diffère, ajouter une **correction du capital** avec la date du relevé. Un remboursement anticipé réduit le solde à sa date.
-4. Le dashboard présente la valeur nette = **somme des estimations − somme des capitaux restants**. Le capital remboursé est affiché à part. Le tableau d'amortissement et les événements se trouvent dans Administration.
-5. Pour une estimation DVF, saisir d'abord une estimation personnelle **datée sur une année antérieure** (au plus quatre ans avant le dernier millésime complet), puis cliquer sur « Calculer une proposition DVF ». Une page détaille les ventes retenues et demande confirmation ; sinon l'estimation personnelle est conservée.
-6. Exporter les données via **Télécharger la sauvegarde**. L'import JSON remplace atomiquement les données existantes. Conserver des copies du volume et du JSON hors du serveur.
+`APP_PASSWORD` est obligatoire. Il peut etre fourni en clair ou sous la forme d'un hash Spring Security `{bcrypt}...`. Ne commitez jamais `.env` ni le volume de donnees.
 
-## DVF : méthode et limites
+## Developpement
 
-Source : [DVF géolocalisées, fichiers CSV par commune et millésime](https://files.data.gouv.fr/geo-dvf/latest/csv/) publiés sur `files.data.gouv.fr`, à partir des ventes publiques DGFiP. Exemple d'un [fichier communal 2025](https://files.data.gouv.fr/geo-dvf/latest/csv/2025/communes/75/75101.csv). Les fichiers ne sont pas disponibles pour toutes les communes et années (notamment départements 57, 67, 68, Mayotte). Le service télécharge le fichier communal de l'année de l'estimation et celui du **dernier millésime annuel complet** lors de la demande, côté serveur. Échec réseau, millésime absent, moins de **cinq** transactions comparables dans chaque millésime ou dernière vente de plus de deux ans : **aucune proposition**.
+Prerequis : Java 21 et Maven 3.9+.
 
-Une transaction n'entre dans la médiane €/m² que si elle concerne exactement **un logement** du bon type, sans local commercial, en vente simple ; les dépendances sont tolérées et les mutations multilots résidentiels écartées. Bornes de surface et de prix filtrent certaines valeurs aberrantes. Proposition = estimation personnelle × (médiane €/m² du dernier millésime / médiane du millésime de l'estimation). Les deux effectifs, médianes, dates de dernière vente et la méthode sont affichés avant validation. Cette méthode ne prend pas en compte l'état du bien, sa rue, la composition des dépendances ni les ventes postérieures à la dernière publication : **ce n'est pas une estimation en temps réel**. Une nouvelle estimation personnelle reste toujours possible.
+```bash
+mvn verify
+APP_PASSWORD=mot-de-passe-local mvn spring-boot:run
+```
 
-## Calculs et persistance
+La base de developpement est definie par `DATABASE_PATH` ; sa valeur par defaut est `/data/immobilier.sqlite3`.
 
-L'échéancier commence **après** la date du solde de référence : les échéances antérieures ne sont pas recalculées. Taux mensuel indicatif = taux annuel / 12 ; intérêts = solde × taux mensuel ; capital remboursé = mensualité hors assurance − intérêts, limité au solde. Jour 29/30/31 ramené au dernier jour du mois si nécessaire. Il s'agit d'une simulation à date, pas de la confirmation des prélèvements bancaires, et elle n'intègre pas les clauses contractuelles de modulation ou intérêts intercalaires. Le capital remboursé affiché est capital initial − capital restant estimé, y compris remboursements anticipés et soldes antérieurs au premier relevé saisi.
+## Publication Docker Hub
 
-Les données sont dans `/data/immobilier.sqlite3` (volume Docker nommé `patrimoine_data`). Les instantanés quotidiens sont écrits lors des visites et des changements ; aucune valeur intermédiaire n'est inventée pour les jours sans visite. Les sauvegardes JSON contiennent tous les biens, prêts, événements et instantanés.
+Chaque push sur `main` lance les tests puis construit et publie `supersouris7/patria:unstable` pour `linux/amd64` et `linux/arm64`.
+
+Configurer les secrets du depot GitHub une fois :
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN` : access token Docker Hub avec autorisation de lecture et ecriture.

@@ -1,9 +1,10 @@
 services:
-  patrimoine:
-    build: .
+  patria:
+    image: supersouris7/patria:unstable
+    container_name: patria
     env_file: .env
     ports:
-      - "127.0.0.1:${PORT:-8000}:8000"
+      - "127.0.0.1:${PORT:-8101}:8080"
     volumes:
       - patrimoine_data:/data
     restart: unless-stopped

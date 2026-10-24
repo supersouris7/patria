@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administration · Patria</title>
+    <link rel="stylesheet" th:href="@{/css/patria.css}">
+</head>
+<body>
+<header th:replace="~{fragments :: header}"></header>
+<main class="shell">
+    <section class="page-heading"><div><p class="eyebrow">ADMINISTRATION</p><h1>Biens et prets<span>.</span></h1><p class="muted">Ajoutez vos informations de reference. Les calculs detailes arriveront dans une prochaine version.</p></div></section>
+    <p class="notice success" th:if="${success}" th:text="${success}"></p>
+    <p class="notice error" th:if="${error}" th:text="${error}"></p>
+
+    <div class="columns">
+        <section class="card section">
+            <p class="eyebrow">AJOUTER UN BIEN</p><h2>Nouveau logement</h2>
+            <form method="post" th:action="@{/bien}" class="stack">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label>Nom du bien<input name="name" maxlength="100" placeholder="Residence principale" required></label>
+                <label>Type<select name="kind"><option>Appartement</option><option>Maison</option></select></label>
+                <div class="form-grid"><label>Commune<input name="commune" maxlength="100" required></label><label>Code INSEE<input name="insee" pattern="[0-9A-Za-z]{5}" maxlength="5" required></label></div>
+                <label>Surface (m2)<input name="area" type="number" min="0.01" step="0.01" required></label>
+                <div class="form-grid"><label>Prix d'achat (EUR)<input name="purchase" type="number" min="0" step="0.01" required></label><label>Date d'achat<input name="purchase_date" type="date" required></label></div>
+                <div class="form-grid"><label>Estimation (EUR)<input name="estimate" type="number" min="0" step="0.01" required></label><label>Date d'estimation<input name="estimate_date" type="date" required></label></div>
+                <button type="submit">Ajouter le bien</button>
+            </form>
+        </section>
+
+        <section class="card section">
+            <p class="eyebrow">AJOUTER UN PRET</p><h2>Nouveau financement</h2>
+            <form method="post" th:action="@{/pret}" class="stack" th:if="${!#lists.isEmpty(properties)}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label>Bien finance<select name="property_id"><option th:each="property : ${properties}" th:value="${property.id}" th:text="${property.name}">Bien</option></select></label>
+                <label>Nom du pret<input name="name" maxlength="100" placeholder="Pret residence principale" required></label>
+                <div class="form-grid"><label>Capital initial (EUR)<input name="initial" type="number" min="0.01" step="0.01" required></label><label>Capital restant du (EUR)<input name="reference_balance" type="number" min="0" step="0.01" required></label></div>
+                <label>Date du capital de reference<input name="reference_date" type="date" required></label>
+                <div class="form-grid"><label>Taux annuel (%)<input name="rate" type="number" min="0" step="0.001" required></label><label>Duree (mois)<input name="duration_months" type="number" min="1" max="600" required></label></div>
+                <div class="form-grid"><label>Debut du pret<input name="start_date" type="date" required></label><label>Jour d'echeance<input name="due_day" type="number" min="1" max="31" required></label></div>
+                <div class="form-grid"><label>Mensualite hors assurance (EUR)<input name="payment" type="number" min="0.01" step="0.01" required></label><label>Assurance mensuelle (EUR)<input name="insurance" type="number" min="0" step="0.01" value="0" required></label></div>
+                <button type="submit">Ajouter le pret</button>
+            </form>
+            <p class="empty" th:if="${#lists.isEmpty(properties)}">Ajoutez d'abord un bien immobilier.</p>
+        </section>
+    </div>
+
+    <section class="card section">
+        <div class="section-title"><div><p class="eyebrow">VOS FINANCEMENTS</p><h2>Prets enregistres</h2></div><span class="count" th:text="${#lists.size(loans)}">0</span></div>
+        <div class="table-wrap" th:if="${!#lists.isEmpty(loans)}"><table><thead><tr><th>Pret</th><th>Bien</th><th>Solde de reference</th><th>Taux</th><th>Mensualite</th></tr></thead>
+            <tbody><tr th:each="loan : ${loans}"><td th:text="${loan.name}">Pret</td><td th:text="${loan.propertyName}">Bien</td><td th:text="${#numbers.formatDecimal(loan.referenceBalance, 1, 2)} + ' EUR'">0 EUR</td><td th:text="${loan.annualRate} + ' %'">0 %</td><td th:text="${#numbers.formatDecimal(loan.monthlyPayment.add(loan.monthlyInsurance), 1, 2)} + ' EUR'">0 EUR</td></tr></tbody>
+        </table></div>
+        <p class="empty" th:if="${#lists.isEmpty(loans)}">Aucun pret enregistre.</p>
+    </section>
+</main>
+</body>
+</html>
