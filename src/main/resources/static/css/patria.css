@@ -8,7 +8,6 @@
     --muted: #8d9aaa;
     --blue: #35a6ff;
     --blue-deep: #1978df;
-    --green: #65d858;
     --danger: #ff7b85;
     --success: #8ee585;
 }
@@ -65,7 +64,7 @@ button.quiet:hover { background: var(--surface); color: var(--text); }
 .metric span { color: var(--muted); display: block; font-size: .75rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
 .metric strong { display: block; font-size: clamp(1.45rem, 2.4vw, 2rem); margin-top: 14px; }
 .metric:nth-child(3) { border-color: #225472; }
-.metric:nth-child(3) strong { color: var(--green); }
+.metric:nth-child(3) strong { color: var(--blue); }
 
 .section { margin-bottom: 14px; padding: 25px; }
 .section-title { align-items: center; display: flex; justify-content: space-between; }
