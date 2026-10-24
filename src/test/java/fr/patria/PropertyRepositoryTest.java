@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(properties = {
         "app.password=test-password",
-        "spring.datasource.url=jdbc:sqlite:file:patria-test?mode=memory&cache=shared"
+        "spring.datasource.url=jdbc:sqlite:target/patria-test.sqlite"
 })
 class PropertyRepositoryTest {
     @Autowired
