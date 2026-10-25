@@ -18,7 +18,7 @@ class DatabaseTest {
         database.initialize();
         database.addProperty(new Property(0, "Logement test", "Maison", "Commune", "", "12345",
                 new BigDecimal("95.5"), new BigDecimal("250000"), LocalDate.of(2020, 1, 1),
-                new BigDecimal("300000"), LocalDate.of(2025, 1, 1)));
+                new BigDecimal("300000"), new BigDecimal("300000"), LocalDate.of(2025, 1, 1)));
 
         assertEquals("Logement test", database.properties().getFirst().name());
     }
@@ -28,7 +28,7 @@ class DatabaseTest {
         Database database = new Database(directory.resolve("patria.sqlite3"));
         database.initialize();
         database.addProperty(new Property(0, "Logement test", "Maison", "Commune", "", "", BigDecimal.ZERO, BigDecimal.ZERO,
-                LocalDate.of(2020, 1, 1), BigDecimal.ZERO, LocalDate.of(2020, 1, 1)));
+                LocalDate.of(2020, 1, 1), BigDecimal.ZERO, BigDecimal.ZERO, LocalDate.of(2020, 1, 1)));
         database.addLoan(new Loan(0, database.properties().getFirst().id(), "", "Pret test", new BigDecimal("10000"), new BigDecimal("9000"),
                 LocalDate.of(2025, 1, 1), new BigDecimal("3"), 120, LocalDate.of(2020, 1, 1), 5, new BigDecimal("100"), BigDecimal.ZERO));
         long loanId = database.loans().getFirst().id();

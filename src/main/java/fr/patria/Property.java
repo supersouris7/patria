@@ -14,5 +14,6 @@ public record Property(
         BigDecimal purchase,
         LocalDate purchaseDate,
         BigDecimal estimate,
+        BigDecimal estimateHigh,
         LocalDate estimateDate) {
 }
