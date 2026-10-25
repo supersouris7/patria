@@ -274,7 +274,7 @@ public final class PatriaServer {
         try {
             if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
             database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant")));
-            redirect(exchange, "/administration/bien/" + propertyId);
+            redirect(exchange, "/bien/" + propertyId);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(database.property(propertyId), session.csrf())); }
     }
 
