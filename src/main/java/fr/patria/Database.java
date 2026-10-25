@@ -122,6 +122,16 @@ final class Database {
         }
     }
 
+    synchronized void updateProperty(Property property) {
+        String query = "UPDATE properties SET name=?, kind=?, commune=?, address=?, area=?, purchase=?, purchase_date=?, estimate=?, estimate_date=? WHERE id=?";
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, property.name()); statement.setString(2, property.kind()); statement.setString(3, property.commune()); statement.setString(4, property.address());
+            statement.setBigDecimal(5, property.area()); statement.setBigDecimal(6, property.purchase()); statement.setString(7, property.purchaseDate().toString());
+            statement.setBigDecimal(8, property.estimate()); statement.setString(9, property.estimateDate().toString()); statement.setLong(10, property.id());
+            statement.executeUpdate();
+        } catch (SQLException exception) { throw new IllegalStateException("Impossible de modifier le bien.", exception); }
+    }
+
     synchronized long addLoan(Loan loan) {
         String query = "INSERT INTO loans (property_id, name, initial, reference_balance, reference_date, rate, duration_months, start_date, due_day, payment, insurance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {

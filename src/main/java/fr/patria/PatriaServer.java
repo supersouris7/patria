@@ -134,6 +134,8 @@ public final class PatriaServer {
             propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
         } else if (path.matches("/administration/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
             propertyAdministrationPage(exchange, session, Long.parseLong(path.substring("/administration/bien/".length())));
+        } else if (path.matches("/administration/bien/\\d+/proprietes") && method.equals("POST")) {
+            updateProperty(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
         } else if (path.matches("/pret/\\d+/echeancier") && (method.equals("GET") || method.equals("HEAD"))) {
@@ -240,6 +242,18 @@ public final class PatriaServer {
         Property property = database.property(propertyId);
         if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
         page(exchange, 200, Pages.propertyAdministration(property, session.csrf()));
+    }
+
+    private void updateProperty(HttpExchange exchange, Session session, long id) throws IOException {
+        Map<String, String> form = checkedForm(exchange, session);
+        Property current = database.property(id);
+        if (current == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
+        try {
+            LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", current.purchaseDate());
+            LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
+            database.updateProperty(new Property(id, required(form, "name", "Nom"), required(form, "kind", "Type"), form.getOrDefault("commune", "").trim(), form.getOrDefault("address", "").trim(), "", current.area(), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, optionalAmount(form, "estimate", "Estimation"), estimateDate));
+            redirect(exchange, "/administration/bien/" + id);
+        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {
