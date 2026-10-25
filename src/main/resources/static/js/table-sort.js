@@ -6,10 +6,7 @@ document.querySelectorAll("table").forEach((table) => {
   filter.addEventListener("input", () => Array.from(table.tBodies[0].rows).forEach((row) => {
     row.hidden = !row.textContent.toLocaleLowerCase("fr").includes(filter.value.toLocaleLowerCase("fr"));
   }));
-  const section = table.closest(".section");
-  const action = section?.querySelector(".section-title .button");
-  if (action) action.parentNode.insertBefore(filter, action);
-  else table.parentNode.insertBefore(filter, table);
+  table.parentNode.insertBefore(filter, table);
   table.querySelectorAll("th").forEach((heading, column) => {
   heading.tabIndex = 0;
   heading.title = "Trier";
