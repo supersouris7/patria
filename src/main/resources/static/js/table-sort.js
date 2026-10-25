@@ -22,3 +22,16 @@ document.querySelectorAll("table").forEach((table) => {
   heading.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); sort(); } });
   });
 });
+
+const moneyNames = new Set(["purchase", "estimate", "amount", "initial", "reference_balance", "rate", "payment", "insurance"]);
+const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+document.querySelectorAll("input").forEach((input) => {
+  if (!moneyNames.has(input.name)) return;
+  input.type = "text";
+  input.inputMode = "decimal";
+  const value = () => Number(input.value.replaceAll(" ", "").replaceAll("\u202f", "").replace(",", "."));
+  const format = () => { if (input.value.trim() && Number.isFinite(value())) input.value = moneyFormat.format(value()); };
+  input.addEventListener("blur", format);
+  input.form?.addEventListener("submit", () => { if (input.value.trim() && Number.isFinite(value())) input.value = value().toFixed(2); });
+  format();
+});

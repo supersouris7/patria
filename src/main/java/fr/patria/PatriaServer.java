@@ -427,7 +427,7 @@ public final class PatriaServer {
 
     private static BigDecimal amount(Map<String, String> form, String key, String label) {
         try {
-            BigDecimal value = new BigDecimal(required(form, key, label).replace(',', '.'));
+            BigDecimal value = new BigDecimal(required(form, key, label).replace(" ", "").replace("\u202f", "").replace(',', '.'));
             if (value.signum() < 0) throw new IllegalArgumentException(label + " ne peut pas etre negatif.");
             if (value.compareTo(new BigDecimal("1000000000")) > 0) throw new IllegalArgumentException(label + " est trop eleve.");
             return value;
