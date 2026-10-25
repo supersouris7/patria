@@ -134,10 +134,12 @@ public final class PatriaServer {
             propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
+        } else if (path.matches("/administration/pret/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
+            loanAdministrationPage(exchange, session, Long.parseLong(path.substring("/administration/pret/".length())));
         } else if (path.matches("/pret/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
             loanPage(exchange, session, loanId(path));
-        } else if (path.matches("/pret/\\d+/echeancier") && method.equals("POST")) {
-            importSchedule(exchange, session, loanId(path.substring(0, path.lastIndexOf('/'))));
+        } else if (path.matches("/administration/pret/\\d+/echeancier") && method.equals("POST")) {
+            importSchedule(exchange, session, Long.parseLong(path.substring("/administration/pret/".length(), path.lastIndexOf('/'))));
         } else {
             page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas."));
         }
@@ -243,6 +245,12 @@ public final class PatriaServer {
         page(exchange, 200, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), "", success));
     }
 
+    private void loanAdministrationPage(HttpExchange exchange, Session session, long loanId) throws IOException {
+        Loan loan = database.loan(loanId);
+        if (loan == null) { page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas.")); return; }
+        page(exchange, 200, Pages.loanAdministration(loan, session.csrf()));
+    }
+
     private void importSchedule(HttpExchange exchange, Session session, long loanId) throws IOException {
         Loan loan = database.loan(loanId);
         if (loan == null) {
@@ -257,7 +265,7 @@ public final class PatriaServer {
             byte[] csv = form.file("csv");
             if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
             database.replaceScheduleLines(loanId, CsvScheduleParser.parse(csv));
-            redirect(exchange, "/pret/" + loanId + "?success=echeancier");
+            redirect(exchange, "/administration/pret/" + loanId + "?success=echeancier");
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), exception.getMessage(), ""));
         }
