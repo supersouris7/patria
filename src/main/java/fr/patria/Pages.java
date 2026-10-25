@@ -161,11 +161,11 @@ final class Pages {
 
     private static String layout(String title, String content, String csrf) {
         String header = csrf == null ? "" : "<header><div class=\"shell navigation\">" + brand() + "<nav><a href=\"/\">Vue d'ensemble</a><a href=\"/administration\">Administration</a></nav><form method=\"post\" action=\"/deconnexion\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><button class=\"quiet\" type=\"submit\">Deconnexion</button></form></div></header>";
-        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css\"><script defer src=\"/js/table-sort.js\"></script></head><body>" + header + content + "</body></html>";
+        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"preload\" as=\"image\" href=\"/images/patria-logo.png\"><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css\"><script defer src=\"/js/table-sort.js\"></script></head><body>" + header + content + "</body></html>";
     }
 
     private static String brand() {
-        return "<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"/images/patria-logo.png\" alt=\"\"><span>Patria</span></a>";
+        return "<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"/images/patria-logo.png\" width=\"31\" height=\"31\" decoding=\"sync\" alt=\"\"><span>Patria</span></a>";
     }
 
     private static String euro(BigDecimal value) {
