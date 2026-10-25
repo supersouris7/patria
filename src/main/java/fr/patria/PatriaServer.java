@@ -138,6 +138,8 @@ public final class PatriaServer {
             financingPage(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
         } else if (path.matches("/administration/bien/\\d+/proprietes") && method.equals("POST")) {
             updateProperty(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
+        } else if (path.matches("/administration/bien/\\d+/apports") && method.equals("POST")) {
+            addContribution(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
         } else if (path.matches("/pret/\\d+/echeancier") && (method.equals("GET") || method.equals("HEAD"))) {
@@ -265,6 +267,15 @@ public final class PatriaServer {
             database.updateProperty(new Property(id, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, optionalAmount(form, "estimate", "Estimation"), estimateDate));
             redirect(exchange, "/administration/bien/" + id);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
+    }
+
+    private void addContribution(HttpExchange exchange, Session session, long propertyId) throws IOException {
+        Map<String, String> form = checkedForm(exchange, session);
+        try {
+            if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
+            database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant")));
+            redirect(exchange, "/administration/bien/" + propertyId);
+        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(database.property(propertyId), session.csrf())); }
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {

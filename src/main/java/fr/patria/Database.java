@@ -50,6 +50,12 @@ final class Database {
                         interest REAL, fees REAL, remaining_principal REAL, annual_rate REAL
                     )
                     """);
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS contributions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+                        name TEXT NOT NULL, amount REAL NOT NULL
+                    )
+                    """);
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'initialiser SQLite.", exception);
         }
@@ -93,6 +99,21 @@ final class Database {
 
     synchronized List<Loan> loansForProperty(long propertyId) {
         return loans().stream().filter(loan -> loan.propertyId() == propertyId).toList();
+    }
+
+    synchronized List<Contribution> contributions(long propertyId) {
+        List<Contribution> results = new ArrayList<>();
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT * FROM contributions WHERE property_id = ? ORDER BY id DESC")) {
+            statement.setLong(1, propertyId);
+            try (ResultSet rows = statement.executeQuery()) { while (rows.next()) results.add(new Contribution(rows.getLong("id"), propertyId, rows.getString("name"), rows.getBigDecimal("amount"))); }
+            return results;
+        } catch (SQLException exception) { throw new IllegalStateException("Impossible de lire les apports.", exception); }
+    }
+
+    synchronized void addContribution(Contribution contribution) {
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("INSERT INTO contributions (property_id, name, amount) VALUES (?, ?, ?)")) {
+            statement.setLong(1, contribution.propertyId()); statement.setString(2, contribution.name()); statement.setBigDecimal(3, contribution.amount()); statement.executeUpdate();
+        } catch (SQLException exception) { throw new IllegalStateException("Impossible d'enregistrer l'apport.", exception); }
     }
 
     synchronized boolean propertyExists(long id) {
