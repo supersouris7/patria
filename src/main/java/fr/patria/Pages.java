@@ -20,7 +20,7 @@ final class Pages {
                 <title>Connexion · Patria</title><link rel="icon" type="image/png" href="/images/patria-logo.png"><link rel="stylesheet" href="/css/patria.css"></head>
                 <body class="login-page"><main class="login-card">%s<h1>Connexion</h1>
                 <p class="muted">Vos donnees restent sur votre serveur.</p>%s<form method="post" action="/connexion" class="stack">
-                <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required autofocus></label><button type="submit">Ouvrir Patria</button>
+                <label>Mot de passe <span class="required-mark">*</span><input name="password" type="password" autocomplete="current-password" required autofocus></label><button type="submit">Ouvrir Patria</button>
                 </form></main></body></html>
                 """.formatted(brand(), notice);
     }
@@ -30,8 +30,7 @@ final class Pages {
         BigDecimal debt = loans.stream().map(Loan::referenceBalance).reduce(BigDecimal.ZERO, BigDecimal::add);
         StringBuilder rows = new StringBuilder();
         for (Property property : properties) {
-            rows.append("<tr><td><strong><a href=\"/bien/").append(property.id()).append("\">").append(escape(property.name())).append("</a></strong><small>").append(escape(property.kind()))
-                    .append("</small></td><td>").append(escape(property.commune())).append("</td><td>").append(property.area())
+            rows.append("<tr><td><strong><a href=\"/bien/").append(property.id()).append("\">").append(escape(property.name())).append("</a></strong></td><td>").append(escape(property.commune())).append("</td><td>").append(property.area())
                     .append(" m2</td><td>").append(euro(property.estimate())).append("</td></tr>");
         }
         String content = """
@@ -117,7 +116,7 @@ final class Pages {
     }
 
     static String loanAdministration(Loan loan, String csrf) {
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/pret/" + loan.id() + "\">Retour a la consultation</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">ADMINISTRATION</p><h1>Gerer " + escape(loan.name()) + "<span>.</span></h1></div></section><section class=\"card section\"><h2>Remplacer l'echeancier</h2><p class=\"muted\">Le nouvel import remplace toutes les lignes existantes.</p><form method=\"post\" action=\"/administration/pret/" + loan.id() + "/echeancier\" enctype=\"multipart/form-data\" class=\"stack\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><label>Fichier CSV<input name=\"csv\" type=\"file\" accept=\".csv,text/csv\" required></label><button type=\"submit\">Importer</button></form></section></main>";
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/pret/" + loan.id() + "\">Retour a la consultation</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">ADMINISTRATION</p><h1>Gerer " + escape(loan.name()) + "<span>.</span></h1></div></section><section class=\"card section\"><h2>Remplacer l'echeancier</h2><p class=\"muted\">Le nouvel import remplace toutes les lignes existantes.</p><form method=\"post\" action=\"/administration/pret/" + loan.id() + "/echeancier\" enctype=\"multipart/form-data\" class=\"stack\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><label>Fichier CSV <span class=\"required-mark\">*</span><input name=\"csv\" type=\"file\" accept=\".csv,text/csv\" required></label><button type=\"submit\">Importer</button></form></section></main>";
         return layout("Administration · " + loan.name(), content, csrf);
     }
 
