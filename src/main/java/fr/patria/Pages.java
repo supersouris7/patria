@@ -15,8 +15,8 @@ final class Pages {
         String notice = failed ? "<p class=\"notice error\">Mot de passe incorrect.</p>" : loggedOut ? "<p class=\"notice success\">Vous etes deconnecte.</p>" : "";
         return """
                 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>Connexion · Patria</title><link rel="icon" type="image/svg+xml" href="/images/patria-mark.svg"><link rel="stylesheet" href="/css/patria.css"></head>
-                <body class="login-page"><main class="login-card">%s<p class="eyebrow">SUIVI IMMOBILIER</p><h1>Connexion</h1>
+                <title>Connexion · Patria</title><link rel="icon" type="image/png" href="/images/patria-logo.png"><link rel="stylesheet" href="/css/patria.css"></head>
+                <body class="login-page"><main class="login-card">%s<h1>Connexion</h1>
                 <p class="muted">Vos donnees restent sur votre serveur.</p>%s<form method="post" action="/connexion" class="stack">
                 <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required autofocus></label><button type="submit">Ouvrir Patria</button>
                 </form></main></body></html>
@@ -86,11 +86,11 @@ final class Pages {
 
     private static String layout(String title, String content, String csrf) {
         String header = csrf == null ? "" : "<header><div class=\"shell navigation\">" + brand() + "<nav><a href=\"/\">Vue d'ensemble</a><a href=\"/administration\">Administration</a></nav><form method=\"post\" action=\"/deconnexion\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><button class=\"quiet\" type=\"submit\">Deconnexion</button></form></div></header>";
-        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"icon\" type=\"image/svg+xml\" href=\"/images/patria-mark.svg\"><link rel=\"stylesheet\" href=\"/css/patria.css\"></head><body>" + header + content + "</body></html>";
+        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css\"></head><body>" + header + content + "</body></html>";
     }
 
     private static String brand() {
-        return "<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"/images/patria-mark.svg\" alt=\"\"><span>Patria</span></a>";
+        return "<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"/images/patria-logo.png\" alt=\"\"><span>Patria</span></a>";
     }
 
     private static String euro(BigDecimal value) {

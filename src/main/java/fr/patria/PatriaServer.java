@@ -79,8 +79,8 @@ public final class PatriaServer {
                 resource(exchange, "static/css/patria.css", "text/css; charset=utf-8");
                 return;
             }
-            if (path.equals("/images/patria-mark.svg")) {
-                resource(exchange, "static/images/patria-mark.svg", "image/svg+xml");
+            if (path.equals("/images/patria-logo.png")) {
+                resource(exchange, "static/images/patria-logo.png", "image/png");
                 return;
             }
             route(exchange, path);
