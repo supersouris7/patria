@@ -20,7 +20,7 @@ final class Pages {
                 <title>Connexion · Patria</title><link rel="icon" type="image/png" href="/images/patria-logo.png"><link rel="stylesheet" href="/css/patria.css?v=3"></head>
                 <body class="login-page"><main class="login-card">%s<h1>Connexion</h1>
                 <p class="muted">Vos donnees restent sur votre serveur.</p>%s<form method="post" action="/connexion" class="stack">
-                <label>Mot de passe <span class="required-mark">*</span><input name="password" type="password" autocomplete="current-password" required autofocus></label><button type="submit">Ouvrir Patria</button>
+                <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required autofocus></label><button type="submit">Ouvrir Patria</button>
                 </form></main></body></html>
                 """.formatted(brand(), notice);
     }
