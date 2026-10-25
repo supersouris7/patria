@@ -86,8 +86,9 @@ td a:hover, .back-link:hover { text-decoration: underline; }
 code { overflow-wrap: anywhere; }
 
 .stack { display: grid; gap: 13px; }
-label { color: #b7c3cf; display: grid; font-size: .8rem; font-weight: 700; gap: 6px; }
-.required-mark { color: #ff3045 !important; display: inline !important; font-weight: 900; }
+label { color: #b7c3cf; display: block; font-size: .8rem; font-weight: 700; }
+label input, label select { display: block; margin-top: 6px; }
+.required-mark { color: #ff3045 !important; display: inline; font-weight: 900; }
 .admin-layout { display: grid; gap: 28px; grid-template-columns: 210px minmax(0, 1fr); }
 .admin-nav { border-right: 1px solid var(--line); display: grid; align-content: start; gap: 5px; padding-right: 18px; }
 .admin-nav a { border-radius: 6px; color: var(--muted); font-weight: 700; padding: 9px 10px; text-decoration: none; }
