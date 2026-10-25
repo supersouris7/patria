@@ -195,21 +195,26 @@ public final class PatriaServer {
     }
 
     private void addLoan(HttpExchange exchange, Session session) throws IOException {
-        Map<String, String> form = checkedForm(exchange, session);
         try {
-            long propertyId = Long.parseLong(required(form, "property_id", "Bien"));
+            MultipartForm form = multipartForm(exchange);
+            if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), form.value("csrf").getBytes(StandardCharsets.UTF_8))) throw new IllegalArgumentException("Formulaire expire. Rechargez la page.");
+            long propertyId = Long.parseLong(required(form.values(), "property_id", "Bien"));
             if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
-            BigDecimal initial = positive(form, "initial", "Capital initial");
-            BigDecimal balance = amount(form, "reference_balance", "Capital restant du");
-            if (balance.compareTo(initial) > 0) throw new IllegalArgumentException("Le capital restant ne peut pas depasser le capital initial.");
-            LocalDate startDate = pastDate(required(form, "start_date", "Date de debut"), "Date de debut");
-            LocalDate referenceDate = pastDate(required(form, "reference_date", "Date de reference"), "Date de reference");
-            if (referenceDate.isBefore(startDate)) throw new IllegalArgumentException("La date de reference doit suivre le debut du pret.");
-            database.addLoan(new Loan(0, propertyId, "", required(form, "name", "Nom"), initial, balance, referenceDate,
-                    amount(form, "rate", "Taux"), integer(form, "duration_months", 1, 600, "Duree"), startDate,
-                    integer(form, "due_day", 1, 31, "Jour d'echeance"), positive(form, "payment", "Mensualite"),
-                    amount(form, "insurance", "Assurance")));
-            redirect(exchange, "/administration?success=pret");
+            byte[] csv = form.file("csv");
+            if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
+            List<ScheduleLine> lines = CsvScheduleParser.parse(csv);
+            LocalDate startDate = lines.stream().map(ScheduleLine::date).min(LocalDate::compareTo).orElseThrow();
+            ScheduleLine latest = lines.stream().max(java.util.Comparator.comparing(ScheduleLine::date)).orElseThrow();
+            BigDecimal initial = lines.stream().filter(line -> line.type().equals("DEBLOCAGE")).map(ScheduleLine::amount).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (initial.signum() == 0) initial = lines.stream().map(ScheduleLine::remainingPrincipal).filter(java.util.Objects::nonNull).findFirst().orElse(BigDecimal.ZERO);
+            BigDecimal balance = latest.remainingPrincipal() == null ? BigDecimal.ZERO : latest.remainingPrincipal();
+            BigDecimal rate = lines.stream().map(ScheduleLine::annualRate).filter(java.util.Objects::nonNull).reduce((first, second) -> second).orElse(BigDecimal.ZERO);
+            BigDecimal payment = lines.stream().filter(line -> line.type().equals("ECHEANCE")).map(ScheduleLine::amount).filter(java.util.Objects::nonNull).reduce((first, second) -> second).orElse(BigDecimal.ZERO);
+            int duration = Math.max(1, (int) java.time.temporal.ChronoUnit.MONTHS.between(startDate, latest.date()) + 1);
+            long loanId = database.addLoan(new Loan(0, propertyId, "", required(form.values(), "name", "Nom"), initial, balance, latest.date(), rate,
+                    duration, startDate, startDate.getDayOfMonth(), payment, BigDecimal.ZERO));
+            database.replaceScheduleLines(loanId, lines);
+            redirect(exchange, "/pret/" + loanId + "?success=echeancier");
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
         }

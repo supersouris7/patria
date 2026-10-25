@@ -67,12 +67,9 @@ final class Pages {
         }
         String notice = !error.isEmpty() ? "<p class=\"notice error\">" + escape(error) + "</p>" : success.isEmpty() ? "" : "<p class=\"notice success\">" + escape(success) + "</p>";
         String loanForm = properties.isEmpty() ? "<p class=\"empty\">Ajoutez d'abord un bien immobilier.</p>" : """
-                <form method="post" action="/pret" class="stack"><input type="hidden" name="csrf" value="%s">
-                <label>Bien finance<select name="property_id">%s</select></label><label>Nom du pret<input name="name" maxlength="100" required></label>
-                <div class="form-grid"><label>Capital initial (EUR)<input name="initial" type="number" min="0.01" step="0.01" required></label><label>Capital restant du (EUR)<input name="reference_balance" type="number" min="0" step="0.01" required></label></div>
-                <label>Date du capital de reference<input name="reference_date" type="date" required></label><div class="form-grid"><label>Taux annuel (%%)<input name="rate" type="number" min="0" step="0.001" required></label><label>Duree (mois)<input name="duration_months" type="number" min="1" max="600" required></label></div>
-                <div class="form-grid"><label>Debut du pret<input name="start_date" type="date" required></label><label>Jour d'echeance<input name="due_day" type="number" min="1" max="31" required></label></div>
-                <div class="form-grid"><label>Mensualite hors assurance (EUR)<input name="payment" type="number" min="0.01" step="0.01" required></label><label>Assurance mensuelle (EUR)<input name="insurance" type="number" min="0" step="0.01" value="0" required></label></div><button type="submit">Ajouter le pret</button></form>
+                <form method="post" action="/pret" enctype="multipart/form-data" class="stack"><input type="hidden" name="csrf" value="%s">
+                <label>Bien finance <span class="required-mark">*</span><select name="property_id">%s</select></label><label>Nom du pret <span class="required-mark">*</span><input name="name" maxlength="100" required></label>
+                <label>Fichier d'echeancier CSV <span class="required-mark">*</span><input name="csv" type="file" accept=".csv,text/csv" required></label><button type="submit">Ajouter le financement</button></form>
                 """.formatted(csrf, propertyOptions);
         String loansTable = loans.isEmpty() ? "<p class=\"empty\">Aucun pret enregistre.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Bien</th><th>Solde de reference</th><th>Taux</th><th>Mensualite</th></tr></thead><tbody>" + loanRows + "</tbody></table></div>";
         String content = """
