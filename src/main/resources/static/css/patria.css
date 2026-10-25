@@ -87,6 +87,10 @@ code { overflow-wrap: anywhere; }
 .stack { display: grid; gap: 13px; }
 label { color: #b7c3cf; display: grid; font-size: .8rem; font-weight: 700; gap: 6px; }
 .required-mark { color: #ff3045 !important; display: inline !important; font-weight: 900; }
+.admin-layout { display: grid; gap: 28px; grid-template-columns: 210px minmax(0, 1fr); }
+.admin-nav { border-right: 1px solid var(--line); display: grid; align-content: start; gap: 5px; padding-right: 18px; }
+.admin-nav a { border-radius: 6px; color: var(--muted); font-weight: 700; padding: 9px 10px; text-decoration: none; }
+.admin-nav a:hover, .admin-nav a.active { background: var(--surface); color: var(--text); }
 input, select { background: #0c1219; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); font: inherit; padding: 9px 10px; width: 100%; }
 input:focus, select:focus { border-color: var(--blue); outline: 2px solid rgb(53 166 255 / 18%); outline-offset: 1px; }
 .form-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
@@ -105,6 +109,8 @@ input:focus, select:focus { border-color: var(--blue); outline: 2px solid rgb(53
     nav { gap: 0; }
     nav a { font-size: .8rem; padding: 7px; }
     .metrics, .columns, .form-grid { grid-template-columns: 1fr; }
+    .admin-layout { grid-template-columns: 1fr; }
+    .admin-nav { border-bottom: 1px solid var(--line); border-right: 0; padding: 0 0 12px; }
     .page-heading { align-items: flex-start; flex-direction: column; }
     .section { padding: 20px; }
 }

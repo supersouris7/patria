@@ -132,6 +132,8 @@ public final class PatriaServer {
             addProperty(exchange, session);
         } else if (path.matches("/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
             propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
+        } else if (path.matches("/administration/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
+            propertyAdministrationPage(exchange, session, Long.parseLong(path.substring("/administration/bien/".length())));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
         } else if (path.matches("/pret/\\d+/echeancier") && (method.equals("GET") || method.equals("HEAD"))) {
@@ -232,6 +234,12 @@ public final class PatriaServer {
         Property property = database.property(propertyId);
         if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
         page(exchange, 200, Pages.propertyDetail(database, property, database.loansForProperty(propertyId), session.csrf()));
+    }
+
+    private void propertyAdministrationPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
+        Property property = database.property(propertyId);
+        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
+        page(exchange, 200, Pages.propertyAdministration(property, session.csrf()));
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {
