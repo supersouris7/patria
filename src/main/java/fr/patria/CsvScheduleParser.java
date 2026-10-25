@@ -11,7 +11,8 @@ import java.util.Map;
 
 final class CsvScheduleParser {
     static final String HEADER = "date,type,montant,capital_rembourse,interets,frais,capital_restant_du,taux_annuel_pct";
-    private static final List<String> COLUMNS = List.of("date", "type", "montant", "capital_rembourse", "interets", "frais", "capital_restant_du", "taux_annuel_pct");
+    private static final List<String> COLUMNS = List.of("date", "type", "montant", "capital_rembourse", "interets", "frais", "capital_restant_du", "taux_annuel_pct",
+            "pretId", "tauxAnnuelPct", "capitalRembourse", "autres", "capitalRestantDu");
     private static final int MAX_LINES = 10_000;
 
     private CsvScheduleParser() {
@@ -63,7 +64,16 @@ final class CsvScheduleParser {
         Map<String, Integer> indexes = new HashMap<>();
         for (int index = 0; index < header.size(); index++) {
             String name = header.get(index).trim();
-            if (!COLUMNS.contains(name) || indexes.put(name, index) != null) throw new IllegalArgumentException("En-tete CSV invalide.");
+            if (!COLUMNS.contains(name)) throw new IllegalArgumentException("En-tete CSV invalide.");
+            if (name.equals("pretId")) continue;
+            name = switch (name) {
+                case "tauxAnnuelPct" -> "taux_annuel_pct";
+                case "capitalRembourse" -> "capital_rembourse";
+                case "autres" -> "frais";
+                case "capitalRestantDu" -> "capital_restant_du";
+                default -> name;
+            };
+            if (indexes.put(name, index) != null) throw new IllegalArgumentException("En-tete CSV invalide.");
         }
         if (!indexes.containsKey("date") || !indexes.containsKey("type")) {
             throw new IllegalArgumentException("L'en-tete CSV doit contenir date et type.");

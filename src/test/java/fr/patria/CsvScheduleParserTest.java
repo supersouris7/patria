@@ -33,4 +33,14 @@ class CsvScheduleParserTest {
         assertEquals("DEBLOCAGE", CsvScheduleParser.parse(csv).getFirst().type());
         assertEquals("CONSOLIDATION", CsvScheduleParser.parse(csv).getLast().type());
     }
+
+    @Test
+    void acceptsTheLegacyChatGptHeader() {
+        byte[] csv = "pretId,date,type,tauxAnnuelPct,montant,capitalRembourse,interets,autres,capitalRestantDu\ncredit,2026-01-05,ECHEANCE,3,100,70,30,,930\n"
+                .getBytes(StandardCharsets.UTF_8);
+
+        ScheduleLine line = CsvScheduleParser.parse(csv).getFirst();
+        assertEquals(new BigDecimal("70"), line.principalRepaid());
+        assertEquals(new BigDecimal("930"), line.remainingPrincipal());
+    }
 }

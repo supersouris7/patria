@@ -21,6 +21,8 @@ L'en-tete est strict : seules les colonnes `date`, `type`, `montant`, `capital_r
 
 Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION` et `AJUSTEMENT`. La casse n'a pas d'importance. Trois fichiers generiques sont disponibles dans `docs/examples/`.
 
+Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
+
 ## Demarrage avec Docker
 
 Creer un fichier `.env` a partir de l'exemple et y definir un mot de passe long :
