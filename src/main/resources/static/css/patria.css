@@ -78,6 +78,7 @@ th[tabindex]::after { content: "\2195"; display: inline-block; margin-left: 6px;
 th[data-order="asc"]::after { content: "\25B2"; opacity: 1; }
 th[data-order="desc"]::after { content: "\25BC"; opacity: 1; }
 .table-filter { margin: 0 0 12px; max-width: 340px; }
+.section-title .table-filter { margin: 0 8px 0 0; }
 textarea { background: #0c1219; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); font: .78rem/1.45 ui-monospace, monospace; padding: 10px; resize: vertical; width: 100%; }
 td { color: #d5dee7; }
 td small { color: var(--muted); display: block; }
