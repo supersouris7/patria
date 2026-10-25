@@ -35,11 +35,10 @@ final class Pages {
         }
         String content = """
                 <main class="shell"><section class="page-heading"><div><p class="eyebrow">VOTRE PATRIMOINE IMMOBILIER</p>
-                <h1>Vue d'ensemble<span>.</span></h1><p class="muted">Une synthese simple de vos biens et financements.</p></div>
-                <a class="button" href="/administration/bien/nouveau">Ajouter un bien</a></section>
+                <h1>Vue d'ensemble<span>.</span></h1><p class="muted">Une synthese simple de vos biens et financements.</p></div></section>
                 <section class="metrics"><article class="metric"><span title="Somme des estimations saisies, ou du cout total d'acquisition en l'absence d'estimation.">Estimation des biens</span><strong>%s</strong></article>
                 <article class="metric"><span title="Somme des capitaux restant dus, calculee depuis les echeanciers.">Montant a rembourser</span><strong>%s</strong></article><article class="metric"><span title="Estimation des biens moins capital restant du. Hors frais de vente, fiscalite, apports et travaux.">Valeur nette indicative</span><strong>%s</strong></article></section>
-                <section class="card section"><div class="section-title"><div><p class="eyebrow">VOS BIENS</p><h2>Biens enregistres</h2></div><span class="count">%d</span></div>%s</section></main>
+                <section class="card section"><div class="section-title"><div><p class="eyebrow">VOS BIENS</p><h2>Biens enregistres</h2></div><div><a class="button" href="/administration/bien/nouveau">+</a><span class="count">%d</span></div></div>%s</section></main>
                 """.formatted(euro(value), euro(debt), euro(value.subtract(debt)), properties.size(), properties.isEmpty()
                         ? "<p class=\"empty\">Ajoutez votre premier bien depuis l'administration.</p>"
                         : "<div class=\"table-wrap\"><table><thead><tr><th>Bien</th><th>Commune</th><th>Surface</th><th>Estimation</th></tr></thead><tbody>" + rows + "</tbody></table></div>");
