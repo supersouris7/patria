@@ -116,8 +116,8 @@ final class Database {
     }
 
     synchronized long addLoan(Loan loan) {
-        String query = "INSERT INTO loans (property_id, name, initial, reference_balance, reference_date, rate, duration_months, start_date, due_day, payment, insurance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+        String query = "INSERT INTO loans (property_id, name, initial, reference_balance, reference_date, rate, duration_months, start_date, due_day, payment, insurance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setLong(1, loan.propertyId());
             statement.setString(2, loan.name());
             statement.setBigDecimal(3, loan.initialAmount());
@@ -129,8 +129,7 @@ final class Database {
             statement.setInt(9, loan.dueDay());
             statement.setBigDecimal(10, loan.monthlyPayment());
             statement.setBigDecimal(11, loan.monthlyInsurance());
-            statement.executeUpdate();
-            try (ResultSet keys = statement.getGeneratedKeys()) {
+            try (ResultSet keys = statement.executeQuery()) {
                 if (keys.next()) return keys.getLong(1);
             }
             throw new IllegalStateException("Identifiant du pret introuvable.");
