@@ -126,6 +126,8 @@ public final class PatriaServer {
             page(exchange, 200, Pages.administration(database, database.properties(), database.loans(), session.csrf(), "", success));
         } else if (path.equals("/bien") && method.equals("POST")) {
             addProperty(exchange, session);
+        } else if (path.matches("/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
+            propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
         } else if (path.matches("/pret/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
@@ -218,6 +220,12 @@ public final class PatriaServer {
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
         }
+    }
+
+    private void propertyPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
+        Property property = database.property(propertyId);
+        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
+        page(exchange, 200, Pages.propertyDetail(property, database.loansForProperty(propertyId), session.csrf()));
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {

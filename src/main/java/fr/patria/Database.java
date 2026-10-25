@@ -86,6 +86,14 @@ final class Database {
         }
     }
 
+    synchronized Property property(long id) {
+        return properties().stream().filter(property -> property.id() == id).findFirst().orElse(null);
+    }
+
+    synchronized List<Loan> loansForProperty(long propertyId) {
+        return loans().stream().filter(loan -> loan.propertyId() == propertyId).toList();
+    }
+
     synchronized boolean propertyExists(long id) {
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT EXISTS(SELECT 1 FROM properties WHERE id = ?)")) {
             statement.setLong(1, id);
