@@ -38,3 +38,19 @@ document.querySelectorAll("input").forEach((input) => {
   input.form?.addEventListener("submit", () => { if (input.value.trim() && Number.isFinite(value())) input.value = value().toFixed(2); });
   format();
 });
+
+const hints = {
+  "Cout total d'acquisition": "Montant total engage pour acheter le bien : prix, frais et couts inclus.",
+  "Valeur retenue": "Estimation saisie, ou cout total d'acquisition lorsqu'aucune estimation n'est renseignee.",
+  "Montant emprunte": "Total des deblocages enregistres pour le financement.",
+  "Capital rembourse": "Part de capital des echeances deja arrivees a leur date.",
+  "Rembourse": "Part de capital des echeances deja arrivees a leur date.",
+  "Montant a rembourser": "Capital restant du sur les financements, selon les echeanciers.",
+  "Restant": "Capital restant du pour ce financement.",
+  "Annees restantes": "Duree entre aujourd'hui et la derniere echeance connue.",
+  "Apports": "Somme des apports personnels enregistres pour ce bien."
+};
+document.querySelectorAll("span, th").forEach((element) => {
+  const hint = hints[element.textContent.trim()];
+  if (hint) element.title = hint;
+});
