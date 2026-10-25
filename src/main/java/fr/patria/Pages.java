@@ -117,9 +117,8 @@ final class Pages {
         StringBuilder rows = new StringBuilder();
         for (ScheduleLine line : lines) rows.append("<tr><td>").append(line.date()).append("</td><td>").append(escape(line.type()))
                 .append("</td><td>").append(euroOrDash(line.amount())).append("</td><td>").append(euroOrDash(line.principalRepaid()))
-                .append("</td><td>").append(euroOrDash(line.interest())).append("</td><td>").append(euroOrDash(line.fees()))
                 .append("</td><td>").append(euroOrDash(line.remainingPrincipal())).append("</td><td>").append(numberOrDash(line.annualRate())).append("</td></tr>");
-        String table = lines.isEmpty() ? "<p class=\"empty\">Aucune echeance importee.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Capital rembourse</th><th>Interets</th><th>Frais</th><th>Capital restant du</th><th>Taux annuel</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+        String table = lines.isEmpty() ? "<p class=\"empty\">Aucune echeance importee.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Capital rembourse</th><th>Capital restant du</th><th>Taux annuel</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
         String content = """
                 <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/pret/%d/echeancier">Gerer l'echeancier</a></section>%s
                 <section class="metrics"><article class="metric"><span>Montant emprunte</span><strong>%s</strong></article><article class="metric"><span>Rembourse</span><strong>%s</strong></article><article class="metric"><span>Restant</span><strong>%s</strong></article><article class="metric"><span>Annees restantes</span><strong>%s</strong></article></section>
