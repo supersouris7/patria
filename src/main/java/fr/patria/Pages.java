@@ -110,10 +110,9 @@ final class Pages {
         String content = """
                 <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/administration/pret/%d">Gerer le pret</a></section>%s
                 <section class="metrics"><article class="metric"><span>Montant emprunte</span><strong>%s</strong></article><article class="metric"><span>Rembourse</span><strong>%s</strong></article><article class="metric"><span>Restant</span><strong>%s</strong></article><article class="metric"><span>Annees restantes</span><strong>%s</strong></article></section>
-                <section class="card section"><p class="eyebrow">ECHEANCIER</p><h2>Suivi detaille</h2><p class="muted">Les echeances passees sont considerees comme payees.</p></section>
                 <section class="card section"><div class="section-title"><div><p class="eyebrow">ECHEANCIER</p><h2>Lignes importees</h2></div><span class="count">%d</span></div>%s</section></main>
                 """.formatted(loan.propertyId(), escape(loan.name()), escape(loan.propertyName()), loan.id(), notice, euro(borrowed(loan, lines)), euro(repaid), euro(remaining), years,
-                loan.id(), csrf, CsvScheduleParser.HEADER, lines.size(), table);
+                lines.size(), table);
         return layout("Pret · " + loan.name() + " · Patria", content, csrf);
     }
 
