@@ -79,6 +79,10 @@ public final class PatriaServer {
                 resource(exchange, "static/css/patria.css", "text/css; charset=utf-8");
                 return;
             }
+            if (path.equals("/js/table-sort.js")) {
+                resource(exchange, "static/js/table-sort.js", "text/javascript; charset=utf-8");
+                return;
+            }
             if (path.equals("/images/patria-logo.png")) {
                 resource(exchange, "static/images/patria-logo.png", "image/png");
                 return;
