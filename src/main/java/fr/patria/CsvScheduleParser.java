@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
 
 final class CsvScheduleParser {
     static final String HEADER = "date,type,montant,capital_rembourse,interets,frais,capital_restant_du,taux_annuel_pct";
@@ -50,6 +51,7 @@ final class CsvScheduleParser {
             result.add(new ScheduleLine(date, type, amount, principal, interest, fees, remaining, rate));
         }
         if (result.isEmpty()) throw new IllegalArgumentException("Le CSV ne contient aucune echeance.");
+        result.sort(Comparator.comparing(ScheduleLine::date));
         return result;
     }
 

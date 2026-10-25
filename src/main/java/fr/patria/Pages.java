@@ -165,6 +165,7 @@ final class Pages {
         BigDecimal balance = null;
         for (ScheduleLine line : lines) {
             if (line.date().isAfter(LocalDate.now())) break;
+            if (line.type().equals("DEBLOCAGE") && line.amount() != null) balance = (balance == null ? BigDecimal.ZERO : balance).add(line.amount());
             if (line.remainingPrincipal() != null) balance = line.remainingPrincipal();
             else if (balance != null && line.principalRepaid() != null) balance = balance.subtract(line.principalRepaid()).max(BigDecimal.ZERO);
         }
