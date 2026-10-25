@@ -123,7 +123,7 @@ public final class PatriaServer {
             return;
         }
         if (path.equals("/") && (method.equals("GET") || method.equals("HEAD"))) {
-            page(exchange, 200, Pages.dashboard(database.properties(), database.loans(), session.csrf()));
+            page(exchange, 200, Pages.dashboard(database, database.properties(), database.loans(), session.csrf()));
         } else if (path.equals("/administration") && (method.equals("GET") || method.equals("HEAD"))) {
             String query = exchange.getRequestURI().getQuery();
             String success = query != null && query.contains("success=bien") ? "Bien ajoute." : query != null && query.contains("success=pret") ? "Pret ajoute." : "";

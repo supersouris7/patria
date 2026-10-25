@@ -25,9 +25,9 @@ final class Pages {
                 """.formatted(brand(), notice);
     }
 
-    static String dashboard(List<Property> properties, List<Loan> loans, String csrf) {
+    static String dashboard(Database database, List<Property> properties, List<Loan> loans, String csrf) {
         BigDecimal value = properties.stream().map(Property::estimate).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal debt = loans.stream().map(Loan::referenceBalance).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal debt = loans.stream().map(loan -> remaining(loan, database.scheduleLines(loan.id()))).reduce(BigDecimal.ZERO, BigDecimal::add);
         StringBuilder rows = new StringBuilder();
         for (Property property : properties) {
             rows.append("<tr><td><strong><a href=\"/bien/").append(property.id()).append("\">").append(escape(property.name())).append("</a></strong></td><td>").append(escape(property.commune())).append("</td><td>").append(property.area())
@@ -49,7 +49,7 @@ final class Pages {
     static String propertyDetail(Property property, List<Loan> loans, String csrf) {
         StringBuilder rows = new StringBuilder();
         for (Loan loan : loans) rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(loan.referenceBalance())).append("</td></tr>");
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/administration\">Retour aux biens</a></p><section class=\"page-heading\"><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Financements et apports du bien.</p></section><section class=\"card section\"><h2>Financements</h2>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Restant</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section></main>";
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Financements et apports du bien.</p></section><section class=\"card section\"><h2>Financements</h2>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Restant</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section></main>";
         return layout(property.name() + " · Patria", content, csrf);
     }
 
