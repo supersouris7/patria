@@ -26,12 +26,12 @@ final class Pages {
     }
 
     static String dashboard(Database database, List<Property> properties, List<Loan> loans, String csrf) {
-        BigDecimal value = properties.stream().map(Property::estimate).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal value = properties.stream().map(Pages::estimate).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal debt = loans.stream().map(loan -> remaining(loan, database.scheduleLines(loan.id()))).reduce(BigDecimal.ZERO, BigDecimal::add);
         StringBuilder rows = new StringBuilder();
         for (Property property : properties) {
             rows.append("<tr><td><strong><a href=\"/bien/").append(property.id()).append("\">").append(escape(property.name())).append("</a></strong></td><td>").append(escape(property.commune())).append("</td><td>").append(property.area())
-                    .append(" m2</td><td>").append(euro(property.estimate())).append("</td></tr>");
+                    .append(" m2</td><td>").append(euro(estimate(property))).append("</td></tr>");
         }
         String content = """
                 <main class="shell"><section class="page-heading"><div><p class="eyebrow">VOTRE PATRIMOINE IMMOBILIER</p>
@@ -160,6 +160,10 @@ final class Pages {
 
     private static String euro(BigDecimal value) {
         return escape(EURO.format(value));
+    }
+
+    private static BigDecimal estimate(Property property) {
+        return property.estimate().signum() == 0 ? property.purchase() : property.estimate();
     }
 
     private static String escape(String value) {
