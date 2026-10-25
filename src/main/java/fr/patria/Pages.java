@@ -117,7 +117,7 @@ final class Pages {
                 .append("</td><td>").append(euroOrDash(line.remainingPrincipal())).append("</td><td>").append(numberOrDash(line.annualRate())).append("</td></tr>");
         String table = lines.isEmpty() ? "<p class=\"empty\">Aucune echeance importee.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Capital rembourse</th><th>Interets</th><th>Frais</th><th>Capital restant du</th><th>Taux annuel</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
         String content = """
-                <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/administration/pret/%d">Gerer le pret</a></section>%s
+                <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/pret/%d/echeancier">Gerer l'echeancier</a></section>%s
                 <section class="metrics"><article class="metric"><span>Montant emprunte</span><strong>%s</strong></article><article class="metric"><span>Rembourse</span><strong>%s</strong></article><article class="metric"><span>Restant</span><strong>%s</strong></article><article class="metric"><span>Annees restantes</span><strong>%s</strong></article></section>
                 <section class="card section"><div class="section-title"><div><p class="eyebrow">ECHEANCIER</p><h2>Lignes importees</h2></div><span class="count">%d</span></div>%s</section></main>
                 """.formatted(loan.propertyId(), escape(loan.name()), escape(loan.propertyName()), loan.id(), notice, euro(borrowed(loan, lines)), euro(repaid), euro(remaining), years,
@@ -125,9 +125,9 @@ final class Pages {
         return layout("Pret · " + loan.name() + " · Patria", content, csrf);
     }
 
-    static String loanAdministration(Loan loan, String csrf) {
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/pret/" + loan.id() + "\">Retour a la consultation</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">ADMINISTRATION</p><h1>Gerer " + escape(loan.name()) + "<span>.</span></h1></div></section><section class=\"card section\"><h2>Remplacer l'echeancier</h2><p class=\"muted\">Le nouvel import remplace toutes les lignes existantes.</p><form method=\"post\" action=\"/administration/pret/" + loan.id() + "/echeancier\" enctype=\"multipart/form-data\" class=\"stack\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><label>Fichier CSV <span class=\"required-mark\">*</span><input name=\"csv\" type=\"file\" accept=\".csv,text/csv\" required></label><button type=\"submit\">Importer</button></form></section></main>";
-        return layout("Administration · " + loan.name(), content, csrf);
+    static String scheduleManagement(Loan loan, String csrf) {
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/pret/" + loan.id() + "\">Retour au pret</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">ECHEANCIER</p><h1>" + escape(loan.name()) + "<span>.</span></h1></div></section><section class=\"card section\"><h2>Remplacer l'echeancier</h2><p class=\"muted\">Le nouvel import remplace toutes les lignes existantes.</p><form method=\"post\" action=\"/pret/" + loan.id() + "/echeancier\" enctype=\"multipart/form-data\" class=\"stack\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><label>Fichier CSV <span class=\"required-mark\">*</span><input name=\"csv\" type=\"file\" accept=\".csv,text/csv\" required></label><button type=\"submit\">Importer</button></form></section></main>";
+        return layout("Echeancier · " + loan.name(), content, csrf);
     }
 
     private static BigDecimal repaid(List<ScheduleLine> lines) {

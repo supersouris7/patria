@@ -74,6 +74,9 @@ table { border-collapse: collapse; width: 100%; }
 th, td { border-top: 1px solid var(--line); padding: 13px 8px; text-align: left; }
 th { color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 th[tabindex] { cursor: pointer; }
+th[tabindex]::after { content: "\\2195"; display: inline-block; margin-left: 6px; opacity: .45; }
+th[data-order="asc"]::after { content: "\\25B2"; opacity: 1; }
+th[data-order="desc"]::after { content: "\\25BC"; opacity: 1; }
 textarea { background: #0c1219; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); font: .78rem/1.45 ui-monospace, monospace; padding: 10px; resize: vertical; width: 100%; }
 td { color: #d5dee7; }
 td small { color: var(--muted); display: block; }
