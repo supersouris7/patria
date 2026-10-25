@@ -260,7 +260,7 @@ public final class PatriaServer {
             LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", current.purchaseDate());
             LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
             if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
-            database.updateProperty(new Property(id, required(form, "name", "Nom"), required(form, "kind", "Type"), form.getOrDefault("commune", "").trim(), form.getOrDefault("address", "").trim(), "", current.area(), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, optionalAmount(form, "estimate", "Estimation"), estimateDate));
+            database.updateProperty(new Property(id, required(form, "name", "Nom"), required(form, "kind", "Type"), form.getOrDefault("commune", "").trim(), form.getOrDefault("address", "").trim(), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, optionalAmount(form, "estimate", "Estimation"), estimateDate));
             redirect(exchange, "/administration/bien/" + id);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
     }
