@@ -29,11 +29,12 @@ final class Database {
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS properties (
                         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
-                        kind TEXT NOT NULL, commune TEXT NOT NULL, insee TEXT NOT NULL,
+                        kind TEXT NOT NULL, commune TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', insee TEXT NOT NULL,
                         area REAL NOT NULL, purchase REAL NOT NULL, purchase_date TEXT NOT NULL,
                         estimate REAL NOT NULL, estimate_date TEXT NOT NULL
                     )
                     """);
+            try { statement.execute("ALTER TABLE properties ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch (SQLException ignored) { }
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS loans (
                         id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL REFERENCES properties(id),
@@ -59,7 +60,7 @@ final class Database {
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT * FROM properties ORDER BY id DESC"); ResultSet rows = statement.executeQuery()) {
             while (rows.next()) {
                 results.add(new Property(rows.getLong("id"), rows.getString("name"), rows.getString("kind"),
-                        rows.getString("commune"), rows.getString("insee"), rows.getBigDecimal("area"),
+                        rows.getString("commune"), rows.getString("address"), rows.getString("insee"), rows.getBigDecimal("area"),
                         rows.getBigDecimal("purchase"), LocalDate.parse(rows.getString("purchase_date")),
                         rows.getBigDecimal("estimate"), LocalDate.parse(rows.getString("estimate_date"))));
             }
@@ -106,17 +107,15 @@ final class Database {
     }
 
     synchronized void addProperty(Property property) {
-        String query = "INSERT INTO properties (name, kind, commune, insee, area, purchase, purchase_date, estimate, estimate_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT INTO properties (name, kind, commune, address, insee, area, purchase, purchase_date, estimate, estimate_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, property.name());
             statement.setString(2, property.kind());
             statement.setString(3, property.commune());
-            statement.setString(4, property.insee());
-            statement.setBigDecimal(5, property.area());
-            statement.setBigDecimal(6, property.purchase());
-            statement.setString(7, property.purchaseDate().toString());
-            statement.setBigDecimal(8, property.estimate());
-            statement.setString(9, property.estimateDate().toString());
+            statement.setString(4, property.address()); statement.setString(5, property.insee());
+            statement.setBigDecimal(6, property.area()); statement.setBigDecimal(7, property.purchase());
+            statement.setString(8, property.purchaseDate().toString()); statement.setBigDecimal(9, property.estimate());
+            statement.setString(10, property.estimateDate().toString());
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'enregistrer le bien.", exception);

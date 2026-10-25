@@ -8,6 +8,7 @@ public record Property(
         String name,
         String kind,
         String commune,
+        String address,
         String insee,
         BigDecimal area,
         BigDecimal purchase,
