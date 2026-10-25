@@ -70,10 +70,10 @@ final class Pages {
                 <main class="shell"><section class="page-heading"><div><p class="eyebrow">ADMINISTRATION</p><h1>Biens et prets<span>.</span></h1>
                 <p class="muted">Ajoutez vos informations de reference. Les calculs detailles arriveront dans une prochaine version.</p></div></section>%s
                 <div class="columns"><section class="card section"><p class="eyebrow">AJOUTER UN BIEN</p><h2>Nouveau logement</h2>
-                <form method="post" action="/bien" class="stack"><input type="hidden" name="csrf" value="%s"><label>Nom du bien<input name="name" maxlength="100" required></label>
-                <label>Type<select name="kind"><option>Appartement</option><option>Maison</option></select></label><div class="form-grid"><label>Commune<input name="commune" maxlength="100" required></label><label>Code INSEE<input name="insee" pattern="[0-9A-Za-z]{5}" maxlength="5" required></label></div>
-                <label>Surface (m2)<input name="area" type="number" min="0.01" step="0.01" required></label><div class="form-grid"><label>Prix d'achat (EUR)<input name="purchase" type="number" min="0" step="0.01" required></label><label>Date d'achat<input name="purchase_date" type="date" required></label></div>
-                <div class="form-grid"><label>Estimation (EUR)<input name="estimate" type="number" min="0" step="0.01" required></label><label>Date d'estimation<input name="estimate_date" type="date" required></label></div><button type="submit">Ajouter le bien</button></form></section>
+                <form method="post" action="/bien" class="stack"><input type="hidden" name="csrf" value="%s"><p class="required-note"><span>*</span> Champ obligatoire</p><label>Nom du bien <span class="required-mark">*</span><input name="name" maxlength="100" required></label>
+                <label>Type<select name="kind"><option>Appartement</option><option>Maison</option></select></label><label>Commune<input name="commune" maxlength="100"></label>
+                <label>Surface (m2)<input name="area" type="number" min="0" step="0.01"></label><div class="form-grid"><label>Prix d'achat (EUR)<input name="purchase" type="number" min="0" step="0.01"></label><label>Date d'achat<input name="purchase_date" type="date"></label></div>
+                <div class="form-grid"><label>Estimation (EUR)<input name="estimate" type="number" min="0" step="0.01"></label><label>Date d'estimation<input name="estimate_date" type="date"></label></div><button type="submit">Ajouter le bien</button></form></section>
                 <section class="card section"><p class="eyebrow">AJOUTER UN PRET</p><h2>Nouveau financement</h2>%s</section></div>
                 <section class="card section"><div class="section-title"><div><p class="eyebrow">VOS FINANCEMENTS</p><h2>Prets enregistres</h2></div><span class="count">%d</span></div>%s</section></main>
                 """.formatted(notice, csrf, loanForm, loans.size(), loansTable);

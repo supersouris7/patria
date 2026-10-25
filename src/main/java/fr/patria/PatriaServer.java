@@ -19,7 +19,6 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -178,14 +177,12 @@ public final class PatriaServer {
         try {
             String kind = required(form, "kind", "Type");
             if (!kind.equals("Appartement") && !kind.equals("Maison")) throw new IllegalArgumentException("Type de bien invalide.");
-            String insee = required(form, "insee", "Code INSEE").toUpperCase(Locale.ROOT);
-            if (!insee.matches("[0-9A-Z]{5}")) throw new IllegalArgumentException("Code INSEE invalide.");
-            LocalDate purchaseDate = pastDate(required(form, "purchase_date", "Date d'achat"), "Date d'achat");
-            LocalDate estimateDate = pastDate(required(form, "estimate_date", "Date d'estimation"), "Date d'estimation");
+            LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", LocalDate.now());
+            LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
             if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
-            database.addProperty(new Property(0, required(form, "name", "Nom"), kind, required(form, "commune", "Commune"), insee,
-                    positive(form, "area", "Surface"), amount(form, "purchase", "Prix d'achat"), purchaseDate,
-                    amount(form, "estimate", "Estimation"), estimateDate));
+            database.addProperty(new Property(0, required(form, "name", "Nom"), kind, form.getOrDefault("commune", "").trim(), "",
+                    optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Prix d'achat"), purchaseDate,
+                    optionalAmount(form, "estimate", "Estimation"), estimateDate));
             redirect(exchange, "/administration?success=bien");
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.administration(database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
@@ -284,6 +281,10 @@ public final class PatriaServer {
         return value;
     }
 
+    private static BigDecimal optionalAmount(Map<String, String> form, String key, String label) {
+        return form.getOrDefault(key, "").isBlank() ? BigDecimal.ZERO : amount(form, key, label);
+    }
+
     private static int integer(Map<String, String> form, String key, int min, int max, String label) {
         try {
             int value = Integer.parseInt(required(form, key, label));
@@ -304,6 +305,11 @@ public final class PatriaServer {
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException(label + " invalide.");
         }
+    }
+
+    private static LocalDate optionalPastDate(Map<String, String> form, String key, String label, LocalDate defaultValue) {
+        String value = form.getOrDefault(key, "");
+        return value.isBlank() ? defaultValue : pastDate(value, label);
     }
 
     private static String token() {
