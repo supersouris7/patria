@@ -35,10 +35,10 @@ class DatabaseTest {
         database.replaceScheduleLines(loanId, java.util.List.of(new ScheduleLine(LocalDate.of(2026, 1, 5), "echeance",
                 new BigDecimal("100"), new BigDecimal("70"), new BigDecimal("30"), null, new BigDecimal("8930"), new BigDecimal("3"))));
 
-        assertEquals(new BigDecimal("70"), database.scheduleLines(loanId).getFirst().principalRepaid());
+        assertEquals(0, new BigDecimal("70").compareTo(database.scheduleLines(loanId).getFirst().principalRepaid()));
         database.replaceScheduleLines(loanId, java.util.List.of(new ScheduleLine(LocalDate.of(2026, 2, 5), "echeance",
                 new BigDecimal("100"), new BigDecimal("71"), null, null, new BigDecimal("8859"), null)));
         assertEquals(1, database.scheduleLines(loanId).size());
-        assertEquals(new BigDecimal("71"), database.scheduleLines(loanId).getFirst().principalRepaid());
+        assertEquals(0, new BigDecimal("71").compareTo(database.scheduleLines(loanId).getFirst().principalRepaid()));
     }
 }
