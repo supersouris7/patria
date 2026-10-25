@@ -46,10 +46,20 @@ final class Pages {
         return layout("Vue d'ensemble · Patria", content, csrf);
     }
 
-    static String propertyDetail(Property property, List<Loan> loans, String csrf) {
+    static String propertyDetail(Database database, Property property, List<Loan> loans, String csrf) {
         StringBuilder rows = new StringBuilder();
-        for (Loan loan : loans) rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(loan.referenceBalance())).append("</td></tr>");
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Financements et apports du bien.</p></section><section class=\"card section\"><h2>Financements</h2>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Restant</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section></main>";
+        BigDecimal borrowed = BigDecimal.ZERO;
+        BigDecimal repaid = BigDecimal.ZERO;
+        BigDecimal remaining = BigDecimal.ZERO;
+        for (Loan loan : loans) {
+            List<ScheduleLine> lines = database.scheduleLines(loan.id());
+            borrowed = borrowed.add(borrowed(loan, lines));
+            repaid = repaid.add(repaid(lines));
+            BigDecimal loanRemaining = remaining(loan, lines);
+            remaining = remaining.add(loanRemaining);
+            rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(loanRemaining)).append("</td></tr>");
+        }
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">BIEN</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Achat le " + property.purchaseDate() + ".</p></div></section><section class=\"metrics\"><article class=\"metric\"><span>Prix d'achat</span><strong>" + euro(property.purchase()) + "</strong></article><article class=\"metric\"><span>Valeur retenue</span><strong>" + euro(estimate(property)) + "</strong></article><article class=\"metric\"><span>Financement restant</span><strong>" + euro(remaining) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span>Montant emprunte</span><strong>" + euro(borrowed) + "</strong></article><article class=\"metric\"><span>Capital rembourse</span><strong>" + euro(repaid) + "</strong></article><article class=\"metric\"><span>Apports</span><strong>-</strong></article></section><section class=\"card section\"><h2>Financements</h2>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Restant</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section></main>";
         return layout(property.name() + " · Patria", content, csrf);
     }
 

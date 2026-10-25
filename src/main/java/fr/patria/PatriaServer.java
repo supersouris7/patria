@@ -231,7 +231,7 @@ public final class PatriaServer {
     private void propertyPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
         Property property = database.property(propertyId);
         if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
-        page(exchange, 200, Pages.propertyDetail(property, database.loansForProperty(propertyId), session.csrf()));
+        page(exchange, 200, Pages.propertyDetail(database, property, database.loansForProperty(propertyId), session.csrf()));
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {
