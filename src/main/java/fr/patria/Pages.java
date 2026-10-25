@@ -36,7 +36,7 @@ final class Pages {
         String content = """
                 <main class="shell"><section class="page-heading"><div><p class="eyebrow">VOTRE PATRIMOINE IMMOBILIER</p>
                 <h1>Vue d'ensemble<span>.</span></h1><p class="muted">Une synthese simple de vos biens et financements.</p></div>
-                <a class="button" href="/administration">Gerer mes biens</a></section>
+                <a class="button" href="/administration/bien/nouveau">Ajouter un bien</a></section>
                 <section class="metrics"><article class="metric"><span>Estimation des biens</span><strong>%s</strong></article>
                 <article class="metric"><span>Capital restant du</span><strong>%s</strong></article><article class="metric"><span>Valeur nette indicative</span><strong>%s</strong></article></section>
                 <section class="card section"><div class="section-title"><div><p class="eyebrow">VOS BIENS</p><h2>Biens enregistres</h2></div><span class="count">%d</span></div>%s</section></main>
@@ -65,6 +65,16 @@ final class Pages {
 
     static String propertyAdministration(Property property, String csrf) {
         return layout("Administration · " + property.name(), "<main class=\"shell admin-layout\"><aside class=\"admin-nav\"><p class=\"eyebrow\">ADMINISTRATION</p><a href=\"/administration\">Tous les biens</a><a class=\"active\" href=\"/administration/bien/" + property.id() + "\">Proprietes</a><a href=\"/bien/" + property.id() + "\">Consulter le bien</a></aside><section><p><a class=\"back-link\" href=\"/bien/" + property.id() + "\">Retour au bien</a></p><h1>Proprietes de " + escape(property.name()) + "<span>.</span></h1><section class=\"card section\"><h2>Gestion du bien</h2><p class=\"muted\">Les actions de modification et de financement seront regroupees ici.</p></section></section></main>", csrf);
+    }
+
+    static String settings(String csrf) {
+        String content = "<main class=\"shell admin-layout\"><aside class=\"admin-nav\"><p class=\"eyebrow\">ADMINISTRATION</p><a class=\"active\" href=\"/administration\">Parametres generaux</a><a href=\"#personnalisation\">Personnalisation</a><a href=\"#sources\">Sources de donnees</a><a href=\"#maintenance\">Maintenance</a></aside><section><h1>Parametres<span>.</span></h1><section class=\"card section\"><h2>Generaux</h2><p class=\"muted\">Les reglages de l'application seront centralises ici.</p></section><section id=\"personnalisation\" class=\"card section\"><h2>Personnalisation</h2><p class=\"muted\">Identite visuelle et preferences d'affichage.</p></section><section id=\"sources\" class=\"card section\"><h2>Sources de donnees</h2><p class=\"muted\">Indices immobiliers et geocodage.</p></section><section id=\"maintenance\" class=\"card section\"><h2>Maintenance</h2><p class=\"muted\">Sauvegarde et integrite des donnees locales.</p></section></section></main>";
+        return layout("Administration · Patria", content, csrf);
+    }
+
+    static String newProperty(String csrf) {
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><h1>Nouveau bien<span>.</span></h1></section><section class=\"card section\"><form method=\"post\" action=\"/bien\" class=\"stack\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><label>Nom du bien <span class=\"required-mark\">*</span><input name=\"name\" maxlength=\"100\" required></label><label>Type<select name=\"kind\"><option>Appartement</option><option>Maison</option></select></label><label>Commune<input name=\"commune\" maxlength=\"100\"></label><label>Adresse complete<input name=\"address\" maxlength=\"200\"></label><button type=\"submit\">Creer le bien</button></form></section></main>";
+        return layout("Nouveau bien · Patria", content, csrf);
     }
 
     static String administration(Database database, List<Property> properties, List<Loan> loans, String csrf, String error, String success) {

@@ -125,11 +125,11 @@ public final class PatriaServer {
         if (path.equals("/") && (method.equals("GET") || method.equals("HEAD"))) {
             page(exchange, 200, Pages.dashboard(database, database.properties(), database.loans(), session.csrf()));
         } else if (path.equals("/administration") && (method.equals("GET") || method.equals("HEAD"))) {
-            String query = exchange.getRequestURI().getQuery();
-            String success = query != null && query.contains("success=bien") ? "Bien ajoute." : query != null && query.contains("success=pret") ? "Pret ajoute." : "";
-            page(exchange, 200, Pages.administration(database, database.properties(), database.loans(), session.csrf(), "", success));
+            page(exchange, 200, Pages.settings(session.csrf()));
         } else if (path.equals("/bien") && method.equals("POST")) {
             addProperty(exchange, session);
+        } else if (path.equals("/administration/bien/nouveau") && (method.equals("GET") || method.equals("HEAD"))) {
+            page(exchange, 200, Pages.newProperty(session.csrf()));
         } else if (path.matches("/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
             propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
         } else if (path.matches("/administration/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
