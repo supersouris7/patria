@@ -7,10 +7,19 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 - Authentification par mot de passe.
 - Gestion de plusieurs biens : type, commune, code INSEE, surface, achat et estimation.
 - Gestion des prets associes : capital, solde de reference, taux, duree et mensualite.
+- Import d'echeanciers CSV par pret, avec historique et synthese de remboursement.
 - Persistance SQLite dans le volume Docker historique `patrimoine_data`.
 - Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.
 
-L'amortissement detaille, les evenements de pret, DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
+DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
+
+## Importer un echeancier
+
+Depuis la page d'un pret, importez un fichier CSV UTF-8 (BOM accepte), de 1 Mio maximum. Un import valide remplace toutes les lignes precedemment importees pour ce pret.
+
+L'en-tete est strict : seules les colonnes `date`, `type`, `montant`, `capital_rembourse`, `interets`, `frais`, `capital_restant_du` et `taux_annuel_pct` sont acceptees. `date` et `type` sont obligatoires ; les autres colonnes peuvent etre omises. Chaque ligne doit contenir au moins une valeur financiere. Les separateurs virgule et point-virgule sont acceptes, ainsi que les nombres avec virgule ou point decimal.
+
+Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION` et `AJUSTEMENT`. La casse n'a pas d'importance. Trois fichiers generiques sont disponibles dans `docs/examples/`.
 
 ## Demarrage avec Docker
 

@@ -75,6 +75,9 @@ th, td { border-top: 1px solid var(--line); padding: 13px 8px; text-align: left;
 th { color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 td { color: #d5dee7; }
 td small { color: var(--muted); display: block; }
+td a, .back-link { color: var(--blue); font-weight: 700; text-decoration: none; }
+td a:hover, .back-link:hover { text-decoration: underline; }
+code { overflow-wrap: anywhere; }
 
 .stack { display: grid; gap: 13px; }
 label { color: #b7c3cf; display: grid; font-size: .8rem; font-weight: 700; gap: 6px; }

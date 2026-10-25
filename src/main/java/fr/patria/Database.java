@@ -42,6 +42,13 @@ final class Database {
                         start_date TEXT NOT NULL, due_day INTEGER NOT NULL, payment REAL NOT NULL, insurance REAL NOT NULL
                     )
                     """);
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS loan_schedule_lines (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT, loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+                        due_date TEXT NOT NULL, type TEXT NOT NULL, amount REAL, principal_repaid REAL,
+                        interest REAL, fees REAL, remaining_principal REAL, annual_rate REAL
+                    )
+                    """);
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'initialiser SQLite.", exception);
         }
@@ -126,6 +133,68 @@ final class Database {
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'enregistrer le pret.", exception);
         }
+    }
+
+    synchronized Loan loan(long id) {
+        String query = "SELECT loans.*, properties.name AS property_name FROM loans JOIN properties ON properties.id = loans.property_id WHERE loans.id = ?";
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setLong(1, id);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) return null;
+                return new Loan(rows.getLong("id"), rows.getLong("property_id"), rows.getString("property_name"), rows.getString("name"),
+                        rows.getBigDecimal("initial"), rows.getBigDecimal("reference_balance"), LocalDate.parse(rows.getString("reference_date")),
+                        rows.getBigDecimal("rate"), rows.getInt("duration_months"), LocalDate.parse(rows.getString("start_date")),
+                        rows.getInt("due_day"), rows.getBigDecimal("payment"), rows.getBigDecimal("insurance"));
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Impossible de lire le pret.", exception);
+        }
+    }
+
+    synchronized List<ScheduleLine> scheduleLines(long loanId) {
+        List<ScheduleLine> results = new ArrayList<>();
+        String query = "SELECT * FROM loan_schedule_lines WHERE loan_id = ? ORDER BY due_date, id";
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setLong(1, loanId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) results.add(new ScheduleLine(LocalDate.parse(rows.getString("due_date")), rows.getString("type"),
+                        rows.getBigDecimal("amount"), rows.getBigDecimal("principal_repaid"), rows.getBigDecimal("interest"),
+                        rows.getBigDecimal("fees"), rows.getBigDecimal("remaining_principal"), rows.getBigDecimal("annual_rate")));
+            }
+            return results;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Impossible de lire les echeances.", exception);
+        }
+    }
+
+    synchronized void replaceScheduleLines(long loanId, List<ScheduleLine> lines) {
+        String insert = "INSERT INTO loan_schedule_lines (loan_id, due_date, type, amount, principal_repaid, interest, fees, remaining_principal, annual_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection connection = open()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement delete = connection.prepareStatement("DELETE FROM loan_schedule_lines WHERE loan_id = ?");
+                    PreparedStatement statement = connection.prepareStatement(insert)) {
+                delete.setLong(1, loanId);
+                delete.executeUpdate();
+                for (ScheduleLine line : lines) {
+                    statement.setLong(1, loanId); statement.setString(2, line.date().toString()); statement.setString(3, line.type());
+                    nullableDecimal(statement, 4, line.amount()); nullableDecimal(statement, 5, line.principalRepaid());
+                    nullableDecimal(statement, 6, line.interest()); nullableDecimal(statement, 7, line.fees());
+                    nullableDecimal(statement, 8, line.remainingPrincipal()); nullableDecimal(statement, 9, line.annualRate());
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+            } finally { connection.setAutoCommit(true); }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Impossible d'enregistrer les echeances.", exception);
+        }
+    }
+
+    private static void nullableDecimal(PreparedStatement statement, int index, BigDecimal value) throws SQLException {
+        if (value == null) statement.setNull(index, java.sql.Types.REAL); else statement.setBigDecimal(index, value);
     }
 
     private Connection open() throws SQLException {

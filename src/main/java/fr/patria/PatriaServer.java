@@ -15,9 +15,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.Base64;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 public final class PatriaServer {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_FORM_BYTES = 64 * 1024;
+    private static final int MAX_UPLOAD_BYTES = 1024 * 1024;
     private static final long SESSION_LIFETIME_MS = TimeUnit.HOURS.toMillis(12);
     private final Database database;
     private final String password;
@@ -86,7 +87,7 @@ public final class PatriaServer {
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.message("Demande invalide", exception.getMessage()));
         } catch (PayloadTooLargeException exception) {
-            page(exchange, 413, Pages.message("Demande trop volumineuse", "Le formulaire depasse la taille autorisee."));
+            page(exchange, 413, Pages.message("Demande trop volumineuse", "Le formulaire ou le fichier depasse la taille autorisee."));
         } catch (Exception exception) {
             exception.printStackTrace();
             page(exchange, 500, Pages.message("Erreur interne", "Une erreur est survenue."));
@@ -122,11 +123,15 @@ public final class PatriaServer {
         } else if (path.equals("/administration") && (method.equals("GET") || method.equals("HEAD"))) {
             String query = exchange.getRequestURI().getQuery();
             String success = query != null && query.contains("success=bien") ? "Bien ajoute." : query != null && query.contains("success=pret") ? "Pret ajoute." : "";
-            page(exchange, 200, Pages.administration(database.properties(), database.loans(), session.csrf(), "", success));
+            page(exchange, 200, Pages.administration(database, database.properties(), database.loans(), session.csrf(), "", success));
         } else if (path.equals("/bien") && method.equals("POST")) {
             addProperty(exchange, session);
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
+        } else if (path.matches("/pret/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
+            loanPage(exchange, session, loanId(path));
+        } else if (path.matches("/pret/\\d+/echeancier") && method.equals("POST")) {
+            importSchedule(exchange, session, loanId(path.substring(0, path.lastIndexOf('/'))));
         } else {
             page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas."));
         }
@@ -185,7 +190,7 @@ public final class PatriaServer {
                     optionalAmount(form, "estimate", "Estimation"), estimateDate));
             redirect(exchange, "/administration?success=bien");
         } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.administration(database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
+            page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
         }
     }
 
@@ -206,7 +211,38 @@ public final class PatriaServer {
                     amount(form, "insurance", "Assurance")));
             redirect(exchange, "/administration?success=pret");
         } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.administration(database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
+            page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
+        }
+    }
+
+    private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {
+        Loan loan = database.loan(loanId);
+        if (loan == null) {
+            page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas."));
+            return;
+        }
+        String query = exchange.getRequestURI().getQuery();
+        String success = query != null && query.contains("success=echeancier") ? "Echeancier importe." : "";
+        page(exchange, 200, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), "", success));
+    }
+
+    private void importSchedule(HttpExchange exchange, Session session, long loanId) throws IOException {
+        Loan loan = database.loan(loanId);
+        if (loan == null) {
+            page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas."));
+            return;
+        }
+        try {
+            MultipartForm form = multipartForm(exchange);
+            if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), form.value("csrf").getBytes(StandardCharsets.UTF_8))) {
+                throw new IllegalArgumentException("Formulaire expire. Rechargez la page.");
+            }
+            byte[] csv = form.file("csv");
+            if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
+            database.replaceScheduleLines(loanId, CsvScheduleParser.parse(csv));
+            redirect(exchange, "/pret/" + loanId + "?success=echeancier");
+        } catch (IllegalArgumentException exception) {
+            page(exchange, 400, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), exception.getMessage(), ""));
         }
     }
 
@@ -240,24 +276,73 @@ public final class PatriaServer {
     }
 
     private static Map<String, String> form(HttpExchange exchange) throws IOException {
-        String length = exchange.getRequestHeaders().getFirst("Content-Length");
-        if (length != null && Long.parseLong(length) > MAX_FORM_BYTES) throw new PayloadTooLargeException();
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[4096];
-        try (InputStream input = exchange.getRequestBody()) {
-            for (int read; (read = input.read(buffer)) != -1;) {
-                if (output.size() + read > MAX_FORM_BYTES) throw new PayloadTooLargeException();
-                output.write(buffer, 0, read);
-            }
-        }
-        String body = output.toString(StandardCharsets.UTF_8);
+        byte[] body = requestBody(exchange, MAX_FORM_BYTES);
+        String bodyText = new String(body, StandardCharsets.UTF_8);
         Map<String, String> values = new ConcurrentHashMap<>();
-        for (String item : body.split("&")) {
+        for (String item : bodyText.split("&")) {
             String[] entry = item.split("=", 2);
             if (entry.length == 2) values.put(URLDecoder.decode(entry[0], StandardCharsets.UTF_8), URLDecoder.decode(entry[1], StandardCharsets.UTF_8));
         }
         return values;
     }
+
+    private static MultipartForm multipartForm(HttpExchange exchange) throws IOException {
+        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (contentType == null || !contentType.startsWith("multipart/form-data")) throw new IllegalArgumentException("Format d'envoi invalide.");
+        String marker = "boundary=";
+        int boundaryAt = contentType.indexOf(marker);
+        if (boundaryAt < 0) throw new IllegalArgumentException("Frontiere multipart manquante.");
+        String boundary = contentType.substring(boundaryAt + marker.length()).trim();
+        if (boundary.startsWith("\"") && boundary.endsWith("\"") && boundary.length() > 2) boundary = boundary.substring(1, boundary.length() - 1);
+        if (boundary.isBlank() || boundary.length() > 70 || !boundary.matches("[0-9A-Za-z'()+_,./:=?-]+")) throw new IllegalArgumentException("Frontiere multipart invalide.");
+        byte[] body = requestBody(exchange, MAX_UPLOAD_BYTES);
+        byte[] delimiter = ("\r\n--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
+        byte[] first = ("--" + boundary + "\r\n").getBytes(StandardCharsets.ISO_8859_1);
+        if (!startsWith(body, first)) throw new IllegalArgumentException("Corps multipart invalide.");
+        Map<String, String> values = new ConcurrentHashMap<>();
+        Map<String, byte[]> files = new ConcurrentHashMap<>();
+        int start = first.length;
+        while (start < body.length) {
+            int headersEnd = indexOf(body, "\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), start);
+            if (headersEnd < 0) throw new IllegalArgumentException("Partie multipart invalide.");
+            String headers = new String(body, start, headersEnd - start, StandardCharsets.ISO_8859_1);
+            String disposition = Arrays.stream(headers.split("\r\n")).filter(header -> header.toLowerCase(java.util.Locale.ROOT).startsWith("content-disposition:")).findFirst().orElse("");
+            String name = dispositionValue(disposition, "name");
+            if (name == null || name.length() > 32) throw new IllegalArgumentException("Partie multipart invalide.");
+            int contentStart = headersEnd + 4;
+            int next = indexOf(body, delimiter, contentStart);
+            if (next < 0) throw new IllegalArgumentException("Fin multipart manquante.");
+            byte[] content = Arrays.copyOfRange(body, contentStart, next);
+            if (dispositionValue(disposition, "filename") == null) values.put(name, new String(content, StandardCharsets.UTF_8)); else files.put(name, content);
+            start = next + delimiter.length;
+            if (startsWith(body, "--".getBytes(StandardCharsets.ISO_8859_1), start)) break;
+            if (!startsWith(body, "\r\n".getBytes(StandardCharsets.ISO_8859_1), start)) throw new IllegalArgumentException("Separateur multipart invalide.");
+            start += 2;
+        }
+        return new MultipartForm(values, files);
+    }
+
+    private static byte[] requestBody(HttpExchange exchange, int maximum) throws IOException {
+        String length = exchange.getRequestHeaders().getFirst("Content-Length");
+        try {
+            if (length != null && Long.parseLong(length) > maximum) throw new PayloadTooLargeException();
+        } catch (NumberFormatException exception) { throw new IllegalArgumentException("Content-Length invalide."); }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        try (InputStream input = exchange.getRequestBody()) {
+            for (int read; (read = input.read(buffer)) != -1;) {
+                if (output.size() + read > maximum) throw new PayloadTooLargeException();
+                output.write(buffer, 0, read);
+            }
+        }
+        return output.toByteArray();
+    }
+
+    private static long loanId(String path) { return Long.parseLong(path.substring("/pret/".length())); }
+    private static int indexOf(byte[] source, byte[] target, int from) { outer: for (int i = from; i <= source.length - target.length; i++) { for (int j = 0; j < target.length; j++) if (source[i + j] != target[j]) continue outer; return i; } return -1; }
+    private static boolean startsWith(byte[] source, byte[] target) { return startsWith(source, target, 0); }
+    private static boolean startsWith(byte[] source, byte[] target, int at) { if (at + target.length > source.length) return false; for (int i = 0; i < target.length; i++) if (source[at + i] != target[i]) return false; return true; }
+    private static String dispositionValue(String disposition, String key) { String prefix = key + "=\""; int start = disposition.indexOf(prefix); if (start < 0) return null; int end = disposition.indexOf('"', start + prefix.length()); return end < 0 ? null : disposition.substring(start + prefix.length(), end); }
 
     private static String required(Map<String, String> form, String key, String label) {
         String value = form.getOrDefault(key, "").trim();
@@ -359,6 +444,11 @@ public final class PatriaServer {
     }
 
     private record Session(String csrf, long expiresAt) {
+    }
+
+    private record MultipartForm(Map<String, String> values, Map<String, byte[]> files) {
+        String value(String name) { return values.getOrDefault(name, ""); }
+        byte[] file(String name) { return files.get(name); }
     }
 
     private static final class PayloadTooLargeException extends IOException {
