@@ -41,6 +41,7 @@ const hints = {
   "Cout total d'acquisition": "Montant total engage pour acheter le bien : prix, frais et couts inclus.",
   "Valeur retenue": "Estimation saisie, ou cout total d'acquisition lorsqu'aucune estimation n'est renseignee.",
   "Montant emprunte": "Total des deblocages enregistres pour le financement.",
+  "Taux": "Taux annuel du pret indique dans son echeancier.",
   "Capital rembourse": "Part de capital des echeances deja arrivees a leur date.",
   "Rembourse": "Part de capital des echeances deja arrivees a leur date.",
   "Montant a rembourser": "Capital restant du sur les financements, selon les echeanciers.",
