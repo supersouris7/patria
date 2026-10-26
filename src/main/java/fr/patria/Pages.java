@@ -154,9 +154,10 @@ final class Pages {
         String notice = !error.isEmpty() ? "<p class=\"notice error\">" + escape(error) + "</p>" : success.isEmpty() ? "" : "<p class=\"notice success\">" + escape(success) + "</p>";
         StringBuilder rows = new StringBuilder();
         for (ScheduleLine line : lines) rows.append("<tr><td>").append(line.date()).append("</td><td>").append(escape(line.type()))
+                .append("</td><td>").append(line.type().equals("ECHEANCE") && !line.date().isAfter(LocalDate.now()) ? "<span class=\"paid\" title=\"Mensualite passee\">&#10003;</span>" : "-")
                 .append("</td><td>").append(euroOrDash(line.amount())).append("</td><td>").append(euroOrDash(line.principalRepaid()))
                 .append("</td><td>").append(euroOrDash(line.remainingPrincipal())).append("</td><td>").append(numberOrDash(line.annualRate())).append("</td></tr>");
-        String table = lines.isEmpty() ? "<p class=\"empty\">Aucune echeance importee.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Capital rembourse</th><th>Capital restant du</th><th>Taux annuel</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+        String table = lines.isEmpty() ? "<p class=\"empty\">Aucune echeance importee.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>Type</th><th>Statut</th><th>Montant</th><th>Capital rembourse</th><th>Capital restant du</th><th>Taux annuel</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
         String content = """
                 <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/pret/%d/echeancier">Gerer l'echeancier</a></section>%s
                 <section class="metrics"><article class="metric"><span>Montant emprunte</span><strong>%s</strong></article><article class="metric"><span>Taux</span><strong>%s %%</strong></article><article class="metric"><span>Rembourse</span><strong>%s</strong></article><article class="metric"><span>Restant</span><strong>%s</strong></article><article class="metric"><span>Annees restantes</span><strong>%s</strong></article></section>
@@ -203,7 +204,7 @@ final class Pages {
 
     private static String layout(String title, String content, String csrf) {
         String header = csrf == null ? "" : "<header><div class=\"shell navigation\">" + brand() + "<nav><a href=\"/\">Vue d'ensemble</a><a href=\"/administration\">Administration</a></nav><form method=\"post\" action=\"/deconnexion\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><button class=\"quiet\" type=\"submit\">Deconnexion</button></form></div></header>";
-        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"preload\" as=\"image\" href=\"/images/patria-logo.png\"><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css?v=9\"><script defer src=\"/js/table-sort.js?v=12\"></script></head><body>" + header + content + "</body></html>";
+        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"preload\" as=\"image\" href=\"/images/patria-logo.png\"><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css?v=10\"><script defer src=\"/js/table-sort.js?v=12\"></script></head><body>" + header + content + "</body></html>";
     }
 
     private static String brand() {
