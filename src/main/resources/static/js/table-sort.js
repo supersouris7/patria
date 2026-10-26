@@ -24,8 +24,9 @@ document.querySelectorAll("table").forEach((table) => {
   });
 });
 
-const moneyNames = new Set(["purchase", "estimate", "amount", "initial", "reference_balance", "rate", "payment", "insurance"]);
+const moneyNames = new Set(["purchase", "estimate", "estimate_high", "amount", "initial", "reference_balance", "rate", "payment", "insurance"]);
 const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const euroFormat = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "EUR"});
 document.querySelectorAll("input").forEach((input) => {
   if (!moneyNames.has(input.name)) return;
   input.type = "text";
@@ -53,3 +54,21 @@ document.querySelectorAll("span, th").forEach((element) => {
   const hint = hints[element.textContent.trim()];
   if (hint) element.title = hint;
 });
+
+const estimateChoice = localStorage.getItem("patria-estimate-choice") === "optimistic" ? "optimistic" : "prudent";
+const applyEstimateChoice = (choice) => {
+  document.querySelectorAll("[data-estimate-value]").forEach((element) => {
+    element.textContent = euroFormat.format(Number(element.dataset[choice]));
+  });
+  document.querySelectorAll("[data-estimate-choice]").forEach((button) => {
+    const selected = button.dataset.estimateChoice === choice;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", selected);
+  });
+};
+document.querySelectorAll("[data-estimate-choice]").forEach((button) => button.addEventListener("click", () => {
+  const choice = button.dataset.estimateChoice;
+  localStorage.setItem("patria-estimate-choice", choice);
+  applyEstimateChoice(choice);
+}));
+applyEstimateChoice(estimateChoice);

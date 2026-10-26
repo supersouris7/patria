@@ -201,9 +201,13 @@ public final class PatriaServer {
             LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", LocalDate.now());
             LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
             if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
+            BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation prudente");
+            BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
+            if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
+            if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
             database.addProperty(new Property(0, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "",
                     optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Prix d'achat"), purchaseDate,
-                    optionalAmount(form, "estimate", "Estimation"), optionalAmount(form, "estimate", "Estimation"), estimateDate));
+                    estimateLow, estimateHigh, estimateDate));
             redirect(exchange, "/administration?success=bien");
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
@@ -264,10 +268,10 @@ public final class PatriaServer {
             if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
             String kind = required(form, "kind", "Type");
             if (!kind.equals("Appartement") && !kind.equals("Maison")) throw new IllegalArgumentException("Type de bien invalide.");
-            BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation basse");
-            BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation haute");
+            BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation prudente");
+            BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
             if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
-            if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation haute doit etre superieure a l'estimation basse.");
+            if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
             database.updateProperty(new Property(id, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, estimateLow, estimateHigh, estimateDate));
             redirect(exchange, "/administration/bien/" + id);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
