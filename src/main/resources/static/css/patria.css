@@ -85,6 +85,8 @@ th[data-order="desc"]::after { content: "\25BC"; opacity: 1; }
 textarea { background: #0c1219; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); font: .78rem/1.45 ui-monospace, monospace; padding: 10px; resize: vertical; width: 100%; }
 td { color: #d5dee7; }
 td small { color: var(--muted); display: block; }
+.progress { background: #0c1219; border-radius: 99px; height: 7px; min-width: 90px; overflow: hidden; }
+.progress span { background: var(--blue); display: block; height: 100%; }
 .paid { color: var(--success); font-size: 1.1rem; font-weight: 800; }
 td a, .back-link { color: var(--blue); font-weight: 700; text-decoration: none; }
 td a:hover, .back-link:hover { text-decoration: underline; }

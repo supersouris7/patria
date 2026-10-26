@@ -1,6 +1,7 @@
 package fr.patria;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -55,20 +56,21 @@ final class Pages {
         BigDecimal remaining = BigDecimal.ZERO;
         for (Loan loan : loans) {
             List<ScheduleLine> lines = database.scheduleLines(loan.id());
-            borrowed = borrowed.add(borrowed(loan, lines));
+            BigDecimal loanBorrowed = borrowed(loan, lines);
+            borrowed = borrowed.add(loanBorrowed);
             repaid = repaid.add(repaid(lines));
             BigDecimal loanRemaining = remaining(loan, lines);
             remaining = remaining.add(loanRemaining);
             LocalDate latest = lines.stream().map(ScheduleLine::date).max(LocalDate::compareTo).orElse(null);
             long months = latest == null ? 0 : Math.max(0, ChronoUnit.MONTHS.between(LocalDate.now(), latest));
-            rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(borrowed(loan, lines))).append("</td><td>").append(loan.annualRate()).append(" %</td><td>").append(euro(repaid(lines))).append("</td><td>").append(euro(loanRemaining)).append("</td><td>").append(latest == null ? "-" : String.format(Locale.ROOT, "%.1f ans", months / 12.0)).append("</td></tr>");
+            rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(loanBorrowed)).append("</td><td>").append(loan.annualRate()).append(" %</td><td>").append(euro(repaid(lines))).append("</td><td>").append(euro(loanRemaining)).append("</td><td>").append(progress(loanBorrowed, loanRemaining)).append("</td><td>").append(latest == null ? "-" : String.format(Locale.ROOT, "%.1f ans", months / 12.0)).append("</td></tr>");
         }
         BigDecimal contributionsTotal = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal prudentValue = prudentEstimate(property);
         BigDecimal optimisticValue = optimisticEstimate(property);
         BigDecimal middleValue = middleEstimate(property);
         String contributionRows = contributions.stream().map(item -> "<tr><td><a href=\"/apport/" + item.id() + "\">" + escape(item.name()) + "</a></td><td>" + item.date() + "</td><td>" + euro(item.amount()) + "</td></tr>").reduce("", String::concat);
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">BIEN</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Achat le " + property.purchaseDate() + ".</p></div><a class=\"button\" href=\"/administration/bien/" + property.id() + "\">Administrer ce bien</a></section><section class=\"metrics\"><button class=\"metric scenario\" type=\"button\" data-estimate-toggle><span><span data-estimate-label>Estimation prudente</span><span class=\"scenario-icon\" aria-hidden=\"true\">&#8635;</span></span><strong data-estimate-value data-prudent=\"" + prudentValue + "\" data-optimistic=\"" + optimisticValue + "\" data-middle=\"" + middleValue + "\" data-purchase=\"" + property.purchase() + "\">" + euro(prudentValue) + "</strong></button><article class=\"metric\"><span>Montant a rembourser</span><strong>" + euro(remaining) + "</strong></article><article class=\"metric\"><span>Valeur nette indicative</span><strong data-estimate-value data-prudent=\"" + prudentValue.subtract(remaining) + "\" data-optimistic=\"" + optimisticValue.subtract(remaining) + "\" data-middle=\"" + middleValue.subtract(remaining) + "\" data-purchase=\"" + property.purchase().subtract(remaining) + "\">" + euro(prudentValue.subtract(remaining)) + "</strong></article><article class=\"metric\"><span title=\"Ecart entre le prix affiche et le prix d'achat. Hors frais de vente et fiscalite.\">Plus-value / moins-value</span><strong data-estimate-value data-prudent=\"" + prudentValue.subtract(property.purchase()) + "\" data-optimistic=\"" + optimisticValue.subtract(property.purchase()) + "\" data-middle=\"" + middleValue.subtract(property.purchase()) + "\" data-purchase=\"0\">" + euro(prudentValue.subtract(property.purchase())) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span>Montant emprunte</span><strong>" + euro(borrowed) + "</strong></article><article class=\"metric\"><span>Capital rembourse</span><strong>" + euro(repaid) + "</strong></article><article class=\"metric\"><span>Apports</span><strong>" + euro(contributionsTotal) + "</strong></article></section><section class=\"card section\"><div class=\"section-title\"><h2>Financements</h2><a class=\"button\" href=\"/administration/bien/" + property.id() + "/financements\">+ Ajouter</a></div>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Montant emprunte</th><th>Taux</th><th>Rembourse</th><th>Restant</th><th>Annees restantes</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section><section class=\"card section\"><h2>Apports</h2>" + (contributions.isEmpty() ? "<p class=\"empty\">Aucun apport.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Nom</th><th>Date</th><th>Montant</th></tr></thead><tbody>" + contributionRows + "</tbody></table></div>") + "</section></main>";
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">BIEN</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Achat le " + property.purchaseDate() + ".</p></div><a class=\"button\" href=\"/administration/bien/" + property.id() + "\">Administrer ce bien</a></section><section class=\"metrics\"><button class=\"metric scenario\" type=\"button\" data-estimate-toggle><span><span data-estimate-label>Estimation prudente</span><span class=\"scenario-icon\" aria-hidden=\"true\">&#8635;</span></span><strong data-estimate-value data-prudent=\"" + prudentValue + "\" data-optimistic=\"" + optimisticValue + "\" data-middle=\"" + middleValue + "\" data-purchase=\"" + property.purchase() + "\">" + euro(prudentValue) + "</strong></button><article class=\"metric\"><span>Montant a rembourser</span><strong>" + euro(remaining) + "</strong></article><article class=\"metric\"><span>Valeur nette indicative</span><strong data-estimate-value data-prudent=\"" + prudentValue.subtract(remaining) + "\" data-optimistic=\"" + optimisticValue.subtract(remaining) + "\" data-middle=\"" + middleValue.subtract(remaining) + "\" data-purchase=\"" + property.purchase().subtract(remaining) + "\">" + euro(prudentValue.subtract(remaining)) + "</strong></article><article class=\"metric\"><span title=\"Ecart entre le prix affiche et le prix d'achat. Hors frais de vente et fiscalite.\">Plus-value / moins-value</span><strong data-estimate-value data-prudent=\"" + prudentValue.subtract(property.purchase()) + "\" data-optimistic=\"" + optimisticValue.subtract(property.purchase()) + "\" data-middle=\"" + middleValue.subtract(property.purchase()) + "\" data-purchase=\"0\">" + euro(prudentValue.subtract(property.purchase())) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span>Montant emprunte</span><strong>" + euro(borrowed) + "</strong></article><article class=\"metric\"><span>Capital rembourse</span><strong>" + euro(repaid) + "</strong></article><article class=\"metric\"><span>Apports</span><strong>" + euro(contributionsTotal) + "</strong></article></section><section class=\"card section\"><div class=\"section-title\"><h2>Financements</h2><a class=\"button\" href=\"/administration/bien/" + property.id() + "/financements\">+ Ajouter</a></div>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Montant emprunte</th><th>Taux</th><th>Rembourse</th><th>Restant</th><th>Progression</th><th>Annees restantes</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section><section class=\"card section\"><h2>Apports</h2>" + (contributions.isEmpty() ? "<p class=\"empty\">Aucun apport.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Nom</th><th>Date</th><th>Montant</th></tr></thead><tbody>" + contributionRows + "</tbody></table></div>") + "</section></main>";
         return layout(property.name() + " · Patria", content.replace("Financement restant", "Montant a rembourser"), csrf);
     }
 
@@ -161,9 +163,9 @@ final class Pages {
         String content = """
                 <main class="shell"><p><a class="back-link" href="/bien/%d">Retour au bien</a></p><section class="page-heading"><div><p class="eyebrow">CONSULTATION DU PRET</p><h1>%s<span>.</span></h1><p class="muted">Finance le bien %s.</p></div><a class="button" href="/pret/%d/echeancier">Gerer l'echeancier</a></section>%s
                 <section class="metrics"><article class="metric"><span>Montant emprunte</span><strong>%s</strong></article><article class="metric"><span>Taux</span><strong>%s %%</strong></article><article class="metric"><span>Rembourse</span><strong>%s</strong></article><article class="metric"><span>Restant</span><strong>%s</strong></article><article class="metric"><span>Annees restantes</span><strong>%s</strong></article></section>
-                <section class="card section"><div class="section-title"><div><p class="eyebrow">ECHEANCIER</p><h2>Lignes importees</h2></div><span class="count">%d</span></div>%s</section></main>
+                <section class="card section"><h2>Progression du pret</h2>%s</section><section class="card section"><div class="section-title"><div><p class="eyebrow">ECHEANCIER</p><h2>Lignes importees</h2></div><span class="count">%d</span></div>%s</section></main>
                 """.formatted(loan.propertyId(), escape(loan.name()), escape(loan.propertyName()), loan.id(), notice, euro(borrowed(loan, lines)), loan.annualRate(), euro(repaid), euro(remaining), years,
-                lines.size(), table);
+                progress(borrowed(loan, lines), remaining), lines.size(), table);
         return layout("Pret · " + loan.name() + " · Patria", content, csrf);
     }
 
@@ -198,13 +200,19 @@ final class Pages {
     private static String euroOrDash(BigDecimal value) { return value == null ? "-" : euro(value); }
     private static String numberOrDash(BigDecimal value) { return value == null ? "-" : escape(value.stripTrailingZeros().toPlainString()) + " %"; }
 
+    private static String progress(BigDecimal borrowed, BigDecimal remaining) {
+        if (borrowed.signum() <= 0) return "-";
+        int percent = borrowed.subtract(remaining).max(BigDecimal.ZERO).multiply(BigDecimal.valueOf(100)).divide(borrowed, 0, RoundingMode.HALF_UP).min(BigDecimal.valueOf(100)).intValue();
+        return "<div class=\"progress\" title=\"" + percent + " % rembourse\"><span style=\"width:" + percent + "%\"></span></div><small>" + percent + " %</small>";
+    }
+
     static String message(String title, String text) {
         return layout(title + " · Patria", "<main class=\"shell\"><section class=\"card section\"><h1>" + escape(title) + "</h1><p class=\"muted\">" + escape(text) + "</p></section></main>", null);
     }
 
     private static String layout(String title, String content, String csrf) {
         String header = csrf == null ? "" : "<header><div class=\"shell navigation\">" + brand() + "<nav><a href=\"/\">Vue d'ensemble</a><a href=\"/administration\">Administration</a></nav><form method=\"post\" action=\"/deconnexion\"><input type=\"hidden\" name=\"csrf\" value=\"" + csrf + "\"><button class=\"quiet\" type=\"submit\">Deconnexion</button></form></div></header>";
-        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"preload\" as=\"image\" href=\"/images/patria-logo.png\"><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css?v=10\"><script defer src=\"/js/table-sort.js?v=12\"></script></head><body>" + header + content + "</body></html>";
+        return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + escape(title) + "</title><link rel=\"preload\" as=\"image\" href=\"/images/patria-logo.png\"><link rel=\"icon\" type=\"image/png\" href=\"/images/patria-logo.png\"><link rel=\"stylesheet\" href=\"/css/patria.css?v=11\"><script defer src=\"/js/table-sort.js?v=12\"></script></head><body>" + header + content + "</body></html>";
     }
 
     private static String brand() {
