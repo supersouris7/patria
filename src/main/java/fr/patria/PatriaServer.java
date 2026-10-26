@@ -140,6 +140,12 @@ public final class PatriaServer {
             updateProperty(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
         } else if (path.matches("/administration/bien/\\d+/apports") && method.equals("POST")) {
             addContribution(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
+        } else if (path.matches("/apport/\\d+/gerer") && (method.equals("GET") || method.equals("HEAD"))) {
+            contributionManagementPage(exchange, session, Long.parseLong(path.substring("/apport/".length(), path.lastIndexOf('/'))));
+        } else if (path.matches("/apport/\\d+/gerer") && method.equals("POST")) {
+            updateContribution(exchange, session, Long.parseLong(path.substring("/apport/".length(), path.lastIndexOf('/'))));
+        } else if (path.matches("/apport/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
+            contributionPage(exchange, session, Long.parseLong(path.substring("/apport/".length())));
         } else if (path.equals("/pret") && method.equals("POST")) {
             addLoan(exchange, session);
         } else if (path.matches("/pret/\\d+/echeancier") && (method.equals("GET") || method.equals("HEAD"))) {
@@ -284,6 +290,29 @@ public final class PatriaServer {
             database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant"), LocalDate.parse(required(form, "date", "Date"))));
             redirect(exchange, "/bien/" + propertyId);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(database.property(propertyId), session.csrf())); }
+    }
+
+    private void contributionPage(HttpExchange exchange, Session session, long contributionId) throws IOException {
+        Contribution contribution = database.contribution(contributionId);
+        if (contribution == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
+        Property property = database.property(contribution.propertyId());
+        page(exchange, 200, Pages.contributionDetail(contribution, property, session.csrf()));
+    }
+
+    private void contributionManagementPage(HttpExchange exchange, Session session, long contributionId) throws IOException {
+        Contribution contribution = database.contribution(contributionId);
+        if (contribution == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
+        page(exchange, 200, Pages.contributionManagement(contribution, session.csrf()));
+    }
+
+    private void updateContribution(HttpExchange exchange, Session session, long contributionId) throws IOException {
+        Contribution current = database.contribution(contributionId);
+        if (current == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
+        Map<String, String> form = checkedForm(exchange, session);
+        try {
+            database.updateContribution(new Contribution(current.id(), current.propertyId(), required(form, "name", "Nom"), positive(form, "amount", "Montant"), LocalDate.parse(required(form, "date", "Date"))));
+            redirect(exchange, "/apport/" + contributionId);
+        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.contributionManagement(current, session.csrf())); }
     }
 
     private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {

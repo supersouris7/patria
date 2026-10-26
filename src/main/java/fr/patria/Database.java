@@ -119,6 +119,21 @@ final class Database {
         } catch (SQLException exception) { throw new IllegalStateException("Impossible d'enregistrer l'apport.", exception); }
     }
 
+    synchronized Contribution contribution(long id) {
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT * FROM contributions WHERE id = ?")) {
+            statement.setLong(1, id);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? new Contribution(id, rows.getLong("property_id"), rows.getString("name"), rows.getBigDecimal("amount"), LocalDate.parse(rows.getString("contribution_date"))) : null;
+            }
+        } catch (SQLException exception) { throw new IllegalStateException("Impossible de lire l'apport.", exception); }
+    }
+
+    synchronized void updateContribution(Contribution contribution) {
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("UPDATE contributions SET name = ?, amount = ?, contribution_date = ? WHERE id = ?")) {
+            statement.setString(1, contribution.name()); statement.setBigDecimal(2, contribution.amount()); statement.setString(3, contribution.date().toString()); statement.setLong(4, contribution.id()); statement.executeUpdate();
+        } catch (SQLException exception) { throw new IllegalStateException("Impossible de modifier l'apport.", exception); }
+    }
+
     synchronized boolean propertyExists(long id) {
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT EXISTS(SELECT 1 FROM properties WHERE id = ?)")) {
             statement.setLong(1, id);
