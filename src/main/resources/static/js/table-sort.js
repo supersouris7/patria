@@ -49,24 +49,25 @@ const hints = {
   "Restant": "Capital restant du pour ce financement.",
   "Annees restantes": "Duree entre aujourd'hui et la derniere echeance connue.",
   "Apports": "Somme des apports personnels enregistres pour ce bien.",
-  "Plus-value / moins-value": "Prix de vente estime moins capital restant du et apports personnels. Hors frais de vente et fiscalite."
+  "Plus-value / moins-value": "Ecart entre le prix affiche et le prix d'achat. Hors frais de vente et fiscalite."
 };
 document.querySelectorAll("span, th").forEach((element) => {
   const hint = hints[element.textContent.trim()];
   if (hint) element.title = hint;
 });
 
-let estimateChoice = localStorage.getItem("patria-estimate-choice") === "optimistic" ? "optimistic" : "prudent";
+const estimateChoices = ["prudent", "optimistic", "middle", "purchase"];
+let estimateChoice = estimateChoices.includes(localStorage.getItem("patria-estimate-choice")) ? localStorage.getItem("patria-estimate-choice") : "prudent";
 const applyEstimateChoice = (choice) => {
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
     element.textContent = euroFormat.format(Number(element.dataset[choice]));
   });
   document.querySelectorAll("[data-estimate-label]").forEach((label) => {
-    label.textContent = choice === "optimistic" ? "Estimation optimiste" : "Estimation prudente";
+    label.textContent = {prudent: "Estimation prudente", optimistic: "Estimation optimiste", middle: "Milieu de fourchette", purchase: "Prix d'achat"}[choice];
   });
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
-  estimateChoice = estimateChoice === "prudent" ? "optimistic" : "prudent";
+  estimateChoice = estimateChoices[(estimateChoices.indexOf(estimateChoice) + 1) % estimateChoices.length];
   localStorage.setItem("patria-estimate-choice", estimateChoice);
   applyEstimateChoice(estimateChoice);
 }));
