@@ -277,7 +277,7 @@ public final class PatriaServer {
         Map<String, String> form = checkedForm(exchange, session);
         try {
             if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
-            database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant")));
+            database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant"), LocalDate.parse(required(form, "date", "Date"))));
             redirect(exchange, "/bien/" + propertyId);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(database.property(propertyId), session.csrf())); }
     }

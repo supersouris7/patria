@@ -54,9 +54,11 @@ final class Database {
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS contributions (
                         id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-                        name TEXT NOT NULL, amount REAL NOT NULL
+                        name TEXT NOT NULL, amount REAL NOT NULL, contribution_date TEXT NOT NULL DEFAULT ''
                     )
                     """);
+            try { statement.execute("ALTER TABLE contributions ADD COLUMN contribution_date TEXT NOT NULL DEFAULT ''"); } catch (SQLException ignored) { }
+            statement.execute("UPDATE contributions SET contribution_date = date('now') WHERE contribution_date = ''");
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'initialiser SQLite.", exception);
         }
@@ -106,14 +108,14 @@ final class Database {
         List<Contribution> results = new ArrayList<>();
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT * FROM contributions WHERE property_id = ? ORDER BY id DESC")) {
             statement.setLong(1, propertyId);
-            try (ResultSet rows = statement.executeQuery()) { while (rows.next()) results.add(new Contribution(rows.getLong("id"), propertyId, rows.getString("name"), rows.getBigDecimal("amount"))); }
+            try (ResultSet rows = statement.executeQuery()) { while (rows.next()) results.add(new Contribution(rows.getLong("id"), propertyId, rows.getString("name"), rows.getBigDecimal("amount"), LocalDate.parse(rows.getString("contribution_date")))); }
             return results;
         } catch (SQLException exception) { throw new IllegalStateException("Impossible de lire les apports.", exception); }
     }
 
     synchronized void addContribution(Contribution contribution) {
-        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("INSERT INTO contributions (property_id, name, amount) VALUES (?, ?, ?)")) {
-            statement.setLong(1, contribution.propertyId()); statement.setString(2, contribution.name()); statement.setBigDecimal(3, contribution.amount()); statement.executeUpdate();
+        try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("INSERT INTO contributions (property_id, name, amount, contribution_date) VALUES (?, ?, ?, ?)")) {
+            statement.setLong(1, contribution.propertyId()); statement.setString(2, contribution.name()); statement.setBigDecimal(3, contribution.amount()); statement.setString(4, contribution.date().toString()); statement.executeUpdate();
         } catch (SQLException exception) { throw new IllegalStateException("Impossible d'enregistrer l'apport.", exception); }
     }
 
