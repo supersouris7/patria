@@ -55,20 +55,18 @@ document.querySelectorAll("span, th").forEach((element) => {
   if (hint) element.title = hint;
 });
 
-const estimateChoice = localStorage.getItem("patria-estimate-choice") === "optimistic" ? "optimistic" : "prudent";
+let estimateChoice = localStorage.getItem("patria-estimate-choice") === "optimistic" ? "optimistic" : "prudent";
 const applyEstimateChoice = (choice) => {
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
     element.textContent = euroFormat.format(Number(element.dataset[choice]));
   });
-  document.querySelectorAll("[data-estimate-choice]").forEach((button) => {
-    const selected = button.dataset.estimateChoice === choice;
-    button.classList.toggle("selected", selected);
-    button.setAttribute("aria-pressed", selected);
+  document.querySelectorAll("[data-estimate-label]").forEach((label) => {
+    label.textContent = choice === "optimistic" ? "Estimation optimiste" : "Estimation prudente";
   });
 };
-document.querySelectorAll("[data-estimate-choice]").forEach((button) => button.addEventListener("click", () => {
-  const choice = button.dataset.estimateChoice;
-  localStorage.setItem("patria-estimate-choice", choice);
-  applyEstimateChoice(choice);
+document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
+  estimateChoice = estimateChoice === "prudent" ? "optimistic" : "prudent";
+  localStorage.setItem("patria-estimate-choice", estimateChoice);
+  applyEstimateChoice(estimateChoice);
 }));
 applyEstimateChoice(estimateChoice);

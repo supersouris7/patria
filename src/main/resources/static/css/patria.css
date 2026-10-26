@@ -66,8 +66,9 @@ button.quiet:hover { background: var(--surface); color: var(--text); }
 .metric strong { display: block; font-size: clamp(1.45rem, 2.4vw, 2rem); margin-top: 14px; }
 .scenario { background: var(--surface); color: var(--text); text-align: left; }
 .scenario:hover { background: var(--surface-raised); border-color: var(--line-strong); }
-.scenario.selected { border-color: var(--blue); }
-.scenario.selected strong { color: var(--blue); }
+.scenario:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.scenario span span { display: inline; }
+.scenario-icon { color: var(--blue); font-size: .95rem; margin-left: .28rem; }
 
 .section { margin-bottom: 14px; padding: 25px; }
 .section-title { align-items: center; display: flex; justify-content: space-between; }
