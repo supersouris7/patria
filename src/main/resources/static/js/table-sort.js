@@ -48,7 +48,8 @@ const hints = {
   "Montant a rembourser": "Capital restant du sur les financements, selon les echeanciers.",
   "Restant": "Capital restant du pour ce financement.",
   "Annees restantes": "Duree entre aujourd'hui et la derniere echeance connue.",
-  "Apports": "Somme des apports personnels enregistres pour ce bien."
+  "Apports": "Somme des apports personnels enregistres pour ce bien.",
+  "Plus-value / moins-value": "Prix de vente estime moins capital restant du et apports personnels. Hors frais de vente et fiscalite."
 };
 document.querySelectorAll("span, th").forEach((element) => {
   const hint = hints[element.textContent.trim()];
