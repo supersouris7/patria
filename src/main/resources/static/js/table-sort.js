@@ -1,4 +1,5 @@
 document.querySelectorAll("table").forEach((table) => {
+  if (table.querySelector("th")?.textContent.trim() !== "Date") return;
   const filter = document.createElement("input");
   filter.className = "table-filter";
   filter.placeholder = "Filtrer le tableau";
