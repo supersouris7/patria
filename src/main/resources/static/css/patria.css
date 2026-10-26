@@ -62,7 +62,7 @@ button.quiet:hover { background: var(--surface); color: var(--text); }
 .metric, .card, .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; }
 .metric { min-height: 136px; padding: 21px; }
 .metric span { color: var(--muted); display: block; font-size: .75rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
-.metric span[title]::after { align-items: center; background: var(--blue); border-radius: 50%; color: #fff; content: "?"; display: inline-flex; font-size: .65rem; height: 1rem; justify-content: center; letter-spacing: 0; margin-left: .35rem; text-transform: none; width: 1rem; }
+.metric span[title]::after { align-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); content: "?"; display: inline-flex; font-size: .55rem; height: .75rem; justify-content: center; letter-spacing: 0; margin-left: .2rem; text-transform: none; width: .75rem; }
 .metric strong { display: block; font-size: clamp(1.45rem, 2.4vw, 2rem); margin-top: 14px; }
 .metric:nth-child(3) { border-color: #225472; }
 .metric:nth-child(3) strong { color: var(--blue); }
