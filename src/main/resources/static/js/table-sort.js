@@ -59,53 +59,49 @@ document.querySelectorAll("span, th").forEach((element) => {
 const estimateLabels = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
 let estimateChoice = localStorage.getItem("patria-estimate-choice") || "prudent";
 if (!["pessimistic", "prudent", "middle", "optimistic"].includes(estimateChoice)) estimateChoice = "prudent";
-const formatMoney = (value) => euroFormat.format(Number.isFinite(value) ? value : 0);
-const applyEstimateChoice = (choice) => {
+const formatMoney = (value) => euroFormat.format(Number.isFinite(value) ? Number(value) : 0);
+const getValueForChoice = (tile, choice) => {
+  if (tile.dataset[choice] !== undefined && tile.dataset[choice] !== "") return Number(tile.dataset[choice]);
+  return 0;
+};
+const updateAll = (tile, choice, pos) => {
+  estimateChoice = choice;
+  localStorage.setItem("patria-estimate-choice", estimateChoice);
+  const value = getValueForChoice(tile, choice);
+  const main = tile.querySelector("[data-estimate-main]");
+  const label = tile.querySelector("[data-estimate-label]");
+  if (main) { main.textContent = formatMoney(value); main.dataset.value = value; }
+  if (label) label.textContent = estimateLabels[choice];
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
-    if (element.dataset[choice] !== undefined) element.textContent = formatMoney(element.dataset[choice]);
+    if (element.dataset[choice] !== undefined && element.dataset[choice] !== "") element.textContent = formatMoney(Number(element.dataset[choice]));
   });
-  document.querySelectorAll("[data-estimate-label]").forEach((label) => {
-    label.textContent = estimateLabels[choice] || label.textContent;
-  });
-  document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
-    const value = tile.dataset[choice];
-    const display = tile.querySelector("[data-estimate-main]");
-    if (display && value !== undefined) display.textContent = formatMoney(value);
-  });
+  const slider = tile.querySelector(".estimate-tile-slider");
+  if (slider && pos !== undefined) slider.value = pos;
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
   const choices = ["pessimistic", "prudent", "middle", "optimistic"];
   estimateChoice = choices[(choices.indexOf(estimateChoice) + 1) % choices.length];
   localStorage.setItem("patria-estimate-choice", estimateChoice);
-  applyEstimateChoice(estimateChoice);
+  document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
+    const pos = {pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[estimateChoice] || 375;
+    updateAll(tile, estimateChoice, pos);
+  });
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
   const slider = tile.querySelector(".estimate-tile-slider");
-  const main = tile.querySelector("[data-estimate-main]");
-  const label = tile.querySelector("[data-estimate-label]");
-  const getValue = (pos) => {
+  const getChoiceFromPos = (pos) => {
     const p = Number(pos);
-    if (p <= 250) return {choice: "pessimistic", value: Number(tile.dataset.pessimistic || 0)};
-    if (p <= 500) return {choice: "prudent", value: Number(tile.dataset.prudent || 0)};
-    if (p <= 750) return {choice: "middle", value: Number(tile.dataset.middle || 0)};
-    return {choice: "optimistic", value: Number(tile.dataset.optimistic || 0)};
+    if (p <= 250) return "pessimistic";
+    if (p <= 500) return "prudent";
+    if (p <= 750) return "middle";
+    return "optimistic";
   };
-  const update = (pos, store = true) => {
-    const result = getValue(pos);
-    estimateChoice = result.choice;
-    if (store) localStorage.setItem("patria-estimate-choice", estimateChoice);
-    if (main) main.textContent = formatMoney(result.value);
-    if (label) label.textContent = estimateLabels[estimateChoice];
-    document.querySelectorAll("[data-estimate-value]").forEach((element) => {
-      if (element.dataset[estimateChoice] !== undefined) element.textContent = formatMoney(element.dataset[estimateChoice]);
-    });
-  };
+  const getPosForChoice = (choice) => ({pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[choice] || 375);
   if (slider) {
-    slider.addEventListener("input", () => update(slider.value));
-    slider.addEventListener("change", () => update(slider.value, true));
+    slider.addEventListener("input", () => {
+      const choice = getChoiceFromPos(slider.value);
+      updateAll(tile, choice, slider.value);
+    });
   }
-  const savedPos = {pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[estimateChoice] || 375;
-  if (slider) slider.value = savedPos;
-  update(savedPos, false);
+  updateAll(tile, estimateChoice, getPosForChoice(estimateChoice));
 });
-applyEstimateChoice(estimateChoice);
