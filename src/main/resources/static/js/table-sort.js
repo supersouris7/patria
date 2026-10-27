@@ -56,9 +56,9 @@ document.querySelectorAll("span, th").forEach((element) => {
   if (hint) element.title = hint;
 });
 
-const estimateChoices = ["pessimistic", "prudent", "middle", "optimistic"];
 const estimateLabels = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
-let estimateChoice = estimateChoices.includes(localStorage.getItem("patria-estimate-choice")) ? localStorage.getItem("patria-estimate-choice") : "prudent";
+let estimateChoice = localStorage.getItem("patria-estimate-choice") || "prudent";
+if (!["pessimistic", "prudent", "middle", "optimistic"].includes(estimateChoice)) estimateChoice = "prudent";
 const formatMoney = (value) => euroFormat.format(Number.isFinite(value) ? value : 0);
 const applyEstimateChoice = (choice) => {
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
@@ -71,23 +71,41 @@ const applyEstimateChoice = (choice) => {
     const value = tile.dataset[choice];
     const display = tile.querySelector("[data-estimate-main]");
     if (display && value !== undefined) display.textContent = formatMoney(value);
-    const slider = tile.querySelector(".estimate-tile-slider");
-    if (slider) slider.value = estimateChoices.indexOf(choice);
   });
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
-  estimateChoice = estimateChoices[(estimateChoices.indexOf(estimateChoice) + 1) % estimateChoices.length];
+  const choices = ["pessimistic", "prudent", "middle", "optimistic"];
+  estimateChoice = choices[(choices.indexOf(estimateChoice) + 1) % choices.length];
   localStorage.setItem("patria-estimate-choice", estimateChoice);
   applyEstimateChoice(estimateChoice);
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
   const slider = tile.querySelector(".estimate-tile-slider");
-  if (slider) {
-    slider.addEventListener("input", () => {
-      estimateChoice = estimateChoices[Number(slider.value)] || estimateChoice;
-      localStorage.setItem("patria-estimate-choice", estimateChoice);
-      applyEstimateChoice(estimateChoice);
+  const main = tile.querySelector("[data-estimate-main]");
+  const label = tile.querySelector("[data-estimate-label]");
+  const getValue = (pos) => {
+    const p = Number(pos);
+    if (p <= 250) return {choice: "pessimistic", value: Number(tile.dataset.pessimistic || 0)};
+    if (p <= 500) return {choice: "prudent", value: Number(tile.dataset.prudent || 0)};
+    if (p <= 750) return {choice: "middle", value: Number(tile.dataset.middle || 0)};
+    return {choice: "optimistic", value: Number(tile.dataset.optimistic || 0)};
+  };
+  const update = (pos, store = true) => {
+    const result = getValue(pos);
+    estimateChoice = result.choice;
+    if (store) localStorage.setItem("patria-estimate-choice", estimateChoice);
+    if (main) main.textContent = formatMoney(result.value);
+    if (label) label.textContent = estimateLabels[estimateChoice];
+    document.querySelectorAll("[data-estimate-value]").forEach((element) => {
+      if (element.dataset[estimateChoice] !== undefined) element.textContent = formatMoney(element.dataset[estimateChoice]);
     });
+  };
+  if (slider) {
+    slider.addEventListener("input", () => update(slider.value));
+    slider.addEventListener("change", () => update(slider.value, true));
   }
+  const savedPos = {pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[estimateChoice] || 375;
+  if (slider) slider.value = savedPos;
+  update(savedPos, false);
 });
 applyEstimateChoice(estimateChoice);
