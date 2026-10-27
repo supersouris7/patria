@@ -69,8 +69,10 @@ const applyEstimateChoice = (choice) => {
   });
   document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
     const value = tile.dataset[choice];
-    const display = tile.querySelector("strong");
+    const display = tile.querySelector("[data-estimate-main]");
     if (display && value !== undefined) display.textContent = formatMoney(value);
+    const slider = tile.querySelector(".estimate-tile-slider");
+    if (slider) slider.value = estimateChoices.indexOf(choice);
   });
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
@@ -79,10 +81,13 @@ document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.a
   applyEstimateChoice(estimateChoice);
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
-  tile.addEventListener("click", () => {
-    estimateChoice = estimateChoices[(estimateChoices.indexOf(estimateChoice) + 1) % estimateChoices.length];
-    localStorage.setItem("patria-estimate-choice", estimateChoice);
-    applyEstimateChoice(estimateChoice);
-  });
+  const slider = tile.querySelector(".estimate-tile-slider");
+  if (slider) {
+    slider.addEventListener("input", () => {
+      estimateChoice = estimateChoices[Number(slider.value)] || estimateChoice;
+      localStorage.setItem("patria-estimate-choice", estimateChoice);
+      applyEstimateChoice(estimateChoice);
+    });
+  }
 });
 applyEstimateChoice(estimateChoice);
