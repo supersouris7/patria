@@ -59,15 +59,16 @@ document.querySelectorAll("span, th").forEach((element) => {
 const estimateLabels = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
 let estimateChoice = localStorage.getItem("patria-estimate-choice") || "prudent";
 if (!["pessimistic", "prudent", "middle", "optimistic"].includes(estimateChoice)) estimateChoice = "prudent";
-const formatMoney = (value) => euroFormat.format(Number.isFinite(value) ? Number(value) : 0);
+const formatMoney = (value) => euroFormat.format(Math.round(Number(value) / 10000) * 10000);
 const getValueForChoice = (tile, choice) => {
-  if (tile.dataset[choice] !== undefined && tile.dataset[choice] !== "") return Number(tile.dataset[choice]);
+  if (tile.dataset[choice] !== undefined && tile.dataset[choice] !== "") return Math.round(Number(tile.dataset[choice]) / 10000) * 10000;
   return 0;
 };
+const round10k = (v) => Math.round(Number(v) / 10000) * 10000;
 const updateAll = (tile, choice, valueNum) => {
   estimateChoice = choice;
   localStorage.setItem("patria-estimate-choice", estimateChoice);
-  const value = valueNum !== undefined ? Number(valueNum) : getValueForChoice(tile, choice);
+  const value = valueNum !== undefined ? round10k(valueNum) : getValueForChoice(tile, choice);
   const main = tile.querySelector("[data-estimate-main]");
   const label = tile.querySelector("[data-estimate-label]");
   if (main) main.textContent = formatMoney(value);
@@ -95,7 +96,7 @@ document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
     optimistic: getValueForChoice(tile, "optimistic")
   };
   const findChoice = (num) => {
-    const v = Number(num);
+    const v = round10k(num);
     const order = ["pessimistic", "prudent", "middle", "optimistic"];
     let best = order[0];
     let bestDiff = Math.abs(v - values[best]);
@@ -107,7 +108,7 @@ document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
   };
   if (slider) {
     slider.addEventListener("input", () => {
-      const v = Number(slider.value);
+      const v = round10k(slider.value);
       const choice = findChoice(v);
       updateAll(tile, choice, v);
     });
