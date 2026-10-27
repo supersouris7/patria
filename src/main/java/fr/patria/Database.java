@@ -31,11 +31,15 @@ final class Database {
                         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
                         kind TEXT NOT NULL, commune TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', insee TEXT NOT NULL,
                         area REAL NOT NULL, purchase REAL NOT NULL, purchase_date TEXT NOT NULL,
-                        estimate REAL NOT NULL, estimate_high REAL NOT NULL DEFAULT 0, estimate_date TEXT NOT NULL
+                        estimate REAL NOT NULL, estimate_high REAL NOT NULL DEFAULT 0, estimate_date TEXT NOT NULL,
+                        sale_fees_rate REAL NOT NULL DEFAULT 0.08,
+                        recurring_fees_annual REAL NOT NULL DEFAULT 0
                     )
                     """);
             try { statement.execute("ALTER TABLE properties ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch (SQLException ignored) { }
             try { statement.execute("ALTER TABLE properties ADD COLUMN estimate_high REAL NOT NULL DEFAULT 0"); statement.execute("UPDATE properties SET estimate_high = estimate WHERE estimate_high = 0"); } catch (SQLException ignored) { }
+            try { statement.execute("ALTER TABLE properties ADD COLUMN sale_fees_rate REAL NOT NULL DEFAULT 0.08"); } catch (SQLException ignored) { }
+            try { statement.execute("ALTER TABLE properties ADD COLUMN recurring_fees_annual REAL NOT NULL DEFAULT 0"); } catch (SQLException ignored) { }
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS loans (
                         id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL REFERENCES properties(id),
@@ -68,10 +72,15 @@ final class Database {
         List<Property> results = new ArrayList<>();
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement("SELECT * FROM properties ORDER BY id DESC"); ResultSet rows = statement.executeQuery()) {
             while (rows.next()) {
+                BigDecimal saleFeesRate = rows.getBigDecimal("sale_fees_rate");
+                BigDecimal recurringFeesAnnual = rows.getBigDecimal("recurring_fees_annual");
+                if (saleFeesRate == null) saleFeesRate = new BigDecimal("0.08");
+                if (recurringFeesAnnual == null) recurringFeesAnnual = BigDecimal.ZERO;
                 results.add(new Property(rows.getLong("id"), rows.getString("name"), rows.getString("kind"),
                         rows.getString("commune"), rows.getString("address"), rows.getString("insee"), rows.getBigDecimal("area"),
                         rows.getBigDecimal("purchase"), LocalDate.parse(rows.getString("purchase_date")),
-                        rows.getBigDecimal("estimate"), rows.getBigDecimal("estimate_high"), LocalDate.parse(rows.getString("estimate_date"))));
+                        rows.getBigDecimal("estimate"), rows.getBigDecimal("estimate_high"), LocalDate.parse(rows.getString("estimate_date")),
+                        saleFeesRate, recurringFeesAnnual));
             }
             return results;
         } catch (SQLException exception) {
@@ -146,7 +155,7 @@ final class Database {
     }
 
     synchronized void addProperty(Property property) {
-        String query = "INSERT INTO properties (name, kind, commune, address, insee, area, purchase, purchase_date, estimate, estimate_high, estimate_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT INTO properties (name, kind, commune, address, insee, area, purchase, purchase_date, estimate, estimate_high, estimate_date, sale_fees_rate, recurring_fees_annual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, property.name());
             statement.setString(2, property.kind());
@@ -155,6 +164,8 @@ final class Database {
             statement.setBigDecimal(6, property.area()); statement.setBigDecimal(7, property.purchase());
             statement.setString(8, property.purchaseDate().toString()); statement.setBigDecimal(9, property.estimate()); statement.setBigDecimal(10, property.estimateHigh());
             statement.setString(11, property.estimateDate().toString());
+            statement.setBigDecimal(12, property.saleFeesRate() == null ? new BigDecimal("0.08") : property.saleFeesRate());
+            statement.setBigDecimal(13, property.recurringFeesAnnual() == null ? BigDecimal.ZERO : property.recurringFeesAnnual());
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible d'enregistrer le bien.", exception);
@@ -162,11 +173,14 @@ final class Database {
     }
 
     synchronized void updateProperty(Property property) {
-        String query = "UPDATE properties SET name=?, kind=?, commune=?, address=?, area=?, purchase=?, purchase_date=?, estimate=?, estimate_high=?, estimate_date=? WHERE id=?";
+        String query = "UPDATE properties SET name=?, kind=?, commune=?, address=?, area=?, purchase=?, purchase_date=?, estimate=?, estimate_high=?, estimate_date=?, sale_fees_rate=?, recurring_fees_annual=? WHERE id=?";
         try (Connection connection = open(); PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, property.name()); statement.setString(2, property.kind()); statement.setString(3, property.commune()); statement.setString(4, property.address());
             statement.setBigDecimal(5, property.area()); statement.setBigDecimal(6, property.purchase()); statement.setString(7, property.purchaseDate().toString());
-            statement.setBigDecimal(8, property.estimate()); statement.setBigDecimal(9, property.estimateHigh()); statement.setString(10, property.estimateDate().toString()); statement.setLong(11, property.id());
+            statement.setBigDecimal(8, property.estimate()); statement.setBigDecimal(9, property.estimateHigh()); statement.setString(10, property.estimateDate().toString());
+            statement.setBigDecimal(11, property.saleFeesRate() == null ? new BigDecimal("0.08") : property.saleFeesRate());
+            statement.setBigDecimal(12, property.recurringFeesAnnual() == null ? BigDecimal.ZERO : property.recurringFeesAnnual());
+            statement.setLong(13, property.id());
             statement.executeUpdate();
         } catch (SQLException exception) { throw new IllegalStateException("Impossible de modifier le bien.", exception); }
     }

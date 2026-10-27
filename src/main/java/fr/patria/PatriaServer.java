@@ -213,7 +213,7 @@ public final class PatriaServer {
             if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
             database.addProperty(new Property(0, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "",
                     optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Prix d'achat"), purchaseDate,
-                    estimateLow, estimateHigh, estimateDate));
+                    estimateLow, estimateHigh, estimateDate, new BigDecimal("0.08"), BigDecimal.ZERO));
             redirect(exchange, "/administration?success=bien");
         } catch (IllegalArgumentException exception) {
             page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
@@ -278,7 +278,9 @@ public final class PatriaServer {
             BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
             if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
             if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
-            database.updateProperty(new Property(id, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, estimateLow, estimateHigh, estimateDate));
+            BigDecimal saleFeesRate = optionalRate(form, "sale_fees_rate", "Frais de vente / fiscalite (%)", new BigDecimal("0.08"));
+            BigDecimal recurringFeesAnnual = optionalAmount(form, "recurring_fees_annual", "Frais recurrents annuels");
+            database.updateProperty(new Property(id, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, recurringFeesAnnual));
             redirect(exchange, "/administration/bien/" + id);
         } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
     }
@@ -481,6 +483,18 @@ public final class PatriaServer {
 
     private static BigDecimal optionalAmount(Map<String, String> form, String key, String label) {
         return form.getOrDefault(key, "").isBlank() ? BigDecimal.ZERO : amount(form, key, label);
+    }
+
+    private static BigDecimal optionalRate(Map<String, String> form, String key, String label, BigDecimal defaultValue) {
+        String value = form.getOrDefault(key, "").trim();
+        if (value.isBlank()) return defaultValue;
+        try {
+            BigDecimal rate = new BigDecimal(value.replace(" ", "").replace("\u202f", "").replace(',', '.'));
+            if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(new BigDecimal("1")) > 0) throw new IllegalArgumentException(label + " invalide.");
+            return rate;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(label + " invalide.");
+        }
     }
 
     private static int integer(Map<String, String> form, String key, int min, int max, String label) {

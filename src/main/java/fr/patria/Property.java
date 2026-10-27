@@ -15,5 +15,7 @@ public record Property(
         LocalDate purchaseDate,
         BigDecimal estimate,
         BigDecimal estimateHigh,
-        LocalDate estimateDate) {
+        LocalDate estimateDate,
+        BigDecimal saleFeesRate,
+        BigDecimal recurringFeesAnnual) {
 }
