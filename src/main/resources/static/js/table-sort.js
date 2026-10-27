@@ -60,48 +60,45 @@ const estimateLabels = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "
 let estimateChoice = localStorage.getItem("patria-estimate-choice") || "prudent";
 if (!["pessimistic", "prudent", "middle", "optimistic"].includes(estimateChoice)) estimateChoice = "prudent";
 const formatMoney = (value) => euroFormat.format(Math.round(Number(value) / 10000) * 10000);
-const getValueForChoice = (tile, choice) => {
-  if (tile.dataset[choice] !== undefined && tile.dataset[choice] !== "") return Math.round(Number(tile.dataset[choice]) / 10000) * 10000;
-  return 0;
-};
 const round10k = (v) => Math.round(Number(v) / 10000) * 10000;
-const updateAll = (tile, choice, valueNum) => {
+const updateEstimateValues = (choice) => {
   estimateChoice = choice;
   localStorage.setItem("patria-estimate-choice", estimateChoice);
-  const value = valueNum !== undefined ? round10k(valueNum) : getValueForChoice(tile, choice);
-  const main = tile.querySelector("[data-estimate-main]");
-  const label = tile.querySelector("[data-estimate-label]");
-  if (main) main.textContent = formatMoney(value);
-  if (label) label.textContent = estimateLabels[choice];
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
-    if (element.dataset[choice] !== undefined && element.dataset[choice] !== "") element.textContent = formatMoney(Number(element.dataset[choice]));
+    if (element.dataset[choice] !== undefined && element.dataset[choice] !== "") {
+      element.textContent = formatMoney(Number(element.dataset[choice]));
+    }
   });
-  const slider = tile.querySelector(".estimate-tile-slider");
-  if (slider) slider.value = value;
+  document.querySelectorAll("[data-estimate-label]").forEach((label) => {
+    if (label.closest("[data-estimate-tile]")) {
+      label.textContent = estimateLabels[choice];
+    } else {
+      label.textContent = "Valeur estimée";
+    }
+  });
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
   const choices = ["pessimistic", "prudent", "middle", "optimistic"];
   estimateChoice = choices[(choices.indexOf(estimateChoice) + 1) % choices.length];
-  localStorage.setItem("patria-estimate-choice", estimateChoice);
-  document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
-    updateAll(tile, estimateChoice, getValueForChoice(tile, estimateChoice));
-  });
+  updateEstimateValues(estimateChoice);
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
   const slider = tile.querySelector(".estimate-tile-slider");
+  const main = tile.querySelector("[data-estimate-main]");
+  const label = tile.querySelector("[data-estimate-label]");
   const values = {
-    pessimistic: getValueForChoice(tile, "pessimistic"),
-    prudent: getValueForChoice(tile, "prudent"),
-    middle: getValueForChoice(tile, "middle"),
-    optimistic: getValueForChoice(tile, "optimistic")
+    pessimistic: Number(tile.dataset.pessimistic || 0),
+    prudent: Number(tile.dataset.prudent || 0),
+    middle: Number(tile.dataset.middle || 0),
+    optimistic: Number(tile.dataset.optimistic || 0)
   };
   const findChoice = (num) => {
     const v = round10k(num);
     const order = ["pessimistic", "prudent", "middle", "optimistic"];
     let best = order[0];
-    let bestDiff = Math.abs(v - values[best]);
+    let bestDiff = Math.abs(v - round10k(values[best]));
     for (let i = 1; i < order.length; i++) {
-      const d = Math.abs(v - values[order[i]]);
+      const d = Math.abs(v - round10k(values[order[i]]));
       if (d < bestDiff) { bestDiff = d; best = order[i]; }
     }
     return best;
@@ -110,8 +107,19 @@ document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
     slider.addEventListener("input", () => {
       const v = round10k(slider.value);
       const choice = findChoice(v);
-      updateAll(tile, choice, v);
+      estimateChoice = choice;
+      localStorage.setItem("patria-estimate-choice", estimateChoice);
+      if (main) main.textContent = formatMoney(v);
+      if (label) label.textContent = estimateLabels[choice];
+      document.querySelectorAll("[data-estimate-value]").forEach((element) => {
+        if (element.dataset[choice] !== undefined && element.dataset[choice] !== "") {
+          element.textContent = formatMoney(Number(element.dataset[choice]));
+        }
+      });
     });
   }
-  updateAll(tile, estimateChoice, values[estimateChoice]);
+  if (main) main.textContent = formatMoney(round10k(values[estimateChoice]));
+  if (label) label.textContent = estimateLabels[estimateChoice];
+  if (slider) slider.value = round10k(values[estimateChoice]);
 });
+updateEstimateValues(estimateChoice);
