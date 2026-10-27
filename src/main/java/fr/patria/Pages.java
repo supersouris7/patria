@@ -98,8 +98,9 @@ final class Pages {
         BigDecimal contributionsTotal = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal prudentValue = prudentEstimate(property);
         BigDecimal optimisticValue = optimisticEstimate(property);
-        BigDecimal middleValue = middleEstimate(property);
-        BigDecimal pessimisticValue = property.estimate() == null || property.estimate().signum() == 0 ? prudentValue : property.estimate();
+        BigDecimal middleValue = prudentValue.add(optimisticValue).divide(BigDecimal.valueOf(2), java.math.RoundingMode.HALF_UP);
+        BigDecimal pessimisticValue = prudentValue.multiply(new BigDecimal("0.95"));
+        if (pessimisticValue.compareTo(BigDecimal.ZERO) < 0) pessimisticValue = BigDecimal.ZERO;
         BigDecimal sellingCostsRate = property.saleFeesRate() == null ? new BigDecimal("0.08") : property.saleFeesRate();
         BigDecimal recurringFeesAnnual = property.recurringFeesAnnual() == null ? BigDecimal.ZERO : property.recurringFeesAnnual();
         BigDecimal prudentNet = prudentValue.subtract(prudentValue.multiply(sellingCostsRate)).subtract(recurringFeesAnnual).subtract(remaining);
