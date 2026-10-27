@@ -64,44 +64,53 @@ const getValueForChoice = (tile, choice) => {
   if (tile.dataset[choice] !== undefined && tile.dataset[choice] !== "") return Number(tile.dataset[choice]);
   return 0;
 };
-const updateAll = (tile, choice, pos) => {
+const updateAll = (tile, choice, valueNum) => {
   estimateChoice = choice;
   localStorage.setItem("patria-estimate-choice", estimateChoice);
-  const value = getValueForChoice(tile, choice);
+  const value = valueNum !== undefined ? Number(valueNum) : getValueForChoice(tile, choice);
   const main = tile.querySelector("[data-estimate-main]");
   const label = tile.querySelector("[data-estimate-label]");
-  if (main) { main.textContent = formatMoney(value); main.dataset.value = value; }
+  if (main) main.textContent = formatMoney(value);
   if (label) label.textContent = estimateLabels[choice];
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
     if (element.dataset[choice] !== undefined && element.dataset[choice] !== "") element.textContent = formatMoney(Number(element.dataset[choice]));
   });
   const slider = tile.querySelector(".estimate-tile-slider");
-  if (slider && pos !== undefined) slider.value = pos;
+  if (slider) slider.value = value;
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
   const choices = ["pessimistic", "prudent", "middle", "optimistic"];
   estimateChoice = choices[(choices.indexOf(estimateChoice) + 1) % choices.length];
   localStorage.setItem("patria-estimate-choice", estimateChoice);
   document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
-    const pos = {pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[estimateChoice] || 375;
-    updateAll(tile, estimateChoice, pos);
+    updateAll(tile, estimateChoice, getValueForChoice(tile, estimateChoice));
   });
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
   const slider = tile.querySelector(".estimate-tile-slider");
-  const getChoiceFromPos = (pos) => {
-    const p = Number(pos);
-    if (p <= 250) return "pessimistic";
-    if (p <= 500) return "prudent";
-    if (p <= 750) return "middle";
-    return "optimistic";
+  const values = {
+    pessimistic: getValueForChoice(tile, "pessimistic"),
+    prudent: getValueForChoice(tile, "prudent"),
+    middle: getValueForChoice(tile, "middle"),
+    optimistic: getValueForChoice(tile, "optimistic")
   };
-  const getPosForChoice = (choice) => ({pessimistic: 125, prudent: 375, middle: 625, optimistic: 875}[choice] || 375);
+  const findChoice = (num) => {
+    const v = Number(num);
+    const order = ["pessimistic", "prudent", "middle", "optimistic"];
+    let best = order[0];
+    let bestDiff = Math.abs(v - values[best]);
+    for (let i = 1; i < order.length; i++) {
+      const d = Math.abs(v - values[order[i]]);
+      if (d < bestDiff) { bestDiff = d; best = order[i]; }
+    }
+    return best;
+  };
   if (slider) {
     slider.addEventListener("input", () => {
-      const choice = getChoiceFromPos(slider.value);
-      updateAll(tile, choice, slider.value);
+      const v = Number(slider.value);
+      const choice = findChoice(v);
+      updateAll(tile, choice, v);
     });
   }
-  updateAll(tile, estimateChoice, getPosForChoice(estimateChoice));
+  updateAll(tile, estimateChoice, values[estimateChoice]);
 });
