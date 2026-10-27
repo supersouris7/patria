@@ -65,6 +65,8 @@ final class Pages {
         BigDecimal borrowed = BigDecimal.ZERO;
         BigDecimal repaid = BigDecimal.ZERO;
         BigDecimal remaining = BigDecimal.ZERO;
+        BigDecimal nextMonthly = BigDecimal.ZERO;
+        LocalDate nextDueDate = null;
         for (Loan loan : loans) {
             List<ScheduleLine> lines = database.scheduleLines(loan.id());
             BigDecimal loanBorrowed = borrowed(loan, lines);
@@ -75,6 +77,23 @@ final class Pages {
             LocalDate latest = lines.stream().map(ScheduleLine::date).max(LocalDate::compareTo).orElse(null);
             long months = latest == null ? 0 : Math.max(0, ChronoUnit.MONTHS.between(LocalDate.now(), latest));
             rows.append("<tr><td><a href=\"/pret/").append(loan.id()).append("\">").append(escape(loan.name())).append("</a></td><td>").append(euro(loanBorrowed)).append("</td><td>").append(loan.annualRate()).append(" %</td><td>").append(euro(repaid(lines))).append("</td><td>").append(euro(loanRemaining)).append("</td><td>").append(progress(loanBorrowed, loanRemaining)).append("</td><td>").append(latest == null ? "-" : String.format(Locale.ROOT, "%.1f ans", months / 12.0)).append("</td></tr>");
+            for (ScheduleLine line : lines) {
+                if (line.type().equals("ECHEANCE") && !line.date().isBefore(LocalDate.now()) && (nextDueDate == null || line.date().isBefore(nextDueDate))) {
+                    nextDueDate = line.date();
+                }
+            }
+            if (loan.monthlyPayment() != null) nextMonthly = nextMonthly.add(loan.monthlyPayment());
+        }
+        if (nextMonthly.signum() == 0 && nextDueDate == null) {
+            for (Loan loan : loans) {
+                List<ScheduleLine> lines = database.scheduleLines(loan.id());
+                for (ScheduleLine line : lines) {
+                    if (line.type().equals("ECHEANCE") && line.amount() != null && !line.date().isBefore(LocalDate.now()) && (nextDueDate == null || line.date().isBefore(nextDueDate))) {
+                        nextDueDate = line.date();
+                        nextMonthly = nextMonthly.add(line.amount());
+                    }
+                }
+            }
         }
         BigDecimal contributionsTotal = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal prudentValue = prudentEstimate(property);
@@ -89,7 +108,9 @@ final class Pages {
         BigDecimal purchaseNet = property.purchase().subtract(property.purchase().multiply(sellingCostsRate)).subtract(recurringFeesAnnual).subtract(remaining);
         String contributionRows = contributions.stream().map(item -> "<tr><td><a href=\"/apport/" + item.id() + "\">" + escape(item.name()) + "</a></td><td>" + item.date() + "</td><td>" + euro(item.amount()) + "</td></tr>").reduce("", String::concat);
         String feeTitle = "Valeur brute moins frais de vente/fiscalite (" + (sellingCostsRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString()) + "%) moins frais recurrents annuels (" + recurringFeesAnnual.stripTrailingZeros().toPlainString() + " EUR) moins capital restant du.";
-        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">BIEN</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Achat le " + property.purchaseDate() + ".</p></div><a class=\"button\" href=\"/administration/bien/" + property.id() + "\">Administrer ce bien</a></section><section class=\"metrics\"><article class=\"metric\"><span>Prix d'achat</span><strong>" + euro(property.purchase()) + "</strong></article><article class=\"metric estimate-tile\" data-estimate-tile data-pessimistic=\"" + pessimisticValue + "\" data-prudent=\"" + prudentValue + "\" data-middle=\"" + middleValue + "\" data-optimistic=\"" + optimisticValue + "\"><span>Valeur du bien estimée</span><strong class=\"estimate-tile-value\" contenteditable=\"true\" spellcheck=\"false\" inputmode=\"decimal\" data-estimate-value>" + euro(prudentValue) + "</strong><div class=\"estimate-tile-controls\"><input class=\"estimate-tile-slider\" type=\"range\" min=\"0\" max=\"100\" step=\"25\" value=\"25\"><div class=\"estimate-tile-labels\"><span>Pessimiste</span><span>Prudent</span><span>Fourchette</span><span>Fourchette+</span><span>Optimiste</span></div><div class=\"estimate-tile-current\" data-estimate-label>Prudent</div></div></article><article class=\"metric\"><span>Montant a rembourser</span><strong>" + euro(remaining) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span title=\"Valeur brute estimee selon le scenario selectionne.\">Valeur brute</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue + "\" data-prudent=\"" + prudentValue + "\" data-middle=\"" + middleValue + "\" data-optimistic=\"" + optimisticValue + "\">" + euro(prudentValue) + "</strong></article><article class=\"metric\"><span title=\"" + escape(feeTitle) + "\">Valeur nette indicative</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue.subtract(pessimisticValue.multiply(sellingCostsRate)).subtract(recurringFeesAnnual).subtract(remaining) + "\" data-prudent=\"" + prudentNet + "\" data-middle=\"" + middleNet + "\" data-optimistic=\"" + optimisticNet + "\">" + euro(prudentNet) + "</strong></article><article class=\"metric\"><span title=\"Ecart entre le prix affiche et le prix d'achat. Hors frais de vente et fiscalite.\">Plus-value / moins-value</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue.subtract(property.purchase()) + "\" data-prudent=\"" + prudentValue.subtract(property.purchase()) + "\" data-middle=\"" + middleValue.subtract(property.purchase()) + "\" data-optimistic=\"" + optimisticValue.subtract(property.purchase()) + "\">" + euro(prudentValue.subtract(property.purchase())) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span>Montant emprunte</span><strong>" + euro(borrowed) + "</strong></article><article class=\"metric\"><span>Capital rembourse</span><strong>" + euro(repaid) + "</strong></article><article class=\"metric\"><span>Apports</span><strong>" + euro(contributionsTotal) + "</strong></article></section><section class=\"card section\"><div class=\"section-title\"><h2>Financements</h2><a class=\"button\" href=\"/administration/bien/" + property.id() + "/financements\">+ Ajouter</a></div>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Montant emprunte</th><th>Taux</th><th>Rembourse</th><th>Restant</th><th>Progression</th><th>Annees restantes</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section><section class=\"card section\"><h2>Apports</h2>" + (contributions.isEmpty() ? "<p class=\"empty\">Aucun apport.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Nom</th><th>Date</th><th>Montant</th></tr></thead><tbody>" + contributionRows + "</tbody></table></div>") + "</section></main>";
+        String nextMonthlyText = nextMonthly.signum() == 0 ? "-" : euro(nextMonthly);
+        String nextMonthlyDate = nextDueDate == null ? "" : nextDueDate.toString();
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/\">Retour a la vue d'ensemble</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">BIEN</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Achat le " + property.purchaseDate() + ".</p></div><a class=\"button\" href=\"/administration/bien/" + property.id() + "\">Administrer ce bien</a></section><section class=\"metrics\"><article class=\"metric\"><span>Prix d'achat</span><strong>" + euro(property.purchase()) + "</strong></article><article class=\"metric estimate-tile\" data-estimate-tile data-pessimistic=\"" + pessimisticValue + "\" data-prudent=\"" + prudentValue + "\" data-middle=\"" + middleValue + "\" data-optimistic=\"" + optimisticValue + "\"><span>Valeur du bien estimée</span><strong class=\"estimate-tile-value\" contenteditable=\"true\" spellcheck=\"false\" inputmode=\"decimal\" data-estimate-value>" + euro(prudentValue) + "</strong><div class=\"estimate-tile-controls\"><input class=\"estimate-tile-slider\" type=\"range\" min=\"0\" max=\"100\" step=\"25\" value=\"25\"><div class=\"estimate-tile-labels\"><span>Pessimiste</span><span>Prudent</span><span>Fourchette</span><span>Fourchette+</span><span>Optimiste</span></div><div class=\"estimate-tile-current\" data-estimate-label>Prudent</div></div></article><article class=\"metric\"><span>Montant a rembourser</span><strong>" + euro(remaining) + "</strong></article></section><section class=\"metrics\"><a class=\"metric\" href=\"/bien/" + property.id() + "/mensualites\" style=\"text-decoration:none;color:inherit\"><span>Prochaine mensualité</span><strong>" + nextMonthlyText + "</strong><small style=\"color:var(--muted);display:block;margin-top:8px\">" + (nextMonthlyDate.isEmpty() ? "" : "Échéance " + nextMonthlyDate) + " · Tous les crédits</small></a><article class=\"metric\"><span title=\"Valeur brute estimee selon le scenario selectionne.\">Valeur brute</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue + "\" data-prudent=\"" + prudentValue + "\" data-middle=\"" + middleValue + "\" data-optimistic=\"" + optimisticValue + "\">" + euro(prudentValue) + "</strong></article><article class=\"metric\"><span title=\"" + escape(feeTitle) + "\">Valeur nette indicative</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue.subtract(pessimisticValue.multiply(sellingCostsRate)).subtract(recurringFeesAnnual).subtract(remaining) + "\" data-prudent=\"" + prudentNet + "\" data-middle=\"" + middleNet + "\" data-optimistic=\"" + optimisticNet + "\">" + euro(prudentNet) + "</strong></article></section><section class=\"metrics\"><article class=\"metric\"><span title=\"Ecart entre le prix affiche et le prix d'achat. Hors frais de vente et fiscalite.\">Plus-value / moins-value</span><strong data-estimate-value data-pessimistic=\"" + pessimisticValue.subtract(property.purchase()) + "\" data-prudent=\"" + prudentValue.subtract(property.purchase()) + "\" data-middle=\"" + middleValue.subtract(property.purchase()) + "\" data-optimistic=\"" + optimisticValue.subtract(property.purchase()) + "\">" + euro(prudentValue.subtract(property.purchase())) + "</strong></article><article class=\"metric\"><span>Montant emprunte</span><strong>" + euro(borrowed) + "</strong></article><article class=\"metric\"><span>Capital rembourse</span><strong>" + euro(repaid) + "</strong></article><article class=\"metric\"><span>Apports</span><strong>" + euro(contributionsTotal) + "</strong></article></section><section class=\"card section\"><div class=\"section-title\"><h2>Financements</h2><a class=\"button\" href=\"/administration/bien/" + property.id() + "/financements\">+ Ajouter</a></div>" + (loans.isEmpty() ? "<p class=\"empty\">Aucun financement.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Pret</th><th>Montant emprunte</th><th>Taux</th><th>Rembourse</th><th>Restant</th><th>Progression</th><th>Annees restantes</th></tr></thead><tbody>" + rows + "</tbody></table></div>") + "</section><section class=\"card section\"><h2>Apports</h2>" + (contributions.isEmpty() ? "<p class=\"empty\">Aucun apport.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Nom</th><th>Date</th><th>Montant</th></tr></thead><tbody>" + contributionRows + "</tbody></table></div>") + "</section></main>";
         return layout(property.name() + " · Patria", content.replace("Financement restant", "Montant a rembourser"), csrf);
     }
 
@@ -226,6 +247,38 @@ final class Pages {
         if (borrowed.signum() <= 0) return "-";
         int percent = borrowed.subtract(remaining).max(BigDecimal.ZERO).multiply(BigDecimal.valueOf(100)).divide(borrowed, 0, RoundingMode.HALF_UP).min(BigDecimal.valueOf(100)).intValue();
         return "<div class=\"progress\" title=\"" + percent + " % rembourse\"><span style=\"width:" + percent + "%\"></span></div><small>" + percent + " %</small>";
+    }
+
+    static String monthlyPayments(Database database, Property property, List<Loan> loans, String csrf) {
+        StringBuilder rows = new StringBuilder();
+        java.util.TreeMap<String, java.util.LinkedHashMap<String, BigDecimal>> byMonth = new java.util.TreeMap<>();
+        LocalDate now = LocalDate.now();
+        for (Loan loan : loans) {
+            List<ScheduleLine> lines = database.scheduleLines(loan.id());
+            for (ScheduleLine line : lines) {
+                if (line.type().equals("ECHEANCE") && line.amount() != null && line.amount().signum() != 0) {
+                    String key = line.date().getYear() + "-" + String.format(Locale.ROOT, "%02d", line.date().getMonthValue());
+                    byMonth.computeIfAbsent(key, k -> new java.util.LinkedHashMap<>()).merge(loan.name(), line.amount(), BigDecimal::add);
+                }
+            }
+        }
+        for (java.util.Map.Entry<String, java.util.LinkedHashMap<String, BigDecimal>> monthEntry : byMonth.entrySet()) {
+            String monthKey = monthEntry.getKey();
+            String[] ym = monthKey.split("-");
+            LocalDate monthDate = LocalDate.of(Integer.parseInt(ym[0]), Integer.parseInt(ym[1]), 1);
+            BigDecimal total = monthEntry.getValue().values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            boolean passed = monthDate.plusMonths(1).isBefore(now) || monthDate.plusMonths(1).isEqual(now.withDayOfMonth(1)) && now.getDayOfMonth() > 0 && monthDate.isBefore(now.withDayOfMonth(1));
+            boolean passedLine = !monthDate.isAfter(now.withDayOfMonth(1));
+            String status = passedLine ? "<span class=\"paid\" title=\"Mensualité passée\">&#10003;</span>" : "-";
+            StringBuilder details = new StringBuilder();
+            for (java.util.Map.Entry<String, BigDecimal> loanEntry : monthEntry.getValue().entrySet()) {
+                details.append(escape(loanEntry.getKey())).append(" : ").append(euro(loanEntry.getValue())).append("<br>");
+            }
+            rows.append("<tr><td>").append(monthKey).append("</td><td>").append(status).append("</td><td>").append(euro(total)).append("</td><td>").append(details).append("</td></tr>");
+        }
+        String table = rows.length() == 0 ? "<p class=\"empty\">Aucune mensualité trouvée.</p>" : "<div class=\"table-wrap\"><table><thead><tr><th>Mois</th><th>Statut</th><th>Total</th><th>Par crédit</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+        String content = "<main class=\"shell\"><p><a class=\"back-link\" href=\"/bien/" + property.id() + "\">Retour au bien</a></p><section class=\"page-heading\"><div><p class=\"eyebrow\">MENSUALITÉS</p><h1>" + escape(property.name()) + "<span>.</span></h1><p class=\"muted\">Total par crédit par mois/année</p></div></section><section class=\"card section\"><div class=\"section-title\"><div><p class=\"eyebrow\">ÉCHÉANCES</p><h2>Mensualités</h2></div><span class=\"count\">" + byMonth.size() + "</span></div>" + table + "</section></main>";
+        return layout("Mensualités · " + property.name(), content, csrf);
     }
 
     static String message(String title, String text) {

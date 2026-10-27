@@ -154,6 +154,8 @@ public final class PatriaServer {
             loanPage(exchange, session, loanId(path));
         } else if (path.matches("/pret/\\d+/echeancier") && method.equals("POST")) {
             importSchedule(exchange, session, loanId(path.substring(0, path.lastIndexOf('/'))));
+        } else if (path.matches("/bien/\\d+/mensualites") && (method.equals("GET") || method.equals("HEAD"))) {
+            monthlyPaymentsPage(exchange, session, Long.parseLong(path.substring("/bien/".length(), path.lastIndexOf('/'))));
         } else {
             page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas."));
         }
@@ -250,6 +252,12 @@ public final class PatriaServer {
         Property property = database.property(propertyId);
         if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
         page(exchange, 200, Pages.propertyDetail(database, property, database.loansForProperty(propertyId), database.contributions(propertyId), session.csrf()));
+    }
+
+    private void monthlyPaymentsPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
+        Property property = database.property(propertyId);
+        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
+        page(exchange, 200, Pages.monthlyPayments(database, property, database.loansForProperty(propertyId), session.csrf()));
     }
 
     private void propertyAdministrationPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
