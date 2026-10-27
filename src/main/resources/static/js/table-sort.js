@@ -59,7 +59,6 @@ document.querySelectorAll("span, th").forEach((element) => {
 const estimateChoices = ["pessimistic", "prudent", "middle", "optimistic"];
 const estimateLabels = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
 let estimateChoice = estimateChoices.includes(localStorage.getItem("patria-estimate-choice")) ? localStorage.getItem("patria-estimate-choice") : "prudent";
-const getNumericValue = (text) => Number((text || "").replaceAll(/\s/g, "").replaceAll("\u202f", "").replace(",", ".").replace(/[^\d.-]/g, ""));
 const formatMoney = (value) => euroFormat.format(Number.isFinite(value) ? value : 0);
 const applyEstimateChoice = (choice) => {
   document.querySelectorAll("[data-estimate-value]").forEach((element) => {
@@ -70,10 +69,8 @@ const applyEstimateChoice = (choice) => {
   });
   document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
     const value = tile.dataset[choice];
-    const display = tile.querySelector(".estimate-tile-value");
+    const display = tile.querySelector("strong");
     if (display && value !== undefined) display.textContent = formatMoney(value);
-    const slider = tile.querySelector(".estimate-tile-slider");
-    if (slider) slider.value = estimateChoices.indexOf(choice);
   });
 };
 document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.addEventListener("click", () => {
@@ -82,38 +79,10 @@ document.querySelectorAll("[data-estimate-toggle]").forEach((button) => button.a
   applyEstimateChoice(estimateChoice);
 }));
 document.querySelectorAll("[data-estimate-tile]").forEach((tile) => {
-  const slider = tile.querySelector(".estimate-tile-slider");
-  const display = tile.querySelector(".estimate-tile-value");
-  const label = tile.querySelector("[data-estimate-label]");
-  const sync = (choice) => {
-    estimateChoice = choice;
-    localStorage.setItem("patria-estimate-choice", choice);
-    if (display && tile.dataset[choice] !== undefined) display.textContent = formatMoney(tile.dataset[choice]);
-    if (label) label.textContent = estimateLabels[choice] || "";
-    document.querySelectorAll("[data-estimate-value]").forEach((element) => {
-      if (element.dataset[choice] !== undefined && element !== display) element.textContent = formatMoney(element.dataset[choice]);
-    });
-  };
-  if (slider) slider.addEventListener("input", () => sync(estimateChoices[Number(slider.value)] || estimateChoice));
-  if (display) {
-    display.addEventListener("click", (event) => { event.preventDefault(); });
-    display.addEventListener("focus", () => { display.dataset.original = display.textContent; });
-    display.addEventListener("blur", () => {
-      const value = getNumericValue(display.textContent);
-      if (Number.isFinite(value) && value >= 0) {
-        tile.dataset[estimateChoice] = value;
-        document.querySelectorAll("[data-estimate-value]").forEach((element) => {
-          if (element !== display && element.dataset[estimateChoice] !== undefined) element.dataset[estimateChoice] = value;
-        });
-        display.textContent = formatMoney(value);
-      } else if (display.dataset.original) {
-        display.textContent = display.dataset.original;
-      }
-    });
-    display.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); display.blur(); }
-      if (event.key === "Escape") { event.preventDefault(); if (display.dataset.original) display.textContent = display.dataset.original; display.blur(); }
-    });
-  }
+  tile.addEventListener("click", () => {
+    estimateChoice = estimateChoices[(estimateChoices.indexOf(estimateChoice) + 1) % estimateChoices.length];
+    localStorage.setItem("patria-estimate-choice", estimateChoice);
+    applyEstimateChoice(estimateChoice);
+  });
 });
 applyEstimateChoice(estimateChoice);

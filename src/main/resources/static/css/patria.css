@@ -70,13 +70,9 @@ button.quiet:hover { background: var(--surface); color: var(--text); }
 .scenario span span { display: inline; }
 .scenario-icon { color: var(--blue); font-size: .95rem; margin-left: .28rem; }
 
-.estimate-tile { display: flex; flex-direction: column; cursor: default; }
-.estimate-tile-value { cursor: text; outline: none; }
-.estimate-tile-value:focus { background: rgba(53, 166, 255, .08); border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
-.estimate-tile-controls { margin-top: auto; padding-top: 14px; }
-.estimate-tile-slider { width: 100%; accent-color: var(--blue); }
-.estimate-tile-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; margin-top: 6px; }
-.estimate-tile-current { color: var(--blue); font-size: .72rem; font-weight: 700; margin-top: 8px; text-transform: uppercase; letter-spacing: .07em; }
+.estimate-tile { display: flex; flex-direction: column; text-align: left; width: 100%; font: inherit; }
+.estimate-tile strong { display: block; font-size: clamp(1.45rem, 2.4vw, 2rem); margin-top: 14px; }
+.estimate-tile-current { color: var(--blue); font-size: .72rem; font-weight: 700; margin-top: 10px; text-transform: uppercase; letter-spacing: .07em; }
 
 .section { margin-bottom: 14px; padding: 25px; }
 .section-title { align-items: center; display: flex; justify-content: space-between; }
