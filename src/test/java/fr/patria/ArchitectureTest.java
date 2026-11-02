@@ -28,7 +28,8 @@ class ArchitectureTest {
             "property", Set.of("common", "ui", "web", "storage"),
             "loan", Set.of("common", "ui", "web", "storage", "property"),
             "contribution", Set.of("common", "ui", "web", "storage", "property"),
-            "portfolio", Set.of("common", "ui", "web", "storage", "property", "loan", "contribution"));
+            "market", Set.of("common", "ui", "web", "storage", "property"),
+            "portfolio", Set.of("common", "ui", "web", "storage", "property", "loan", "contribution", "market"));
     private static final Pattern IMPORT = Pattern.compile("^import (?:static )?fr\\.patria\\.(\\w+)\\.", Pattern.MULTILINE);
 
     @Test

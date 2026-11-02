@@ -11,7 +11,8 @@ public record Notice(boolean error, String text) {
             "supprime", "Suppression effectuée.",
             "echeancier", "Échéancier importé.",
             "apport", "Apport enregistré.",
-            "renomme", "Prêt renommé.");
+            "renomme", "Prêt renommé.",
+            "marche", "Prix du marché actualisé.");
 
     public static Notice error(String text) {
         return new Notice(true, text);

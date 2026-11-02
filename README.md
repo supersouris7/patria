@@ -1,6 +1,6 @@
 # Patria
 
-Patria est une application web francaise auto-hebergee de suivi immobilier. Cette premiere version Java permet de se connecter, d'enregistrer des biens et d'y associer des prets. Elle ne se connecte a aucune banque ni service financier.
+Patria est une application web francaise auto-hebergee de suivi immobilier. Cette premiere version Java permet de se connecter, d'enregistrer des biens et d'y associer des prets. Elle ne se connecte a aucune banque ni service financier ; seules des donnees publiques (data.gouv.fr) sont consultees pour le prix du marche.
 
 ## Fonctionnalites actuelles
 
@@ -16,7 +16,21 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 
 La valeur nette indicative vaut : valeur estimee - frais de vente et fiscalite - capital restant du. Les frais recurrents annuels sont affiches a titre indicatif mais ne sont pas deduits.
 
-DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
+## Prix au m² et prix du marche
+
+Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquisition ÷ surface) et le compare au prix du marche de son secteur, calcule a partir des ventes reelles publiees par l'administration fiscale :
+
+- source : DVF geolocalisees (DGFiP, Etalab) et statistiques DVF mensuelles, sur data.gouv.fr, plus l'API Adresse (BAN) pour situer le bien ; aucune cle d'API ;
+- ventes du meme type (appartement ou maison), de surface comparable (±40 %), sur les 3 dernieres annees publiees ;
+- zone : 500 m autour de l'adresse, elargie a 1 km puis a la commune s'il y a moins de 10 ventes ;
+- chaque vente est actualisee a aujourd'hui avec l'evolution des prix du departement ; les valeurs extremes sont ecartees ;
+- resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien.
+
+Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr` et `tabular-api.data.gouv.fr`. Sans acces, le reste de l'application fonctionne normalement.
+
+Limites : DVF ne couvre pas l'Alsace-Moselle (57, 67, 68) ni Mayotte ; seules les ventes de la commune du bien (ou de son arrondissement a Paris, Lyon et Marseille) sont prises en compte.
+
+L'import/export JSON sera ajoute dans une version ulterieure.
 
 ## Importer un echeancier
 

@@ -1,6 +1,7 @@
 "use strict";
 
 const euroWhole = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "EUR", maximumFractionDigits: 0, minimumFractionDigits: 0});
+const percentFormat = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 1});
 const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const parseNumber = (text) => {
   const cleaned = String(text).replace(/[\s  €]/g, "").replace(",", ".");
@@ -93,6 +94,11 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const debt = Number(hero.dataset.debt || 0);
   const purchase = Number(hero.dataset.purchase || 0);
   const csrf = document.querySelector("input[name='csrf']")?.value || "";
+  const area = Number(hero.dataset.area || 0);
+  const market = Number(hero.dataset.market || 0);
+  const perSquareMeter = document.querySelector("[data-derived='sqm']");
+  const gap = document.querySelector("[data-derived='gap']");
+  const gapLabel = document.querySelector("[data-derived='gap-label']");
   const net = document.querySelector("[data-derived='net']");
   const gain = document.querySelector("[data-derived='gain']");
   let saved = Number(slider.value);
@@ -140,6 +146,17 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
       gain.classList.toggle("positive", difference > 0);
       gain.classList.toggle("negative", difference < 0);
     }
+    if (area > 0 && perSquareMeter) {
+      const sqm = Math.round(value / area);
+      perSquareMeter.textContent = euroWhole.format(sqm) + "/m²";
+      if (market > 0 && gap) {
+        const percent = Math.round(((sqm - market) / market) * 1000) / 10;
+        gap.textContent = (percent > 0 ? "+" : "") + percentFormat.format(percent) + "\u00a0%";
+        gap.classList.toggle("positive", percent > 0);
+        gap.classList.toggle("negative", percent < 0);
+        if (gapLabel) gapLabel.textContent = percent > 0 ? "au-dessus du marché" : percent < 0 ? "en dessous du marché" : "au prix du marché";
+      }
+    }
     return value;
   };
 
@@ -148,4 +165,21 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   chips.forEach((chip) => chip.addEventListener("click", () => scheduleSave(render(Number(chip.dataset.value)), 0)));
   window.addEventListener("pagehide", () => { if (timer) { clearTimeout(timer); save(Number(slider.value)); } });
   render(saved);
+});
+
+// ---- Prix du marche : calcul en arriere-plan, la page se recharge des qu'il est termine ----
+document.querySelectorAll("[data-market-pending]").forEach((element) => {
+  let attempts = 0;
+  const check = () => {
+    attempts += 1;
+    fetch(element.dataset.marketPending, {credentials: "same-origin", cache: "no-store"})
+      .then((response) => response.text())
+      .then((state) => {
+        if (state.trim() === "ready") window.location.reload();
+        else if (attempts < 40) setTimeout(check, 1500);
+        else element.textContent = "Le calcul prend plus de temps que prévu. Rechargez la page plus tard.";
+      })
+      .catch(() => { if (attempts < 40) setTimeout(check, 3000); });
+  };
+  setTimeout(check, 1500);
 });

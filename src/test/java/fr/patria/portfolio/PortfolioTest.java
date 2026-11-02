@@ -6,6 +6,7 @@ import fr.patria.TestData;
 import fr.patria.contribution.Contribution;
 import fr.patria.loan.LineType;
 import fr.patria.loan.ScheduleLine;
+import fr.patria.market.MarketService;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -33,7 +34,7 @@ class PortfolioTest {
                 new ScheduleLine(LocalDate.of(2026, 7, 1), LineType.INSTALLMENT, new BigDecimal("1000"), new BigDecimal("501"), null, null, new BigDecimal("198999"), new BigDecimal("3"))));
         stores.contributions().insert(new Contribution(0, studio, "Épargne", new BigDecimal("20000"), LocalDate.of(2021, 1, 1)));
 
-        Portfolio.Overview overview = new Portfolio(stores.properties(), stores.loans(), stores.contributions(), TestData.CLOCK).overview();
+        Portfolio.Overview overview = new Portfolio(stores.properties(), stores.loans(), stores.contributions(), new MarketService(stores.database(), TestData.CLOCK), TestData.CLOCK).overview();
 
         assertAmount("450000", overview.value());
         assertAmount("199500", overview.debt());
@@ -42,7 +43,9 @@ class PortfolioTest {
         assertAmount("100000", overview.gain());
         assertAmount("20000", overview.contributed());
         assertAmount("1000", overview.nextMonth().total());
-        assertEquals("Fourchette", overview.properties().stream().filter(s -> s.property().id() == house).findFirst().orElseThrow().scenario());
+        Portfolio.PropertySummary summary = overview.properties().stream().filter(s -> s.property().id() == house).findFirst().orElseThrow();
+        assertEquals("Fourchette", summary.scenario());
+        assertAmount("3665", summary.squareMeter().value()); // 350 000 / 95,5 m²
         stores.database().close();
     }
 }

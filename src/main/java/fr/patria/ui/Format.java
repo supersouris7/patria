@@ -37,6 +37,16 @@ public final class Format {
         return (value.signum() > 0 ? "+" : "") + euroWhole(value);
     }
 
+    /** Prix au m² arrondi a l'euro : « 4 520 €/m² ». */
+    public static String perSquareMeter(BigDecimal value) {
+        return value == null ? DASH : euroWhole(value) + "/m²";
+    }
+
+    /** Ecart en pourcentage signe : « +12,5 % », « −3 % ». */
+    public static String signedPercent(BigDecimal value) {
+        return value == null ? DASH : (value.signum() > 0 ? "+" : "") + percent(value);
+    }
+
     public static String number(BigDecimal value, int maxDecimals) {
         if (value == null) return DASH;
         NumberFormat format = NumberFormat.getNumberInstance(FR);

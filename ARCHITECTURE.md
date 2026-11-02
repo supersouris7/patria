@@ -13,6 +13,7 @@ fr.patria
 ├─ portfolio ............... PATRIMOINE : vues de synthèse (vue d'ensemble, fiche d'un bien, mensualités, administration)
 │   ├─ loan ................ PRÊTS : import CSV des échéanciers, calculs à date, pages d'un prêt
 │   ├─ contribution ........ APPORTS : apports personnels d'un bien
+│   ├─ market .............. MARCHÉ : prix au m² du secteur (ventes DVF de data.gouv.fr), calculé en arrière-plan
 │   └─ property ............ BIENS : modèle, scénarios de valeur, formulaire d'un bien
 │
 ├─ auth .................... connexion, déconnexion, limitation des tentatives
@@ -31,7 +32,7 @@ fr.patria
 | `web` | `common`, `ui` |
 | `auth` | `common`, `ui`, `web` |
 | `property` | `common`, `ui`, `web`, `storage` |
-| `loan`, `contribution` | idem + `property` |
+| `loan`, `contribution`, `market` | idem + `property` |
 | `portfolio` | tous les modules ci-dessus |
 
 Ces règles sont **vérifiées par un test** (`ArchitectureTest`). Un import interdit fait échouer le build.
@@ -76,6 +77,9 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment est géré le curseur côté navigateur ? | `static/js/app.js`, enregistré par `PropertyController.saveSelectedValue` |
 | Où sont les textes des messages de confirmation ? | `ui/Notice` |
 | Où est le schéma de la base ? | `storage/Migrations.createSchema` |
+| Comment est calculé le prix du marché ? | `market/MarketAnalysis` (filtres, zone, médiane), `market/PriceIndex` (actualisation) |
+| Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
+| Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
 
 ## Base de données
 
@@ -113,6 +117,17 @@ Ajouter une page « Charges » à un bien :
 5. Déclarer le module dans `ArchitectureTest` (il peut utiliser `property`) et, si la vue d'ensemble doit
    l'afficher, l'ajouter aux dépendances de `portfolio`.
 
+## Appels réseau
+
+Seul le module `market` appelle l'extérieur, via l'interface `MarketData` (implémentée par `DataGouvClient`).
+Ces appels ne bloquent jamais une page : le calcul est lancé en arrière-plan par `MarketService`, la fiche du bien
+affiche l'ancien résultat ou « calcul en cours » et se recharge quand il est terminé (`app.js`). La vue d'ensemble
+lit seulement le résultat en base. Une panne de data.gouv.fr n'efface pas un résultat valable ; l'indice
+départemental (API lente) est facultatif : sans lui, le prix est affiché « non actualisé » et recalculé le lendemain.
+
+L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit figurer dans le `Dockerfile`
+(`java.net.http` et `jdk.crypto.ec` pour HTTPS, `jdk.localedata` pour les formats français).
+
 ## Tests
 
 | Niveau | Fichiers | Ce qui est vérifié |
@@ -120,6 +135,7 @@ Ajouter une page « Charges » à un bien :
 | Calculs | `LoanMathTest`, `ValuationTest`, `CsvScheduleParserTest` | règles métier, sans base ni HTTP |
 | Stockage | `PropertyRepositoryTest`, `MigrationsTest` | montants exacts, cascade, migration d'une ancienne base |
 | Service | `PortfolioTest` | sommes de la vue d'ensemble |
+| Marché | `MarketAnalysisTest`, `DvfSalesTest`, `MarketServiceTest`, `JsonTest` | filtres, zone, actualisation, cache, pannes réseau (source simulée, sans réseau) |
 | HTML | `HtmlTest` | échappement |
 | Application | `AppTest` | vrai serveur HTTP : connexion, CSRF, parcours complet, 404 |
 | Architecture | `ArchitectureTest` | sens des dépendances entre modules |

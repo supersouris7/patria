@@ -131,6 +131,15 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .chip.active { background: var(--blue-tint); border-color: var(--blue); color: var(--text); }
 .chip.active span { color: var(--blue); }
 
+/* ---- Prix au m² ---- */
+.source { border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; line-height: 1.5; margin: 4px 0 0; padding-top: 12px; }
+.section .metrics { margin-bottom: 12px; }
+.pending { align-items: center; display: flex; gap: 10px; }
+.pending::before { animation: spin 1s linear infinite; border: 2px solid var(--line-strong); border-radius: 50%; border-top-color: var(--blue); content: ""; height: 14px; width: 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.section .metric { background: var(--input); }
+td small.positive, td small.negative { font-weight: 650; }
+
 /* ---- Tableaux ---- */
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }

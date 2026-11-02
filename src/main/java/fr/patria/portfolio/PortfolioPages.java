@@ -14,9 +14,11 @@ import static fr.patria.ui.Format.plain;
 
 import fr.patria.contribution.Contribution;
 import fr.patria.loan.LoanMath;
+import fr.patria.market.MarketPrice;
 import fr.patria.portfolio.Portfolio.LoanSummary;
 import fr.patria.portfolio.Portfolio.Overview;
 import fr.patria.portfolio.Portfolio.PropertySummary;
+import fr.patria.portfolio.Portfolio.SquareMeter;
 import fr.patria.property.Property;
 import fr.patria.property.PropertyNav;
 import fr.patria.property.Valuation;
@@ -41,11 +43,13 @@ final class PortfolioPages {
             return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
                     "Ajoutez votre premier bien pour suivre sa valeur, ses prêts et vos apports.", Components.button("/administration/bien/nouveau", "+ Ajouter un bien"))));
         }
-        Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s</tr>",
+        Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
                 cell(summary.property().commune().isBlank() ? Format.DASH : summary.property().commune()),
                 number(summary.property().area(), area(summary.property().area())),
                 number(summary.value(), Html.of("%s<small>%s</small>", euroWhole(summary.value()), summary.scenario())),
+                number(summary.squareMeter().value(), Format.perSquareMeter(summary.squareMeter().value())),
+                marketCell(summary.squareMeter()),
                 number(summary.debt(), euroWhole(summary.debt())))).collect(Html.joining());
         Html content = Html.concat(heading,
                 Components.metrics(4,
@@ -60,7 +64,7 @@ final class PortfolioPages {
                         tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(overview.purchase()), null),
                         tile("Apports", "Somme des apports personnels enregistrés.", euroWhole(overview.contributed()), null)),
                 Components.card("Biens", overview.properties().size(), Components.button("/administration/bien/nouveau", "+ Ajouter un bien"),
-                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Capital restant dû"), rows, true, false)));
+                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)));
         return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, content);
     }
 
@@ -90,6 +94,7 @@ final class PortfolioPages {
                         tile("Capital emprunté", "Total des déblocages des prêts.", euroWhole(summary.borrowed()), null),
                         tile("Capital remboursé", "Part de capital des échéances déjà passées.", euroWhole(summary.repaid()), null),
                         tile("Apports", "Somme des apports personnels enregistrés pour ce bien.", euroWhole(summary.contributed()), null)),
+                marketCard(summary, csrf),
                 Components.card("Prêts", summary.loans().size(), Html.concat(
                         Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
                         Components.button("/bien/" + property.id() + "/prets/nouveau", "+ Ajouter")), loansTable(summary.loans())),
@@ -109,13 +114,14 @@ final class PortfolioPages {
                 chip("Fourchette", s.middle(), summary.value(), "Milieu entre estimations prudente et optimiste"),
                 chip("Optimiste", s.optimistic(), summary.value(), "Estimation optimiste"));
         return Html.of("""
-                <section class="card hero" data-estimate data-save="/bien/%s/valeur" data-fees="%s" data-debt="%s" data-purchase="%s">
+                <section class="card hero" data-estimate data-save="/bien/%s/valeur" data-fees="%s" data-debt="%s" data-purchase="%s" data-area="%s" data-market="%s">
                 <div class="hero-head"><div><span class="metric-label">Valeur retenue</span><strong class="hero-value" data-estimate-value>%s</strong>
                 <span class="muted">%s <span class="save-state" data-save-state aria-live="polite"></span></span></div>
                 <span class="scenario-badge" data-estimate-label>%s</span></div>
                 <input class="slider" type="range" min="%s" max="%s" step="10000" value="%s" aria-label="Valeur retenue">
                 <div class="chips">%s</div></section>""",
                 property.id(), plain(property.saleFeesRate()), plain(summary.debt()), plain(property.purchase()),
+                plain(property.area()), summary.squareMeter().market() != null && summary.squareMeter().market().isAvailable() ? plain(summary.squareMeter().market().median()) : "",
                 euroWhole(summary.value()), caption, summary.scenario(),
                 plain(s.sliderMin()), plain(s.sliderMax()), plain(summary.value()), chips);
     }
@@ -211,6 +217,66 @@ final class PortfolioPages {
                         summary.contributions().isEmpty() ? Html.raw("<p class=\"empty\">Aucun apport.</p>")
                                 : Components.table(List.of("Apport", "Date", "#Montant", ""), contributionRows, false, false)));
         return Layout.adminPage("Prêts et apports · " + property.name() + " · Patria", csrf, PropertyNav.of(property, PropertyNav.Tab.FINANCING), content);
+    }
+
+    // ---- Prix au m² ----
+
+    /** Carte « Prix au m² » : le bien face aux ventes reelles du secteur (DVF). */
+    private static Html marketCard(PropertySummary summary, String csrf) {
+        Property property = summary.property();
+        SquareMeter sqm = summary.squareMeter();
+        MarketPrice market = sqm.market();
+        Html refresh = Html.of("<form method=\"post\" action=\"/bien/%s/marche\">%s<button class=\"secondary\" type=\"submit\">Actualiser</button></form>",
+                property.id(), Components.csrfField(csrf));
+        String propertySub = property.area() == null ? "Renseignez la surface du bien" : sqm.purchase() == null ? null : "Acquisition : " + Format.perSquareMeter(sqm.purchase());
+        Html propertyTile = Html.of("<article class=\"metric\">%s<strong data-derived=\"sqm\">%s</strong>%s</article>",
+                Components.label("Votre bien", "Valeur retenue ÷ surface. Suit le curseur."), Format.perSquareMeter(sqm.value()),
+                propertySub == null ? Html.EMPTY : Html.of("<small>%s</small>", propertySub));
+        if (property.address().isBlank() && property.commune().isBlank()) {
+            return Components.card("Prix au m²", null, Html.EMPTY, Html.concat(Components.metrics(4, propertyTile),
+                    Html.of("<p class=\"muted\">Renseignez l'adresse ou la commune du bien pour le comparer aux ventes du secteur. <a href=\"/administration/bien/%s\">Modifier le bien</a></p>", property.id())));
+        }
+        // Pendant un calcul en arriere-plan, app.js interroge l'etat et recharge la page des qu'il est termine.
+        Html watcher = sqm.refreshing() ? Html.of("<p class=\"muted pending\" data-market-pending=\"/bien/%s/marche/etat\">%s</p>", property.id(),
+                market != null && market.isAvailable() ? "Mise à jour en cours…" : "Calcul en cours à partir des ventes publiques, quelques secondes…") : Html.EMPTY;
+        if (market == null || !market.isAvailable()) {
+            Html message = market == null || market.isPending() ? Html.EMPTY : Html.of("<p class=\"muted\">%s</p>", market.message());
+            return Html.of("<div id=\"marche\">%s</div>", Components.card("Prix au m²", null, sqm.refreshing() ? Html.EMPTY : refresh,
+                    Html.concat(Components.metrics(4, propertyTile), watcher, message, source(market))));
+        }
+        String gapSub = sqm.gapPercent() == null ? null : sqm.gapPercent().signum() > 0 ? "au-dessus du marché" : sqm.gapPercent().signum() < 0 ? "en dessous du marché" : "au prix du marché";
+        Html tiles = Components.metrics(4,
+                propertyTile,
+                tile("Marché", "Prix médian au m² des ventes comparables, actualisé.", Format.perSquareMeter(market.median()),
+                        "de " + Format.perSquareMeter(market.low()) + " à " + Format.perSquareMeter(market.high())),
+                Html.of("<article class=\"metric\">%s<strong data-derived=\"gap\" class=\"%s\">%s</strong><small data-derived=\"gap-label\">%s</small></article>",
+                        Components.label("Écart", "Écart entre le prix au m² de votre bien et la médiane du marché."),
+                        sqm.gapPercent() == null ? "" : sqm.gapPercent().signum() > 0 ? "positive" : sqm.gapPercent().signum() < 0 ? "negative" : "",
+                        Format.signedPercent(sqm.gapPercent()), gapSub == null ? "" : gapSub),
+                tile("Valeur au prix du marché", "Prix médian au m² × surface du bien.", sqm.marketValue() == null ? Format.DASH : euroWhole(sqm.marketValue()),
+                        property.area() == null ? "Surface inconnue" : "médiane × " + area(property.area())));
+        return Html.of("<div id=\"marche\">%s</div>", Components.card("Prix au m²", null, sqm.refreshing() ? Html.EMPTY : refresh, Html.concat(tiles, watcher, source(market))));
+    }
+
+    /** Explication du calcul et de la source, sous la carte. */
+    private static Html source(MarketPrice market) {
+        if (market == null || market.isPending()) return Html.raw("<p class=\"source\">Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr.</p>");
+        if (!market.isAvailable()) {
+            return Html.of("<p class=\"source\">Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr · vérifié le %s</p>", date(market.computedOn()));
+        }
+        String adjustment = market.indexMonth() == null ? " (non actualisées : indice du département momentanément indisponible, nouvel essai demain)"
+                : ", actualisées à " + Format.month(market.indexMonth()).toLowerCase() + " selon l'évolution des prix du département";
+        return Html.of("<p class=\"source\">Médiane de %s ventes de surface comparable %s (%s), %s%s. Valeurs extrêmes écartées.<br>"
+                        + "Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr · calculé le %s, mis à jour tous les 30 jours.</p>",
+                market.salesCount(), market.scope() == null ? "" : market.scope().label(), market.place(), market.period(), adjustment, date(market.computedOn()));
+    }
+
+    private static Html marketCell(SquareMeter sqm) {
+        MarketPrice market = sqm.market();
+        if (market == null || !market.isAvailable()) return Html.raw("<td class=\"num\">–</td>");
+        Html gap = sqm.gapPercent() == null ? Html.EMPTY : Html.of("<small class=\"%s\">%s</small>",
+                sqm.gapPercent().signum() > 0 ? "positive" : sqm.gapPercent().signum() < 0 ? "negative" : "", Format.signedPercent(sqm.gapPercent()) + " vs marché");
+        return Html.of("<td class=\"num\" data-sort=\"%s\">%s%s</td>", plain(market.median()), Format.perSquareMeter(market.median()), gap);
     }
 
     // ---- Tuiles partagees ----

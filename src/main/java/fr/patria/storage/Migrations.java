@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 2;
+    public static final int LATEST = 3;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -37,6 +37,7 @@ public final class Migrations {
             backup(connection, database, version, clock);
             if (version < 1) toVersion1(connection);
             if (version < 2) toVersion2(connection);
+            if (version < 3) toVersion3(connection);
             return null;
         });
     }
@@ -88,8 +89,39 @@ public final class Migrations {
                         amount_cents INTEGER NOT NULL,
                         contribution_date TEXT NOT NULL
                     )""".formatted(suffix));
-            if (suffix.isEmpty()) createIndexes(statement);
+            if (suffix.isEmpty()) {
+                createIndexes(statement);
+                createMarketPrices(statement);
+            }
         }
+    }
+
+    /** Prix du marche calcule pour chaque bien (cache de 30 jours, voir module market). */
+    private static void createMarketPrices(Statement statement) throws SQLException {
+        statement.execute("""
+                CREATE TABLE IF NOT EXISTS market_prices (
+                    property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+                    fingerprint TEXT NOT NULL,
+                    computed_on TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    median_cents INTEGER,
+                    low_cents INTEGER,
+                    high_cents INTEGER,
+                    sales_count INTEGER NOT NULL DEFAULT 0,
+                    scope TEXT,
+                    place TEXT,
+                    period TEXT,
+                    index_month TEXT,
+                    message TEXT
+                )""");
+    }
+
+    /** Version 3 : prix du marche (DVF) par bien. */
+    private static void toVersion3(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            createMarketPrices(statement);
+        }
+        setUserVersion(connection, 3);
     }
 
     private static void createIndexes(Statement statement) throws SQLException {
