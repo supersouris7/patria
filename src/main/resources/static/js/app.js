@@ -4,6 +4,8 @@ const euroWhole = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "
 const multipleFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const percentFormat = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 1});
 const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+/** Montant signe avec le vrai signe moins : « +20 000 € », « −417 € ». */
+const signedEuro = (amount) => (amount > 0 ? "+" : amount < 0 ? "−" : "") + euroWhole.format(Math.abs(amount));
 const parseNumber = (text) => {
   const cleaned = String(text).replace(/[\s  €]/g, "").replace(",", ".");
   return cleaned === "" ? NaN : Number(cleaned);
@@ -100,12 +102,19 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const perSquareMeter = document.querySelector("[data-derived='sqm']");
   const gap = document.querySelector("[data-derived='gap']");
   const gapLabel = document.querySelector("[data-derived='gap-label']");
-  const net = document.querySelector("[data-derived='net']");
+  const all = (name) => Array.from(document.querySelectorAll("[data-derived='" + name + "']"));
+  const setAll = (name, text, sign) => all(name).forEach((element) => {
+    element.textContent = text;
+    if (sign !== undefined) {
+      element.classList.toggle("positive", sign > 0);
+      element.classList.toggle("negative", sign < 0);
+    }
+  });
   const gainBase = Number(hero.dataset.gainBase || 0);
   const invested = Number(hero.dataset.invested || 0);
-  const realGain = document.querySelector("[data-derived='real-gain']");
+
   const multiple = document.querySelector("[data-derived='multiple']");
-  const gain = document.querySelector("[data-derived='gain']");
+
   let saved = Number(slider.value);
   let timer = null;
 
@@ -144,26 +153,22 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
     label.textContent = match ? match.dataset.scenario : "Personnalisée";
     chips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.value) === value));
     slider.style.setProperty("--fill", (max > min ? ((value - min) / (max - min)) * 100 : 0) + "%");
-    if (net) net.textContent = euroWhole.format(value - value * fees - debt);
-    if (gain) {
-      const difference = value - purchase;
-      gain.textContent = (difference > 0 ? "+" : "") + euroWhole.format(difference);
-      gain.classList.toggle("positive", difference > 0);
-      gain.classList.toggle("negative", difference < 0);
-    }
-    if (realGain) {
-      const amount = value - value * fees + gainBase;
-      realGain.textContent = (amount > 0 ? "+" : "") + euroWhole.format(amount);
-      realGain.classList.toggle("positive", amount > 0);
-      realGain.classList.toggle("negative", amount < 0);
-    }
+    const afterSale = value - value * fees;
+    setAll("value", euroWhole.format(value));
+    setAll("sale-fees", (value * fees > 0 ? "− " : "") + euroWhole.format(value * fees));
+    setAll("after-sale", euroWhole.format(afterSale));
+    setAll("net", euroWhole.format(afterSale - debt));
+    const difference = value - purchase;
+    setAll("gain", signedEuro(difference), difference);
+    const realAmount = afterSale + gainBase;
+    setAll("real-gain", signedEuro(realAmount), realAmount);
     if (multiple && invested > 0) multiple.textContent = "× " + multipleFormat.format((value - value * fees - debt) / invested) + " · ";
     if (area > 0 && perSquareMeter) {
       const sqm = Math.round(value / area);
       perSquareMeter.textContent = euroWhole.format(sqm) + "/m²";
       if (market > 0 && gap) {
         const percent = Math.round(((sqm - market) / market) * 1000) / 10;
-        gap.textContent = (percent > 0 ? "+" : "") + percentFormat.format(percent) + "\u00a0%";
+        gap.textContent = (percent > 0 ? "+" : percent < 0 ? "−" : "") + percentFormat.format(Math.abs(percent)) + "\u00a0%";
         gap.classList.toggle("positive", percent > 0);
         gap.classList.toggle("negative", percent < 0);
         if (gapLabel) gapLabel.textContent = percent > 0 ? "au-dessus du marché" : percent < 0 ? "en dessous du marché" : "au prix du marché";

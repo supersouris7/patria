@@ -5,6 +5,8 @@ import static fr.patria.ui.Components.link;
 import static fr.patria.ui.Components.number;
 import static fr.patria.ui.Components.sortedCell;
 import static fr.patria.ui.Components.tile;
+
+import fr.patria.ui.Components.Line;
 import static fr.patria.ui.Format.area;
 import static fr.patria.ui.Format.date;
 import static fr.patria.ui.Format.euro;
@@ -56,19 +58,11 @@ final class PortfolioPages {
                 Components.metrics(4,
                         tile("Valeur estimée", "Somme des valeurs retenues sur chaque bien. Ajustez-les depuis la fiche de chaque bien.",
                                 euroWhole(overview.value()), Format.plural(overview.properties().size(), "bien", "biens")),
-                        netTile(overview.net(), "Somme, bien par bien, de la valeur retenue − frais de vente et fiscalité − capital restant dû.", null),
                         realGainTile(overview.returns()),
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui sur l'ensemble des prêts, d'après les échéanciers.",
-                                euroWhole(overview.debt()), Format.plural(overview.loanCount(), "prêt", "prêts"))),
-                Components.metrics(4,
-                        gainTile(overview.gain()),
-                        creditCostTile(overview.returns()),
-                        expensesTile(overview.returns()),
-                        rentsTile(overview.returns())),
-                Components.metrics(3,
-                        nextMonthTile(overview.nextMonth(), null),
-                        tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(overview.purchase()), null),
-                        tile("Apports", "Somme des apports personnels enregistrés.", euroWhole(overview.contributed()), null)),
+                                euroWhole(overview.debt()), Format.plural(overview.loanCount(), "prêt", "prêts")),
+                        nextMonthTile(overview.nextMonth(), null)),
+                balance(overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY,
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)));
@@ -92,18 +86,10 @@ final class PortfolioPages {
                 Components.metrics(4,
                         netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
                         realGainTile(summary.returns()),
-                        tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()), null),
+                        tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()),
+                                summary.borrowed().signum() == 0 ? null : "sur " + euroWhole(summary.borrowed()) + " empruntés"),
                         nextMonthTile(summary.nextMonth(), "/bien/" + property.id() + "/mensualites")),
-                Components.metrics(4,
-                        gainTile(summary.gain()),
-                        creditCostTile(summary.returns()),
-                        expensesTile(summary.returns()),
-                        rentsTile(summary.returns())),
-                Components.metrics(4,
-                        tile("Coût d'acquisition", "Montant total engagé pour acheter le bien : prix, frais et travaux.", euroWhole(property.purchase()), date(property.purchaseDate())),
-                        tile("Capital emprunté", "Total des déblocages des prêts.", euroWhole(summary.borrowed()), null),
-                        tile("Capital remboursé", "Part de capital des échéances déjà passées.", euroWhole(summary.repaid()), null),
-                        tile("Apports", "Somme des apports personnels enregistrés pour ce bien.", euroWhole(summary.contributed()), null)),
+                balance(summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(), summary.contributed(), summary.returns()),
                 marketCard(summary, csrf),
                 Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
                         loansTable(summary.loans())),
@@ -263,7 +249,7 @@ final class PortfolioPages {
                 Components.label("Votre bien", "Valeur retenue ÷ surface. Suit le curseur."), Format.perSquareMeter(sqm.value()),
                 propertySub == null ? Html.EMPTY : Html.of("<small>%s</small>", propertySub));
         if (property.address().isBlank() && property.commune().isBlank()) {
-            return Components.card("Prix au m²", null, Html.EMPTY, Html.concat(Components.metrics(4, propertyTile),
+            return Components.card("Prix au m²", null, Html.EMPTY, Html.concat(Components.strip(propertyTile),
                     Html.of("<p class=\"muted\">Renseignez l'adresse ou la commune du bien pour le comparer aux ventes du secteur. <a href=\"/administration/bien/%s\">Modifier le bien</a></p>", property.id())));
         }
         // Pendant un calcul en arriere-plan, app.js interroge l'etat et recharge la page des qu'il est termine.
@@ -272,10 +258,10 @@ final class PortfolioPages {
         if (market == null || !market.isAvailable()) {
             Html message = market == null || market.isPending() ? Html.EMPTY : Html.of("<p class=\"muted\">%s</p>", market.message());
             return Html.of("<div id=\"marche\">%s</div>", Components.card("Prix au m²", null, sqm.refreshing() ? Html.EMPTY : refresh,
-                    Html.concat(Components.metrics(4, propertyTile), watcher, message, source(market))));
+                    Html.concat(Components.strip(propertyTile), watcher, message, source(market))));
         }
         String gapSub = sqm.gapPercent() == null ? null : sqm.gapPercent().signum() > 0 ? "au-dessus du marché" : sqm.gapPercent().signum() < 0 ? "en dessous du marché" : "au prix du marché";
-        Html tiles = Components.metrics(4,
+        Html tiles = Components.strip(
                 propertyTile,
                 tile("Marché", "Prix médian au m² des ventes comparables, actualisé.", Format.perSquareMeter(market.median()),
                         "de " + Format.perSquareMeter(market.low()) + " à " + Format.perSquareMeter(market.high())),
@@ -316,11 +302,6 @@ final class PortfolioPages {
         return Html.of("<article class=\"metric\">%s<strong data-derived=\"net\">%s</strong>%s</article>", Components.label("Valeur nette indicative", hint), euroWhole(net), sub);
     }
 
-    private static Html gainTile(BigDecimal gain) {
-        String tone = gain.signum() < 0 ? "negative" : gain.signum() > 0 ? "positive" : "";
-        return Html.of("<article class=\"metric\">%s<strong data-derived=\"gain\" class=\"%s\">%s</strong></article>",
-                Components.label("Plus-value latente", "Valeur retenue − coût d'acquisition. Hors frais de vente et fiscalité."), tone, Format.signedEuroWhole(gain));
-    }
 
     /** Partie de l'enrichissement reel qui ne depend pas de la valeur : le curseur n'a qu'a ajouter valeur × (1 − frais). */
     private static BigDecimal gainBase(PropertySummary summary) {
@@ -337,19 +318,47 @@ final class PortfolioPages {
                 tone, Format.signedEuroWhole(returns.realGain()), multiple, euroWhole(returns.invested()));
     }
 
-    private static Html creditCostTile(Returns returns) {
-        return tile("Coût du crédit payé", "Intérêts, assurance et frais des échéances déjà passées.", euroWhole(returns.creditCost()), "depuis le premier déblocage");
+    /**
+     * Carte « Bilan » : detail du calcul de la valeur nette et de l'enrichissement reel, puis les reperes utiles.
+     * Les valeurs qui dependent de la valeur retenue portent un {@code data-derived} : le curseur les met a jour.
+     */
+    private static Html balance(BigDecimal value, BigDecimal net, BigDecimal debt, BigDecimal purchase, BigDecimal gain, BigDecimal contributed, Returns returns) {
+        BigDecimal saleFees = value.subtract(net).subtract(debt);
+        BigDecimal afterSale = value.subtract(saleFees);
+        Html netBreakdown = Components.breakdown("Valeur nette", List.of(
+                Line.of("Valeur retenue", null, derived("value", euroWhole(value))),
+                Line.of("Frais de vente et fiscalité", "Pourcentage défini sur chaque bien (8 % par défaut).", derived("sale-fees", minus(saleFees))),
+                Line.of("Capital restant dû", null, Html.text(minus(debt))),
+                Line.total("Valeur nette indicative", "Ce que vous toucheriez en vendant aujourd'hui.", derived("net", euroWhole(net))),
+                Line.of("Plus-value latente", "Valeur retenue − coût d'acquisition, hors frais de vente.", derived("gain", Format.signedEuroWhole(gain)))));
+        Html gainBreakdown = Components.breakdown("Enrichissement réel depuis l'achat", List.of(
+                Line.of("Valeur après frais de vente", null, derived("after-sale", euroWhole(afterSale))),
+                Line.of("Coût d'acquisition", "Prix, frais de notaire et travaux.", Html.text(minus(purchase))),
+                Line.of("Coût du crédit payé", "Intérêts, assurance et frais des échéances déjà passées.", Html.text(minus(returns.creditCost()))),
+                Line.of("Charges payées", "Taxe foncière, copropriété, assurance… Les années non saisies sont estimées.", Html.text(minus(returns.expenses()))),
+                Line.of("Loyers perçus", "Loyers hors charges perçus, au jour près.", Html.text(plus(returns.rents()))),
+                Line.total("Enrichissement réel", null, derived("real-gain", Format.signedEuroWhole(returns.realGain())))));
+        String rent = returns.monthlyRent().signum() == 0 ? (returns.rents().signum() == 0 ? "Non loué" : "Vacant") : euroWhole(returns.monthlyRent()) + "/mois";
+        Html landmarks = Components.breakdown("Repères", List.of(
+                Line.of("Apports", null, Html.text(euroWhole(contributed))),
+                Line.of("Argent investi", "Apport, mensualités et charges payées, moins les loyers perçus.", Html.text(euroWhole(returns.invested()))),
+                Line.of("Multiple", "Valeur nette ÷ argent investi.", Html.text(Format.multiple(returns.multiple()))),
+                Line.of("Loyer actuel", null, Html.text(rent)),
+                Line.of("Rendement brut", "Loyer annuel actuel ÷ coût d'acquisition (biens loués).", Html.text(Format.percent(returns.grossYield()))),
+                Line.of("Charges de l'année", null, Html.text(euroWhole(returns.yearExpenses())))));
+        return Components.card("Bilan", null, Html.EMPTY, Html.of("<div class=\"balance\">%s%s%s</div>", netBreakdown, gainBreakdown, landmarks));
     }
 
-    private static Html expensesTile(Returns returns) {
-        return tile("Charges payées", "Taxe foncière, copropriété, assurance… depuis l'achat. Les années non saisies sont estimées.",
-                euroWhole(returns.expenses()), returns.yearExpenses().signum() == 0 ? "Aucune charge saisie" : euroWhole(returns.yearExpenses()) + " cette année");
+    private static Html derived(String name, String text) {
+        return Html.of("<span data-derived=\"%s\">%s</span>", name, text);
     }
 
-    private static Html rentsTile(Returns returns) {
-        String sub = returns.monthlyRent().signum() == 0 ? (returns.rents().signum() == 0 ? "Non loué" : "Vacant actuellement")
-                : euroWhole(returns.monthlyRent()) + "/mois" + (returns.grossYield() == null ? "" : " · rendement brut " + Format.percent(returns.grossYield()));
-        return tile("Loyers perçus", "Loyers hors charges perçus depuis le début des locations, estimés au jour près.", euroWhole(returns.rents()), sub);
+    private static String minus(BigDecimal amount) {
+        return amount.signum() == 0 ? euroWhole(amount) : "− " + euroWhole(amount);
+    }
+
+    private static String plus(BigDecimal amount) {
+        return amount.signum() == 0 ? euroWhole(amount) : "+ " + euroWhole(amount);
     }
 
     private static Html nextMonthTile(LoanMath.Month next, String detailLink) {

@@ -131,13 +131,30 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .chip.active { background: var(--blue-tint); border-color: var(--blue); color: var(--text); }
 .chip.active span { color: var(--blue); }
 
+/* ---- Bilan ---- */
+.balance { display: grid; gap: 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.breakdown h3 { color: var(--muted); font-size: .72rem; letter-spacing: .06em; margin-bottom: 10px; text-transform: uppercase; }
+.breakdown dl { margin: 0; }
+.breakdown .line { align-items: baseline; border-top: 1px solid var(--line); display: flex; gap: 12px; justify-content: space-between; padding: 7px 0; }
+.breakdown .line:first-child { border-top: 0; }
+.breakdown dt { color: var(--text-soft); font-size: .88rem; }
+.breakdown dt[title] { cursor: help; text-decoration: underline dotted var(--line-strong); text-underline-offset: 3px; }
+.breakdown dd { font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; white-space: nowrap; }
+.breakdown .line.total { border-top: 1px solid var(--line-strong); }
+.breakdown .line.total dt, .breakdown .line.total dd { color: var(--text); font-weight: 800; }
+
+/* ---- Rangee de chiffres sans cadres ---- */
+.metrics.strip { gap: 0; }
+.metrics.strip .metric { background: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; min-height: 0; padding: 2px 18px; }
+.metrics.strip .metric:first-child { border-left: 0; padding-left: 0; }
+
 /* ---- Prix au m² ---- */
 .source { border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; line-height: 1.5; margin: 4px 0 0; padding-top: 12px; }
 .section .metrics { margin-bottom: 12px; }
 .pending { align-items: center; display: flex; gap: 10px; }
 .pending::before { animation: spin 1s linear infinite; border: 2px solid var(--line-strong); border-radius: 50%; border-top-color: var(--blue); content: ""; height: 14px; width: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.section .metric { background: var(--input); }
+
 td small.positive, td small.negative { font-weight: 650; }
 
 /* ---- Tableaux ---- */
@@ -217,10 +234,13 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 
 /* ---- Responsive ---- */
 @media (max-width: 960px) {
+    .balance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .metrics.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
+    .balance { grid-template-columns: 1fr; gap: 18px; }
+    .metrics.strip .metric { border-left: 0; padding: 6px 0; }
     .metrics.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
     .admin-layout { gap: 16px; grid-template-columns: 1fr; }

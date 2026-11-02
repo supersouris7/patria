@@ -34,7 +34,7 @@ public final class Format {
 
     /** Montant signe : « +20 000 € », « −5 000 € ». */
     public static String signedEuroWhole(BigDecimal value) {
-        return (value.signum() > 0 ? "+" : "") + euroWhole(value);
+        return value.signum() > 0 ? "+" + euroWhole(value) : value.signum() < 0 ? "−" + euroWhole(value.negate()) : euroWhole(value);
     }
 
     /** Prix au m² arrondi a l'euro : « 4 520 €/m² ». */
@@ -44,7 +44,8 @@ public final class Format {
 
     /** Ecart en pourcentage signe : « +12,5 % », « −3 % ». */
     public static String signedPercent(BigDecimal value) {
-        return value == null ? DASH : (value.signum() > 0 ? "+" : "") + percent(value);
+        if (value == null) return DASH;
+        return value.signum() > 0 ? "+" + percent(value) : value.signum() < 0 ? "−" + percent(value.negate()) : percent(value);
     }
 
     /** Multiple a deux decimales : 1 -> « × 1,00 ». */

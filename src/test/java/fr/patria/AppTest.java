@@ -129,7 +129,7 @@ class AppTest {
         assertTrue(page.contains("Enrichissement réel"));
         assertTrue(page.contains("Loyers perçus"));
         assertTrue(page.contains("500\u00a0€/mois"));
-        assertTrue(page.contains("rendement brut 6\u00a0%"));
+        assertTrue(page.contains("Rendement brut</dt><dd>6\u00a0%</dd>"), "500 × 12 / 100 000");
     }
 
     @Test

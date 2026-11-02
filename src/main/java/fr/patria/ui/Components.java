@@ -64,6 +64,30 @@ public final class Components {
         return Html.of("<section class=\"metrics cols-%s\">%s</section>", columns, Html.concat(tiles));
     }
 
+    /** Rangee de chiffres compacte, sans cadres (a l'interieur d'une carte). */
+    public static Html strip(Html... items) {
+        return Html.of("<section class=\"metrics cols-%s strip\">%s</section>", items.length, Html.concat(items));
+    }
+
+    /** Ligne d'un detail de calcul ; {@code total} met la ligne en evidence (resultat). */
+    public record Line(String label, String hint, Html value, boolean total) {
+        public static Line of(String label, String hint, Html value) {
+            return new Line(label, hint, value, false);
+        }
+
+        public static Line total(String label, String hint, Html value) {
+            return new Line(label, hint, value, true);
+        }
+    }
+
+    /** Detail d'un calcul, ligne a ligne, comme un releve : « Valeur − frais − dette = valeur nette ». */
+    public static Html breakdown(String title, List<Line> lines) {
+        Html rows = lines.stream().map(line -> Html.of("<div class=\"line%s\"><dt%s>%s</dt><dd>%s</dd></div>",
+                Html.raw(line.total() ? " total" : ""), line.hint() == null ? Html.EMPTY : Html.of(" title=\"%s\"", line.hint()),
+                line.label(), line.value())).collect(Html.joining());
+        return Html.of("<div class=\"breakdown\"><h3>%s</h3><dl>%s</dl></div>", title, rows);
+    }
+
     public static Html progress(int percent) {
         return Html.of("""
                 <div class="progress-cell"><div class="progress" role="progressbar" aria-valuenow="%s" aria-valuemin="0" aria-valuemax="100">\
