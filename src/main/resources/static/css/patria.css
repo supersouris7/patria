@@ -131,18 +131,34 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .chip.active { background: var(--blue-tint); border-color: var(--blue); color: var(--text); }
 .chip.active span { color: var(--blue); }
 
-/* ---- Bilan ---- */
-.balance { display: grid; gap: 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.breakdown h3 { color: var(--muted); font-size: .72rem; letter-spacing: .06em; margin-bottom: 10px; text-transform: uppercase; }
+/* ---- Bilan : taille des chiffres selon leur role ---- */
+.balance { display: grid; gap: 32px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.breakdown h3 { color: var(--blue); font-size: .7rem; letter-spacing: .1em; margin-bottom: 8px; text-transform: uppercase; }
 .breakdown dl { margin: 0; }
-.breakdown .line { align-items: baseline; border-top: 1px solid var(--line); display: flex; gap: 12px; justify-content: space-between; padding: 7px 0; }
+.breakdown .line { align-items: baseline; border-top: 1px solid var(--line); display: flex; gap: 12px; justify-content: space-between; padding: 6px 0; }
 .breakdown .line:first-child { border-top: 0; }
-.breakdown dt { color: var(--text-soft); font-size: .88rem; }
-.breakdown dt[title] { cursor: help; text-decoration: underline dotted var(--line-strong); text-underline-offset: 3px; }
-.breakdown dt { flex-shrink: 0; }
+.breakdown dt { color: var(--text-soft); flex-shrink: 0; font-size: .86rem; }
+.breakdown dt .hint { cursor: help; text-decoration: underline dotted var(--line-strong); text-underline-offset: 3px; }
+.breakdown dt .aside { color: var(--muted); font-size: .76rem; font-weight: 600; margin-left: 4px; }
 .breakdown dd { font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; text-align: right; }
-.breakdown .line.total { border-top: 1px solid var(--line-strong); }
-.breakdown .line.total dt, .breakdown .line.total dd { color: var(--text); font-weight: 800; }
+/* Point de depart : chiffre affirme */
+.breakdown .line.lead dt { color: var(--text); font-weight: 650; }
+.breakdown .line.lead dd { color: var(--text); font-size: 1.12rem; font-weight: 750; }
+/* Ajouts et retraits : plus discrets */
+.breakdown .line.detail dd { color: var(--text-soft); font-size: .92rem; font-weight: 600; }
+/* Resultat : le plus grand, separe par un trait plus marque */
+.breakdown .line.total { border-top: 2px solid var(--line-strong); margin-top: 4px; padding-top: 10px; }
+.breakdown .line.total dt { color: var(--text); font-size: .92rem; font-weight: 800; }
+.breakdown .line.total dd { color: var(--text); font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; }
+.breakdown .line.total dd .positive { color: var(--success); }
+.breakdown .line.total dd .negative { color: var(--danger); }
+/* Chiffre deja dans une tuile : garde le trait du calcul, sans mise en valeur */
+.breakdown .line.echo dt { color: var(--text-soft); font-size: .86rem; font-weight: 650; }
+.breakdown .line.echo dd { color: var(--text-soft); font-size: .95rem; font-weight: 700; letter-spacing: 0; }
+.breakdown .line.echo dd .positive, .breakdown .line.echo dd .negative { color: inherit; }
+/* Reperes : petit, lecture rapide */
+.breakdown .line.note dt { font-size: .82rem; }
+.breakdown .line.note dd { color: var(--text-soft); font-size: .88rem; font-weight: 650; }
 
 /* ---- Rangee de chiffres sans cadres ---- */
 .metrics.strip { gap: 0; }

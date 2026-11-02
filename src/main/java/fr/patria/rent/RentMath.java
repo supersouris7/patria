@@ -44,6 +44,12 @@ public final class RentMath {
                 .map(RentPeriod::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /** Loyer de reference en cours aujourd'hui (0 si le bien n'est pas la residence principale). */
+    public static BigDecimal currentReference(List<RentPeriod> periods, LocalDate today) {
+        return current(periods, today).stream().filter(period -> period.kind() == Occupancy.OWNER)
+                .map(RentPeriod::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     /** Usage du bien aujourd'hui, ou {@code null} si aucune periode n'est en cours (vacant). */
     public static RentPeriod currentPeriod(List<RentPeriod> periods, LocalDate today) {
         List<RentPeriod> current = current(periods, today);

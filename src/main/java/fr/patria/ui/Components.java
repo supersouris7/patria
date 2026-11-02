@@ -69,22 +69,47 @@ public final class Components {
         return Html.of("<section class=\"metrics cols-%s strip\">%s</section>", items.length, Html.concat(items));
     }
 
-    /** Ligne d'un detail de calcul ; {@code total} met la ligne en evidence (resultat). */
-    public record Line(String label, String hint, Html value, boolean total) {
+    /**
+     * Ligne d'un detail de calcul. Le niveau fixe la taille du chiffre : point de depart, detail (ajout ou retrait),
+     * total (resultat, le plus grand) ou simple repere.
+     *
+     * @param aside precision affichee en petit a cote du libelle (par exemple « 1 800 €/mois »), ou {@code null}
+     * @param inTile chiffre deja affiche dans une tuile : garde sa place dans le calcul, sans mise en valeur
+     */
+    public record Line(String label, String hint, Html value, Level level, String aside, boolean inTile) {
+        public enum Level { LEAD, DETAIL, TOTAL, NOTE }
+
+        public static Line lead(String label, String hint, Html value) {
+            return new Line(label, hint, value, Level.LEAD, null, false);
+        }
+
         public static Line of(String label, String hint, Html value) {
-            return new Line(label, hint, value, false);
+            return new Line(label, hint, value, Level.DETAIL, null, false);
         }
 
         public static Line total(String label, String hint, Html value) {
-            return new Line(label, hint, value, true);
+            return new Line(label, hint, value, Level.TOTAL, null, false);
+        }
+
+        public static Line note(String label, String hint, Html value) {
+            return new Line(label, hint, value, Level.NOTE, null, false);
+        }
+
+        public Line aside(String text) {
+            return new Line(label, hint, value, level, text, inTile);
+        }
+
+        /** Chiffre deja mis en avant dans une tuile de la meme page. */
+        public Line echo() {
+            return new Line(label, hint, value, level, aside, true);
         }
     }
 
     /** Detail d'un calcul, ligne a ligne, comme un releve : « Valeur − frais − dette = valeur nette ». */
     public static Html breakdown(String title, List<Line> lines) {
-        Html rows = lines.stream().map(line -> Html.of("<div class=\"line%s\"><dt%s>%s</dt><dd>%s</dd></div>",
-                Html.raw(line.total() ? " total" : ""), line.hint() == null ? Html.EMPTY : Html.of(" title=\"%s\"", line.hint()),
-                line.label(), line.value())).collect(Html.joining());
+        Html rows = lines.stream().map(line -> Html.of("<div class=\"line %s%s\"><dt><span%s>%s</span>%s</dt><dd>%s</dd></div>",
+                line.level().name().toLowerCase(), line.inTile() ? " echo" : "", line.hint() == null ? Html.EMPTY : Html.of(" class=\"hint\" title=\"%s\"", line.hint()), line.label(),
+                line.aside() == null ? Html.EMPTY : Html.of(" <small class=\"aside\">%s</small>", line.aside()), line.value())).collect(Html.joining());
         return Html.of("<div class=\"breakdown\"><h3>%s</h3><dl>%s</dl></div>", title, rows);
     }
 

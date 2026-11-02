@@ -83,6 +83,7 @@ public final class Portfolio {
      * @param rents         loyers percus depuis l'achat
      * @param savedRent     loyers economises en occupant le bien comme residence principale (loyer de reference)
      * @param monthlyRent   loyer mensuel percu en cours (0 si non loue)
+     * @param referenceRent loyer de reference mensuel en cours (0 si le bien n'est pas la residence principale)
      * @param occupancy     usage actuel : « Location », « Résidence principale », « Vacant » ou « Non renseigné »
      * @param invested      argent sorti de la poche : apport + capital rembourse + cout du credit + charges − loyers percus et economises
      * @param realGain      valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers percus et economises
@@ -90,7 +91,7 @@ public final class Portfolio {
      * @param grossYield    loyer annuel en cours ÷ cout d'acquisition, en % ; {@code null} si non loue
      */
     public record Returns(BigDecimal creditCost, BigDecimal expenses, BigDecimal yearExpenses, BigDecimal rents, BigDecimal savedRent,
-                          BigDecimal monthlyRent, String occupancy, BigDecimal invested, BigDecimal realGain, BigDecimal multiple, BigDecimal grossYield) {
+                          BigDecimal monthlyRent, BigDecimal referenceRent, String occupancy, BigDecimal invested, BigDecimal realGain, BigDecimal multiple, BigDecimal grossYield) {
         public boolean isPrincipalResidence() {
             return "Résidence principale".equals(occupancy);
         }
@@ -154,7 +155,8 @@ public final class Portfolio {
                 + (rented > 0 ? rented + (rented > 1 ? " biens loués" : " bien loué") : "");
         Returns returns = new Returns(sum(summaries, summary -> summary.returns().creditCost()), sum(summaries, summary -> summary.returns().expenses()),
                 sum(summaries, summary -> summary.returns().yearExpenses()), sum(summaries, summary -> summary.returns().rents()),
-                sum(summaries, summary -> summary.returns().savedRent()), monthlyRent, occupancy.isEmpty() ? "Non renseigné" : occupancy,
+                sum(summaries, summary -> summary.returns().savedRent()), monthlyRent, sum(summaries, summary -> summary.returns().referenceRent()),
+                occupancy.isEmpty() ? "Non renseigné" : occupancy,
                 invested, sum(summaries, summary -> summary.returns().realGain()), multiple(net, invested), grossYield(monthlyRent, rentedPurchase));
         return new Overview(summaries, value, net, value.subtract(purchase), sum(summaries, PropertySummary::debt), purchase,
                 sum(summaries, PropertySummary::contributed), allLoans.size(), LoanMath.nextMonth(allLoans, schedules, today()), returns,
@@ -230,7 +232,7 @@ public final class Portfolio {
         BigDecimal realGain = afterSale.subtract(property.purchase()).subtract(creditCost).subtract(expensesPaid).add(rentsReceived).add(savedRent)
                 .setScale(2, RoundingMode.HALF_UP);
         return new Returns(creditCost, expensesPaid, ExpenseMath.currentYear(expenses, property.purchaseDate(), today), rentsReceived, savedRent,
-                monthlyRent, occupancy, invested, realGain, multiple(net, invested), grossYield(monthlyRent, property.purchase()));
+                monthlyRent, RentMath.currentReference(rents, today), occupancy, invested, realGain, multiple(net, invested), grossYield(monthlyRent, property.purchase()));
     }
 
     private static BigDecimal multiple(BigDecimal net, BigDecimal invested) {
