@@ -151,6 +151,8 @@ public final class PatriaServer {
             withProperty(exchange, id, property -> page(exchange, 200, Pages.propertyForm(property, Pages.propertyValues(property), success, csrf)));
         } else if (read && path.matches("/administration/bien/\\d+/financements")) {
             withProperty(exchange, id, property -> financingPage(exchange, property, success, Map.of(), csrf, 200));
+        } else if (write && path.matches("/bien/\\d+/valeur")) {
+            saveSelectedValue(exchange, session, id);
         } else if (write && path.matches("/administration/bien/\\d+/proprietes")) {
             updateProperty(exchange, session, id);
         } else if (write && path.matches("/administration/bien/\\d+/supprimer")) {
@@ -282,6 +284,19 @@ public final class PatriaServer {
                 estimateLow, estimateHigh, estimateDate, saleFees, optionalAmount(form, "recurring_fees_annual", "Frais récurrents annuels"));
     }
 
+    /** Enregistrement en direct du curseur d'estimation (appel fetch depuis la fiche du bien). */
+    private void saveSelectedValue(HttpExchange exchange, Session session, long id) throws IOException {
+        Map<String, String> form = checkedForm(exchange, session);
+        withProperty(exchange, id, property -> {
+            Valuation.Scenarios scenarios = Valuation.of(property);
+            BigDecimal value = Valuation.round(amount(form, "value", "Valeur retenue"));
+            value = value.max(Valuation.sliderMin(scenarios)).min(Valuation.sliderMax(scenarios));
+            database.setSelectedValue(id, value);
+            exchange.getResponseHeaders().set("Cache-Control", "no-store");
+            exchange.sendResponseHeaders(204, -1);
+        });
+    }
+
     private void addProperty(HttpExchange exchange, Session session) throws IOException {
         Map<String, String> form = checkedForm(exchange, session);
         try {
@@ -296,7 +311,10 @@ public final class PatriaServer {
         Map<String, String> form = checkedForm(exchange, session);
         withProperty(exchange, id, current -> {
             try {
-                database.updateProperty(propertyFromForm(form, id, current));
+                Property updated = propertyFromForm(form, id, current);
+                // La valeur retenue reste valable tant que les scenarios du bien ne changent pas.
+                boolean sameScenarios = Valuation.of(updated).equals(Valuation.of(current));
+                database.updateProperty(updated.withSelectedValue(sameScenarios ? current.selectedValue() : null));
                 redirect(exchange, "/bien/" + id + "?ok=enregistre");
             } catch (IllegalArgumentException exception) {
                 page(exchange, 400, Pages.propertyForm(current, form, Pages.Notice.error(exception.getMessage()), session.csrf()));

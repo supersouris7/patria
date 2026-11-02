@@ -75,6 +75,17 @@ class DatabaseTest {
     }
 
     @Test
+    void storesSelectedValueOnTheProperty() {
+        Database database = database();
+        long id = database.addProperty(property("Curseur"));
+        assertNull(database.property(id).selectedValue());
+
+        database.setSelectedValue(id, new BigDecimal("320000"));
+
+        assertEquals(0, new BigDecimal("320000").compareTo(database.property(id).selectedValue()));
+    }
+
+    @Test
     void roundsFloatingPointAmountsToCents() {
         Database database = database();
         long id = database.addProperty(new Property(0, "Arrondi", "Maison", "", "", "", BigDecimal.ZERO, new BigDecimal("100000.10"), LocalDate.of(2020, 1, 1),

@@ -117,6 +117,8 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .hero-head { align-items: flex-start; display: flex; gap: 16px; justify-content: space-between; margin-bottom: 18px; }
 .hero-value { display: block; font-size: clamp(2rem, 5vw, 2.9rem); font-variant-numeric: tabular-nums; line-height: 1.15; margin: 6px 0 4px; }
 .hero .muted { font-size: .85rem; }
+.save-state { color: var(--success); font-size: .8rem; margin-left: 6px; }
+.save-state.error { color: var(--danger); }
 .scenario-badge { background: var(--blue-tint); border: 1px solid rgb(58 168 255 / 30%); border-radius: 99px; color: var(--blue); font-size: .78rem; font-weight: 800; padding: 4px 12px; white-space: nowrap; }
 .slider { --fill: 50%; -webkit-appearance: none; appearance: none; background: linear-gradient(to right, var(--blue) var(--fill), var(--line-strong) var(--fill)); border-radius: 99px; cursor: pointer; height: 6px; margin: 0 0 16px; width: 100%; }
 .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; background: var(--text); border: 0; border-radius: 50%; box-shadow: 0 0 0 5px rgb(58 168 255 / 25%); height: 20px; width: 20px; }

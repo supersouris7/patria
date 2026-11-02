@@ -63,37 +63,35 @@ final class Pages {
         BigDecimal debt = debtByProperty.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal purchase = properties.stream().map(Property::purchase).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal contributed = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Valuation.Scenarios scenarios = Valuation.of(properties);
-        BigDecimal feesRate = Valuation.saleFeesRate(properties);
         LoanMath.Month next = LoanMath.nextMonth(loans, schedules, today);
 
+        // Le patrimoine global additionne la valeur retenue sur chaque bien : pas de curseur a ce niveau.
+        BigDecimal value = BigDecimal.ZERO;
+        BigDecimal net = BigDecimal.ZERO;
         StringBuilder rows = new StringBuilder();
         for (Property property : properties) {
-            BigDecimal low = Valuation.prudent(property);
-            BigDecimal high = Valuation.optimistic(property);
+            BigDecimal retained = Valuation.retained(property);
             BigDecimal propertyDebt = debtByProperty.getOrDefault(property.id(), BigDecimal.ZERO);
+            value = value.add(retained);
+            net = net.add(Valuation.net(retained, Valuation.saleFeesRate(property), propertyDebt));
             rows.append("<tr><td><a href=\"/bien/").append(property.id()).append("\">").append(escape(property.name())).append("</a><small>").append(escape(property.kind())).append("</small></td>")
                     .append("<td>").append(property.commune().isBlank() ? "–" : escape(property.commune())).append("</td>")
                     .append(numCell(property.area(), area(property.area())))
-                    .append(numCell(low, low.compareTo(high) == 0 ? euroWhole(low) : euroWhole(low) + " – " + euroWhole(high)))
+                    .append(numCell(retained, euroWhole(retained) + "<small>" + escape(Valuation.scenarioName(property)) + "</small>"))
                     .append(numCell(propertyDebt, euroWhole(propertyDebt))).append("</tr>");
         }
-        String table = "<div class=\"table-wrap\"><table class=\"data sortable\"><thead><tr><th>Bien</th><th>Commune</th><th class=\"num\">Surface</th><th class=\"num\">Estimation</th><th class=\"num\">Capital restant dû</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+        String table = "<div class=\"table-wrap\"><table class=\"data sortable\"><thead><tr><th>Bien</th><th>Commune</th><th class=\"num\">Surface</th><th class=\"num\">Valeur retenue</th><th class=\"num\">Capital restant dû</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
 
         String content = heading("Votre patrimoine immobilier", "Vue d'ensemble", "", "")
-                + (scenarios.isEmpty()
-                        ? "<section class=\"card empty-state\"><h2>Aucune valeur renseignée</h2><p class=\"muted\">Indiquez un coût d'acquisition ou une estimation pour vos biens.</p><a class=\"button\" href=\"/administration\">Administration</a></section>"
-                        : estimateHero("dashboard", scenarios, feesRate, debt, purchase,
-                        "Somme des estimations de vos " + properties.size() + (properties.size() > 1 ? " biens" : " bien") + "."))
                 + "<section class=\"metrics cols-4\">"
-                + derivedTiles(scenarios, feesRate, debt, purchase, "")
+                + tile("Valeur estimée", "Somme des valeurs retenues sur chaque bien. Ajustez-les depuis la fiche de chaque bien.", euroWhole(value),
+                        properties.size() + (properties.size() > 1 ? " biens" : " bien"))
+                + derivedTiles(net, value.subtract(purchase), "Somme, bien par bien, de la valeur retenue − frais de vente et fiscalité − capital restant dû.", "")
                 + tile("Capital restant dû", "Capital restant dû à aujourd'hui sur l'ensemble des prêts, d'après les échéanciers.", euroWhole(debt), loans.size() + (loans.size() > 1 ? " prêts" : " prêt"))
+                + "</section><section class=\"metrics cols-3\">"
                 + nextMonthTile(next, null)
-                + "</section><section class=\"metrics cols-4\">"
                 + tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(purchase), "")
                 + tile("Apports", "Somme des apports personnels enregistrés.", euroWhole(contributed), "")
-                + tile("Biens", null, String.valueOf(properties.size()), "")
-                + tile("Frais de vente moyens", "Moyenne des taux de frais de vente/fiscalité, pondérée par la valeur de chaque bien.", Format.ratioPercent(feesRate), "")
                 + "</section>"
                 + card("Biens", properties.size(), "<a class=\"button\" href=\"/administration/bien/nouveau\">+ Ajouter un bien</a>", table);
         return layout("Vue d'ensemble · Patria", Nav.OVERVIEW, shell(content), csrf);
@@ -121,7 +119,8 @@ final class Pages {
                     .append("<td data-sort=\"").append(status.remainingMonths()).append("\">").append(Format.duration(status.remainingMonths())).append("</td></tr>");
         }
         BigDecimal contributed = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Valuation.Scenarios scenarios = Valuation.of(List.of(property));
+        Valuation.Scenarios scenarios = Valuation.of(property);
+        BigDecimal retained = Valuation.retained(property);
         BigDecimal feesRate = Valuation.saleFeesRate(property);
         LoanMath.Month next = LoanMath.nextMonth(loans, schedules, today);
 
@@ -137,12 +136,13 @@ final class Pages {
 
         String hero = scenarios.isEmpty()
                 ? "<section class=\"card empty-state\"><h2>Aucune valeur renseignée</h2><p class=\"muted\">Indiquez le coût d'acquisition ou une estimation pour suivre la valeur de ce bien.</p><a class=\"button\" href=\"/administration/bien/" + property.id() + "\">Renseigner</a></section>"
-                : estimateHero("bien-" + property.id(), scenarios, feesRate, debt, property.purchase(),
+                : estimateHero("/bien/" + property.id() + "/valeur", scenarios, retained, Valuation.scenarioName(property), feesRate, debt, property.purchase(),
                         property.estimate().signum() == 0 ? "Aucune estimation : la valeur retenue est le coût d'acquisition." : "Estimation du " + date(property.estimateDate()) + ".");
         String content = "<p><a class=\"back-link\" href=\"/\">← Vue d'ensemble</a></p>"
                 + heading("Bien", property.name(), subtitle, actions) + notice(notice) + hero
                 + "<section class=\"metrics cols-4\">"
-                + derivedTiles(scenarios, feesRate, debt, property.purchase(), recurring)
+                + derivedTiles(Valuation.net(retained, feesRate, debt), retained.subtract(property.purchase()),
+                        "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(feesRate) + ") − capital restant dû.", recurring)
                 + tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(debt), "")
                 + nextMonthTile(next, "/bien/" + property.id() + "/mensualites")
                 + "</section><section class=\"metrics cols-4\">"
@@ -376,31 +376,30 @@ final class Pages {
 
     // ---------------------------------------------------------------- Composants
 
-    private static String estimateHero(String key, Valuation.Scenarios s, BigDecimal feesRate, BigDecimal debt, BigDecimal purchase, String caption) {
-        BigDecimal min = s.pessimistic().subtract(new BigDecimal("50000")).max(BigDecimal.ZERO);
-        BigDecimal max = s.optimistic().add(new BigDecimal("50000"));
-        String chips = chip("pessimistic", "Pessimiste", s.pessimistic(), "Estimation prudente − 5 %")
-                + chip("prudent", "Prudent", s.prudent(), "Estimation prudente")
-                + chip("middle", "Fourchette", s.middle(), "Milieu entre estimations prudente et optimiste")
-                + chip("optimistic", "Optimiste", s.optimistic(), "Estimation optimiste");
-        return "<section class=\"card hero\" data-estimate=\"" + escape(key) + "\" data-fees=\"" + plain(feesRate) + "\" data-debt=\"" + plain(debt) + "\" data-purchase=\"" + plain(purchase) + "\""
+    /** Curseur d'estimation d'un bien. Chaque deplacement est enregistre sur le bien (saveUrl). */
+    private static String estimateHero(String saveUrl, Valuation.Scenarios s, BigDecimal value, String scenario, BigDecimal feesRate, BigDecimal debt, BigDecimal purchase, String caption) {
+        BigDecimal min = Valuation.sliderMin(s);
+        BigDecimal max = Valuation.sliderMax(s);
+        String chips = chip("pessimistic", "Pessimiste", s.pessimistic(), value, "Estimation prudente − 5 %")
+                + chip("prudent", "Prudent", s.prudent(), value, "Estimation prudente")
+                + chip("middle", "Fourchette", s.middle(), value, "Milieu entre estimations prudente et optimiste")
+                + chip("optimistic", "Optimiste", s.optimistic(), value, "Estimation optimiste");
+        return "<section class=\"card hero\" data-estimate data-save=\"" + escape(saveUrl) + "\" data-fees=\"" + plain(feesRate) + "\" data-debt=\"" + plain(debt) + "\" data-purchase=\"" + plain(purchase) + "\""
                 + " data-pessimistic=\"" + plain(s.pessimistic()) + "\" data-prudent=\"" + plain(s.prudent()) + "\" data-middle=\"" + plain(s.middle()) + "\" data-optimistic=\"" + plain(s.optimistic()) + "\">"
-                + "<div class=\"hero-head\"><div><span class=\"metric-label\">Valeur estimée</span><strong class=\"hero-value\" data-estimate-value>" + euroWhole(s.prudent()) + "</strong>"
-                + "<span class=\"muted\">" + escape(caption) + "</span></div><span class=\"scenario-badge\" data-estimate-label>Prudent</span></div>"
-                + "<input class=\"slider\" type=\"range\" min=\"" + plain(min) + "\" max=\"" + plain(max) + "\" step=\"10000\" value=\"" + plain(s.prudent()) + "\" aria-label=\"Valeur estimée\">"
+                + "<div class=\"hero-head\"><div><span class=\"metric-label\">Valeur retenue</span><strong class=\"hero-value\" data-estimate-value>" + euroWhole(value) + "</strong>"
+                + "<span class=\"muted\">" + escape(caption) + " <span class=\"save-state\" data-save-state aria-live=\"polite\"></span></span></div><span class=\"scenario-badge\" data-estimate-label>" + escape(scenario) + "</span></div>"
+                + "<input class=\"slider\" type=\"range\" min=\"" + plain(min) + "\" max=\"" + plain(max) + "\" step=\"10000\" value=\"" + plain(value) + "\" aria-label=\"Valeur retenue\">"
                 + "<div class=\"chips\">" + chips + "</div></section>";
     }
 
-    private static String chip(String name, String label, BigDecimal value, String title) {
-        return "<button type=\"button\" class=\"chip" + (name.equals("prudent") ? " active" : "") + "\" data-scenario=\"" + name + "\" data-value=\"" + plain(value) + "\" title=\"" + escape(title) + "\"><span>" + label + "</span><b>" + euroWhole(value) + "</b></button>";
+    private static String chip(String name, String label, BigDecimal value, BigDecimal current, String title) {
+        return "<button type=\"button\" class=\"chip" + (value.compareTo(current) == 0 ? " active" : "") + "\" data-scenario=\"" + name + "\" data-value=\"" + plain(value) + "\" title=\"" + escape(title) + "\"><span>" + label + "</span><b>" + euroWhole(value) + "</b></button>";
     }
 
-    /** Tuiles « Valeur nette » et « Plus-value », recalculees par le navigateur quand la valeur estimee change. */
-    private static String derivedTiles(Valuation.Scenarios s, BigDecimal feesRate, BigDecimal debt, BigDecimal purchase, String netNote) {
-        BigDecimal net = Valuation.net(s.prudent(), feesRate, debt);
-        BigDecimal gain = s.prudent().subtract(purchase);
-        return "<article class=\"metric\"><span class=\"metric-label\" title=\"Valeur estimée − frais de vente et fiscalité (" + escape(Format.ratioPercent(feesRate)) + ") − capital restant dû.\">Valeur nette indicative</span><strong data-derived=\"net\">" + euroWhole(net) + "</strong>" + (netNote.isEmpty() ? "" : "<small>" + netNote + "</small>") + "</article>"
-                + "<article class=\"metric\"><span class=\"metric-label\" title=\"Valeur estimée − coût d'acquisition. Hors frais de vente et fiscalité.\">Plus-value latente</span><strong data-derived=\"gain\" class=\"" + (gain.signum() < 0 ? "negative" : gain.signum() > 0 ? "positive" : "") + "\">" + Format.signedEuroWhole(gain) + "</strong></article>";
+    /** Tuiles « Valeur nette » et « Plus-value ». Sur la fiche d'un bien, le curseur les recalcule en direct. */
+    private static String derivedTiles(BigDecimal net, BigDecimal gain, String netHint, String netNote) {
+        return "<article class=\"metric\"><span class=\"metric-label\" title=\"" + escape(netHint) + "\">Valeur nette indicative</span><strong data-derived=\"net\">" + euroWhole(net) + "</strong>" + (netNote.isEmpty() ? "" : "<small>" + netNote + "</small>") + "</article>"
+                + "<article class=\"metric\"><span class=\"metric-label\" title=\"Valeur retenue − coût d'acquisition. Hors frais de vente et fiscalité.\">Plus-value latente</span><strong data-derived=\"gain\" class=\"" + (gain.signum() < 0 ? "negative" : gain.signum() > 0 ? "positive" : "") + "\">" + Format.signedEuroWhole(gain) + "</strong></article>";
     }
 
     private static String nextMonthTile(LoanMath.Month next, String link) {

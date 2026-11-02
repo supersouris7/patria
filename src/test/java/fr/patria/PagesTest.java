@@ -16,13 +16,27 @@ class PagesTest {
             new BigDecimal("0.08"), BigDecimal.ZERO);
 
     @Test
-    void dashboardShowsPropertyLinksAndScenarios() {
-        String html = Pages.dashboard(List.of(PROPERTY), List.of(), Map.of(), List.of(), "csrf");
+    void dashboardSumsRetainedValuesWithoutSlider() {
+        Property other = new Property(43, "Studio", "Appartement", "", "", "", BigDecimal.ZERO, new BigDecimal("100000"), LocalDate.of(2020, 1, 1),
+                BigDecimal.ZERO, BigDecimal.ZERO, LocalDate.of(2020, 1, 1), new BigDecimal("0.10"), BigDecimal.ZERO);
+        String html = Pages.dashboard(List.of(PROPERTY.withSelectedValue(new BigDecimal("350000")), other), List.of(), Map.of(), List.of(), "csrf");
 
         assertTrue(html.contains("<a href=\"/bien/42\">Maison &lt;test&gt;</a>"));
-        assertTrue(html.contains("data-pessimistic=\"290000\" data-prudent=\"300000\" data-middle=\"350000\" data-optimistic=\"400000\""));
-        assertTrue(html.contains("data-derived=\"gain\""));
+        assertFalse(html.contains("type=\"range\""), "pas de curseur sur le patrimoine global");
+        assertTrue(html.contains("450\u202f000\u00a0€"), "350 000 + 100 000");
+        assertTrue(html.contains("Fourchette"));
+        // 350 000 × 0,92 + 100 000 × 0,90 = 412 000
+        assertTrue(html.contains("data-derived=\"net\">412\u202f000\u00a0€"));
         assertFalse(html.contains("<test>"), "les noms doivent être échappés");
+    }
+
+    @Test
+    void propertyPageStartsSliderOnStoredValueAndSavesOnTheProperty() {
+        String html = Pages.propertyDetail(PROPERTY.withSelectedValue(new BigDecimal("380000")), List.of(), Map.of(), List.of(), null, "csrf");
+
+        assertTrue(html.contains("data-save=\"/bien/42/valeur\""));
+        assertTrue(html.contains("step=\"10000\" value=\"380000\""));
+        assertTrue(html.contains("data-estimate-label>Personnalisée<"));
     }
 
     @Test

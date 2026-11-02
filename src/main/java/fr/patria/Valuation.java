@@ -2,13 +2,13 @@ package fr.patria;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 
 /** Scenarios d'estimation et valeur nette, calcules de la meme facon cote serveur et cote navigateur. */
 final class Valuation {
     static final BigDecimal DEFAULT_SALE_FEES = new BigDecimal("0.08");
     static final BigDecimal PESSIMISTIC_FACTOR = new BigDecimal("0.95");
     private static final BigDecimal STEP = new BigDecimal("10000");
+    private static final BigDecimal SLIDER_MARGIN = new BigDecimal("50000");
 
     private Valuation() {
     }
@@ -31,21 +31,36 @@ final class Valuation {
         return property.saleFeesRate() == null ? DEFAULT_SALE_FEES : property.saleFeesRate();
     }
 
-    static Scenarios of(List<Property> properties) {
-        BigDecimal prudent = properties.stream().map(Valuation::prudent).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal optimistic = properties.stream().map(Valuation::optimistic).reduce(BigDecimal.ZERO, BigDecimal::add);
+    static Scenarios of(Property property) {
+        BigDecimal prudent = prudent(property);
+        BigDecimal optimistic = optimistic(property);
         return new Scenarios(round(prudent.multiply(PESSIMISTIC_FACTOR)), round(prudent),
                 round(prudent.add(optimistic).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP)), round(optimistic));
     }
 
-    /** Taux de frais de vente pondere par la valeur prudente de chaque bien. */
-    static BigDecimal saleFeesRate(List<Property> properties) {
-        BigDecimal weight = properties.stream().map(Valuation::prudent).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (weight.signum() == 0) return properties.isEmpty() ? DEFAULT_SALE_FEES
-                : properties.stream().map(Valuation::saleFeesRate).reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(BigDecimal.valueOf(properties.size()), 6, RoundingMode.HALF_UP);
-        BigDecimal fees = properties.stream().map(property -> prudent(property).multiply(saleFeesRate(property))).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return fees.divide(weight, 6, RoundingMode.HALF_UP);
+    /** Valeur retenue avec le curseur du bien ; a defaut, le scenario prudent. */
+    static BigDecimal retained(Property property) {
+        return property.selectedValue() != null ? property.selectedValue() : of(property).prudent();
+    }
+
+    /** Nom du scenario correspondant a la valeur retenue, ou « Personnalisée ». */
+    static String scenarioName(Property property) {
+        Scenarios s = of(property);
+        BigDecimal value = retained(property);
+        if (value.compareTo(s.pessimistic()) == 0) return "Pessimiste";
+        if (value.compareTo(s.prudent()) == 0) return "Prudent";
+        if (value.compareTo(s.middle()) == 0) return "Fourchette";
+        if (value.compareTo(s.optimistic()) == 0) return "Optimiste";
+        return "Personnalisée";
+    }
+
+    /** Bornes du curseur : 50 000 EUR de marge autour des scenarios extremes. */
+    static BigDecimal sliderMin(Scenarios s) {
+        return s.pessimistic().subtract(SLIDER_MARGIN).max(BigDecimal.ZERO);
+    }
+
+    static BigDecimal sliderMax(Scenarios s) {
+        return s.optimistic().add(SLIDER_MARGIN);
     }
 
     /** Valeur nette indicative = valeur - frais de vente/fiscalite - capital restant du. */

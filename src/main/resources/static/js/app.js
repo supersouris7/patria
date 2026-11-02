@@ -2,10 +2,6 @@
 
 const euroWhole = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "EUR", maximumFractionDigits: 0, minimumFractionDigits: 0});
 const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-const storage = {
-  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
-  set(key, value) { try { localStorage.setItem(key, value); } catch { /* stockage indisponible */ } }
-};
 const parseNumber = (text) => {
   const cleaned = String(text).replace(/[\s  €]/g, "").replace(",", ".");
   return cleaned === "" ? NaN : Number(cleaned);
@@ -84,31 +80,57 @@ document.querySelectorAll("form[data-confirm]").forEach((form) => {
   });
 });
 
-// ---- Estimation : le curseur pilote toutes les valeurs dependantes de la page ----
+// ---- Estimation d'un bien : le curseur pilote les valeurs dependantes et s'enregistre sur le bien ----
 const SCENARIOS = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
 document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const slider = hero.querySelector(".slider");
   const valueElement = hero.querySelector("[data-estimate-value]");
   const label = hero.querySelector("[data-estimate-label]");
+  const saveState = hero.querySelector("[data-save-state]");
   const chips = Array.from(hero.querySelectorAll("[data-scenario]"));
   const fees = Number(hero.dataset.fees || 0);
   const debt = Number(hero.dataset.debt || 0);
   const purchase = Number(hero.dataset.purchase || 0);
-  const storageKey = "patria-estimate-" + hero.dataset.estimate;
+  const csrf = document.querySelector("input[name='csrf']")?.value || "";
   const net = document.querySelector("[data-derived='net']");
   const gain = document.querySelector("[data-derived='gain']");
+  let saved = Number(slider.value);
+  let timer = null;
 
-  const update = (value, remember) => {
+  const showState = (text, error) => {
+    if (!saveState) return;
+    saveState.textContent = text;
+    saveState.classList.toggle("error", Boolean(error));
+  };
+
+  const save = (value) => {
+    if (value === saved) return;
+    showState("Enregistrement…");
+    const body = new URLSearchParams({csrf, value: String(value)});
+    fetch(hero.dataset.save, {method: "POST", body, credentials: "same-origin", keepalive: true})
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        saved = value;
+        showState("Enregistré");
+      })
+      .catch(() => showState("Non enregistré, réessayez", true));
+  };
+
+  const scheduleSave = (value, delay) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => save(value), delay);
+  };
+
+  const render = (value) => {
     const min = Number(slider.min);
     const max = Number(slider.max);
     value = Math.min(max, Math.max(min, Math.round(value / 10000) * 10000));
     slider.value = value;
     valueElement.textContent = euroWhole.format(value);
     const match = Object.keys(SCENARIOS).find((name) => Number(hero.dataset[name]) === value);
-    label.textContent = match ? SCENARIOS[match] : "Personnalisé";
-    chips.forEach((chip) => chip.classList.toggle("active", chip.dataset.scenario === match));
-    const percent = max > min ? ((value - min) / (max - min)) * 100 : 0;
-    slider.style.setProperty("--fill", percent + "%");
+    label.textContent = match ? SCENARIOS[match] : "Personnalisée";
+    chips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.value) === value));
+    slider.style.setProperty("--fill", (max > min ? ((value - min) / (max - min)) * 100 : 0) + "%");
     if (net) net.textContent = euroWhole.format(value - value * fees - debt);
     if (gain) {
       const difference = value - purchase;
@@ -116,11 +138,12 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
       gain.classList.toggle("positive", difference > 0);
       gain.classList.toggle("negative", difference < 0);
     }
-    if (remember) storage.set(storageKey, String(value));
+    return value;
   };
 
-  slider.addEventListener("input", () => update(Number(slider.value), true));
-  chips.forEach((chip) => chip.addEventListener("click", () => update(Number(chip.dataset.value), true)));
-  const saved = Number(storage.get(storageKey));
-  update(Number.isFinite(saved) && saved > 0 ? saved : Number(hero.dataset.prudent), false);
+  slider.addEventListener("input", () => scheduleSave(render(Number(slider.value)), 400));
+  slider.addEventListener("change", () => scheduleSave(render(Number(slider.value)), 0));
+  chips.forEach((chip) => chip.addEventListener("click", () => scheduleSave(render(Number(chip.dataset.value)), 0)));
+  window.addEventListener("pagehide", () => { if (timer) { clearTimeout(timer); save(Number(slider.value)); } });
+  render(saved);
 });

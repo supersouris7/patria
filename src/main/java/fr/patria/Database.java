@@ -51,6 +51,7 @@ final class Database {
             }
             tryExecute(statement, "ALTER TABLE properties ADD COLUMN sale_fees_rate REAL NOT NULL DEFAULT 0.08");
             tryExecute(statement, "ALTER TABLE properties ADD COLUMN recurring_fees_annual REAL NOT NULL DEFAULT 0");
+            tryExecute(statement, "ALTER TABLE properties ADD COLUMN selected_value REAL");
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS loans (
                         id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL REFERENCES properties(id),
@@ -136,7 +137,7 @@ final class Database {
     }
 
     synchronized void updateProperty(Property property) {
-        String sql = "UPDATE properties SET name=?, kind=?, commune=?, address=?, area=?, purchase=?, purchase_date=?, estimate=?, estimate_high=?, estimate_date=?, sale_fees_rate=?, recurring_fees_annual=? WHERE id=?";
+        String sql = "UPDATE properties SET name=?, kind=?, commune=?, address=?, area=?, purchase=?, purchase_date=?, estimate=?, estimate_high=?, estimate_date=?, sale_fees_rate=?, recurring_fees_annual=?, selected_value=? WHERE id=?";
         query("Impossible de modifier le bien.", connection -> {
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, property.name());
@@ -144,7 +145,19 @@ final class Database {
                 statement.setString(3, property.commune());
                 statement.setString(4, property.address());
                 bindPropertyValues(statement, property, 5);
-                statement.setLong(13, property.id());
+                nullableDecimal(statement, 13, property.selectedValue());
+                statement.setLong(14, property.id());
+                return statement.executeUpdate();
+            }
+        });
+    }
+
+    /** Enregistre la valeur retenue avec le curseur d'estimation. */
+    synchronized void setSelectedValue(long id, BigDecimal value) {
+        query("Impossible d'enregistrer la valeur retenue.", connection -> {
+            try (PreparedStatement statement = connection.prepareStatement("UPDATE properties SET selected_value = ? WHERE id = ?")) {
+                nullableDecimal(statement, 1, value);
+                statement.setLong(2, id);
                 return statement.executeUpdate();
             }
         });
@@ -378,7 +391,8 @@ final class Database {
                 rows.getString("commune"), rows.getString("address"), rows.getString("insee"), decimal(rows, "area", 2),
                 money(rows, "purchase"), LocalDate.parse(rows.getString("purchase_date")),
                 money(rows, "estimate"), money(rows, "estimate_high"), LocalDate.parse(rows.getString("estimate_date")),
-                saleFeesRate == null ? Valuation.DEFAULT_SALE_FEES : saleFeesRate, recurringFees == null ? BigDecimal.ZERO : recurringFees);
+                saleFeesRate == null ? Valuation.DEFAULT_SALE_FEES : saleFeesRate, recurringFees == null ? BigDecimal.ZERO : recurringFees,
+                money(rows, "selected_value"));
     }
 
     private static Loan loan(ResultSet rows) throws SQLException {

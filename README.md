@@ -6,7 +6,8 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 
 - Authentification par mot de passe, avec limitation des tentatives (10 echecs par 15 minutes).
 - Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.
-- Vue d'ensemble et fiche de bien : valeur estimee reglable (scenarios pessimiste, prudent, fourchette, optimiste), valeur nette indicative, plus-value latente, capital restant du, prochaine mensualite.
+- Fiche de bien : curseur de valeur retenue (scenarios pessimiste, prudent, fourchette, optimiste ou valeur libre), enregistre en direct sur le bien. Il est remis sur le scenario prudent quand les estimations du bien changent.
+- Vue d'ensemble : somme des valeurs retenues de chaque bien (sans curseur), valeur nette indicative calculee bien par bien, plus-value latente, capital restant du, prochaine mensualite.
 - Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
 - Apports personnels par bien.
 - Modification et suppression des biens, prets et apports.
