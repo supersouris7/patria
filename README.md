@@ -11,7 +11,7 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 - Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
 - Apports personnels par bien.
 - Modification et suppression des biens, prets et apports.
-- Persistance SQLite dans le volume Docker historique `patrimoine_data`.
+- Persistance SQLite dans le volume Docker historique `patrimoine_data`, montants stockes au centime pres.
 - Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.
 
 La valeur nette indicative vaut : valeur estimee - frais de vente et fiscalite - capital restant du. Les frais recurrents annuels sont affiches a titre indicatif mais ne sont pas deduits.
@@ -20,13 +20,23 @@ DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
 
 ## Importer un echeancier
 
-Depuis la page « Prets et apports » d'un bien (ou « Gerer le pret » pour remplacer un echeancier existant), importez un fichier CSV UTF-8 (BOM accepte), de 1 Mio maximum. Un import valide remplace toutes les lignes precedemment importees pour ce pret.
+Depuis la page « Prets et apports » d'un bien, bouton « Ajouter un pret » (ou « Gerer le pret » pour remplacer un echeancier existant), importez un fichier CSV UTF-8 (BOM accepte), de 1 Mio maximum. Un import valide remplace toutes les lignes precedemment importees pour ce pret.
 
 L'en-tete est strict : seules les colonnes `date`, `type`, `montant`, `capital_rembourse`, `interets`, `frais`, `capital_restant_du` et `taux_annuel_pct` sont acceptees. `date` et `type` sont obligatoires ; les autres colonnes peuvent etre omises. Chaque ligne doit contenir au moins une valeur financiere. Les separateurs virgule et point-virgule sont acceptes, ainsi que les nombres avec virgule ou point decimal.
 
 Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION` et `AJUSTEMENT`. La casse n'a pas d'importance. Trois fichiers generiques sont disponibles dans `docs/examples/`.
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
+
+## Architecture
+
+Le code est organise en modules (biens, prets, apports, patrimoine) au-dessus d'un socle commun (web, interface, stockage). Voir [ARCHITECTURE.md](ARCHITECTURE.md) pour la carte des modules, les regles de dependance et la marche a suivre pour ajouter une fonctionnalite.
+
+## Mise a jour et migrations
+
+Au demarrage, le schema de la base est mis a jour automatiquement. Avant toute migration, une copie complete est ecrite a cote de la base (`immobilier.sqlite3.avant-migration-vN-AAAAMMJJ-HHMMSS`, dans le volume `patrimoine_data`). Ces copies peuvent etre supprimees une fois la nouvelle version verifiee.
+
+Le service repond `ok` sur `/sante` (sans authentification) pour la supervision.
 
 ## Demarrage avec Docker
 
