@@ -6,6 +6,7 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 
 - Authentification par mot de passe, avec limitation des tentatives (10 echecs par 15 minutes).
 - Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.
+- Actualisation automatique de l'estimation depuis sa date, selon l'evolution mensuelle des prix du departement (indice DVF, meme type de bien) ; le curseur et les scenarios partent de la valeur actualisee. Signalement d'une estimation de plus de 3 ans et d'un bien sans periode d'occupation.
 - Fiche de bien : curseur de valeur retenue (scenarios pessimiste, prudent, fourchette, optimiste ou valeur libre), enregistre en direct sur le bien. Il est remis sur le scenario prudent quand les estimations du bien changent.
 - Vue d'ensemble : somme des valeurs retenues de chaque bien (sans curseur), valeur nette indicative calculee bien par bien, plus-value latente, capital restant du, prochaine mensualite.
 - Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
@@ -30,7 +31,7 @@ Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquis
 
 - source : DVF geolocalisees (DGFiP, Etalab) et statistiques DVF mensuelles, sur data.gouv.fr, plus l'API Adresse (BAN) pour situer le bien ; aucune cle d'API ;
 - ventes du meme type (appartement ou maison), de surface comparable (±40 %), sur les 3 dernieres annees publiees ;
-- zone : 500 m autour de l'adresse, elargie a 1 km puis a la commune s'il y a moins de 10 ventes ;
+- zone : 500 m autour de l'adresse, elargie a 1 km, puis 2 km, puis a la commune tant qu'il y a moins de 30 ventes comparables ;
 - chaque vente est actualisee a aujourd'hui avec l'evolution des prix du departement ; les valeurs extremes sont ecartees ;
 - resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien.
 

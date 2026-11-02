@@ -241,6 +241,8 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 /* ---- Messages ---- */
 .notice { border: 1px solid; border-radius: var(--radius-small); font-size: .9rem; font-weight: 650; margin: 0 0 16px; padding: 11px 14px; }
 .notice.error { background: #29161b; border-color: #67313a; color: #ffadb4; }
+.notice.warning { background: #2a2312; border-color: #6b5520; color: #f3d38a; }
+.notice.warning a { color: #ffe3a3; font-weight: 750; margin-left: 4px; }
 .notice.success { background: #132619; border-color: #2d6337; color: var(--success); }
 
 /* ---- Connexion ---- */

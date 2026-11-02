@@ -97,6 +97,9 @@ class MigrationsTest {
                     ResultSet column = statement.executeQuery("SELECT count(*) FROM pragma_table_info('properties') WHERE name = 'recurring_fees_cents'");
                     assertEquals(0, column.getInt(1), "colonne supprimée");
 
+                    ResultSet revaluation = statement.executeQuery("SELECT count(*) FROM pragma_table_info('market_prices') WHERE name = 'revaluation'");
+                    assertEquals(1, revaluation.getInt(1), "v6 : colonne d'actualisation");
+
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");
                     assertEquals(0, remaining.getInt(1), "suppression en cascade active après migration");

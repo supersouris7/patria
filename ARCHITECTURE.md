@@ -83,6 +83,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
+| Comment l'estimation est-elle actualisée ? | coefficient calculé par `market/MarketService.compute` (indice DVF depuis la date d'estimation), appliqué par `property/Valuation.scenarios(property, facteur)` |
 | Comment sont estimées les charges non saisies ? | `expense/ExpenseMath`, coefficients dans `expense/PropertyTaxRevaluation` |
 | Comment sont comptés les loyers perçus et économisés ? | `rent/RentMath` (au jour près, jours sans période = vacants) |
 

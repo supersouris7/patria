@@ -46,7 +46,10 @@ class MarketServiceTest {
         @Override
         public List<PriceIndex.Point> departmentIndex(String department, PropertyKind kind, YearMonth from) throws IOException {
             if (indexFailing) throw new IOException("504");
-            return List.of(new PriceIndex.Point(YearMonth.of(2025, 6), new BigDecimal("4000"), 100));
+            // 3 200 en 2020, puis stable a 4 000 : les ventes 2023-2025 ne bougent pas, une estimation de 2020 prend +25 %.
+            return List.of(new PriceIndex.Point(YearMonth.of(2020, 1), new BigDecimal("3200"), 100),
+                    new PriceIndex.Point(YearMonth.of(2023, 1), new BigDecimal("4000"), 100),
+                    new PriceIndex.Point(YearMonth.of(2025, 6), new BigDecimal("4000"), 100));
         }
     }
 
@@ -66,6 +69,8 @@ class MarketServiceTest {
         assertEquals(MarketPrice.Status.OK, first.status());
         assertEquals(0, new BigDecimal("4000").compareTo(first.median()));
         assertEquals("2023–2025", first.period(), "trois dernières années publiées");
+        // estimation du 01/01/2020 : indice 3 200 -> 4 000, soit +25 %
+        assertEquals(0, new BigDecimal("1.25").compareTo(first.revaluation()));
         int requests = data.requested.size();
 
         service.forProperty(property(id, "1 rue du Port", "Arcachon"));
@@ -89,6 +94,7 @@ class MarketServiceTest {
 
         assertEquals(MarketPrice.Status.OK, price.status());
         assertEquals(null, price.indexMonth(), "prix non actualisé");
+        assertEquals(null, price.revaluation(), "estimation non actualisée");
         stores.database().close();
     }
 

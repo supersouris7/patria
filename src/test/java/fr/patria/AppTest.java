@@ -149,6 +149,19 @@ class AppTest {
     }
 
     @Test
+    void propertyPageFlagsOldEstimateAndMissingOccupancy() throws Exception {
+        String csrf = login();
+        String property = post("/bien", "csrf=" + csrf + "&name=Ancien&kind=HOUSE&purchase=200000&purchase_date=2015-01-01"
+                + "&estimate=250000&estimate_date=2020-01-01").headers().firstValue("Location").orElseThrow().replace("?ok=cree", "");
+
+        String page = get(property).body();
+        assertTrue(page.contains("il y a plus de 3 ans"));
+        assertTrue(page.contains("Occupation non renseignée"));
+        assertTrue(page.contains("Valeur estimée le 01/01/2020"));
+        assertTrue(page.contains("non actualisée"), "sans commune, pas d'indice départemental");
+    }
+
+    @Test
     void unknownPagesReturn404WithNavigation() throws Exception {
         login();
         HttpResponse<String> response = get("/bien/999");

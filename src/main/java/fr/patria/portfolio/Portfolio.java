@@ -57,8 +57,26 @@ public final class Portfolio {
     public record PropertySummary(Property property, List<LoanSummary> loans, List<Contribution> contributions,
                                   Valuation.Scenarios scenarios, BigDecimal value, String scenario, BigDecimal debt,
                                   BigDecimal borrowed, BigDecimal repaid, BigDecimal contributed, BigDecimal net, BigDecimal gain,
-                                  LoanMath.Month nextMonth, SquareMeter squareMeter, Returns returns) {
+                                  LoanMath.Month nextMonth, SquareMeter squareMeter, Returns returns, Revaluation revaluation,
+                                  boolean estimateOutdated, boolean occupancyMissing) {
     }
+
+    /**
+     * Actualisation de l'estimation depuis sa date, selon l'indice DVF du departement.
+     *
+     * @param factor  coefficient applique (1,05 = +5 %), {@code null} si inconnu (pas de commune, indice indisponible)
+     * @param base    estimation prudente telle que saisie (ou cout d'acquisition)
+     * @param since   date de l'estimation
+     */
+    public record Revaluation(BigDecimal factor, BigDecimal base, LocalDate since) {
+        /** Variation en %, {@code null} si inconnue. */
+        public BigDecimal percent() {
+            return factor == null ? null : factor.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP);
+        }
+    }
+
+    /** Une estimation est jugee ancienne au-dela de ce delai. */
+    static final int OUTDATED_ESTIMATE_YEARS = 3;
 
     /**
      * Prix au m² du bien compare au marche.
@@ -100,7 +118,7 @@ public final class Portfolio {
     /** Patrimoine complet : somme des valeurs retenues de chaque bien. */
     public record Overview(List<PropertySummary> properties, BigDecimal value, BigDecimal net, BigDecimal gain, BigDecimal debt,
                            BigDecimal purchase, BigDecimal contributed, int loanCount, LoanMath.Month nextMonth, Returns returns,
-                           List<TaxYear> propertyTaxes) {
+                           List<TaxYear> propertyTaxes, BigDecimal revaluationPercent) {
     }
 
     /**
@@ -160,7 +178,7 @@ public final class Portfolio {
                 invested, sum(summaries, summary -> summary.returns().realGain()), multiple(net, invested), grossYield(monthlyRent, rentedPurchase));
         return new Overview(summaries, value, net, value.subtract(purchase), sum(summaries, PropertySummary::debt), purchase,
                 sum(summaries, PropertySummary::contributed), allLoans.size(), LoanMath.nextMonth(allLoans, schedules, today()), returns,
-                propertyTaxes(all, expenses, today()));
+                propertyTaxes(all, expenses, today()), revaluationPercent(summaries));
     }
 
     /** Taxes foncieres annee par annee (de la plus recente a la plus ancienne), saisies ou estimees, tous biens confondus. */
@@ -204,13 +222,29 @@ public final class Portfolio {
         BigDecimal borrowed = sumLoans(loanSummaries, LoanMath.Status::borrowed);
         BigDecimal repaid = sumLoans(loanSummaries, LoanMath.Status::repaid);
         BigDecimal contributed = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Valuation.Scenarios scenarios = Valuation.scenarios(property);
-        BigDecimal value = Valuation.retained(property);
+        BigDecimal factor = marketPrice == null ? null : marketPrice.revaluation();
+        Revaluation revaluation = new Revaluation(factor, Valuation.base(property), property.estimateDate());
+        Valuation.Scenarios scenarios = Valuation.scenarios(property, factor == null ? BigDecimal.ONE : factor);
+        BigDecimal value = Valuation.retained(property, factor == null ? BigDecimal.ONE : factor);
         BigDecimal net = Valuation.net(value, property.saleFeesRate(), debt);
         Returns returns = returns(property, value, net, borrowed, repaid, contributed, sumLoans(loanSummaries, LoanMath.Status::creditCost), expenses, rents, today);
         return new PropertySummary(property, loanSummaries, contributions, scenarios, value, scenarios.nameOf(value), debt, borrowed, repaid,
                 contributed, net, value.subtract(property.purchase()), LoanMath.nextMonth(loans, schedules, today),
-                squareMeter(property, value, marketPrice, marketRefreshing), returns);
+                squareMeter(property, value, marketPrice, marketRefreshing), returns, revaluation,
+                property.estimateDate().plusYears(OUTDATED_ESTIMATE_YEARS).isBefore(today), rents.isEmpty());
+    }
+
+    /** Actualisation globale : estimations actualisees ÷ estimations saisies, sur les biens dont l'indice est connu. */
+    private static BigDecimal revaluationPercent(List<PropertySummary> summaries) {
+        BigDecimal base = BigDecimal.ZERO;
+        BigDecimal revalued = BigDecimal.ZERO;
+        for (PropertySummary summary : summaries) {
+            if (summary.revaluation().factor() == null) continue;
+            base = base.add(summary.revaluation().base());
+            revalued = revalued.add(summary.revaluation().base().multiply(summary.revaluation().factor()));
+        }
+        if (base.signum() == 0) return null;
+        return revalued.divide(base, 6, RoundingMode.HALF_UP).subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP);
     }
 
     /**

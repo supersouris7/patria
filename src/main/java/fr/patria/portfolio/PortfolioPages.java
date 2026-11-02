@@ -21,6 +21,7 @@ import fr.patria.portfolio.Portfolio.LoanSummary;
 import fr.patria.portfolio.Portfolio.Overview;
 import fr.patria.portfolio.Portfolio.PropertySummary;
 import fr.patria.portfolio.Portfolio.Returns;
+import fr.patria.portfolio.Portfolio.Revaluation;
 import fr.patria.portfolio.Portfolio.SquareMeter;
 import fr.patria.property.Property;
 import fr.patria.property.PropertyNav;
@@ -62,7 +63,9 @@ final class PortfolioPages {
                                 "après " + euroWhole(overview.debt()) + " de capital restant dû"),
                         realGainTile(overview.returns()),
                         nextMonthTile(overview.nextMonth(), null)),
-                balance(overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
+                balance(overview.revaluationPercent() == null ? List.of() : List.of(Line.note("Actualisation des estimations",
+                                "Évolution des prix du département (indice DVF) depuis la date d'estimation de chaque bien.", Html.text(Format.signedPercent(overview.revaluationPercent())))),
+                        overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY,
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)),
@@ -84,14 +87,15 @@ final class PortfolioPages {
                 : estimateSlider(summary);
         Html content = Html.concat(
                 Components.backLink("/", "Vue d'ensemble"),
-                Components.heading("Bien", property.name(), subtitle, actions), Components.notice(notice), hero,
+                Components.heading("Bien", property.name(), subtitle, actions), Components.notice(notice), alerts(summary), hero,
                 Components.metrics(4,
                         netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
                         realGainTile(summary.returns()),
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()),
                                 summary.borrowed().signum() == 0 ? null : "sur " + euroWhole(summary.borrowed()) + " empruntés"),
                         nextMonthTile(summary.nextMonth(), "/bien/" + property.id() + "/mensualites")),
-                balance(summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(), summary.contributed(), summary.returns()),
+                balance(revaluationLines(summary.revaluation()), summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(),
+                        summary.contributed(), summary.returns()),
                 marketCard(summary, csrf),
                 Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
                         loansTable(summary.loans())),
@@ -104,7 +108,8 @@ final class PortfolioPages {
     private static Html estimateSlider(PropertySummary summary) {
         Property property = summary.property();
         Valuation.Scenarios s = summary.scenarios();
-        String caption = property.estimateLow() == null ? "Aucune estimation : le coût d'acquisition sert de base." : "Estimation du " + date(property.estimateDate()) + ".";
+        String caption = (property.estimateLow() == null ? "Coût d'acquisition du " : "Estimation du ") + date(property.estimateDate()) + ", "
+                + revaluationText(property, summary.revaluation(), summary.squareMeter().market()) + ".";
         Html chips = Html.concat(
                 chip("Pessimiste", s.pessimistic(), summary.value(), "Estimation prudente − 5 %"),
                 chip("Prudent", s.prudent(), summary.value(), "Estimation prudente"),
@@ -349,10 +354,12 @@ final class PortfolioPages {
      * Les chiffres deja affiches en tuile (valeur, valeur nette, enrichissement reel) y figurent sans mise en valeur.
      * Les valeurs qui dependent de la valeur retenue portent un {@code data-derived} : le curseur les met a jour.
      */
-    private static Html balance(BigDecimal value, BigDecimal net, BigDecimal debt, BigDecimal purchase, BigDecimal gain, BigDecimal contributed, Returns returns) {
+    private static Html balance(List<Line> revaluation, BigDecimal value, BigDecimal net, BigDecimal debt, BigDecimal purchase, BigDecimal gain,
+                                BigDecimal contributed, Returns returns) {
         BigDecimal saleFees = value.subtract(net).subtract(debt);
         BigDecimal afterSale = value.subtract(saleFees);
-        Html netBreakdown = Components.breakdown("Valeur nette", List.of(
+        List<Line> netLines = new java.util.ArrayList<>(revaluation);
+        netLines.addAll(List.of(
                 Line.lead("Valeur retenue", null, derived("value", euroWhole(value))).echo(),
                 Line.of("Frais de vente et fiscalité", returns.isPrincipalResidence()
                         ? "Résidence principale : plus-value exonérée d'impôt, seuls les frais d'agence comptent (environ 5 %). Taux modifiable dans Administrer."
@@ -361,6 +368,7 @@ final class PortfolioPages {
                 Line.of("Capital restant dû", null, Html.text(minus(debt))),
                 Line.total("Valeur nette indicative", "Ce que vous toucheriez en vendant aujourd'hui.", derived("net", euroWhole(net))).echo(),
                 Line.note("Plus-value latente", "Valeur retenue − coût d'acquisition, hors frais de vente.", signed("gain", gain))));
+        Html netBreakdown = Components.breakdown("Valeur nette", netLines);
         Html gainBreakdown = Components.breakdown("Enrichissement réel depuis l'achat", List.of(
                 Line.lead("Valeur après frais de vente", null, derived("after-sale", euroWhole(afterSale))),
                 Line.of("Coût d'acquisition", "Prix, frais de notaire et travaux.", Html.text(minus(purchase))),
@@ -381,6 +389,37 @@ final class PortfolioPages {
                 Line.note("Rendement brut", "Loyer annuel actuel ÷ coût d'acquisition (biens loués).", Html.text(Format.percent(returns.grossYield()))),
                 Line.note("Charges de l'année", null, Html.text(euroWhole(returns.yearExpenses())))));
         return Components.card("Bilan", null, Html.EMPTY, Html.of("<div class=\"balance\">%s%s%s</div>", netBreakdown, gainBreakdown, landmarks));
+    }
+
+    /** « actualisée à juin 2026 : +4,2 % » ou la raison de l'absence d'actualisation. */
+    private static String revaluationText(Property property, Revaluation revaluation, MarketPrice market) {
+        if (revaluation.factor() != null) {
+            String month = market != null && market.indexMonth() != null ? " à " + Format.month(market.indexMonth()).toLowerCase() : "";
+            return "actualisée" + month + " : " + Format.signedPercent(revaluation.percent());
+        }
+        if (property.address().isBlank() && property.commune().isBlank()) return "non actualisée : renseignez la commune du bien";
+        if (market == null || market.isPending()) return "actualisation en cours de calcul";
+        return "non actualisée (indice des prix du département indisponible)";
+    }
+
+    /** Lignes « Valeur estimée le … » et « Actualisation » en tete du detail de la valeur nette. */
+    private static List<Line> revaluationLines(Revaluation revaluation) {
+        List<Line> lines = new java.util.ArrayList<>();
+        lines.add(Line.note("Valeur estimée le " + date(revaluation.since()), "Estimation prudente saisie (ou coût d'acquisition).",
+                Html.text(euroWhole(revaluation.base()))));
+        lines.add(Line.note("Actualisation", "Évolution des prix du département (indice DVF, même type de bien) depuis cette date.",
+                Html.text(revaluation.factor() == null ? "non disponible" : Format.signedPercent(revaluation.percent()))));
+        return lines;
+    }
+
+    /** Signalements sur la fiche du bien : estimation ancienne, occupation non renseignee. */
+    private static Html alerts(PropertySummary summary) {
+        Property property = summary.property();
+        Html outdated = Html.when(summary.estimateOutdated(), Html.of("""
+                <p class="notice warning">Estimation du %s, il y a plus de 3 ans : l'actualisation automatique a ses limites.                 <a href="/administration/bien/%s">Mettre à jour l'estimation</a></p>""", date(property.estimateDate()), property.id()));
+        Html occupancy = Html.when(summary.occupancyMissing(), Html.of("""
+                <p class="notice warning">Occupation non renseignée : l'enrichissement ne compte ni loyer perçu ni loyer économisé.                 <a href="/administration/bien/%s/loyers">Renseigner l'occupation</a></p>""", property.id()));
+        return Html.concat(outdated, occupancy);
     }
 
     /** Montant signe colore (vert/rouge), mis a jour par le curseur. */

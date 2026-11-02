@@ -3,6 +3,7 @@ package fr.patria.market;
 import fr.patria.property.Property;
 import fr.patria.storage.Database;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 /**
- * Prix au m² du marche autour de chaque bien, garde en base 30 jours.
+ * Prix au m² du marche autour de chaque bien et actualisation de son estimation, gardes en base 30 jours.
  *
  * <p>Le calcul (quelques telechargements data.gouv.fr, plusieurs secondes) est lance <b>en arriere-plan</b> a
  * l'ouverture de la fiche d'un bien, si le resultat est absent, vieux de plus de 30 jours, ou si le type, la surface
@@ -172,9 +173,11 @@ public final class MarketService {
             }
             if (years.isEmpty()) return MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE, "Aucune vente publiée pour cette commune.");
             PriceIndex index = new PriceIndex(indexPoints.join());
+            // Actualisation de l'estimation du bien : evolution de l'indice depuis le mois d'estimation.
+            BigDecimal revaluation = index.latestMonth() == null ? null : index.factor(YearMonth.from(property.estimateDate()));
             String period = years.size() == 1 ? String.valueOf(years.getFirst()) : years.getLast() + "–" + years.getFirst();
             return MarketAnalysis.analyse(property.id(), fingerprint, today, property.kind(), property.area(), location.get(),
-                    location.get().label(), sales, index, period);
+                    location.get().label(), sales, index, period).withRevaluation(revaluation);
         } catch (IOException | RuntimeException exception) {
             Throwable cause = exception instanceof CompletionException && exception.getCause() != null ? exception.getCause() : exception;
             LOG.log(Level.WARNING, "Prix du marché indisponible pour le bien " + property.id(), cause);
@@ -204,9 +207,12 @@ public final class MarketService {
         }
     }
 
+    /** A incrementer quand la methode de calcul change : les resultats en base sont alors recalcules. */
+    static final String METHOD_VERSION = "m2";
+
     static String fingerprint(Property property) {
-        return String.join("|", property.kind().name(), property.area() == null ? "" : property.area().stripTrailingZeros().toPlainString(),
-                property.address().trim().toLowerCase(), property.commune().trim().toLowerCase());
+        return String.join("|", METHOD_VERSION, property.kind().name(), property.area() == null ? "" : property.area().stripTrailingZeros().toPlainString(),
+                property.address().trim().toLowerCase(), property.commune().trim().toLowerCase(), property.estimateDate().toString());
     }
 
     /** Code du departement d'une commune : 2 caracteres (dont 2A/2B), 3 en outre-mer. */

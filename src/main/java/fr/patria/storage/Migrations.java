@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 5;
+    public static final int LATEST = 6;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -41,6 +41,7 @@ public final class Migrations {
             if (version < 3) toVersion3(connection);
             if (version < 4) toVersion4(connection, LocalDateTime.now(clock).getYear());
             if (version < 5) toVersion5(connection);
+            if (version < 6) toVersion6(connection);
             return null;
         });
     }
@@ -194,6 +195,14 @@ public final class Migrations {
                 statement.execute("PRAGMA foreign_keys = ON");
             }
         }
+    }
+
+    /** Version 6 : coefficient d'actualisation de l'estimation (indice DVF du departement), garde avec le prix du marche. */
+    private static void toVersion6(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE market_prices ADD COLUMN revaluation TEXT");
+        }
+        setUserVersion(connection, 6);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

@@ -34,15 +34,15 @@ final class MarketRepository {
     void save(MarketPrice price) {
         database.query(connection -> Sql.update(connection, """
                 INSERT INTO market_prices (property_id, fingerprint, computed_on, status, median_cents, low_cents, high_cents, sales_count,
-                    scope, place, period, index_month, message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    scope, place, period, index_month, message, revaluation)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (property_id) DO UPDATE SET fingerprint = excluded.fingerprint, computed_on = excluded.computed_on,
                     status = excluded.status, median_cents = excluded.median_cents, low_cents = excluded.low_cents, high_cents = excluded.high_cents,
                     sales_count = excluded.sales_count, scope = excluded.scope, place = excluded.place, period = excluded.period,
-                    index_month = excluded.index_month, message = excluded.message""",
+                    index_month = excluded.index_month, message = excluded.message, revaluation = excluded.revaluation""",
                 price.propertyId(), price.fingerprint(), price.computedOn(), price.status().name(), cents(price.median()), cents(price.low()),
                 cents(price.high()), price.salesCount(), price.scope() == null ? null : price.scope().name(), price.place(), price.period(),
-                price.indexMonth() == null ? null : price.indexMonth().toString(), price.message()));
+                price.indexMonth() == null ? null : price.indexMonth().toString(), price.message(), price.revaluation()));
     }
 
     private static MarketPrice map(ResultSet row) throws SQLException {
@@ -51,6 +51,7 @@ final class MarketRepository {
         return new MarketPrice(row.getLong("property_id"), row.getString("fingerprint"), Sql.date(row, "computed_on"),
                 MarketPrice.Status.valueOf(row.getString("status")), Sql.money(row, "median_cents"), Sql.money(row, "low_cents"),
                 Sql.money(row, "high_cents"), row.getInt("sales_count"), scope == null ? null : MarketPrice.Scope.valueOf(scope),
-                row.getString("place"), row.getString("period"), indexMonth == null ? null : YearMonth.parse(indexMonth), row.getString("message"));
+                row.getString("place"), row.getString("period"), indexMonth == null ? null : YearMonth.parse(indexMonth), row.getString("message"),
+                Sql.decimal(row, "revaluation"));
     }
 }

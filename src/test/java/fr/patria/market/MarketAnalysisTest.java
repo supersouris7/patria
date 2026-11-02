@@ -28,7 +28,7 @@ class MarketAnalysisTest {
     @Test
     void usesNearbyComparableSalesAndIgnoresOthers() {
         List<Sale> sales = new ArrayList<>();
-        for (int i = 0; i < 12; i++) sales.add(sale(4000 + i * 10, 60, 300, PropertyKind.APARTMENT));  // proches
+        for (int i = 0; i < 31; i++) sales.add(sale(4000 + i * 10, 60, 300, PropertyKind.APARTMENT));  // proches
         for (int i = 0; i < 12; i++) sales.add(sale(2000, 60, 3000, PropertyKind.APARTMENT));           // à 3 km
         for (int i = 0; i < 12; i++) sales.add(sale(9000, 60, 100, PropertyKind.HOUSE));                // maisons
         for (int i = 0; i < 12; i++) sales.add(sale(9000, 200, 100, PropertyKind.APARTMENT));           // trop grands
@@ -37,8 +37,20 @@ class MarketAnalysisTest {
 
         assertEquals(MarketPrice.Status.OK, price.status());
         assertEquals(MarketPrice.Scope.RADIUS_500, price.scope());
-        assertEquals(12, price.salesCount());
-        assertEquals(0, new BigDecimal("4060").compareTo(price.median()));
+        assertEquals(31, price.salesCount());
+        assertEquals(0, new BigDecimal("4150").compareTo(price.median()));
+    }
+
+    @Test
+    void tooFewNearbySalesWidensTheRadiusStepByStep() {
+        List<Sale> sales = new ArrayList<>();
+        for (int i = 0; i < 15; i++) sales.add(sale(5000, 60, 300, PropertyKind.APARTMENT));   // 15 à 300 m : insuffisant
+        for (int i = 0; i < 20; i++) sales.add(sale(4000, 60, 1500, PropertyKind.APARTMENT));  // à 1,5 km
+
+        MarketPrice price = analyse(sales, null, PriceIndex.none());
+
+        assertEquals(MarketPrice.Scope.RADIUS_2000, price.scope(), "500 m et 1 km ont moins de 30 ventes");
+        assertEquals(35, price.salesCount());
     }
 
     @Test
@@ -69,7 +81,7 @@ class MarketAnalysisTest {
         assertEquals(0, new BigDecimal("1.2000").compareTo(index.factor(YearMonth.of(2025, 1))));
 
         List<Sale> sales = new ArrayList<>();
-        for (int i = 0; i < 10; i++) sales.add(sale(3000, 60, 100, PropertyKind.APARTMENT));
+        for (int i = 0; i < 30; i++) sales.add(sale(3000, 60, 100, PropertyKind.APARTMENT));
         assertEquals(0, new BigDecimal("3600").compareTo(analyse(sales, null, index).median()));
     }
 }

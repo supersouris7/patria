@@ -11,7 +11,9 @@ import java.math.RoundingMode;
  *   <li>fourchette : milieu des deux ;</li>
  *   <li>pessimiste : prudent − 5 %.</li>
  * </ul>
- * La valeur retenue est celle choisie avec le curseur, sinon le scenario prudent.
+ * Les estimations peuvent etre actualisees par un coefficient (evolution des prix du departement depuis la date
+ * d'estimation, calcule par le module « marche »). La valeur retenue est celle choisie avec le curseur, sinon le
+ * scenario prudent actualise.
  * La meme formule de valeur nette est reprise dans {@code app.js} pour l'affichage en direct.
  */
 public final class Valuation {
@@ -19,6 +21,8 @@ public final class Valuation {
     private static final BigDecimal PESSIMISTIC_FACTOR = new BigDecimal("0.95");
     private static final BigDecimal STEP = new BigDecimal("10000");
     private static final BigDecimal SLIDER_MARGIN = new BigDecimal("50000");
+    /** Plafond de l'actualisation (identique a celui de l'indice DVF). */
+    private static final BigDecimal MAX_REVALUATION = new BigDecimal("1.33");
 
     private Valuation() {
     }
@@ -45,9 +49,12 @@ public final class Valuation {
             return optimistic.add(SLIDER_MARGIN);
         }
 
-        /** Ramene une valeur sur la graduation du curseur (pas de 10 000 €, dans les bornes). */
+        /**
+         * Ramene une valeur enregistree par le curseur sur la graduation (pas de 10 000 €). Les bornes sont larges
+         * car le curseur affiche les scenarios actualises, inconnus ici.
+         */
         public BigDecimal clamp(BigDecimal value) {
-            return round(value).max(sliderMin()).min(sliderMax());
+            return round(value).max(BigDecimal.ZERO).min(round(optimistic.multiply(MAX_REVALUATION)).add(SLIDER_MARGIN));
         }
 
         boolean sameAs(Scenarios other) {
@@ -56,15 +63,31 @@ public final class Valuation {
         }
     }
 
+    /** Scenarios sans actualisation (estimations telles que saisies). */
     public static Scenarios scenarios(Property property) {
-        BigDecimal prudent = property.estimateLow() != null ? property.estimateLow() : property.purchase();
-        BigDecimal optimistic = property.estimateHigh() != null ? property.estimateHigh().max(prudent) : prudent;
+        return scenarios(property, BigDecimal.ONE);
+    }
+
+    /** Scenarios actualises : estimations × coefficient d'evolution des prix depuis la date d'estimation. */
+    public static Scenarios scenarios(Property property, BigDecimal revaluation) {
+        BigDecimal prudent = base(property).multiply(revaluation);
+        BigDecimal optimistic = (property.estimateHigh() != null ? property.estimateHigh().max(base(property)) : base(property)).multiply(revaluation);
         BigDecimal middle = prudent.add(optimistic).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
         return new Scenarios(round(prudent.multiply(PESSIMISTIC_FACTOR)), round(prudent), round(middle), round(optimistic));
     }
 
+    /** Estimation prudente telle que saisie, ou a defaut le cout d'acquisition. */
+    public static BigDecimal base(Property property) {
+        return property.estimateLow() != null ? property.estimateLow() : property.purchase();
+    }
+
     public static BigDecimal retained(Property property) {
-        return property.selectedValue() != null ? property.selectedValue() : scenarios(property).prudent();
+        return retained(property, BigDecimal.ONE);
+    }
+
+    /** Valeur choisie avec le curseur, sinon le scenario prudent actualise. */
+    public static BigDecimal retained(Property property, BigDecimal revaluation) {
+        return property.selectedValue() != null ? property.selectedValue() : scenarios(property, revaluation).prudent();
     }
 
     public static String retainedScenario(Property property) {

@@ -42,8 +42,20 @@ class ValuationTest {
     void sliderValuesAreRoundedAndKeptWithinBounds() {
         Valuation.Scenarios scenarios = Valuation.scenarios(property("250000", "300000", "400000"));
 
-        assertEquals(0, new BigDecimal("450000").compareTo(scenarios.clamp(new BigDecimal("900000000"))));
+        // plafond : optimiste × 1,33 (actualisation maximale) + 50 000
+        assertEquals(0, new BigDecimal("580000").compareTo(scenarios.clamp(new BigDecimal("900000000"))));
         assertEquals(0, new BigDecimal("330000").compareTo(scenarios.clamp(new BigDecimal("331234"))));
+    }
+
+    @Test
+    void scenariosFollowTheRevaluationButAChosenValueStays() {
+        Property property = property("250000", "300000", "400000");
+        Valuation.Scenarios revalued = Valuation.scenarios(property, new BigDecimal("1.05"));
+
+        assertEquals(new BigDecimal("320000"), revalued.prudent(), "300 000 × 1,05 = 315 000, arrondi à 10 000");
+        assertEquals(new BigDecimal("420000"), revalued.optimistic());
+        assertEquals(new BigDecimal("320000"), Valuation.retained(property, new BigDecimal("1.05")));
+        assertEquals(new BigDecimal("350000"), Valuation.retained(property.withSelectedValue(new BigDecimal("350000")), new BigDecimal("1.05")));
     }
 
     @Test

@@ -17,13 +17,14 @@ import java.util.List;
  *   <li>surface comparable : ±40 % de celle du bien, si elle est connue ;</li>
  *   <li>prix au m² plausible (300 € a 40 000 €) ;</li>
  *   <li>actualisation de chaque vente avec l'indice du departement ;</li>
- *   <li>zone : 500 m autour de l'adresse, sinon 1 km, sinon la commune, avec au moins {@value #MIN_SALES} ventes ;</li>
+ *   <li>zone : 500 m autour de l'adresse, sinon 1 km, sinon 2 km, sinon la commune ; un rayon n'est retenu qu'avec
+ *       au moins {@value #MIN_SALES} ventes comparables, pour que la mediane soit representative ;</li>
  *   <li>valeurs aberrantes ecartees (regle de Tukey : hors 1,5 ecart interquartile) ;</li>
  *   <li>mediane et quartiles, arrondis a 10 €.</li>
  * </ol>
  */
 final class MarketAnalysis {
-    static final int MIN_SALES = 10;
+    static final int MIN_SALES = 30;
     static final int MIN_SALES_COMMUNE = 5;
     private static final BigDecimal MIN_PER_SQM = new BigDecimal("300");
     private static final BigDecimal MAX_PER_SQM = new BigDecimal("40000");
@@ -54,8 +55,8 @@ final class MarketAnalysis {
         MarketPrice.Scope scope = MarketPrice.Scope.COMMUNE;
         List<Adjusted> selected = comparable;
         if (location.precise()) {
-            for (MarketPrice.Scope candidate : List.of(MarketPrice.Scope.RADIUS_500, MarketPrice.Scope.RADIUS_1000)) {
-                double radius = candidate == MarketPrice.Scope.RADIUS_500 ? 500 : 1000;
+            for (MarketPrice.Scope candidate : List.of(MarketPrice.Scope.RADIUS_500, MarketPrice.Scope.RADIUS_1000, MarketPrice.Scope.RADIUS_2000)) {
+                double radius = candidate.meters();
                 List<Adjusted> near = comparable.stream().filter(sale -> sale.distance() <= radius).toList();
                 if (near.size() >= MIN_SALES) {
                     scope = candidate;
@@ -67,10 +68,10 @@ final class MarketAnalysis {
         List<BigDecimal> values = withoutOutliers(selected.stream().map(Adjusted::perSquareMeter).sorted().toList());
         if (values.size() < (scope == MarketPrice.Scope.COMMUNE ? MIN_SALES_COMMUNE : MIN_SALES)) {
             return new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.INSUFFICIENT, null, null, null, values.size(), scope, place, period,
-                    index.latestMonth(), "Trop peu de ventes comparables (" + values.size() + ") pour estimer un prix fiable.");
+                    index.latestMonth(), "Trop peu de ventes comparables (" + values.size() + ") pour estimer un prix fiable.", null);
         }
         return new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.OK, round(quantile(values, 0.5)), round(quantile(values, 0.25)),
-                round(quantile(values, 0.75)), values.size(), scope, place, period, index.latestMonth(), null);
+                round(quantile(values, 0.75)), values.size(), scope, place, period, index.latestMonth(), null, null);
     }
 
     private static boolean similarArea(BigDecimal saleArea, BigDecimal area) {
