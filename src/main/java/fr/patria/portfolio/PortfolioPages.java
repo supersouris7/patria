@@ -64,7 +64,8 @@ final class PortfolioPages {
                         tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(overview.purchase()), null),
                         tile("Apports", "Somme des apports personnels enregistrés.", euroWhole(overview.contributed()), null)),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY,
-                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)));
+                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
+                Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)));
         return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, content);
     }
 
@@ -141,6 +142,25 @@ final class PortfolioPages {
                     sortedCell(status.remainingMonths(), Format.duration(status.remainingMonths())));
         }).collect(Html.joining());
         return Components.table(List.of("Prêt", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "Durée restante"), rows, true, false);
+    }
+
+    /** Tous les prets du patrimoine, avec le bien finance et la prochaine echeance. */
+    private static Html allLoansTable(Overview overview) {
+        if (overview.loanCount() == 0) return Html.raw("<p class=\"empty\">Aucun prêt enregistré.</p>");
+        Html rows = overview.properties().stream().flatMap(summary -> summary.loans().stream().map(item -> {
+            LoanMath.Status status = item.status();
+            var next = status.nextInstallment();
+            return Html.of("<tr>%s%s%s%s%s%s%s%s</tr>",
+                    cell(link("/pret/" + item.loan().id(), item.loan().name())),
+                    cell(link("/bien/" + summary.property().id(), summary.property().name())),
+                    number(status.borrowed(), euro(status.borrowed())), number(status.currentRate(), percent(status.currentRate())),
+                    number(status.remaining(), euro(status.remaining())),
+                    sortedCell(status.progressPercent(), Components.progress(status.progressPercent())),
+                    sortedCell(status.remainingMonths(), Format.duration(status.remainingMonths())),
+                    next == null ? Html.raw("<td class=\"num\">–</td>")
+                            : number(next.amount(), Html.of("%s<small>%s</small>", euro(next.amount()), date(next.date()))));
+        })).collect(Html.joining());
+        return Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "Durée restante", "#Prochaine échéance"), rows, true, false);
     }
 
     private static Html contributionsTable(List<Contribution> contributions, BigDecimal total) {
