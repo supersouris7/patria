@@ -31,9 +31,11 @@ public final class LoanMath {
      * @param remaining       capital restant du ; avant la premiere ligne, tout le capital emprunte
      * @param currentRate     taux de la derniere ligne passee (sinon le premier taux connu)
      * @param nextInstallment prochaine echeance a payer, {@code null} s'il n'y en a plus
+     * @param creditCost      cout du credit deja paye : interets et frais (assurance, dossier...) des lignes passees
      */
     public record Status(BigDecimal borrowed, BigDecimal repaid, BigDecimal remaining, BigDecimal currentRate,
-                         ScheduleLine nextInstallment, LocalDate lastDate, long remainingMonths, int progressPercent) {
+                         ScheduleLine nextInstallment, LocalDate lastDate, long remainingMonths, int progressPercent,
+                         BigDecimal creditCost) {
     }
 
     public static boolean isPast(ScheduleLine line, LocalDate today) {
@@ -46,6 +48,7 @@ public final class LoanMath {
         boolean hasDrawdowns = lines.stream().anyMatch(line -> line.type() == LineType.DRAWDOWN && line.amount() != null);
         BigDecimal balance = hasDrawdowns ? BigDecimal.ZERO : borrowed;
         BigDecimal repaid = BigDecimal.ZERO;
+        BigDecimal creditCost = BigDecimal.ZERO;
         BigDecimal currentRate = null;
         ScheduleLine next = null;
         boolean started = false;
@@ -58,6 +61,7 @@ public final class LoanMath {
             if (line.annualRate() != null) currentRate = line.annualRate();
             BigDecimal principal = principalRepaid(line);
             repaid = repaid.add(principal);
+            creditCost = creditCost.add(cost(line));
             if (line.type() == LineType.DRAWDOWN && line.amount() != null) balance = balance.add(line.amount());
             balance = line.remainingPrincipal() != null ? line.remainingPrincipal() : balance.subtract(principal);
             balance = balance.max(BigDecimal.ZERO);
@@ -66,7 +70,21 @@ public final class LoanMath {
         if (currentRate == null) currentRate = lines.stream().map(ScheduleLine::annualRate).filter(Objects::nonNull).findFirst().orElse(null);
         LocalDate last = lines.isEmpty() ? null : lines.getLast().date();
         long months = last == null ? 0 : Math.max(0, ChronoUnit.MONTHS.between(YearMonth.from(today), YearMonth.from(last)));
-        return new Status(borrowed, repaid, remaining, currentRate, next, last, months, progress(borrowed, remaining));
+        return new Status(borrowed, repaid, remaining, currentRate, next, last, months, progress(borrowed, remaining), creditCost);
+    }
+
+    /**
+     * Cout d'une ligne : interets + frais. Si l'echeancier ne detaille pas les interets, une echeance vaut
+     * montant − capital rembourse (ce qui inclut l'assurance).
+     */
+    static BigDecimal cost(ScheduleLine line) {
+        if (line.interest() != null || line.fees() != null) {
+            return (line.interest() == null ? BigDecimal.ZERO : line.interest()).add(line.fees() == null ? BigDecimal.ZERO : line.fees());
+        }
+        if (line.type() == LineType.INSTALLMENT && line.amount() != null && line.principalRepaid() != null) {
+            return line.amount().subtract(line.principalRepaid()).max(BigDecimal.ZERO);
+        }
+        return BigDecimal.ZERO;
     }
 
     /** Capital rembourse par une ligne : colonne dediee, sinon montant d'un remboursement anticipe. */

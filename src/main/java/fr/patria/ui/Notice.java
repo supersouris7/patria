@@ -12,7 +12,9 @@ public record Notice(boolean error, String text) {
             "echeancier", "Échéancier importé.",
             "apport", "Apport enregistré.",
             "renomme", "Prêt renommé.",
-            "marche", "Prix du marché actualisé.");
+            "marche", "Prix du marché actualisé.",
+            "charge", "Charge enregistrée.",
+            "loyer", "Loyer enregistré.");
 
     public static Notice error(String text) {
         return new Notice(true, text);

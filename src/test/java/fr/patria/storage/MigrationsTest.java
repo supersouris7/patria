@@ -46,6 +46,8 @@ class MigrationsTest {
             statement.execute("INSERT INTO loans VALUES (2, 99, 'Orphelin', 1, 1, '2020-01-01', 1, 1, '2020-01-01', 1, 1, 0)");
             statement.execute("INSERT INTO loan_schedule_lines VALUES (1, 1, '2020-02-05', 'echeance', 900.07, 700.03, 200.04, NULL, 199299.97, 1.2)");
             statement.execute("INSERT INTO contributions VALUES (1, 2, 'Épargne', 15000.5)");
+            statement.execute("ALTER TABLE properties ADD COLUMN recurring_fees_annual REAL NOT NULL DEFAULT 0");
+            statement.execute("UPDATE properties SET recurring_fees_annual = 1850.4 WHERE id = 2");
         }
         return file;
     }
@@ -81,6 +83,15 @@ class MigrationsTest {
                     ResultSet contribution = statement.executeQuery("SELECT amount_cents, contribution_date FROM contributions");
                     assertEquals(1500050, contribution.getLong(1));
                     assertEquals(10, contribution.getString(2).length());
+
+                    ResultSet expense = statement.executeQuery("SELECT property_id, kind, year, amount_cents FROM expenses");
+                    assertTrue(expense.next(), "ancien montant « frais récurrents » repris en charge");
+                    assertEquals(2, expense.getLong(1));
+                    assertEquals("OTHER", expense.getString(2));
+                    assertEquals(2026, expense.getInt(3));
+                    assertEquals(185040, expense.getLong(4));
+                    ResultSet column = statement.executeQuery("SELECT count(*) FROM pragma_table_info('properties') WHERE name = 'recurring_fees_cents'");
+                    assertEquals(0, column.getInt(1), "colonne supprimée");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

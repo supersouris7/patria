@@ -113,6 +113,26 @@ class AppTest {
     }
 
     @Test
+    void chargesAndRentsAreEnteredInAdministrationAndShownOnTheProperty() throws Exception {
+        String csrf = login();
+        String property = post("/bien", "csrf=" + csrf + "&name=Studio&kind=APARTMENT&purchase=100000&purchase_date=2024-01-01")
+                .headers().firstValue("Location").orElseThrow().replace("?ok=cree", "");
+        String admin = property.replace("/bien/", "/administration/bien/");
+
+        assertEquals(303, post(admin + "/charges", "csrf=" + csrf + "&kind=PROPERTY_TAX&year=2025&amount=800").statusCode());
+        assertEquals(400, post(admin + "/charges", "csrf=" + csrf + "&kind=PROPERTY_TAX&year=abc&amount=800").statusCode());
+        assertEquals(303, post(admin + "/loyers", "csrf=" + csrf + "&monthly=500&start=2024-01-01&label=Locataire").statusCode());
+        assertEquals(400, post(admin + "/loyers", "csrf=" + csrf + "&monthly=500&start=2024-05-01&end=2024-01-01").statusCode());
+
+        assertTrue(get(admin + "/charges").body().contains("Estimée"), "années non saisies estimées");
+        String page = get(property).body();
+        assertTrue(page.contains("Enrichissement réel"));
+        assertTrue(page.contains("Loyers perçus"));
+        assertTrue(page.contains("500\u00a0€/mois"));
+        assertTrue(page.contains("rendement brut 6\u00a0%"));
+    }
+
+    @Test
     void unknownPagesReturn404WithNavigation() throws Exception {
         login();
         HttpResponse<String> response = get("/bien/999");

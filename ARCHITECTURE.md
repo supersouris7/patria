@@ -14,6 +14,8 @@ fr.patria
 │   ├─ loan ................ PRÊTS : import CSV des échéanciers, calculs à date, pages d'un prêt
 │   ├─ contribution ........ APPORTS : apports personnels d'un bien
 │   ├─ market .............. MARCHÉ : prix au m² du secteur (ventes DVF de data.gouv.fr), calculé en arrière-plan
+│   ├─ expense ............. CHARGES : taxe foncière, copropriété, assurance par année, années manquantes estimées
+│   ├─ rent ................ LOYERS : périodes de location, loyers perçus
 │   └─ property ............ BIENS : modèle, scénarios de valeur, formulaire d'un bien
 │
 ├─ auth .................... connexion, déconnexion, limitation des tentatives
@@ -32,7 +34,7 @@ fr.patria
 | `web` | `common`, `ui` |
 | `auth` | `common`, `ui`, `web` |
 | `property` | `common`, `ui`, `web`, `storage` |
-| `loan`, `contribution`, `market` | idem + `property` |
+| `loan`, `contribution`, `market`, `expense`, `rent` | idem + `property` |
 | `portfolio` | tous les modules ci-dessus |
 
 Ces règles sont **vérifiées par un test** (`ArchitectureTest`). Un import interdit fait échouer le build.
@@ -80,6 +82,9 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment est calculé le prix du marché ? | `market/MarketAnalysis` (filtres, zone, médiane), `market/PriceIndex` (actualisation) |
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
+| Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
+| Comment sont estimées les charges non saisies ? | `expense/ExpenseMath`, coefficients dans `expense/PropertyTaxRevaluation` |
+| Comment sont comptés les loyers ? | `rent/RentMath` (au jour près, mois sans période = vacants) |
 
 ## Base de données
 
@@ -136,6 +141,7 @@ L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit fi
 | Stockage | `PropertyRepositoryTest`, `MigrationsTest` | montants exacts, cascade, migration d'une ancienne base |
 | Service | `PortfolioTest` | sommes de la vue d'ensemble |
 | Marché | `MarketAnalysisTest`, `DvfSalesTest`, `MarketServiceTest`, `JsonTest` | filtres, zone, actualisation, cache, pannes réseau (source simulée, sans réseau) |
+| Charges et loyers | `ExpenseMathTest`, `RentMathTest` | estimation, revalorisation, prorata, vacance |
 | HTML | `HtmlTest` | échappement |
 | Application | `AppTest` | vrai serveur HTTP : connexion, CSRF, parcours complet, 404 |
 | Architecture | `ArchitectureTest` | sens des dépendances entre modules |

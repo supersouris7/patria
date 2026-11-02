@@ -11,7 +11,6 @@ import java.time.LocalDate;
  * @param estimateLow    estimation prudente, {@code null} si absente (le cout d'acquisition est alors utilise)
  * @param estimateHigh   estimation optimiste, {@code null} si absente (egale a l'estimation prudente)
  * @param saleFeesRate   frais de vente et fiscalite en ratio (0.08 = 8 %)
- * @param recurringFees  frais recurrents annuels, affiches a titre indicatif
  * @param selectedValue  valeur retenue avec le curseur, {@code null} = scenario prudent
  */
 public record Property(
@@ -27,14 +26,13 @@ public record Property(
         BigDecimal estimateHigh,
         LocalDate estimateDate,
         BigDecimal saleFeesRate,
-        BigDecimal recurringFees,
         BigDecimal selectedValue) {
 
     public Property withId(long newId) {
-        return new Property(newId, name, kind, commune, address, area, purchase, purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, recurringFees, selectedValue);
+        return new Property(newId, name, kind, commune, address, area, purchase, purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, selectedValue);
     }
 
     public Property withSelectedValue(BigDecimal value) {
-        return new Property(id, name, kind, commune, address, area, purchase, purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, recurringFees, value);
+        return new Property(id, name, kind, commune, address, area, purchase, purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, value);
     }
 }

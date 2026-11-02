@@ -34,7 +34,8 @@ class PortfolioTest {
                 new ScheduleLine(LocalDate.of(2026, 7, 1), LineType.INSTALLMENT, new BigDecimal("1000"), new BigDecimal("501"), null, null, new BigDecimal("198999"), new BigDecimal("3"))));
         stores.contributions().insert(new Contribution(0, studio, "Épargne", new BigDecimal("20000"), LocalDate.of(2021, 1, 1)));
 
-        Portfolio.Overview overview = new Portfolio(stores.properties(), stores.loans(), stores.contributions(), new MarketService(stores.database(), TestData.CLOCK), TestData.CLOCK).overview();
+        Portfolio.Overview overview = new Portfolio(new Portfolio.Stores(stores.properties(), stores.loans(), stores.contributions(), stores.expenses(), stores.rents()),
+                new MarketService(stores.database(), TestData.CLOCK), TestData.CLOCK).overview();
 
         assertAmount("450000", overview.value());
         assertAmount("199500", overview.debt());
@@ -46,6 +47,9 @@ class PortfolioTest {
         Portfolio.PropertySummary summary = overview.properties().stream().filter(s -> s.property().id() == house).findFirst().orElseThrow();
         assertEquals("Fourchette", summary.scenario());
         assertAmount("3665", summary.squareMeter().value()); // 350 000 / 95,5 m²
+        // coût du crédit : échéance de juin (1 000 − 500) ; enrichissement = 350 000 × 0,92 − 250 000 − 500
+        assertAmount("500", summary.returns().creditCost());
+        assertAmount("71500", summary.returns().realGain());
         stores.database().close();
     }
 }

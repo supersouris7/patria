@@ -47,6 +47,15 @@ public final class Format {
         return value == null ? DASH : (value.signum() > 0 ? "+" : "") + percent(value);
     }
 
+    /** Multiple a deux decimales : 1 -> « × 1,00 ». */
+    public static String multiple(BigDecimal value) {
+        if (value == null) return DASH;
+        NumberFormat format = NumberFormat.getNumberInstance(FR);
+        format.setMinimumFractionDigits(2);
+        format.setMaximumFractionDigits(2);
+        return "× " + format.format(value);
+    }
+
     public static String number(BigDecimal value, int maxDecimals) {
         if (value == null) return DASH;
         NumberFormat format = NumberFormat.getNumberInstance(FR);

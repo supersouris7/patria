@@ -29,8 +29,8 @@ public final class PropertyRepository {
     public long insert(Property property) {
         return database.query(connection -> Sql.insert(connection, """
                 INSERT INTO properties (name, kind, commune, address, area, purchase_cents, purchase_date, estimate_low_cents,
-                    estimate_high_cents, estimate_date, sale_fees_rate, recurring_fees_cents, selected_value_cents)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", values(property)));
+                    estimate_high_cents, estimate_date, sale_fees_rate, selected_value_cents)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", values(property)));
     }
 
     public void update(Property property) {
@@ -39,8 +39,7 @@ public final class PropertyRepository {
         parameters[values.length] = property.id();
         database.query(connection -> Sql.update(connection, """
                 UPDATE properties SET name = ?, kind = ?, commune = ?, address = ?, area = ?, purchase_cents = ?, purchase_date = ?,
-                    estimate_low_cents = ?, estimate_high_cents = ?, estimate_date = ?, sale_fees_rate = ?, recurring_fees_cents = ?,
-                    selected_value_cents = ?
+                    estimate_low_cents = ?, estimate_high_cents = ?, estimate_date = ?, sale_fees_rate = ?, selected_value_cents = ?
                 WHERE id = ?""", parameters));
     }
 
@@ -55,7 +54,7 @@ public final class PropertyRepository {
     private static Object[] values(Property property) {
         return new Object[] {property.name(), property.kind().name(), property.commune(), property.address(), property.area(),
                 cents(property.purchase()), property.purchaseDate(), cents(property.estimateLow()), cents(property.estimateHigh()),
-                property.estimateDate(), property.saleFeesRate(), cents(property.recurringFees()), cents(property.selectedValue())};
+                property.estimateDate(), property.saleFeesRate(), cents(property.selectedValue())};
     }
 
     private static Property map(ResultSet row) throws SQLException {
@@ -63,6 +62,6 @@ public final class PropertyRepository {
                 row.getString("commune"), row.getString("address"), Sql.decimal(row, "area"),
                 Sql.money(row, "purchase_cents"), Sql.date(row, "purchase_date"),
                 Sql.money(row, "estimate_low_cents"), Sql.money(row, "estimate_high_cents"), Sql.date(row, "estimate_date"),
-                Sql.decimal(row, "sale_fees_rate"), Sql.money(row, "recurring_fees_cents"), Sql.money(row, "selected_value_cents"));
+                Sql.decimal(row, "sale_fees_rate"), Sql.money(row, "selected_value_cents"));
     }
 }

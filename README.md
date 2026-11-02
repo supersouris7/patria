@@ -10,11 +10,18 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 - Vue d'ensemble : somme des valeurs retenues de chaque bien (sans curseur), valeur nette indicative calculee bien par bien, plus-value latente, capital restant du, prochaine mensualite.
 - Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
 - Apports personnels par bien.
+- Charges par annee (taxe fonciere, copropriete, assurance, autre) : une seule saisie suffit, les autres annees sont estimees (taxe fonciere revalorisee chaque annee selon le coefficient legal, autres charges constantes).
+- Loyers par periode de location (les mois sans periode comptent comme vacants), rendement brut.
+- Rentabilite reelle depuis l'achat : cout du credit paye (interets et frais des echeances passees), enrichissement reel (valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers) et multiple (valeur nette ÷ argent sorti de sa poche).
 - Modification et suppression des biens, prets et apports.
 - Persistance SQLite dans le volume Docker historique `patrimoine_data`, montants stockes au centime pres.
 - Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.
 
 La valeur nette indicative vaut : valeur estimee - frais de vente et fiscalite - capital restant du. Les frais recurrents annuels sont affiches a titre indicatif mais ne sont pas deduits.
+
+## Mise a jour des coefficients de taxe fonciere
+
+Les coefficients legaux de revalorisation des valeurs locatives sont dans `src/main/java/fr/patria/expense/PropertyTaxRevaluation.java`. Ajouter chaque annee la ligne de l'annee nouvelle ; a defaut, le dernier coefficient connu est repris.
 
 ## Prix au m² et prix du marche
 

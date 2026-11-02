@@ -18,6 +18,7 @@ import fr.patria.market.MarketPrice;
 import fr.patria.portfolio.Portfolio.LoanSummary;
 import fr.patria.portfolio.Portfolio.Overview;
 import fr.patria.portfolio.Portfolio.PropertySummary;
+import fr.patria.portfolio.Portfolio.Returns;
 import fr.patria.portfolio.Portfolio.SquareMeter;
 import fr.patria.property.Property;
 import fr.patria.property.PropertyNav;
@@ -56,9 +57,14 @@ final class PortfolioPages {
                         tile("Valeur estimée", "Somme des valeurs retenues sur chaque bien. Ajustez-les depuis la fiche de chaque bien.",
                                 euroWhole(overview.value()), Format.plural(overview.properties().size(), "bien", "biens")),
                         netTile(overview.net(), "Somme, bien par bien, de la valeur retenue − frais de vente et fiscalité − capital restant dû.", null),
-                        gainTile(overview.gain()),
+                        realGainTile(overview.returns()),
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui sur l'ensemble des prêts, d'après les échéanciers.",
                                 euroWhole(overview.debt()), Format.plural(overview.loanCount(), "prêt", "prêts"))),
+                Components.metrics(4,
+                        gainTile(overview.gain()),
+                        creditCostTile(overview.returns()),
+                        expensesTile(overview.returns()),
+                        rentsTile(overview.returns())),
                 Components.metrics(3,
                         nextMonthTile(overview.nextMonth(), null),
                         tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(overview.purchase()), null),
@@ -75,21 +81,24 @@ final class PortfolioPages {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
                 + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate());
-        Html actions = Html.concat(Components.secondaryButton("/administration/bien/" + property.id(), "Modifier"),
-                Components.button("/administration/bien/" + property.id() + "/financements", "Prêts et apports"));
+        Html actions = Components.secondaryButton("/administration/bien/" + property.id(), "Administrer");
         Html hero = summary.scenarios().isEmpty()
                 ? Components.emptyState("Aucune valeur renseignée", "Indiquez le coût d'acquisition ou une estimation pour suivre la valeur de ce bien.",
                         Components.button("/administration/bien/" + property.id(), "Renseigner"))
                 : estimateSlider(summary);
-        String recurring = property.recurringFees().signum() > 0 ? "Frais récurrents : " + euroWhole(property.recurringFees()) + "/an, non déduits" : null;
         Html content = Html.concat(
                 Components.backLink("/", "Vue d'ensemble"),
                 Components.heading("Bien", property.name(), subtitle, actions), Components.notice(notice), hero,
                 Components.metrics(4,
-                        netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", recurring),
-                        gainTile(summary.gain()),
+                        netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
+                        realGainTile(summary.returns()),
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()), null),
                         nextMonthTile(summary.nextMonth(), "/bien/" + property.id() + "/mensualites")),
+                Components.metrics(4,
+                        gainTile(summary.gain()),
+                        creditCostTile(summary.returns()),
+                        expensesTile(summary.returns()),
+                        rentsTile(summary.returns())),
                 Components.metrics(4,
                         tile("Coût d'acquisition", "Montant total engagé pour acheter le bien : prix, frais et travaux.", euroWhole(property.purchase()), date(property.purchaseDate())),
                         tile("Capital emprunté", "Total des déblocages des prêts.", euroWhole(summary.borrowed()), null),
@@ -114,7 +123,8 @@ final class PortfolioPages {
                 chip("Fourchette", s.middle(), summary.value(), "Milieu entre estimations prudente et optimiste"),
                 chip("Optimiste", s.optimistic(), summary.value(), "Estimation optimiste"));
         return Html.of("""
-                <section class="card hero" data-estimate data-save="/bien/%s/valeur" data-fees="%s" data-debt="%s" data-purchase="%s" data-area="%s" data-market="%s">
+                <section class="card hero" data-estimate data-save="/bien/%s/valeur" data-fees="%s" data-debt="%s" data-purchase="%s" data-area="%s" data-market="%s"
+                data-gain-base="%s" data-invested="%s">
                 <div class="hero-head"><div><span class="metric-label">Valeur retenue</span><strong class="hero-value" data-estimate-value>%s</strong>
                 <span class="muted">%s <span class="save-state" data-save-state aria-live="polite"></span></span></div>
                 <span class="scenario-badge" data-estimate-label>%s</span></div>
@@ -122,6 +132,7 @@ final class PortfolioPages {
                 <div class="chips">%s</div></section>""",
                 property.id(), plain(property.saleFeesRate()), plain(summary.debt()), plain(property.purchase()),
                 plain(property.area()), summary.squareMeter().market() != null && summary.squareMeter().market().isAvailable() ? plain(summary.squareMeter().market().median()) : "",
+                plain(gainBase(summary)), plain(summary.returns().invested()),
                 euroWhole(summary.value()), caption, summary.scenario(),
                 plain(s.sliderMin()), plain(s.sliderMax()), plain(summary.value()), chips);
     }
@@ -309,6 +320,36 @@ final class PortfolioPages {
         String tone = gain.signum() < 0 ? "negative" : gain.signum() > 0 ? "positive" : "";
         return Html.of("<article class=\"metric\">%s<strong data-derived=\"gain\" class=\"%s\">%s</strong></article>",
                 Components.label("Plus-value latente", "Valeur retenue − coût d'acquisition. Hors frais de vente et fiscalité."), tone, Format.signedEuroWhole(gain));
+    }
+
+    /** Partie de l'enrichissement reel qui ne depend pas de la valeur : le curseur n'a qu'a ajouter valeur × (1 − frais). */
+    private static BigDecimal gainBase(PropertySummary summary) {
+        Returns returns = summary.returns();
+        return summary.property().purchase().negate().subtract(returns.creditCost()).subtract(returns.expenses()).add(returns.rents());
+    }
+
+    private static Html realGainTile(Returns returns) {
+        String tone = returns.realGain().signum() < 0 ? "negative" : returns.realGain().signum() > 0 ? "positive" : "";
+        String multiple = returns.multiple() == null ? "" : Format.multiple(returns.multiple()) + " · ";
+        return Html.of("<article class=\"metric\">%s<strong data-derived=\"real-gain\" class=\"%s\">%s</strong><small><span data-derived=\"multiple\">%s</span>%s investis</small></article>",
+                Components.label("Enrichissement réel", "Valeur après frais de vente − coût d'acquisition − coût du crédit payé − charges payées + loyers perçus. "
+                        + "Le multiple compare la valeur nette à tout l'argent sorti de votre poche (apport, mensualités, charges, moins les loyers)."),
+                tone, Format.signedEuroWhole(returns.realGain()), multiple, euroWhole(returns.invested()));
+    }
+
+    private static Html creditCostTile(Returns returns) {
+        return tile("Coût du crédit payé", "Intérêts, assurance et frais des échéances déjà passées.", euroWhole(returns.creditCost()), "depuis le premier déblocage");
+    }
+
+    private static Html expensesTile(Returns returns) {
+        return tile("Charges payées", "Taxe foncière, copropriété, assurance… depuis l'achat. Les années non saisies sont estimées.",
+                euroWhole(returns.expenses()), returns.yearExpenses().signum() == 0 ? "Aucune charge saisie" : euroWhole(returns.yearExpenses()) + " cette année");
+    }
+
+    private static Html rentsTile(Returns returns) {
+        String sub = returns.monthlyRent().signum() == 0 ? (returns.rents().signum() == 0 ? "Non loué" : "Vacant actuellement")
+                : euroWhole(returns.monthlyRent()) + "/mois" + (returns.grossYield() == null ? "" : " · rendement brut " + Format.percent(returns.grossYield()));
+        return tile("Loyers perçus", "Loyers hors charges perçus depuis le début des locations, estimés au jour près.", euroWhole(returns.rents()), sub);
     }
 
     private static Html nextMonthTile(LoanMath.Month next, String detailLink) {

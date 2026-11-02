@@ -10,7 +10,7 @@ class ValuationTest {
     static Property property(String purchase, String low, String high) {
         return new Property(1, "Bien", PropertyKind.HOUSE, "", "", null, new BigDecimal(purchase), LocalDate.of(2020, 1, 1),
                 low == null ? null : new BigDecimal(low), high == null ? null : new BigDecimal(high), LocalDate.of(2024, 1, 1),
-                new BigDecimal("0.08"), BigDecimal.ZERO, null);
+                new BigDecimal("0.08"), null);
     }
 
     @Test

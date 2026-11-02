@@ -1,6 +1,7 @@
 "use strict";
 
 const euroWhole = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "EUR", maximumFractionDigits: 0, minimumFractionDigits: 0});
+const multipleFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const percentFormat = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 1});
 const moneyFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const parseNumber = (text) => {
@@ -100,6 +101,10 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const gap = document.querySelector("[data-derived='gap']");
   const gapLabel = document.querySelector("[data-derived='gap-label']");
   const net = document.querySelector("[data-derived='net']");
+  const gainBase = Number(hero.dataset.gainBase || 0);
+  const invested = Number(hero.dataset.invested || 0);
+  const realGain = document.querySelector("[data-derived='real-gain']");
+  const multiple = document.querySelector("[data-derived='multiple']");
   const gain = document.querySelector("[data-derived='gain']");
   let saved = Number(slider.value);
   let timer = null;
@@ -146,6 +151,13 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
       gain.classList.toggle("positive", difference > 0);
       gain.classList.toggle("negative", difference < 0);
     }
+    if (realGain) {
+      const amount = value - value * fees + gainBase;
+      realGain.textContent = (amount > 0 ? "+" : "") + euroWhole.format(amount);
+      realGain.classList.toggle("positive", amount > 0);
+      realGain.classList.toggle("negative", amount < 0);
+    }
+    if (multiple && invested > 0) multiple.textContent = "× " + multipleFormat.format((value - value * fees - debt) / invested) + " · ";
     if (area > 0 && perSquareMeter) {
       const sqm = Math.round(value / area);
       perSquareMeter.textContent = euroWhole.format(sqm) + "/m²";

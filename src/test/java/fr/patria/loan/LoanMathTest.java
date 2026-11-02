@@ -78,6 +78,17 @@ class LoanMathTest {
     }
 
     @Test
+    void creditCostAddsInterestAndFeesOfPastLinesOnly() {
+        List<ScheduleLine> lines = List.of(
+                new ScheduleLine(LocalDate.parse("2026-05-05"), LineType.INSTALLMENT, new BigDecimal("850"), new BigDecimal("500"), new BigDecimal("330"), new BigDecimal("20"), null, null),
+                line("2026-06-05", LineType.INSTALLMENT, "850", "520", "13980", null),
+                new ScheduleLine(LocalDate.parse("2026-07-05"), LineType.INSTALLMENT, new BigDecimal("850"), new BigDecimal("502"), new BigDecimal("328"), new BigDecimal("20"), null, null));
+
+        // 330 + 20, puis 850 − 520 faute de détail ; juillet n'est pas encore payé
+        assertAmount("680", LoanMath.status(lines, TODAY).creditCost());
+    }
+
+    @Test
     void installmentDueTodayIsPaid() {
         assertTrue(LoanMath.isPast(line("2026-06-15", LineType.INSTALLMENT, "100", "50", "950", null), TODAY));
         assertFalse(LoanMath.isPast(line("2026-06-16", LineType.INSTALLMENT, "100", "50", "950", null), TODAY));

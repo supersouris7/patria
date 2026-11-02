@@ -24,13 +24,11 @@ final class PropertyForm {
             throw new ValidationException("L'estimation optimiste doit être supérieure ou égale à l'estimation prudente.");
         }
         BigDecimal purchase = form.optionalAmount("purchase", "Coût d'acquisition");
-        BigDecimal recurring = form.optionalAmount("recurring_fees", "Frais récurrents annuels");
         Property property = new Property(current == null ? 0 : current.id(),
                 form.requiredText("name", "Nom du bien", 100), PropertyKind.parse(form.raw("kind")),
                 form.optionalText("commune", "Commune", 100), form.optionalText("address", "Adresse", 200),
                 positiveOrNull(form.optionalAmount("area", "Surface")), purchase == null ? BigDecimal.ZERO : purchase, purchaseDate,
-                low, high, estimateDate, form.percent("sale_fees_pct", "Frais de vente et fiscalité", Valuation.DEFAULT_SALE_FEES),
-                recurring == null ? BigDecimal.ZERO : recurring, null);
+                low, high, estimateDate, form.percent("sale_fees_pct", "Frais de vente et fiscalité", Valuation.DEFAULT_SALE_FEES), null);
         // La valeur retenue reste valable tant que les scenarios du bien ne changent pas.
         boolean keepSelection = current != null && Valuation.scenarios(property).sameAs(Valuation.scenarios(current));
         return property.withSelectedValue(keepSelection ? current.selectedValue() : null);
@@ -49,7 +47,6 @@ final class PropertyForm {
         values.put("estimate_high", Format.plain(property.estimateHigh()));
         values.put("estimate_date", property.estimateDate().toString());
         values.put("sale_fees_pct", Format.plain(property.saleFeesRate().multiply(BigDecimal.valueOf(100))));
-        values.put("recurring_fees", Format.plain(property.recurringFees()));
         return values;
     }
 

@@ -19,17 +19,19 @@ import org.junit.jupiter.api.Test;
  * modules listes ici ; toute nouvelle dependance doit etre ajoutee consciemment.
  */
 class ArchitectureTest {
-    private static final Map<String, Set<String>> ALLOWED = Map.of(
-            "common", Set.of(),
-            "ui", Set.of("common"),
-            "storage", Set.of("common"),
-            "web", Set.of("common", "ui"),
-            "auth", Set.of("common", "ui", "web"),
-            "property", Set.of("common", "ui", "web", "storage"),
-            "loan", Set.of("common", "ui", "web", "storage", "property"),
-            "contribution", Set.of("common", "ui", "web", "storage", "property"),
-            "market", Set.of("common", "ui", "web", "storage", "property"),
-            "portfolio", Set.of("common", "ui", "web", "storage", "property", "loan", "contribution", "market"));
+    private static final Map<String, Set<String>> ALLOWED = Map.ofEntries(
+            Map.entry("common", Set.<String>of()),
+            Map.entry("ui", Set.of("common")),
+            Map.entry("storage", Set.of("common")),
+            Map.entry("web", Set.of("common", "ui")),
+            Map.entry("auth", Set.of("common", "ui", "web")),
+            Map.entry("property", Set.of("common", "ui", "web", "storage")),
+            Map.entry("loan", Set.of("common", "ui", "web", "storage", "property")),
+            Map.entry("contribution", Set.of("common", "ui", "web", "storage", "property")),
+            Map.entry("market", Set.of("common", "ui", "web", "storage", "property")),
+            Map.entry("expense", Set.of("common", "ui", "web", "storage", "property")),
+            Map.entry("rent", Set.of("common", "ui", "web", "storage", "property")),
+            Map.entry("portfolio", Set.of("common", "ui", "web", "storage", "property", "loan", "contribution", "market", "expense", "rent")));
     private static final Pattern IMPORT = Pattern.compile("^import (?:static )?fr\\.patria\\.(\\w+)\\.", Pattern.MULTILINE);
 
     @Test

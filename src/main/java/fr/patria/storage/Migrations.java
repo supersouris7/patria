@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 3;
+    public static final int LATEST = 4;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -29,20 +29,25 @@ public final class Migrations {
             int version = userVersion(connection);
             if (version > LATEST) throw new IllegalStateException("Base creee par une version plus recente de Patria (schema " + version + ").");
             if (!tableExists(connection, "properties")) {
+                // Base neuve : schema de reference de la version 2, puis les memes migrations qu'une base existante.
                 createSchema(connection, "");
-                setUserVersion(connection, LATEST);
-                return null;
+                setUserVersion(connection, 2);
+                version = 2;
+            } else if (version < LATEST) {
+                backup(connection, database, version, clock);
             }
-            if (version == LATEST) return null;
-            backup(connection, database, version, clock);
             if (version < 1) toVersion1(connection);
             if (version < 2) toVersion2(connection);
             if (version < 3) toVersion3(connection);
+            if (version < 4) toVersion4(connection, LocalDateTime.now(clock).getYear());
             return null;
         });
     }
 
-    /** Schema actuel. {@code suffix} permet de creer des tables temporaires pendant une migration. */
+    /**
+     * Schema de reference de la version 2 (fige : ne plus le modifier). Les versions suivantes s'appliquent par-dessus.
+     * {@code suffix} permet de creer des tables temporaires pendant la migration 2.
+     */
     private static void createSchema(Connection connection, String suffix) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("""
@@ -89,10 +94,7 @@ public final class Migrations {
                         amount_cents INTEGER NOT NULL,
                         contribution_date TEXT NOT NULL
                     )""".formatted(suffix));
-            if (suffix.isEmpty()) {
-                createIndexes(statement);
-                createMarketPrices(statement);
-            }
+            if (suffix.isEmpty()) createIndexes(statement);
         }
     }
 
@@ -114,6 +116,48 @@ public final class Migrations {
                     index_month TEXT,
                     message TEXT
                 )""");
+    }
+
+    /**
+     * Version 4 : charges (taxe fonciere, copropriete, assurance...) par annee et periodes de location.
+     * L'ancien montant annuel unique « frais recurrents » devient une charge « Autre » de l'annee en cours.
+     */
+    private static void toVersion4(Connection connection, int currentYear) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("""
+                        CREATE TABLE expenses (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+                            kind TEXT NOT NULL CHECK (kind IN ('PROPERTY_TAX', 'CONDO_FEES', 'INSURANCE', 'OTHER')),
+                            year INTEGER NOT NULL,
+                            amount_cents INTEGER NOT NULL,
+                            UNIQUE (property_id, kind, year)
+                        )""");
+                statement.execute("""
+                        CREATE TABLE rents (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+                            label TEXT NOT NULL DEFAULT '',
+                            start_date TEXT NOT NULL,
+                            end_date TEXT,
+                            monthly_cents INTEGER NOT NULL
+                        )""");
+                statement.execute("CREATE INDEX expenses_by_property ON expenses(property_id)");
+                statement.execute("CREATE INDEX rents_by_property ON rents(property_id)");
+                statement.execute("INSERT INTO expenses (property_id, kind, year, amount_cents) SELECT id, 'OTHER', " + currentYear
+                        + ", recurring_fees_cents FROM properties WHERE recurring_fees_cents > 0");
+                statement.execute("ALTER TABLE properties DROP COLUMN recurring_fees_cents");
+                setUserVersion(connection, 4);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                connection.rollback();
+                throw exception;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

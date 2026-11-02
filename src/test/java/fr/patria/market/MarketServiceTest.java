@@ -52,7 +52,7 @@ class MarketServiceTest {
 
     private Property property(long id, String address, String commune) {
         return new Property(id, "Bien", PropertyKind.APARTMENT, commune, address, new BigDecimal("60"), new BigDecimal("200000"),
-                LocalDate.of(2020, 1, 1), null, null, LocalDate.of(2020, 1, 1), new BigDecimal("0.08"), BigDecimal.ZERO, null);
+                LocalDate.of(2020, 1, 1), null, null, LocalDate.of(2020, 1, 1), new BigDecimal("0.08"), null);
     }
 
     @Test
