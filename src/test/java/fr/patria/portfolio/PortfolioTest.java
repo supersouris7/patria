@@ -1,6 +1,7 @@
 package fr.patria.portfolio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import fr.patria.TestData;
 import fr.patria.contribution.Contribution;
@@ -20,6 +21,28 @@ class PortfolioTest {
 
     private static void assertAmount(String expected, BigDecimal actual) {
         assertEquals(0, new BigDecimal(expected).compareTo(actual), () -> "attendu " + expected + ", obtenu " + actual);
+    }
+
+    @Test
+    void propertyTaxesAreTotalledPerYearWithEvolution() {
+        java.time.LocalDate today = java.time.LocalDate.of(2025, 6, 1);
+        fr.patria.property.Property first = TestData.property("A", "100000", null, null).withId(1);
+        fr.patria.property.Property second = new fr.patria.property.Property(2, "B", fr.patria.property.PropertyKind.APARTMENT, "", "", null,
+                new BigDecimal("100000"), java.time.LocalDate.of(2024, 3, 1), null, null, java.time.LocalDate.of(2024, 3, 1), new BigDecimal("0.08"), null);
+        java.util.Map<Long, List<fr.patria.expense.Expense>> expenses = java.util.Map.of(
+                1L, List.of(new fr.patria.expense.Expense(0, 1, fr.patria.expense.ExpenseKind.PROPERTY_TAX, 2024, new BigDecimal("1000"))),
+                2L, List.of(new fr.patria.expense.Expense(0, 2, fr.patria.expense.ExpenseKind.PROPERTY_TAX, 2024, new BigDecimal("500"))));
+
+        List<Portfolio.TaxYear> years = Portfolio.propertyTaxes(List.of(first, second), expenses, today);
+
+        assertEquals(2025, years.getFirst().year(), "année la plus récente en premier");
+        assertAmount("1526", years.getFirst().amount());        // 1 000 × 1,017 + 500 × 1,017, arrondis par bien : 1 017 + 509
+        assertAmount("1.7", years.getFirst().evolution());
+        assertEquals(0, years.getFirst().entered());
+        Portfolio.TaxYear year2024 = years.get(1);
+        assertEquals(2, year2024.entered());
+        assertTrue(year2024.newProperty(), "le bien B apparaît en 2024");
+        assertEquals(2020, years.getLast().year(), "depuis l'achat du premier bien");
     }
 
     @Test

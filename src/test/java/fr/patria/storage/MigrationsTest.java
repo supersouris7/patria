@@ -90,6 +90,10 @@ class MigrationsTest {
                     assertEquals("OTHER", expense.getString(2));
                     assertEquals(2026, expense.getInt(3));
                     assertEquals(185040, expense.getLong(4));
+                    statement.execute("INSERT INTO expenses (property_id, kind, year, amount_cents) VALUES (2, 'HOUSING_TAX', 2025, 50000)");
+                    statement.execute("INSERT INTO rents (property_id, start_date, monthly_cents) VALUES (2, '2024-01-01', 90000)");
+                    ResultSet rentKind = statement.executeQuery("SELECT kind FROM rents");
+                    assertEquals("RENTAL", rentKind.getString(1), "v5 : période de location par défaut");
                     ResultSet column = statement.executeQuery("SELECT count(*) FROM pragma_table_info('properties') WHERE name = 'recurring_fees_cents'");
                     assertEquals(0, column.getInt(1), "colonne supprimée");
 

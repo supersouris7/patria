@@ -6,6 +6,8 @@ import java.util.Arrays;
 /** Nature d'une charge annuelle. Le nom de la constante est stocke en base. */
 public enum ExpenseKind {
     PROPERTY_TAX("Taxe foncière", "revalorisée chaque année selon le coefficient légal"),
+    /** Due seulement hors residence principale (supprimee pour les residences principales depuis 2023). */
+    HOUSING_TAX("Taxe d'habitation", "montant constant entre deux saisies (résidence secondaire ou logement vacant)"),
     CONDO_FEES("Charges de copropriété", "montant constant entre deux saisies"),
     INSURANCE("Assurance", "montant constant entre deux saisies"),
     OTHER("Autre", "montant constant entre deux saisies");

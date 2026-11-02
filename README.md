@@ -11,8 +11,9 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 - Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
 - Apports personnels par bien.
 - Charges par annee (taxe fonciere, copropriete, assurance, autre) : une seule saisie suffit, les autres annees sont estimees (taxe fonciere revalorisee chaque annee selon le coefficient legal, autres charges constantes).
-- Loyers par periode de location (les mois sans periode comptent comme vacants), rendement brut.
-- Rentabilite reelle depuis l'achat : cout du credit paye (interets et frais des echeances passees), enrichissement reel (valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers) et multiple (valeur nette ÷ argent sorti de sa poche).
+- Occupation par periode : location (loyer percu) ou residence principale (loyer de reference saisi, compte comme loyer economise dans l'enrichissement reel) ; les jours sans periode comptent comme vacants. Rendement brut sur les seuls loyers percus.
+- Charges : la taxe d'habitation (residences secondaires) s'ajoute aux types existants.
+- Rentabilite reelle depuis l'achat : cout du credit paye (interets et frais des echeances passees), enrichissement reel (valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers percus et economises) et multiple (valeur nette ÷ argent sorti de sa poche).
 - Modification et suppression des biens, prets et apports.
 - Persistance SQLite dans le volume Docker historique `patrimoine_data`, montants stockes au centime pres.
 - Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.

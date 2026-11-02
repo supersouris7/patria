@@ -3,6 +3,7 @@ package fr.patria.portfolio;
 import fr.patria.contribution.Contribution;
 import fr.patria.contribution.ContributionRepository;
 import fr.patria.expense.Expense;
+import fr.patria.expense.ExpenseKind;
 import fr.patria.expense.ExpenseMath;
 import fr.patria.expense.ExpenseRepository;
 import fr.patria.loan.Loan;
@@ -22,7 +23,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -78,19 +81,39 @@ public final class Portfolio {
      * @param expenses      charges payees depuis l'achat (saisies ou estimees, au prorata)
      * @param yearExpenses  charges de l'annee en cours
      * @param rents         loyers percus depuis l'achat
-     * @param monthlyRent   loyer mensuel en cours (0 si non loue)
-     * @param invested      argent sorti de la poche : apport + capital rembourse + cout du credit + charges − loyers
-     * @param realGain      valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers
+     * @param savedRent     loyers economises en occupant le bien comme residence principale (loyer de reference)
+     * @param monthlyRent   loyer mensuel percu en cours (0 si non loue)
+     * @param occupancy     usage actuel : « Location », « Résidence principale », « Vacant » ou « Non renseigné »
+     * @param invested      argent sorti de la poche : apport + capital rembourse + cout du credit + charges − loyers percus et economises
+     * @param realGain      valeur apres frais de vente − cout d'acquisition − cout du credit − charges + loyers percus et economises
      * @param multiple      valeur nette ÷ argent investi ; {@code null} si rien n'a ete investi
      * @param grossYield    loyer annuel en cours ÷ cout d'acquisition, en % ; {@code null} si non loue
      */
-    public record Returns(BigDecimal creditCost, BigDecimal expenses, BigDecimal yearExpenses, BigDecimal rents, BigDecimal monthlyRent,
-                          BigDecimal invested, BigDecimal realGain, BigDecimal multiple, BigDecimal grossYield) {
+    public record Returns(BigDecimal creditCost, BigDecimal expenses, BigDecimal yearExpenses, BigDecimal rents, BigDecimal savedRent,
+                          BigDecimal monthlyRent, String occupancy, BigDecimal invested, BigDecimal realGain, BigDecimal multiple, BigDecimal grossYield) {
+        public boolean isPrincipalResidence() {
+            return "Résidence principale".equals(occupancy);
+        }
     }
 
     /** Patrimoine complet : somme des valeurs retenues de chaque bien. */
     public record Overview(List<PropertySummary> properties, BigDecimal value, BigDecimal net, BigDecimal gain, BigDecimal debt,
-                           BigDecimal purchase, BigDecimal contributed, int loanCount, LoanMath.Month nextMonth, Returns returns) {
+                           BigDecimal purchase, BigDecimal contributed, int loanCount, LoanMath.Month nextMonth, Returns returns,
+                           List<TaxYear> propertyTaxes) {
+    }
+
+    /**
+     * Total des taxes foncieres d'une annee, tous biens confondus (montant annuel, sans prorata).
+     *
+     * @param entered    nombre de biens dont le montant de l'annee a ete saisi
+     * @param estimated  nombre de biens dont le montant est estime
+     * @param evolution  variation en % par rapport a l'annee precedente ({@code null} pour la premiere annee)
+     * @param newProperty vrai si un bien de plus est compte par rapport a l'annee precedente (variation non comparable)
+     */
+    public record TaxYear(int year, BigDecimal amount, int entered, int estimated, BigDecimal evolution, boolean newProperty) {
+        public int properties() {
+            return entered + estimated;
+        }
     }
 
     public LocalDate today() {
@@ -125,11 +148,43 @@ public final class Portfolio {
         // Rendement brut calcule sur les seuls biens loues : un bien occupe ne doit pas le diluer.
         BigDecimal rentedPurchase = summaries.stream().filter(summary -> summary.returns().monthlyRent().signum() > 0)
                 .map(summary -> summary.property().purchase()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long principal = summaries.stream().filter(summary -> summary.returns().isPrincipalResidence()).count();
+        long rented = summaries.stream().filter(summary -> summary.returns().monthlyRent().signum() > 0).count();
+        String occupancy = (principal > 0 ? "1 résidence principale" : "") + (principal > 0 && rented > 0 ? ", " : "")
+                + (rented > 0 ? rented + (rented > 1 ? " biens loués" : " bien loué") : "");
         Returns returns = new Returns(sum(summaries, summary -> summary.returns().creditCost()), sum(summaries, summary -> summary.returns().expenses()),
-                sum(summaries, summary -> summary.returns().yearExpenses()), sum(summaries, summary -> summary.returns().rents()), monthlyRent,
+                sum(summaries, summary -> summary.returns().yearExpenses()), sum(summaries, summary -> summary.returns().rents()),
+                sum(summaries, summary -> summary.returns().savedRent()), monthlyRent, occupancy.isEmpty() ? "Non renseigné" : occupancy,
                 invested, sum(summaries, summary -> summary.returns().realGain()), multiple(net, invested), grossYield(monthlyRent, rentedPurchase));
         return new Overview(summaries, value, net, value.subtract(purchase), sum(summaries, PropertySummary::debt), purchase,
-                sum(summaries, PropertySummary::contributed), allLoans.size(), LoanMath.nextMonth(allLoans, schedules, today()), returns);
+                sum(summaries, PropertySummary::contributed), allLoans.size(), LoanMath.nextMonth(allLoans, schedules, today()), returns,
+                propertyTaxes(all, expenses, today()));
+    }
+
+    /** Taxes foncieres annee par annee (de la plus recente a la plus ancienne), saisies ou estimees, tous biens confondus. */
+    static List<TaxYear> propertyTaxes(List<Property> properties, Map<Long, List<Expense>> expenses, LocalDate today) {
+        record Total(BigDecimal amount, int entered, int estimated) {
+        }
+        TreeMap<Integer, Total> byYear = new TreeMap<>();
+        for (Property property : properties) {
+            List<Expense> taxes = expenses.getOrDefault(property.id(), List.of()).stream().filter(e -> e.kind() == ExpenseKind.PROPERTY_TAX).toList();
+            for (ExpenseMath.YearAmount year : ExpenseMath.years(taxes, property.purchaseDate(), today)) {
+                Total current = byYear.getOrDefault(year.year(), new Total(BigDecimal.ZERO, 0, 0));
+                byYear.put(year.year(), new Total(current.amount().add(year.amount()), current.entered() + (year.estimated() ? 0 : 1),
+                        current.estimated() + (year.estimated() ? 1 : 0)));
+            }
+        }
+        List<TaxYear> result = new ArrayList<>();
+        Total previous = null;
+        for (Map.Entry<Integer, Total> entry : byYear.entrySet()) {
+            Total total = entry.getValue();
+            BigDecimal evolution = previous == null || previous.amount().signum() == 0 ? null
+                    : total.amount().subtract(previous.amount()).multiply(BigDecimal.valueOf(100)).divide(previous.amount(), 1, RoundingMode.HALF_UP);
+            boolean newProperty = previous != null && total.entered() + total.estimated() > previous.entered() + previous.estimated();
+            result.add(new TaxYear(entry.getKey(), total.amount(), total.entered(), total.estimated(), evolution, newProperty));
+            previous = total;
+        }
+        return result.reversed();
     }
 
     /** Echeances mois par mois d'un bien, tous prets confondus. */
@@ -164,14 +219,18 @@ public final class Portfolio {
                            BigDecimal creditCost, List<Expense> expenses, List<RentPeriod> rents, LocalDate today) {
         BigDecimal expensesPaid = ExpenseMath.paidToDate(expenses, property.purchaseDate(), today);
         BigDecimal rentsReceived = RentMath.receivedToDate(rents, today);
+        BigDecimal savedRent = RentMath.savedToDate(rents, today);
         BigDecimal monthlyRent = RentMath.currentMonthly(rents, today);
+        RentPeriod current = RentMath.currentPeriod(rents, today);
+        String occupancy = current != null ? current.kind().label() : rents.isEmpty() ? "Non renseigné" : "Vacant";
         BigDecimal initialCash = contributed.signum() > 0 ? contributed : property.purchase().subtract(borrowed).max(BigDecimal.ZERO);
-        BigDecimal invested = initialCash.add(repaid).add(creditCost).add(expensesPaid).subtract(rentsReceived);
+        // Le loyer economise est traite comme un loyer percu : c'est une depense de logement evitee.
+        BigDecimal invested = initialCash.add(repaid).add(creditCost).add(expensesPaid).subtract(rentsReceived).subtract(savedRent);
         BigDecimal afterSale = value.subtract(value.multiply(property.saleFeesRate()));
-        BigDecimal realGain = afterSale.subtract(property.purchase()).subtract(creditCost).subtract(expensesPaid).add(rentsReceived)
+        BigDecimal realGain = afterSale.subtract(property.purchase()).subtract(creditCost).subtract(expensesPaid).add(rentsReceived).add(savedRent)
                 .setScale(2, RoundingMode.HALF_UP);
-        return new Returns(creditCost, expensesPaid, ExpenseMath.currentYear(expenses, property.purchaseDate(), today), rentsReceived, monthlyRent,
-                invested, realGain, multiple(net, invested), grossYield(monthlyRent, property.purchase()));
+        return new Returns(creditCost, expensesPaid, ExpenseMath.currentYear(expenses, property.purchaseDate(), today), rentsReceived, savedRent,
+                monthlyRent, occupancy, invested, realGain, multiple(net, invested), grossYield(monthlyRent, property.purchase()));
     }
 
     private static BigDecimal multiple(BigDecimal net, BigDecimal invested) {

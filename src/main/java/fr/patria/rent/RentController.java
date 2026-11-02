@@ -14,7 +14,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Map;
 
-/** Saisie, modification et suppression des periodes de location. */
+/** Saisie, modification et suppression des periodes d'occupation (location ou residence principale). */
 public final class RentController {
     private final RentRepository rents;
     private final PropertyRepository properties;
@@ -75,11 +75,12 @@ public final class RentController {
         LocalDate start = form.date("start", "Début");
         LocalDate end = form.raw("end").isBlank() ? null : form.date("end", "Fin");
         if (end != null && end.isBefore(start)) throw new ValidationException("La fin ne peut pas précéder le début.");
-        return new RentPeriod(id, propertyId, form.optionalText("label", "Locataire", 100), start, end, form.positiveAmount("monthly", "Loyer mensuel"));
+        return new RentPeriod(id, propertyId, Occupancy.parse(form.raw("kind")), form.optionalText("label", "Commentaire", 100), start, end,
+                form.positiveAmount("monthly", "Loyer mensuel"));
     }
 
     private RentPeriod require(long id) {
-        return rents.find(id).orElseThrow(() -> new NotFoundException("Location introuvable", "Cette période de location n'existe pas."));
+        return rents.find(id).orElseThrow(() -> new NotFoundException("Période introuvable", "Cette période d'occupation n'existe pas."));
     }
 
     private Property propertyOf(RentPeriod period) {

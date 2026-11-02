@@ -17,7 +17,7 @@ public final class PropertyNav {
                 new NavItem("/administration/bien/" + property.id(), "Informations", active == Tab.INFORMATION),
                 new NavItem("/administration/bien/" + property.id() + "/financements", "Prêts et apports", active == Tab.FINANCING),
                 new NavItem("/administration/bien/" + property.id() + "/charges", "Charges", active == Tab.EXPENSES),
-                new NavItem("/administration/bien/" + property.id() + "/loyers", "Loyers", active == Tab.RENTS),
+                new NavItem("/administration/bien/" + property.id() + "/loyers", "Occupation", active == Tab.RENTS),
                 new NavItem("/bien/" + property.id(), "Consulter le bien →", false)));
     }
 }

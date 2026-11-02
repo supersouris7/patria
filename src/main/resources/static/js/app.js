@@ -200,3 +200,12 @@ document.querySelectorAll("[data-market-pending]").forEach((element) => {
   };
   setTimeout(check, 1500);
 });
+
+// ---- « Voir tout » : affiche les lignes masquees du tableau precedent ----
+document.querySelectorAll("[data-show-more]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const table = button.closest(".show-more").previousElementSibling.querySelector("table");
+    table.querySelectorAll("tr[data-more]").forEach((row) => { row.hidden = false; row.removeAttribute("data-more"); });
+    button.closest(".show-more").remove();
+  });
+});

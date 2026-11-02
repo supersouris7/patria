@@ -39,7 +39,7 @@ final class PropertyPages {
                         Components.input(Input.of("Date d'estimation", "estimate_date", DATE), values))),
                 section("Valeur nette", Html.concat(
                         Components.fields(2,
-                                Components.input(Input.of("Frais de vente et fiscalité (%)", "sale_fees_pct", NUMBER).placeholder("8").help("Pourcentage retiré de la valeur. 8 % par défaut."), values)),
+                                Components.input(Input.of("Frais de vente et fiscalité (%)", "sale_fees_pct", NUMBER).placeholder("8").help("Résidence principale : plus-value exonérée, compter les frais d'agence (environ 5 %). Autre bien : ajouter l'impôt sur la plus-value (19 % + 17,2 %, réduit selon la durée de détention)."), values)),
                         Html.raw("<p class=\"muted\">Valeur nette indicative = valeur retenue − frais de vente et fiscalité − capital restant dû.</p>"))));
         if (creating) {
             Html content = Html.concat(Components.backLink("/administration", "Administration"),

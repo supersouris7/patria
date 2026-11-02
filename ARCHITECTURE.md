@@ -15,7 +15,7 @@ fr.patria
 │   ├─ contribution ........ APPORTS : apports personnels d'un bien
 │   ├─ market .............. MARCHÉ : prix au m² du secteur (ventes DVF de data.gouv.fr), calculé en arrière-plan
 │   ├─ expense ............. CHARGES : taxe foncière, copropriété, assurance par année, années manquantes estimées
-│   ├─ rent ................ LOYERS : périodes de location, loyers perçus
+│   ├─ rent ................ OCCUPATION : périodes de location ou de résidence principale (loyer économisé)
 │   └─ property ............ BIENS : modèle, scénarios de valeur, formulaire d'un bien
 │
 ├─ auth .................... connexion, déconnexion, limitation des tentatives
@@ -84,7 +84,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
 | Comment sont estimées les charges non saisies ? | `expense/ExpenseMath`, coefficients dans `expense/PropertyTaxRevaluation` |
-| Comment sont comptés les loyers ? | `rent/RentMath` (au jour près, mois sans période = vacants) |
+| Comment sont comptés les loyers perçus et économisés ? | `rent/RentMath` (au jour près, jours sans période = vacants) |
 
 ## Base de données
 

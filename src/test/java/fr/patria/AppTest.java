@@ -121,15 +121,31 @@ class AppTest {
 
         assertEquals(303, post(admin + "/charges", "csrf=" + csrf + "&kind=PROPERTY_TAX&year=2025&amount=800").statusCode());
         assertEquals(400, post(admin + "/charges", "csrf=" + csrf + "&kind=PROPERTY_TAX&year=abc&amount=800").statusCode());
-        assertEquals(303, post(admin + "/loyers", "csrf=" + csrf + "&monthly=500&start=2024-01-01&label=Locataire").statusCode());
-        assertEquals(400, post(admin + "/loyers", "csrf=" + csrf + "&monthly=500&start=2024-05-01&end=2024-01-01").statusCode());
+        assertEquals(303, post(admin + "/loyers", "csrf=" + csrf + "&kind=RENTAL&monthly=500&start=2024-01-01&label=Locataire").statusCode());
+        assertEquals(400, post(admin + "/loyers", "csrf=" + csrf + "&kind=RENTAL&monthly=500&start=2024-05-01&end=2024-01-01").statusCode());
+        assertEquals(400, post(admin + "/loyers", "csrf=" + csrf + "&kind=AUTRE&monthly=500&start=2024-01-01").statusCode());
 
         assertTrue(get(admin + "/charges").body().contains("Estimée"), "années non saisies estimées");
         String page = get(property).body();
         assertTrue(page.contains("Enrichissement réel"));
         assertTrue(page.contains("Loyers perçus"));
+        assertTrue(page.contains("Loyer économisé"));
         assertTrue(page.contains("500\u00a0€/mois"));
         assertTrue(page.contains("Rendement brut</dt><dd>6\u00a0%</dd>"), "500 × 12 / 100 000");
+    }
+
+    @Test
+    void principalResidenceAddsSavedRentToRealGain() throws Exception {
+        String csrf = login();
+        String property = post("/bien", "csrf=" + csrf + "&name=Maison&kind=HOUSE&purchase=300000&purchase_date=2024-06-15")
+                .headers().firstValue("Location").orElseThrow().replace("?ok=cree", "");
+        String admin = property.replace("/bien/", "/administration/bien/");
+        assertEquals(303, post(admin + "/loyers", "csrf=" + csrf + "&kind=OWNER&monthly=1000&start=2024-06-15").statusCode());
+
+        String page = get(property).body();
+        assertTrue(page.contains("résidence principale"), "statut affiché sous le titre");
+        // horloge de test au 15/06/2026 : 731 j × 12 000 / 365,25 ≈ 24 016 € économisés
+        assertTrue(page.contains("+ 24\u202f016\u00a0€"), "loyer économisé dans le bilan");
     }
 
     @Test

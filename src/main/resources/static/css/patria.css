@@ -139,7 +139,8 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .breakdown .line:first-child { border-top: 0; }
 .breakdown dt { color: var(--text-soft); font-size: .88rem; }
 .breakdown dt[title] { cursor: help; text-decoration: underline dotted var(--line-strong); text-underline-offset: 3px; }
-.breakdown dd { font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; white-space: nowrap; }
+.breakdown dt { flex-shrink: 0; }
+.breakdown dd { font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; text-align: right; }
 .breakdown .line.total { border-top: 1px solid var(--line-strong); }
 .breakdown .line.total dt, .breakdown .line.total dd { color: var(--text); font-weight: 800; }
 
@@ -261,3 +262,6 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
     .section, .hero { padding: 18px; }
     .hero-head { flex-direction: column; }
 }
+
+/* ---- Voir tout ---- */
+.show-more { margin: 12px 0 0; text-align: center; }

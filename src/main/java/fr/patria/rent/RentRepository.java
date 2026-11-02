@@ -9,7 +9,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
-/** Periodes de location (table {@code rents}). */
+/** Periodes d'occupation : locations et residence principale (table {@code rents}). */
 public final class RentRepository {
     private final Database database;
 
@@ -31,13 +31,13 @@ public final class RentRepository {
 
     public long insert(RentPeriod period) {
         return database.query(connection -> Sql.insert(connection,
-                "INSERT INTO rents (property_id, label, start_date, end_date, monthly_cents) VALUES (?, ?, ?, ?, ?) RETURNING id",
-                period.propertyId(), period.label(), period.start(), period.end(), cents(period.monthly())));
+                "INSERT INTO rents (property_id, kind, label, start_date, end_date, monthly_cents) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                period.propertyId(), period.kind().name(), period.label(), period.start(), period.end(), cents(period.monthly())));
     }
 
     public void update(RentPeriod period) {
-        database.query(connection -> Sql.update(connection, "UPDATE rents SET label = ?, start_date = ?, end_date = ?, monthly_cents = ? WHERE id = ?",
-                period.label(), period.start(), period.end(), cents(period.monthly()), period.id()));
+        database.query(connection -> Sql.update(connection, "UPDATE rents SET kind = ?, label = ?, start_date = ?, end_date = ?, monthly_cents = ? WHERE id = ?",
+                period.kind().name(), period.label(), period.start(), period.end(), cents(period.monthly()), period.id()));
     }
 
     public void delete(long id) {
@@ -45,7 +45,7 @@ public final class RentRepository {
     }
 
     private static RentPeriod map(ResultSet row) throws SQLException {
-        return new RentPeriod(row.getLong("id"), row.getLong("property_id"), row.getString("label"), Sql.date(row, "start_date"),
+        return new RentPeriod(row.getLong("id"), row.getLong("property_id"), Occupancy.valueOf(row.getString("kind")), row.getString("label"), Sql.date(row, "start_date"),
                 Sql.date(row, "end_date"), Sql.money(row, "monthly_cents"));
     }
 }

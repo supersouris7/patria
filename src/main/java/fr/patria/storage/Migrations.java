@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 4;
+    public static final int LATEST = 5;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -40,6 +40,7 @@ public final class Migrations {
             if (version < 2) toVersion2(connection);
             if (version < 3) toVersion3(connection);
             if (version < 4) toVersion4(connection, LocalDateTime.now(clock).getYear());
+            if (version < 5) toVersion5(connection);
             return null;
         });
     }
@@ -156,6 +157,41 @@ public final class Migrations {
                 throw exception;
             } finally {
                 connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    /**
+     * Version 5 : type de periode d'occupation (location ou residence principale avec loyer de reference) et
+     * nouvelle charge « taxe d'habitation » (table des charges recreee pour elargir sa contrainte).
+     */
+    private static void toVersion5(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = OFF");
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("ALTER TABLE rents ADD COLUMN kind TEXT NOT NULL DEFAULT 'RENTAL' CHECK (kind IN ('RENTAL', 'OWNER'))");
+                statement.execute("""
+                        CREATE TABLE expenses_v5 (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+                            kind TEXT NOT NULL CHECK (kind IN ('PROPERTY_TAX', 'HOUSING_TAX', 'CONDO_FEES', 'INSURANCE', 'OTHER')),
+                            year INTEGER NOT NULL,
+                            amount_cents INTEGER NOT NULL,
+                            UNIQUE (property_id, kind, year)
+                        )""");
+                statement.execute("INSERT INTO expenses_v5 (id, property_id, kind, year, amount_cents) SELECT id, property_id, kind, year, amount_cents FROM expenses");
+                statement.execute("DROP TABLE expenses");
+                statement.execute("ALTER TABLE expenses_v5 RENAME TO expenses");
+                statement.execute("CREATE INDEX expenses_by_property ON expenses(property_id)");
+                setUserVersion(connection, 5);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                connection.rollback();
+                throw exception;
+            } finally {
+                connection.setAutoCommit(true);
+                statement.execute("PRAGMA foreign_keys = ON");
             }
         }
     }

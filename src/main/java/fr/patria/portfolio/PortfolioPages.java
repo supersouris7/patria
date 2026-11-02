@@ -58,14 +58,15 @@ final class PortfolioPages {
                 Components.metrics(4,
                         tile("Valeur estimée", "Somme des valeurs retenues sur chaque bien. Ajustez-les depuis la fiche de chaque bien.",
                                 euroWhole(overview.value()), Format.plural(overview.properties().size(), "bien", "biens")),
+                        netTile(overview.net(), "Somme, bien par bien, de la valeur retenue − frais de vente et fiscalité − capital restant dû.",
+                                "après " + euroWhole(overview.debt()) + " de capital restant dû"),
                         realGainTile(overview.returns()),
-                        tile("Capital restant dû", "Capital restant dû à aujourd'hui sur l'ensemble des prêts, d'après les échéanciers.",
-                                euroWhole(overview.debt()), Format.plural(overview.loanCount(), "prêt", "prêts")),
                         nextMonthTile(overview.nextMonth(), null)),
                 balance(overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY,
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
-                Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)));
+                Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)),
+                Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
         return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, content);
     }
 
@@ -74,7 +75,8 @@ final class PortfolioPages {
     static Html property(PropertySummary summary, Notice notice, String csrf) {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
-                + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate());
+                + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate())
+                + (summary.returns().isPrincipalResidence() ? " · résidence principale" : "");
         Html actions = Components.secondaryButton("/administration/bien/" + property.id(), "Administrer");
         Html hero = summary.scenarios().isEmpty()
                 ? Components.emptyState("Aucune valeur renseignée", "Indiquez le coût d'acquisition ou une estimation pour suivre la valeur de ce bien.",
@@ -139,6 +141,30 @@ final class PortfolioPages {
                     sortedCell(status.remainingMonths(), Format.duration(status.remainingMonths())));
         }).collect(Html.joining());
         return Components.table(List.of("Prêt", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "Durée restante"), rows, true, false);
+    }
+
+    /** Taxes foncieres par annee, tous biens confondus, avec l'evolution d'une annee sur l'autre. */
+    private static Html propertyTaxTable(List<Portfolio.TaxYear> years) {
+        if (years.isEmpty()) {
+            return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Administration → un bien → Charges.</p>");
+        }
+        int visible = 5;
+        Html rows = years.stream().map(year -> {
+            boolean hidden = years.indexOf(year) >= visible;
+            Html origin = year.estimated() == 0 ? Html.raw("<span class=\"badge paid\">Saisie</span>")
+                    : year.entered() == 0 ? Html.raw("<span class=\"badge\" title=\"Revalorisée selon le coefficient légal\">Estimée</span>")
+                    : Html.of("<span class=\"badge\" title=\"%s\">Mixte</span>", year.entered() + " saisie(s), " + year.estimated() + " estimée(s)");
+            Html evolution = year.evolution() == null ? Html.raw("<td class=\"num\">–</td>") : Html.of("<td class=\"num\" data-sort=\"%s\">%s%s</td>",
+                    plain(year.evolution()), Format.signedPercent(year.evolution()),
+                    year.newProperty() ? Html.raw("<small>nouveau bien</small>") : Html.EMPTY);
+            return Html.of("<tr%s>%s%s%s%s%s</tr>", Html.raw(hidden ? " hidden data-more" : ""), cell(year.year()),
+                    Html.of("<td class=\"num\">%s</td>", year.properties()), cell(origin), number(year.amount(), euroWhole(year.amount())), evolution);
+        }).collect(Html.joining());
+        Html more = years.size() <= visible ? Html.EMPTY
+                : Html.of("<p class=\"show-more\"><button type=\"button\" class=\"secondary\" data-show-more>Voir tout (%s années)</button></p>", years.size());
+        return Html.concat(Components.table(List.of("Année", "#Biens", "Origine", "#Montant", "#Évolution"), rows, true, false), more,
+                Html.raw("<p class=\"source\">Montants annuels complets. Années non saisies estimées à partir de l'avis le plus proche, "
+                        + "revalorisé selon le coefficient légal des valeurs locatives.</p>"));
     }
 
     /** Tous les prets du patrimoine, avec le bien finance et la prochaine echeance. */
@@ -306,14 +332,14 @@ final class PortfolioPages {
     /** Partie de l'enrichissement reel qui ne depend pas de la valeur : le curseur n'a qu'a ajouter valeur × (1 − frais). */
     private static BigDecimal gainBase(PropertySummary summary) {
         Returns returns = summary.returns();
-        return summary.property().purchase().negate().subtract(returns.creditCost()).subtract(returns.expenses()).add(returns.rents());
+        return summary.property().purchase().negate().subtract(returns.creditCost()).subtract(returns.expenses()).add(returns.rents()).add(returns.savedRent());
     }
 
     private static Html realGainTile(Returns returns) {
         String tone = returns.realGain().signum() < 0 ? "negative" : returns.realGain().signum() > 0 ? "positive" : "";
         String multiple = returns.multiple() == null ? "" : Format.multiple(returns.multiple()) + " · ";
         return Html.of("<article class=\"metric\">%s<strong data-derived=\"real-gain\" class=\"%s\">%s</strong><small><span data-derived=\"multiple\">%s</span>%s investis</small></article>",
-                Components.label("Enrichissement réel", "Valeur après frais de vente − coût d'acquisition − coût du crédit payé − charges payées + loyers perçus. "
+                Components.label("Enrichissement réel", "Valeur après frais de vente − coût d'acquisition − coût du crédit payé − charges payées + loyers perçus et économisés. "
                         + "Le multiple compare la valeur nette à tout l'argent sorti de votre poche (apport, mensualités, charges, moins les loyers)."),
                 tone, Format.signedEuroWhole(returns.realGain()), multiple, euroWhole(returns.invested()));
     }
@@ -327,7 +353,10 @@ final class PortfolioPages {
         BigDecimal afterSale = value.subtract(saleFees);
         Html netBreakdown = Components.breakdown("Valeur nette", List.of(
                 Line.of("Valeur retenue", null, derived("value", euroWhole(value))),
-                Line.of("Frais de vente et fiscalité", "Pourcentage défini sur chaque bien (8 % par défaut).", derived("sale-fees", minus(saleFees))),
+                Line.of("Frais de vente et fiscalité", returns.isPrincipalResidence()
+                        ? "Résidence principale : plus-value exonérée d'impôt, seuls les frais d'agence comptent (environ 5 %). Taux modifiable dans Administrer."
+                        : "Pourcentage défini sur chaque bien. Hors résidence principale, inclure l'impôt sur la plus-value (19 % + 17,2 %, réduit selon la durée de détention).",
+                        derived("sale-fees", minus(saleFees))),
                 Line.of("Capital restant dû", null, Html.text(minus(debt))),
                 Line.total("Valeur nette indicative", "Ce que vous toucheriez en vendant aujourd'hui.", derived("net", euroWhole(net))),
                 Line.of("Plus-value latente", "Valeur retenue − coût d'acquisition, hors frais de vente.", derived("gain", Format.signedEuroWhole(gain)))));
@@ -337,13 +366,16 @@ final class PortfolioPages {
                 Line.of("Coût du crédit payé", "Intérêts, assurance et frais des échéances déjà passées.", Html.text(minus(returns.creditCost()))),
                 Line.of("Charges payées", "Taxe foncière, copropriété, assurance… Les années non saisies sont estimées.", Html.text(minus(returns.expenses()))),
                 Line.of("Loyers perçus", "Loyers hors charges perçus, au jour près.", Html.text(plus(returns.rents()))),
+                Line.of("Loyer économisé", "Résidence principale : loyer de référence d'un logement équivalent, que vous n'avez pas eu à payer.",
+                        Html.text(plus(returns.savedRent()))),
                 Line.total("Enrichissement réel", null, derived("real-gain", Format.signedEuroWhole(returns.realGain())))));
-        String rent = returns.monthlyRent().signum() == 0 ? (returns.rents().signum() == 0 ? "Non loué" : "Vacant") : euroWhole(returns.monthlyRent()) + "/mois";
+        String rent = returns.monthlyRent().signum() == 0 ? Format.DASH : euroWhole(returns.monthlyRent()) + "/mois";
         Html landmarks = Components.breakdown("Repères", List.of(
                 Line.of("Apports", null, Html.text(euroWhole(contributed))),
-                Line.of("Argent investi", "Apport, mensualités et charges payées, moins les loyers perçus.", Html.text(euroWhole(returns.invested()))),
+                Line.of("Argent investi", "Apport, mensualités et charges payées, moins les loyers perçus et économisés.", Html.text(euroWhole(returns.invested()))),
                 Line.of("Multiple", "Valeur nette ÷ argent investi.", Html.text(Format.multiple(returns.multiple()))),
-                Line.of("Loyer actuel", null, Html.text(rent)),
+                Line.of("Occupation", "Usage en cours, d'après l'onglet Occupation de chaque bien.", Html.text(returns.occupancy())),
+                Line.of("Loyer perçu actuel", null, Html.text(rent)),
                 Line.of("Rendement brut", "Loyer annuel actuel ÷ coût d'acquisition (biens loués).", Html.text(Format.percent(returns.grossYield()))),
                 Line.of("Charges de l'année", null, Html.text(euroWhole(returns.yearExpenses())))));
         return Components.card("Bilan", null, Html.EMPTY, Html.of("<div class=\"balance\">%s%s%s</div>", netBreakdown, gainBreakdown, landmarks));
