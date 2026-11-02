@@ -89,7 +89,7 @@ public final class LoanController {
     private Response delete(Request request) {
         Loan loan = require(request.id());
         loans.delete(loan.id());
-        return Response.redirect("/bien/" + loan.propertyId() + "?ok=supprime");
+        return Response.redirect("/administration/bien/" + loan.propertyId() + "/financements?ok=supprime");
     }
 
     private Loan require(long id) {

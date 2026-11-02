@@ -41,7 +41,7 @@ final class PortfolioPages {
         Html heading = Components.heading("Votre patrimoine immobilier", "Vue d'ensemble", null, Html.EMPTY);
         if (overview.properties().isEmpty()) {
             return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
-                    "Ajoutez votre premier bien pour suivre sa valeur, ses prêts et vos apports.", Components.button("/administration/bien/nouveau", "+ Ajouter un bien"))));
+                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Components.button("/administration", "Aller à l'administration"))));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
@@ -63,7 +63,7 @@ final class PortfolioPages {
                         nextMonthTile(overview.nextMonth(), null),
                         tile("Coût d'acquisition", "Somme des coûts d'acquisition (prix, frais et travaux).", euroWhole(overview.purchase()), null),
                         tile("Apports", "Somme des apports personnels enregistrés.", euroWhole(overview.contributed()), null)),
-                Components.card("Biens", overview.properties().size(), Components.button("/administration/bien/nouveau", "+ Ajouter un bien"),
+                Components.card("Biens", overview.properties().size(), Html.EMPTY,
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)));
         return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, content);
     }
@@ -95,10 +95,9 @@ final class PortfolioPages {
                         tile("Capital remboursé", "Part de capital des échéances déjà passées.", euroWhole(summary.repaid()), null),
                         tile("Apports", "Somme des apports personnels enregistrés pour ce bien.", euroWhole(summary.contributed()), null)),
                 marketCard(summary, csrf),
-                Components.card("Prêts", summary.loans().size(), Html.concat(
-                        Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
-                        Components.button("/bien/" + property.id() + "/prets/nouveau", "+ Ajouter")), loansTable(summary.loans())),
-                Components.card("Apports", summary.contributions().size(), Components.button("/bien/" + property.id() + "/apports/nouveau", "+ Ajouter"),
+                Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
+                        loansTable(summary.loans())),
+                Components.card("Apports", summary.contributions().size(), Html.EMPTY,
                         contributionsTable(summary.contributions(), summary.contributed())));
         return Layout.page(property.name() + " · Patria", Layout.Section.OVERVIEW, csrf, content);
     }
@@ -199,7 +198,7 @@ final class PortfolioPages {
     }
 
     /** Prets et apports d'un bien, avec liens de gestion. */
-    static Html financing(PropertySummary summary, String csrf) {
+    static Html financing(PropertySummary summary, Notice notice, String csrf) {
         Property property = summary.property();
         Html loanRows = summary.loans().stream().map(item -> Html.of("<tr>%s%s%s%s</tr>",
                 cell(link("/pret/" + item.loan().id(), item.loan().name())), number(item.status().borrowed(), euro(item.status().borrowed())),
@@ -209,7 +208,7 @@ final class PortfolioPages {
                 cell(item.name()), cell(date(item.date())), number(item.amount(), euro(item.amount())),
                 Html.of("<td class=\"actions\"><a href=\"/apport/%s\">Modifier</a></td>", item.id()))).collect(Html.joining());
         Html content = Html.concat(
-                Components.heading("Bien", "Prêts et apports", property.name(), Html.EMPTY),
+                Components.heading("Bien", "Prêts et apports", property.name(), Html.EMPTY), Components.notice(notice),
                 Components.card("Prêts", summary.loans().size(), Components.button("/bien/" + property.id() + "/prets/nouveau", "+ Ajouter un prêt"),
                         summary.loans().isEmpty() ? Html.raw("<p class=\"empty\">Aucun prêt.</p>")
                                 : Components.table(List.of("Prêt", "#Emprunté", "#Restant dû", ""), loanRows, false, false)),

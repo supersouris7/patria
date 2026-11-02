@@ -33,12 +33,12 @@ final class ContributionPages {
                 Components.input(Input.of("Montant (€)", "amount", Field.MONEY).required(), values));
         String action = creating ? "/bien/" + property.id() + "/apports" : "/apport/" + contribution.id();
         Html content = Html.concat(
-                Components.backLink("/bien/" + property.id(), property.name()),
+                Components.backLink("/administration/bien/" + property.id() + "/financements", "Prêts et apports"),
                 Components.heading("Apport", creating ? "Nouvel apport" : contribution.name(), property.name(), Html.EMPTY),
                 Components.notice(notice),
                 Components.card("Apport", null, Html.EMPTY, Components.form(action, csrf, false, fields, creating ? "Ajouter l'apport" : "Enregistrer")),
                 creating ? Html.EMPTY : Components.dangerZone("Supprimer cet apport", "L'apport sera retiré du bien.", "/apport/" + contribution.id() + "/supprimer",
                         "Supprimer l'apport « " + contribution.name() + " » ?", "Supprimer l'apport", csrf));
-        return Layout.page((creating ? "Nouvel apport" : "Apport · " + contribution.name()) + " · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page((creating ? "Nouvel apport" : "Apport · " + contribution.name()) + " · Patria", Layout.Section.ADMINISTRATION, csrf, content);
     }
 }

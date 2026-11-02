@@ -22,7 +22,7 @@ public final class PortfolioController {
         router.get("/bien/{id}", request -> Response.page(PortfolioPages.property(portfolio.property(request.id()), request.confirmation(), request.csrf())));
         router.get("/bien/{id}/mensualites", this::months);
         router.get("/administration", request -> Response.page(PortfolioPages.administration(portfolio.overview(), request.confirmation(), request.csrf())));
-        router.get("/administration/bien/{id}/financements", request -> Response.page(PortfolioPages.financing(portfolio.property(request.id()), request.csrf())));
+        router.get("/administration/bien/{id}/financements", request -> Response.page(PortfolioPages.financing(portfolio.property(request.id()), request.confirmation(), request.csrf())));
     }
 
     private Response months(Request request) {

@@ -44,7 +44,7 @@ public final class ContributionController {
         Property property = PropertyController.require(properties, request.id());
         try {
             contributions.insert(read(request.form(), 0, property.id()));
-            return Response.redirect("/bien/" + property.id() + "?ok=apport");
+            return Response.redirect("/administration/bien/" + property.id() + "/financements?ok=apport");
         } catch (ValidationException exception) {
             return Response.invalid(ContributionPages.form(property, null, request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
         }
@@ -59,7 +59,7 @@ public final class ContributionController {
         Contribution current = require(request.id());
         try {
             contributions.update(read(request.form(), current.id(), current.propertyId()));
-            return Response.redirect("/bien/" + current.propertyId() + "?ok=apport");
+            return Response.redirect("/administration/bien/" + current.propertyId() + "/financements?ok=apport");
         } catch (ValidationException exception) {
             return Response.invalid(ContributionPages.form(propertyOf(current), current, request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
         }
@@ -68,7 +68,7 @@ public final class ContributionController {
     private Response delete(Request request) {
         Contribution contribution = require(request.id());
         contributions.delete(contribution.id());
-        return Response.redirect("/bien/" + contribution.propertyId() + "?ok=supprime");
+        return Response.redirect("/administration/bien/" + contribution.propertyId() + "/financements?ok=supprime");
     }
 
     private static Contribution read(FormData form, long id, long propertyId) {

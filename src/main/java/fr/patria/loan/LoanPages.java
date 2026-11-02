@@ -67,7 +67,7 @@ final class LoanPages {
                 Components.notice(notice), rename, schedule,
                 Components.dangerZone("Supprimer ce prêt", "Supprime le prêt et son échéancier.", "/pret/" + loan.id() + "/supprimer",
                         "Supprimer le prêt « " + loan.name() + " » ?", "Supprimer le prêt", csrf));
-        return Layout.page("Gérer · " + loan.name() + " · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page("Gérer · " + loan.name() + " · Patria", Layout.Section.ADMINISTRATION, csrf, content);
     }
 
     static Html create(Property property, Map<String, String> values, Notice notice, String csrf) {
