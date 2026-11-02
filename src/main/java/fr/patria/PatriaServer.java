@@ -18,6 +18,7 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,10 @@ public final class PatriaServer {
     private static final long SESSION_LIFETIME_MS = TimeUnit.HOURS.toMillis(12);
     private final Database database;
     private final String password;
+    private static final int MAX_LOGIN_FAILURES = 10;
+    private static final long LOGIN_WINDOW_MS = TimeUnit.MINUTES.toMillis(15);
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final Map<String, Attempts> failures = new ConcurrentHashMap<>();
 
     private PatriaServer(Database database, String password) {
         this.database = database;
@@ -42,7 +46,7 @@ public final class PatriaServer {
     public static void main(String[] args) throws IOException {
         String password = System.getenv("APP_PASSWORD");
         if (password == null || password.isBlank()) {
-            throw new IllegalStateException("APP_PASSWORD doit etre defini.");
+            throw new IllegalStateException("APP_PASSWORD doit être défini.");
         }
         Path databasePath = Path.of(System.getenv().getOrDefault("DATABASE_PATH", "/data/immobilier.sqlite3"));
         Path parent = databasePath.toAbsolutePath().getParent();
@@ -52,7 +56,7 @@ public final class PatriaServer {
         Database database = new Database(databasePath);
         database.initialize();
 
-        int port = 8080;
+        int port = Integer.parseInt(System.getenv().getOrDefault("HTTP_PORT", "8080"));
         PatriaServer application = new PatriaServer(database, password);
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", application::handle);
@@ -75,90 +79,137 @@ public final class PatriaServer {
     private void handle(HttpExchange exchange) throws IOException {
         try {
             String path = exchange.getRequestURI().getPath();
-            if (path.equals("/css/patria.css")) {
-                resource(exchange, "static/css/patria.css", "text/css; charset=utf-8");
-                return;
+            switch (path) {
+                case "/css/patria.css" -> resource(exchange, "static/css/patria.css", "text/css; charset=utf-8");
+                case "/js/app.js" -> resource(exchange, "static/js/app.js", "text/javascript; charset=utf-8");
+                case "/images/patria-logo.png" -> resource(exchange, "static/images/patria-logo.png", "image/png");
+                default -> route(exchange, path);
             }
-            if (path.equals("/js/table-sort.js")) {
-                resource(exchange, "static/js/table-sort.js", "text/javascript; charset=utf-8");
-                return;
-            }
-            if (path.equals("/images/patria-logo.png")) {
-                resource(exchange, "static/images/patria-logo.png", "image/png");
-                return;
-            }
-            route(exchange, path);
         } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.message("Demande invalide", exception.getMessage()));
+            page(exchange, 400, Pages.message("Demande invalide", exception.getMessage(), csrfOf(exchange)));
         } catch (PayloadTooLargeException exception) {
-            page(exchange, 413, Pages.message("Demande trop volumineuse", "Le formulaire ou le fichier depasse la taille autorisee."));
+            page(exchange, 413, Pages.message("Demande trop volumineuse", "Le formulaire ou le fichier dépasse la taille autorisée.", csrfOf(exchange)));
         } catch (Exception exception) {
             exception.printStackTrace();
-            page(exchange, 500, Pages.message("Erreur interne", "Une erreur est survenue."));
+            page(exchange, 500, Pages.message("Erreur interne", "Une erreur est survenue.", csrfOf(exchange)));
         } finally {
             exchange.close();
         }
     }
 
+    private String csrfOf(HttpExchange exchange) {
+        Session session = session(exchange);
+        return session == null ? null : session.csrf();
+    }
+
+    private static final Map<String, String> SUCCESS = Map.of(
+            "cree", "Bien créé.", "enregistre", "Modifications enregistrées.", "supprime", "Suppression effectuée.",
+            "echeancier", "Échéancier importé.", "apport", "Apport enregistré.", "renomme", "Prêt renommé.");
+
     private void route(HttpExchange exchange, String path) throws IOException {
         String method = exchange.getRequestMethod();
+        boolean read = method.equals("GET") || method.equals("HEAD");
+        boolean write = method.equals("POST");
         if (path.equals("/connexion")) {
-            if (method.equals("GET") || method.equals("HEAD")) {
-                loginPage(exchange);
-            } else if (method.equals("POST")) {
-                login(exchange);
-            } else {
-                methodNotAllowed(exchange);
-            }
+            if (read) loginPage(exchange); else if (write) login(exchange); else methodNotAllowed(exchange);
             return;
         }
-        if (path.equals("/deconnexion") && method.equals("POST")) {
+        if (path.equals("/deconnexion") && write) {
             logout(exchange);
             return;
         }
-
         Session session = session(exchange);
         if (session == null) {
             redirect(exchange, "/connexion");
             return;
         }
-        if (path.equals("/") && (method.equals("GET") || method.equals("HEAD"))) {
-            page(exchange, 200, Pages.dashboard(database, database.properties(), database.loans(), session.csrf()));
-        } else if (path.equals("/administration") && (method.equals("GET") || method.equals("HEAD"))) {
-            page(exchange, 200, Pages.settings(session.csrf()));
-        } else if (path.equals("/bien") && method.equals("POST")) {
-            addProperty(exchange, session);
-        } else if (path.equals("/administration/bien/nouveau") && (method.equals("GET") || method.equals("HEAD"))) {
-            page(exchange, 200, Pages.newProperty(session.csrf()));
-        } else if (path.matches("/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
-            propertyPage(exchange, session, Long.parseLong(path.substring("/bien/".length())));
-        } else if (path.matches("/administration/bien/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
-            propertyAdministrationPage(exchange, session, Long.parseLong(path.substring("/administration/bien/".length())));
-        } else if (path.matches("/administration/bien/\\d+/financements") && (method.equals("GET") || method.equals("HEAD"))) {
-            financingPage(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
-        } else if (path.matches("/administration/bien/\\d+/proprietes") && method.equals("POST")) {
-            updateProperty(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
-        } else if (path.matches("/administration/bien/\\d+/apports") && method.equals("POST")) {
-            addContribution(exchange, session, Long.parseLong(path.substring("/administration/bien/".length(), path.lastIndexOf('/'))));
-        } else if (path.matches("/apport/\\d+/gerer") && (method.equals("GET") || method.equals("HEAD"))) {
-            contributionManagementPage(exchange, session, Long.parseLong(path.substring("/apport/".length(), path.lastIndexOf('/'))));
-        } else if (path.matches("/apport/\\d+/gerer") && method.equals("POST")) {
-            updateContribution(exchange, session, Long.parseLong(path.substring("/apport/".length(), path.lastIndexOf('/'))));
-        } else if (path.matches("/apport/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
-            contributionPage(exchange, session, Long.parseLong(path.substring("/apport/".length())));
-        } else if (path.equals("/pret") && method.equals("POST")) {
-            addLoan(exchange, session);
-        } else if (path.matches("/pret/\\d+/echeancier") && (method.equals("GET") || method.equals("HEAD"))) {
-            schedulePage(exchange, session, loanId(path.substring(0, path.lastIndexOf('/'))));
-        } else if (path.matches("/pret/\\d+") && (method.equals("GET") || method.equals("HEAD"))) {
-            loanPage(exchange, session, loanId(path));
-        } else if (path.matches("/pret/\\d+/echeancier") && method.equals("POST")) {
-            importSchedule(exchange, session, loanId(path.substring(0, path.lastIndexOf('/'))));
-        } else if (path.matches("/bien/\\d+/mensualites") && (method.equals("GET") || method.equals("HEAD"))) {
-            monthlyPaymentsPage(exchange, session, Long.parseLong(path.substring("/bien/".length(), path.lastIndexOf('/'))));
-        } else {
-            page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas."));
+        if (path.matches(".*\\d{19,}.*")) {
+            page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas.", session.csrf()));
+            return;
         }
+        String[] parts = path.substring(1).split("/");
+        Long id = parts.length > 1 && parts[1].matches("\\d{1,18}") ? Long.valueOf(parts[1])
+                : parts.length > 2 && parts[2].matches("\\d{1,18}") ? Long.valueOf(parts[2]) : null;
+        String ok = queryValue(exchange, "ok");
+        Pages.Notice success = ok == null ? null : Pages.Notice.success(SUCCESS.get(ok));
+        String csrf = session.csrf();
+
+        if (read && path.equals("/")) {
+            page(exchange, 200, Pages.dashboard(database.properties(), database.loans(), database.schedules(), database.allContributions(), csrf));
+        } else if (read && path.equals("/administration")) {
+            page(exchange, 200, Pages.administration(database.properties(), database.loans(), database.schedules(), success, csrf));
+        } else if (read && path.equals("/administration/bien/nouveau")) {
+            Map<String, String> defaults = new HashMap<>(Map.of("kind", "Appartement", "purchase_date", LocalDate.now().toString(), "sale_fees_pct", "8"));
+            page(exchange, 200, Pages.propertyForm(null, defaults, null, csrf));
+        } else if (write && path.equals("/bien")) {
+            addProperty(exchange, session);
+        } else if (read && path.matches("/bien/\\d+")) {
+            withProperty(exchange, id, property -> page(exchange, 200, Pages.propertyDetail(property, database.loansForProperty(id), database.schedules(), database.contributions(id), success, csrf)));
+        } else if (read && path.matches("/bien/\\d+/mensualites")) {
+            withProperty(exchange, id, property -> page(exchange, 200, Pages.monthlyPayments(property, database.loansForProperty(id), database.schedules(), csrf)));
+        } else if (read && path.matches("/administration/bien/\\d+")) {
+            withProperty(exchange, id, property -> page(exchange, 200, Pages.propertyForm(property, Pages.propertyValues(property), success, csrf)));
+        } else if (read && path.matches("/administration/bien/\\d+/financements")) {
+            withProperty(exchange, id, property -> financingPage(exchange, property, success, Map.of(), csrf, 200));
+        } else if (write && path.matches("/administration/bien/\\d+/proprietes")) {
+            updateProperty(exchange, session, id);
+        } else if (write && path.matches("/administration/bien/\\d+/supprimer")) {
+            checkedForm(exchange, session);
+            withProperty(exchange, id, property -> { database.deleteProperty(id); redirect(exchange, "/administration?ok=supprime"); });
+        } else if (write && path.matches("/administration/bien/\\d+/apports")) {
+            addContribution(exchange, session, id);
+        } else if (read && path.matches("/apport/\\d+")) {
+            redirect(exchange, "/apport/" + id + "/gerer");
+        } else if (read && path.matches("/apport/\\d+/gerer")) {
+            withContribution(exchange, id, contribution -> page(exchange, 200, Pages.contributionManagement(contribution, database.property(contribution.propertyId()), Pages.contributionValues(contribution), null, csrf)));
+        } else if (write && path.matches("/apport/\\d+/gerer")) {
+            updateContribution(exchange, session, id);
+        } else if (write && path.matches("/apport/\\d+/supprimer")) {
+            checkedForm(exchange, session);
+            withContribution(exchange, id, contribution -> { database.deleteContribution(id); redirect(exchange, "/bien/" + contribution.propertyId() + "?ok=supprime"); });
+        } else if (write && path.equals("/pret")) {
+            addLoan(exchange, session);
+        } else if (read && path.matches("/pret/\\d+")) {
+            withLoan(exchange, id, loan -> page(exchange, 200, Pages.loanDetail(loan, database.scheduleLines(id), success, csrf)));
+        } else if (read && path.matches("/pret/\\d+/echeancier")) {
+            withLoan(exchange, id, loan -> page(exchange, 200, Pages.loanManagement(loan, success, csrf)));
+        } else if (write && path.matches("/pret/\\d+/echeancier")) {
+            withLoan(exchange, id, loan -> importSchedule(exchange, session, loan));
+        } else if (write && path.matches("/pret/\\d+/renommer")) {
+            withLoan(exchange, id, loan -> renameLoan(exchange, session, loan));
+        } else if (write && path.matches("/pret/\\d+/supprimer")) {
+            checkedForm(exchange, session);
+            withLoan(exchange, id, loan -> { database.deleteLoan(id); redirect(exchange, "/bien/" + loan.propertyId() + "?ok=supprime"); });
+        } else {
+            page(exchange, 404, Pages.message("Page introuvable", "Cette page n'existe pas.", csrf));
+        }
+    }
+
+    @FunctionalInterface
+    private interface Action<T> {
+        void run(T value) throws IOException;
+    }
+
+    private void withProperty(HttpExchange exchange, long id, Action<Property> action) throws IOException {
+        Property property = database.property(id);
+        if (property == null) page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.", csrfOf(exchange)));
+        else action.run(property);
+    }
+
+    private void withLoan(HttpExchange exchange, long id, Action<Loan> action) throws IOException {
+        Loan loan = database.loan(id);
+        if (loan == null) page(exchange, 404, Pages.message("Prêt introuvable", "Ce prêt n'existe pas.", csrfOf(exchange)));
+        else action.run(loan);
+    }
+
+    private void withContribution(HttpExchange exchange, long id, Action<Contribution> action) throws IOException {
+        Contribution contribution = database.contribution(id);
+        if (contribution == null) page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.", csrfOf(exchange)));
+        else action.run(contribution);
+    }
+
+    private void financingPage(HttpExchange exchange, Property property, Pages.Notice notice, Map<String, String> values, String csrf, int status) throws IOException {
+        page(exchange, status, Pages.financing(property, database.loansForProperty(property.id()), database.schedules(), database.contributions(property.id()), notice, values, csrf));
     }
 
     private void loginPage(HttpExchange exchange) throws IOException {
@@ -166,23 +217,37 @@ public final class PatriaServer {
             redirect(exchange, "/");
         } else {
             String query = exchange.getRequestURI().getQuery();
-            page(exchange, 200, Pages.login(query != null && query.contains("error"), query != null && query.contains("logout")));
+            page(exchange, 200, Pages.login(query != null && query.contains("error"), query != null && query.contains("logout"), query != null && query.contains("throttled")));
         }
     }
 
     private void login(HttpExchange exchange) throws IOException {
+        // Derriere le reverse proxy, la derniere entree de X-Forwarded-For est celle ajoutee par le proxy (non falsifiable).
+        java.net.InetAddress remote = exchange.getRemoteAddress().getAddress();
+        String client = remote.getHostAddress();
+        String forwarded = exchange.getRequestHeaders().getFirst("X-Forwarded-For");
+        if ((remote.isLoopbackAddress() || remote.isSiteLocalAddress()) && forwarded != null && !forwarded.isBlank()) {
+            String[] hops = forwarded.split(",");
+            client = hops[hops.length - 1].trim();
+        }
+        long now = System.currentTimeMillis();
+        Attempts attempts = failures.compute(client, (key, current) -> current == null || current.since() + LOGIN_WINDOW_MS < now ? new Attempts(0, now) : current);
+        if (attempts.count() >= MAX_LOGIN_FAILURES) {
+            redirect(exchange, "/connexion?throttled");
+            return;
+        }
         String entered = form(exchange).getOrDefault("password", "");
         if (!passwordMatches(entered)) {
+            failures.merge(client, new Attempts(1, now), (current, ignored) -> new Attempts(current.count() + 1, current.since()));
             redirect(exchange, "/connexion?error");
             return;
         }
+        failures.remove(client);
+        sessions.values().removeIf(session -> session.expiresAt() < now);
         String id = token();
-        Session session = new Session(token(), System.currentTimeMillis() + SESSION_LIFETIME_MS);
-        sessions.put(id, session);
-        String cookie = "patria_session=" + id + "; Path=/; HttpOnly; SameSite=Lax";
-        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) {
-            cookie += "; Secure";
-        }
+        sessions.put(id, new Session(token(), now + SESSION_LIFETIME_MS));
+        String cookie = "patria_session=" + id + "; Path=/; Max-Age=" + SESSION_LIFETIME_MS / 1000 + "; HttpOnly; SameSite=Lax";
+        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) cookie += "; Secure";
         exchange.getResponseHeaders().add("Set-Cookie", cookie);
         redirect(exchange, "/");
     }
@@ -192,7 +257,7 @@ public final class PatriaServer {
         if (session != null) {
             String csrf = form(exchange).getOrDefault("csrf", "");
             if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), csrf.getBytes(StandardCharsets.UTF_8))) {
-                page(exchange, 400, Pages.message("Demande invalide", "Formulaire expire. Rechargez la page."));
+                page(exchange, 400, Pages.message("Demande invalide", "Formulaire expiré. Rechargez la page.", session.csrf()));
                 return;
             }
             sessions.remove(cookie(exchange, "patria_session"));
@@ -201,173 +266,141 @@ public final class PatriaServer {
         redirect(exchange, "/connexion?logout");
     }
 
+    private Property propertyFromForm(Map<String, String> form, long id, Property current) {
+        String kind = required(form, "kind", "Type");
+        if (!kind.equals("Appartement") && !kind.equals("Maison")) throw new IllegalArgumentException("Type de bien invalide.");
+        LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'acquisition", current == null ? LocalDate.now() : current.purchaseDate());
+        LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
+        if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("La date d'estimation ne peut pas précéder l'acquisition.");
+        BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation prudente");
+        BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
+        if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
+        if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit être supérieure ou égale à l'estimation prudente.");
+        BigDecimal saleFees = optionalPercent(form, "sale_fees_pct", "Frais de vente et fiscalité", Valuation.DEFAULT_SALE_FEES);
+        return new Property(id, required(form, "name", "Nom du bien"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"),
+                current == null ? "" : current.insee(), optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Coût d'acquisition"), purchaseDate,
+                estimateLow, estimateHigh, estimateDate, saleFees, optionalAmount(form, "recurring_fees_annual", "Frais récurrents annuels"));
+    }
+
     private void addProperty(HttpExchange exchange, Session session) throws IOException {
         Map<String, String> form = checkedForm(exchange, session);
         try {
-            String kind = required(form, "kind", "Type");
-            if (!kind.equals("Appartement") && !kind.equals("Maison")) throw new IllegalArgumentException("Type de bien invalide.");
-            LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", LocalDate.now());
-            LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
-            if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
-            BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation prudente");
-            BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
-            if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
-            if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
-            database.addProperty(new Property(0, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "",
-                    optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Prix d'achat"), purchaseDate,
-                    estimateLow, estimateHigh, estimateDate, new BigDecimal("0.08"), BigDecimal.ZERO));
-            redirect(exchange, "/administration?success=bien");
+            long id = database.addProperty(propertyFromForm(form, 0, null));
+            redirect(exchange, "/bien/" + id + "?ok=cree");
         } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
+            page(exchange, 400, Pages.propertyForm(null, form, Pages.Notice.error(exception.getMessage()), session.csrf()));
         }
-    }
-
-    private void addLoan(HttpExchange exchange, Session session) throws IOException {
-        try {
-            MultipartForm form = multipartForm(exchange);
-            if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), form.value("csrf").getBytes(StandardCharsets.UTF_8))) throw new IllegalArgumentException("Formulaire expire. Rechargez la page.");
-            long propertyId = Long.parseLong(required(form.values(), "property_id", "Bien"));
-            if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
-            byte[] csv = form.file("csv");
-            if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
-            List<ScheduleLine> lines = CsvScheduleParser.parse(csv);
-            LocalDate startDate = lines.stream().map(ScheduleLine::date).min(LocalDate::compareTo).orElseThrow();
-            ScheduleLine latest = lines.stream().max(java.util.Comparator.comparing(ScheduleLine::date)).orElseThrow();
-            BigDecimal initial = lines.stream().filter(line -> line.type().equals("DEBLOCAGE")).map(ScheduleLine::amount).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (initial.signum() == 0) initial = lines.stream().map(ScheduleLine::remainingPrincipal).filter(java.util.Objects::nonNull).findFirst().orElse(BigDecimal.ZERO);
-            BigDecimal balance = latest.remainingPrincipal() == null ? BigDecimal.ZERO : latest.remainingPrincipal();
-            BigDecimal rate = lines.stream().map(ScheduleLine::annualRate).filter(java.util.Objects::nonNull).reduce((first, second) -> second).orElse(BigDecimal.ZERO);
-            BigDecimal payment = lines.stream().filter(line -> line.type().equals("ECHEANCE")).map(ScheduleLine::amount).filter(java.util.Objects::nonNull).reduce((first, second) -> second).orElse(BigDecimal.ZERO);
-            int duration = Math.max(1, (int) java.time.temporal.ChronoUnit.MONTHS.between(startDate, latest.date()) + 1);
-            long loanId = database.addLoan(new Loan(0, propertyId, "", required(form.values(), "name", "Nom"), initial, balance, latest.date(), rate,
-                    duration, startDate, startDate.getDayOfMonth(), payment, BigDecimal.ZERO));
-            database.replaceScheduleLines(loanId, lines);
-            redirect(exchange, "/pret/" + loanId + "?success=echeancier");
-        } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.administration(database, database.properties(), database.loans(), session.csrf(), exception.getMessage(), ""));
-        }
-    }
-
-    private void propertyPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
-        Property property = database.property(propertyId);
-        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
-        page(exchange, 200, Pages.propertyDetail(database, property, database.loansForProperty(propertyId), database.contributions(propertyId), session.csrf()));
-    }
-
-    private void monthlyPaymentsPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
-        Property property = database.property(propertyId);
-        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
-        page(exchange, 200, Pages.monthlyPayments(database, property, database.loansForProperty(propertyId), session.csrf()));
-    }
-
-    private void propertyAdministrationPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
-        Property property = database.property(propertyId);
-        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
-        page(exchange, 200, Pages.propertyAdministration(property, session.csrf()));
-    }
-
-    private void financingPage(HttpExchange exchange, Session session, long propertyId) throws IOException {
-        Property property = database.property(propertyId);
-        if (property == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
-        page(exchange, 200, Pages.financing(property, session.csrf()));
     }
 
     private void updateProperty(HttpExchange exchange, Session session, long id) throws IOException {
         Map<String, String> form = checkedForm(exchange, session);
-        Property current = database.property(id);
-        if (current == null) { page(exchange, 404, Pages.message("Bien introuvable", "Ce bien n'existe pas.")); return; }
+        withProperty(exchange, id, current -> {
+            try {
+                database.updateProperty(propertyFromForm(form, id, current));
+                redirect(exchange, "/bien/" + id + "?ok=enregistre");
+            } catch (IllegalArgumentException exception) {
+                page(exchange, 400, Pages.propertyForm(current, form, Pages.Notice.error(exception.getMessage()), session.csrf()));
+            }
+        });
+    }
+
+    private void addLoan(HttpExchange exchange, Session session) throws IOException {
+        MultipartForm form = multipartForm(exchange);
+        checkCsrf(session, form.value("csrf"));
+        long propertyId;
         try {
-            LocalDate purchaseDate = optionalPastDate(form, "purchase_date", "Date d'achat", current.purchaseDate());
-            LocalDate estimateDate = optionalPastDate(form, "estimate_date", "Date d'estimation", purchaseDate);
-            if (estimateDate.isBefore(purchaseDate)) throw new IllegalArgumentException("L'estimation ne peut pas preceder l'achat.");
-            String kind = required(form, "kind", "Type");
-            if (!kind.equals("Appartement") && !kind.equals("Maison")) throw new IllegalArgumentException("Type de bien invalide.");
-            BigDecimal estimateLow = optionalAmount(form, "estimate", "Estimation prudente");
-            BigDecimal estimateHigh = optionalAmount(form, "estimate_high", "Estimation optimiste");
-            if (estimateHigh.signum() == 0) estimateHigh = estimateLow;
-            if (estimateHigh.compareTo(estimateLow) < 0) throw new IllegalArgumentException("L'estimation optimiste doit etre superieure a l'estimation prudente.");
-            BigDecimal saleFeesRate = optionalRate(form, "sale_fees_rate", "Frais de vente / fiscalite (%)", new BigDecimal("0.08"));
-            BigDecimal recurringFeesAnnual = optionalAmount(form, "recurring_fees_annual", "Frais recurrents annuels");
-            database.updateProperty(new Property(id, required(form, "name", "Nom"), kind, optionalText(form, "commune", 100, "Commune"), optionalText(form, "address", 200, "Adresse"), "", optionalAmount(form, "area", "Surface"), optionalAmount(form, "purchase", "Cout total d'acquisition"), purchaseDate, estimateLow, estimateHigh, estimateDate, saleFeesRate, recurringFeesAnnual));
-            redirect(exchange, "/administration/bien/" + id);
-        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(current, session.csrf())); }
+            propertyId = Long.parseLong(form.value("property_id"));
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Bien invalide.");
+        }
+        withProperty(exchange, propertyId, property -> {
+            try {
+                String name = required(form.values(), "loan_name", "Nom du prêt");
+                List<ScheduleLine> lines = CsvScheduleParser.parse(csv(form));
+                long loanId = database.createLoan(LoanMath.derive(0, propertyId, name, lines), lines);
+                redirect(exchange, "/pret/" + loanId + "?ok=echeancier");
+            } catch (IllegalArgumentException exception) {
+                financingPage(exchange, property, Pages.Notice.error(exception.getMessage()), form.values(), session.csrf(), 400);
+            }
+        });
+    }
+
+    private void importSchedule(HttpExchange exchange, Session session, Loan loan) throws IOException {
+        MultipartForm form = multipartForm(exchange);
+        checkCsrf(session, form.value("csrf"));
+        try {
+            List<ScheduleLine> lines = CsvScheduleParser.parse(csv(form));
+            database.replaceSchedule(LoanMath.derive(loan.id(), loan.propertyId(), loan.name(), lines), lines);
+            redirect(exchange, "/pret/" + loan.id() + "?ok=echeancier");
+        } catch (IllegalArgumentException exception) {
+            page(exchange, 400, Pages.loanManagement(loan, Pages.Notice.error(exception.getMessage()), session.csrf()));
+        }
+    }
+
+    private void renameLoan(HttpExchange exchange, Session session, Loan loan) throws IOException {
+        Map<String, String> form = checkedForm(exchange, session);
+        try {
+            database.renameLoan(loan.id(), required(form, "name", "Nom du prêt"));
+            redirect(exchange, "/pret/" + loan.id() + "?ok=renomme");
+        } catch (IllegalArgumentException exception) {
+            page(exchange, 400, Pages.loanManagement(loan, Pages.Notice.error(exception.getMessage()), session.csrf()));
+        }
+    }
+
+    private static byte[] csv(MultipartForm form) {
+        byte[] csv = form.file("csv");
+        if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
+        return csv;
+    }
+
+    private Contribution contributionFromForm(Map<String, String> form, long id, long propertyId) {
+        return new Contribution(id, propertyId, required(form, "name", "Libellé"), positive(form, "amount", "Montant"), date(form.getOrDefault("date", ""), "Date"));
     }
 
     private void addContribution(HttpExchange exchange, Session session, long propertyId) throws IOException {
         Map<String, String> form = checkedForm(exchange, session);
-        try {
-            if (!database.propertyExists(propertyId)) throw new IllegalArgumentException("Bien introuvable.");
-            database.addContribution(new Contribution(0, propertyId, required(form, "name", "Nom"), positive(form, "amount", "Montant"), LocalDate.parse(required(form, "date", "Date"))));
-            redirect(exchange, "/bien/" + propertyId);
-        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.propertyAdministration(database.property(propertyId), session.csrf())); }
-    }
-
-    private void contributionPage(HttpExchange exchange, Session session, long contributionId) throws IOException {
-        Contribution contribution = database.contribution(contributionId);
-        if (contribution == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
-        Property property = database.property(contribution.propertyId());
-        page(exchange, 200, Pages.contributionDetail(contribution, property, session.csrf()));
-    }
-
-    private void contributionManagementPage(HttpExchange exchange, Session session, long contributionId) throws IOException {
-        Contribution contribution = database.contribution(contributionId);
-        if (contribution == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
-        page(exchange, 200, Pages.contributionManagement(contribution, session.csrf()));
+        withProperty(exchange, propertyId, property -> {
+            try {
+                database.addContribution(contributionFromForm(form, 0, propertyId));
+                redirect(exchange, "/bien/" + propertyId + "?ok=apport");
+            } catch (IllegalArgumentException exception) {
+                financingPage(exchange, property, Pages.Notice.error(exception.getMessage()), form, session.csrf(), 400);
+            }
+        });
     }
 
     private void updateContribution(HttpExchange exchange, Session session, long contributionId) throws IOException {
-        Contribution current = database.contribution(contributionId);
-        if (current == null) { page(exchange, 404, Pages.message("Apport introuvable", "Cet apport n'existe pas.")); return; }
         Map<String, String> form = checkedForm(exchange, session);
-        try {
-            database.updateContribution(new Contribution(current.id(), current.propertyId(), required(form, "name", "Nom"), positive(form, "amount", "Montant"), LocalDate.parse(required(form, "date", "Date"))));
-            redirect(exchange, "/apport/" + contributionId);
-        } catch (IllegalArgumentException exception) { page(exchange, 400, Pages.contributionManagement(current, session.csrf())); }
-    }
-
-    private void loanPage(HttpExchange exchange, Session session, long loanId) throws IOException {
-        Loan loan = database.loan(loanId);
-        if (loan == null) {
-            page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas."));
-            return;
-        }
-        String query = exchange.getRequestURI().getQuery();
-        String success = query != null && query.contains("success=echeancier") ? "Echeancier importe." : "";
-        page(exchange, 200, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), "", success));
-    }
-
-    private void schedulePage(HttpExchange exchange, Session session, long loanId) throws IOException {
-        Loan loan = database.loan(loanId);
-        if (loan == null) { page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas.")); return; }
-        page(exchange, 200, Pages.scheduleManagement(loan, session.csrf()));
-    }
-
-    private void importSchedule(HttpExchange exchange, Session session, long loanId) throws IOException {
-        Loan loan = database.loan(loanId);
-        if (loan == null) {
-            page(exchange, 404, Pages.message("Pret introuvable", "Ce pret n'existe pas."));
-            return;
-        }
-        try {
-            MultipartForm form = multipartForm(exchange);
-            if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), form.value("csrf").getBytes(StandardCharsets.UTF_8))) {
-                throw new IllegalArgumentException("Formulaire expire. Rechargez la page.");
+        withContribution(exchange, contributionId, current -> {
+            try {
+                database.updateContribution(contributionFromForm(form, current.id(), current.propertyId()));
+                redirect(exchange, "/bien/" + current.propertyId() + "?ok=apport");
+            } catch (IllegalArgumentException exception) {
+                page(exchange, 400, Pages.contributionManagement(current, database.property(current.propertyId()), form, Pages.Notice.error(exception.getMessage()), session.csrf()));
             }
-            byte[] csv = form.file("csv");
-            if (csv == null || csv.length == 0) throw new IllegalArgumentException("Fichier CSV manquant.");
-            database.replaceScheduleLines(loanId, CsvScheduleParser.parse(csv));
-            redirect(exchange, "/pret/" + loanId + "/echeancier?success=echeancier");
-        } catch (IllegalArgumentException exception) {
-            page(exchange, 400, Pages.loanDetail(loan, database.scheduleLines(loanId), session.csrf(), exception.getMessage(), ""));
-        }
+        });
     }
 
     private Map<String, String> checkedForm(HttpExchange exchange, Session session) throws IOException {
         Map<String, String> form = form(exchange);
-        if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), form.getOrDefault("csrf", "").getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("Formulaire expire. Rechargez la page.");
-        }
+        checkCsrf(session, form.getOrDefault("csrf", ""));
         return form;
+    }
+
+    private static void checkCsrf(Session session, String csrf) {
+        if (!MessageDigest.isEqual(session.csrf().getBytes(StandardCharsets.UTF_8), csrf.getBytes(StandardCharsets.UTF_8))) {
+            throw new IllegalArgumentException("Formulaire expiré. Rechargez la page.");
+        }
+    }
+
+    private static String queryValue(HttpExchange exchange, String key) {
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null) return null;
+        for (String part : query.split("&")) {
+            String[] entry = part.split("=", 2);
+            if (entry[0].equals(key)) return entry.length == 2 ? entry[1] : "";
+        }
+        return null;
     }
 
     private Session session(HttpExchange exchange) {
@@ -454,7 +487,6 @@ public final class PatriaServer {
         return output.toByteArray();
     }
 
-    private static long loanId(String path) { return Long.parseLong(path.substring("/pret/".length())); }
     private static int indexOf(byte[] source, byte[] target, int from) { outer: for (int i = from; i <= source.length - target.length; i++) { for (int j = 0; j < target.length; j++) if (source[i + j] != target[j]) continue outer; return i; } return -1; }
     private static boolean startsWith(byte[] source, byte[] target) { return startsWith(source, target, 0); }
     private static boolean startsWith(byte[] source, byte[] target, int at) { if (at + target.length > source.length) return false; for (int i = 0; i < target.length; i++) if (source[at + i] != target[i]) return false; return true; }
@@ -474,9 +506,9 @@ public final class PatriaServer {
 
     private static BigDecimal amount(Map<String, String> form, String key, String label) {
         try {
-            BigDecimal value = new BigDecimal(required(form, key, label).replace(" ", "").replace("\u202f", "").replace(',', '.'));
-            if (value.signum() < 0) throw new IllegalArgumentException(label + " ne peut pas etre negatif.");
-            if (value.compareTo(new BigDecimal("1000000000")) > 0) throw new IllegalArgumentException(label + " est trop eleve.");
+            BigDecimal value = new BigDecimal(normalizeNumber(required(form, key, label)));
+            if (value.signum() < 0) throw new IllegalArgumentException(label + " ne peut pas être négatif.");
+            if (value.compareTo(new BigDecimal("1000000000")) > 0) throw new IllegalArgumentException(label + " est trop élevé.");
             return value;
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(label + " invalide.");
@@ -485,7 +517,7 @@ public final class PatriaServer {
 
     private static BigDecimal positive(Map<String, String> form, String key, String label) {
         BigDecimal value = amount(form, key, label);
-        if (value.signum() == 0) throw new IllegalArgumentException(label + " doit etre superieur a zero.");
+        if (value.signum() == 0) throw new IllegalArgumentException(label + " doit être supérieur à zéro.");
         return value;
     }
 
@@ -493,38 +525,35 @@ public final class PatriaServer {
         return form.getOrDefault(key, "").isBlank() ? BigDecimal.ZERO : amount(form, key, label);
     }
 
-    private static BigDecimal optionalRate(Map<String, String> form, String key, String label, BigDecimal defaultValue) {
-        String value = form.getOrDefault(key, "").trim();
-        if (value.isBlank()) return defaultValue;
+    /** Pourcentage saisi (ex. "8" ou "8,5") converti en ratio (0.08). */
+    private static BigDecimal optionalPercent(Map<String, String> form, String key, String label, BigDecimal defaultValue) {
+        String value = normalizeNumber(form.getOrDefault(key, "")).replace("%", "");
+        if (value.isEmpty()) return defaultValue;
         try {
-            BigDecimal rate = new BigDecimal(value.replace(" ", "").replace("\u202f", "").replace(',', '.'));
-            if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(new BigDecimal("1")) > 0) throw new IllegalArgumentException(label + " invalide.");
-            return rate;
+            BigDecimal percent = new BigDecimal(value);
+            if (percent.signum() < 0 || percent.compareTo(BigDecimal.valueOf(100)) > 0) throw new IllegalArgumentException(label + " doit être compris entre 0 et 100 %.");
+            return percent.divide(BigDecimal.valueOf(100), 6, java.math.RoundingMode.HALF_UP);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(label + " invalide.");
         }
     }
 
-    private static int integer(Map<String, String> form, String key, int min, int max, String label) {
+    private static String normalizeNumber(String value) {
+        return value.trim().replace(" ", "").replace("\u202f", "").replace("\u00a0", "").replace("€", "").replace(',', '.');
+    }
+
+    private static LocalDate date(String value, String label) {
         try {
-            int value = Integer.parseInt(required(form, key, label));
-            if (value < min || value > max) throw new IllegalArgumentException(label + " invalide.");
-            return value;
-        } catch (NumberFormatException exception) {
+            return LocalDate.parse(value.trim());
+        } catch (java.time.format.DateTimeParseException exception) {
             throw new IllegalArgumentException(label + " invalide.");
         }
     }
 
     private static LocalDate pastDate(String value, String label) {
-        try {
-            LocalDate date = LocalDate.parse(value);
-            if (date.isAfter(LocalDate.now())) throw new IllegalArgumentException(label + " ne peut pas etre dans le futur.");
-            return date;
-        } catch (IllegalArgumentException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new IllegalArgumentException(label + " invalide.");
-        }
+        LocalDate date = date(value, label);
+        if (date.isAfter(LocalDate.now())) throw new IllegalArgumentException(label + " ne peut pas être dans le futur.");
+        return date;
     }
 
     private static LocalDate optionalPastDate(Map<String, String> form, String key, String label, LocalDate defaultValue) {
@@ -564,7 +593,7 @@ public final class PatriaServer {
 
     private static void methodNotAllowed(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().set("Allow", "GET, HEAD, POST");
-        page(exchange, 405, Pages.message("Methode non autorisee", "Cette action n'est pas disponible."));
+        page(exchange, 405, Pages.message("Méthode non autorisée", "Cette action n'est pas disponible.", null));
     }
 
     private static void page(HttpExchange exchange, int status, String html) throws IOException {
@@ -579,6 +608,9 @@ public final class PatriaServer {
     }
 
     private record Session(String csrf, long expiresAt) {
+    }
+
+    private record Attempts(int count, long since) {
     }
 
     private record MultipartForm(Map<String, String> values, Map<String, byte[]> files) {

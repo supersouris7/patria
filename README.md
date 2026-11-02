@@ -4,18 +4,22 @@ Patria est une application web francaise auto-hebergee de suivi immobilier. Cett
 
 ## Fonctionnalites actuelles
 
-- Authentification par mot de passe.
-- Gestion de plusieurs biens : type, commune, code INSEE, surface, achat et estimation.
-- Gestion des prets associes : capital, solde de reference, taux, duree et mensualite.
-- Import d'echeanciers CSV par pret, avec historique et synthese de remboursement.
+- Authentification par mot de passe, avec limitation des tentatives (10 echecs par 15 minutes).
+- Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.
+- Vue d'ensemble et fiche de bien : valeur estimee reglable (scenarios pessimiste, prudent, fourchette, optimiste), valeur nette indicative, plus-value latente, capital restant du, prochaine mensualite.
+- Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
+- Apports personnels par bien.
+- Modification et suppression des biens, prets et apports.
 - Persistance SQLite dans le volume Docker historique `patrimoine_data`.
 - Serveur HTTP Java natif : sans Spring, Tomcat ni pool de connexions.
+
+La valeur nette indicative vaut : valeur estimee - frais de vente et fiscalite - capital restant du. Les frais recurrents annuels sont affiches a titre indicatif mais ne sont pas deduits.
 
 DVF et l'import/export JSON seront ajoutes dans des versions ulterieures.
 
 ## Importer un echeancier
 
-Depuis la page d'un pret, importez un fichier CSV UTF-8 (BOM accepte), de 1 Mio maximum. Un import valide remplace toutes les lignes precedemment importees pour ce pret.
+Depuis la page « Prets et apports » d'un bien (ou « Gerer le pret » pour remplacer un echeancier existant), importez un fichier CSV UTF-8 (BOM accepte), de 1 Mio maximum. Un import valide remplace toutes les lignes precedemment importees pour ce pret.
 
 L'en-tete est strict : seules les colonnes `date`, `type`, `montant`, `capital_rembourse`, `interets`, `frais`, `capital_restant_du` et `taux_annuel_pct` sont acceptees. `date` et `type` sont obligatoires ; les autres colonnes peuvent etre omises. Chaque ligne doit contenir au moins une valeur financiere. Les separateurs virgule et point-virgule sont acceptes, ainsi que les nombres avec virgule ou point decimal.
 
@@ -55,7 +59,7 @@ APP_PASSWORD=mot-de-passe-local mvn package
 DATABASE_PATH=./patria.sqlite3 java -Xms16m -Xmx96m -jar target/patria.jar
 ```
 
-La base de developpement est definie par `DATABASE_PATH` ; sa valeur par defaut est `/data/immobilier.sqlite3`.
+La base de developpement est definie par `DATABASE_PATH` ; sa valeur par defaut est `/data/immobilier.sqlite3`. Le port d'ecoute est `HTTP_PORT` (8080 par defaut). La variable `PORT` du fichier `.env` ne concerne que le port publie par Docker Compose.
 
 ## Publication Docker Hub
 
