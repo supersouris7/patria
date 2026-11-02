@@ -1,0 +1,6 @@
+/**
+ * Module « biens » : modele {@link fr.patria.property.Property}, scenarios de valeur
+ * ({@link fr.patria.property.Valuation}), stockage, formulaire et routes d'administration d'un bien.
+ * Ne depend d'aucun autre module metier.
+ */
+package fr.patria.property;

@@ -45,7 +45,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>fr.patria.PatriaServer</mainClass>
+                                    <mainClass>fr.patria.App</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

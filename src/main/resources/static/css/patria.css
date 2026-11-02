@@ -161,6 +161,9 @@ th[data-order="desc"]::after { content: "▼"; opacity: 1; }
 .detail { display: block; font-size: .85rem; }
 
 /* ---- Formulaires ---- */
+.help-block { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
+.help-block summary { color: var(--blue); cursor: pointer; font-size: .88rem; font-weight: 700; }
+.help-block[open] summary { margin-bottom: 10px; }
 .stack { display: grid; gap: 14px; }
 form.stack > .card { margin-bottom: 0; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -169,7 +172,7 @@ form.stack > .card { margin-bottom: 0; }
 .section > .form-grid + label { margin-top: 14px; }
 .section > h2 + p { margin-top: 8px; }
 .section > .form-grid + p { font-size: .85rem; margin: 16px 0 0; }
-.section > h2 + .form-grid { margin-top: 16px; }
+.section > h2 + .form-grid, .section > h2 + .stack { margin-top: 16px; }
 .form-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .inline-form { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
 label { color: var(--text-soft); display: block; font-size: .82rem; font-weight: 700; }

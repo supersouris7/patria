@@ -80,8 +80,9 @@ document.querySelectorAll("form[data-confirm]").forEach((form) => {
   });
 });
 
-// ---- Estimation d'un bien : le curseur pilote les valeurs dependantes et s'enregistre sur le bien ----
-const SCENARIOS = {pessimistic: "Pessimiste", prudent: "Prudent", middle: "Fourchette", optimistic: "Optimiste"};
+// ---- Estimation d'un bien ----
+// Le curseur recalcule « Valeur nette » et « Plus-value » (meme formule que Valuation.net cote Java)
+// et enregistre la valeur retenue sur le bien (POST data-save) 400 ms apres le dernier mouvement.
 document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const slider = hero.querySelector(".slider");
   const valueElement = hero.querySelector("[data-estimate-value]");
@@ -127,8 +128,9 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
     value = Math.min(max, Math.max(min, Math.round(value / 10000) * 10000));
     slider.value = value;
     valueElement.textContent = euroWhole.format(value);
-    const match = Object.keys(SCENARIOS).find((name) => Number(hero.dataset[name]) === value);
-    label.textContent = match ? SCENARIOS[match] : "Personnalisée";
+    // Les boutons de scenario portent leur nom et leur valeur : le badge affiche le premier qui correspond.
+    const match = chips.find((chip) => Number(chip.dataset.value) === value);
+    label.textContent = match ? match.dataset.scenario : "Personnalisée";
     chips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.value) === value));
     slider.style.setProperty("--fill", (max > min ? ((value - min) / (max - min)) * 100 : 0) + "%");
     if (net) net.textContent = euroWhole.format(value - value * fees - debt);

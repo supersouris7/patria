@@ -1,0 +1,36 @@
+package fr.patria.web;
+
+import fr.patria.ui.Html;
+import java.util.List;
+
+/** Reponse renvoyee par un controleur. Le routeur se charge de l'ecrire. */
+public sealed interface Response {
+    record Page(int status, Html html) implements Response {
+    }
+
+    record Redirect(String location, List<String> cookies) implements Response {
+    }
+
+    record Text(int status, String body) implements Response {
+    }
+
+    record NoContent() implements Response {
+    }
+
+    static Response page(Html html) {
+        return new Page(200, html);
+    }
+
+    /** Page reaffichee apres une saisie invalide. */
+    static Response invalid(Html html) {
+        return new Page(400, html);
+    }
+
+    static Response redirect(String location) {
+        return new Redirect(location, List.of());
+    }
+
+    static Response noContent() {
+        return new NoContent();
+    }
+}
