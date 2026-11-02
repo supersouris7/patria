@@ -51,7 +51,7 @@ final class LoanPages {
                 Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>Progression</h2><span class=\"muted\">%s %% du capital emprunté</span></div>%s</section>".replace("%%", "%"),
                         status.progressPercent(), Components.progress(status.progressPercent())),
                 Components.card("Échéancier", lines.size(), Html.EMPTY, table));
-        return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
     static Html manage(Loan loan, Property property, Notice notice, String csrf) {

@@ -99,6 +99,8 @@ class MigrationsTest {
 
                     ResultSet revaluation = statement.executeQuery("SELECT count(*) FROM pragma_table_info('market_prices') WHERE name = 'revaluation'");
                     assertEquals(1, revaluation.getInt(1), "v6 : colonne d'actualisation");
+                    ResultSet budgetTables = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('people', 'incomes', 'budget_items')");
+                    assertEquals(3, budgetTables.getInt(1), "v7 : tables du budget");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

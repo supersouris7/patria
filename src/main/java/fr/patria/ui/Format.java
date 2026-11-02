@@ -82,6 +82,11 @@ public final class Format {
         return date == null ? DASH : date.format(DATE);
     }
 
+    /** Mois abrege sans ambiguite : « janv. », « juin », « juil. », « août »... */
+    public static String shortMonth(YearMonth month) {
+        return month.format(DateTimeFormatter.ofPattern("MMM", FR));
+    }
+
     public static String month(YearMonth month) {
         String text = month.format(MONTH);
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);

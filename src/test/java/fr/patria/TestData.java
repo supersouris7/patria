@@ -1,7 +1,9 @@
 package fr.patria;
 
 import fr.patria.contribution.ContributionRepository;
+import fr.patria.budget.BudgetRepository;
 import fr.patria.expense.ExpenseRepository;
+import fr.patria.household.HouseholdRepository;
 import fr.patria.rent.RentRepository;
 import fr.patria.loan.LoanRepository;
 import fr.patria.property.Property;
@@ -21,7 +23,7 @@ public final class TestData {
     public static final Clock CLOCK = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneId.of("Europe/Paris"));
 
     public record Stores(Database database, PropertyRepository properties, LoanRepository loans, ContributionRepository contributions,
-                         ExpenseRepository expenses, RentRepository rents) {
+                         ExpenseRepository expenses, RentRepository rents, HouseholdRepository household, BudgetRepository budget) {
     }
 
     private TestData() {
@@ -31,7 +33,7 @@ public final class TestData {
         Database database = Database.open(directory.resolve("patria.sqlite3"));
         Migrations.apply(database, CLOCK);
         return new Stores(database, new PropertyRepository(database), new LoanRepository(database), new ContributionRepository(database),
-                new ExpenseRepository(database), new RentRepository(database));
+                new ExpenseRepository(database), new RentRepository(database), new HouseholdRepository(database), new BudgetRepository(database));
     }
 
     public static Property property(String name, String purchase, String low, String high) {

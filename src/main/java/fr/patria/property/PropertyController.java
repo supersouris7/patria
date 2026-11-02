@@ -63,7 +63,7 @@ public final class PropertyController {
 
     private Response delete(Request request) {
         properties.delete(require(properties, request.id()).id());
-        return Response.redirect("/administration?ok=supprime");
+        return Response.redirect("/administration/biens?ok=supprime");
     }
 
     /** Appele en direct par le curseur de la fiche du bien (fetch). */

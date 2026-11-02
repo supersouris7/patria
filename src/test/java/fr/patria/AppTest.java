@@ -101,7 +101,7 @@ class AppTest {
 
         assertEquals(204, post(propertyPath + "/valeur", "csrf=" + csrf + "&value=350000").statusCode());
 
-        String dashboard = get("/").body();
+        String dashboard = get("/immobilier").body();
         assertTrue(dashboard.contains("350 000 €"), "valeur retenue");
         assertTrue(dashboard.contains("Fourchette"));
         assertTrue(dashboard.contains("199 500 €"), "capital restant dû au 15/06/2026");
@@ -159,6 +159,32 @@ class AppTest {
         assertTrue(page.contains("Occupation non renseignée"));
         assertTrue(page.contains("Valeur estimée le 01/01/2020"));
         assertTrue(page.contains("non actualisée"), "sans commune, pas d'indice départemental");
+    }
+
+    @Test
+    void householdBudgetIsFilledInAdministrationAndShownOnHome() throws Exception {
+        String csrf = login();
+        assertTrue(get("/").body().contains("Votre budget est vide"));
+
+        assertEquals(303, post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Camille").statusCode());
+        String household = get("/administration/foyer").body();
+        Matcher person = Pattern.compile("<option value=\"(\\d+)\"[^>]*>Camille</option>").matcher(household);
+        assertTrue(person.find(), household);
+        assertEquals(303, post("/administration/foyer/revenus", "csrf=" + csrf + "&person=" + person.group(1)
+                + "&kind=SALARY&label=Salaire&amount=3000&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(400, post("/administration/foyer/revenus", "csrf=" + csrf + "&person=999&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Mutuelle&category=HEALTH&amount=120&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Assurance+auto&category=INSURANCE&amount=600&frequency=ANNUAL&start=2026-08-01").statusCode());
+
+        String home = get("/").body();
+        assertTrue(home.contains("Reste à vivre"));
+        assertTrue(home.contains("+2\u202f880\u00a0€"), "3 000 − 120 en juin");
+        assertTrue(home.contains("Août 2026 : Assurance auto 600\u00a0€"), "alerte sur la dépense annuelle à venir");
+        assertTrue(home.contains("<svg class=\"chart\""));
+        String budget = get("/budget").body();
+        assertTrue(budget.contains("Dépenses par catégorie"));
+        assertTrue(budget.contains("<strong>170\u00a0€</strong>"), "dépenses moyennes : mutuelle 120 + assurance 600 / 12 = 170 € par mois");
+        assertEquals(303, get("/administration").statusCode());
     }
 
     @Test

@@ -1,8 +1,18 @@
 # Patria
 
-Patria est une application web francaise auto-hebergee de suivi immobilier. Cette premiere version Java permet de se connecter, d'enregistrer des biens et d'y associer des prets. Elle ne se connecte a aucune banque ni service financier ; seules des donnees publiques (data.gouv.fr) sont consultees pour le prix du marche.
+Patria est une application web francaise auto-hebergee de suivi du budget du foyer et du patrimoine immobilier. Cette premiere version Java permet de se connecter, d'enregistrer des biens et d'y associer des prets. Elle ne se connecte a aucune banque ni service financier ; seules des donnees publiques (data.gouv.fr) sont consultees pour le prix du marche.
 
 ## Fonctionnalites actuelles
+
+### Budget du foyer (accueil)
+
+- Foyer de plusieurs personnes ; revenus nets avant impot (salaire mensuel, primes et 13e mois annuels, revenus ponctuels).
+- Depenses saisies une seule fois avec leur frequence (mensuelle, trimestrielle, semestrielle, annuelle, ponctuelle) et leur premier paiement ; modeles en un clic (electricite, mutuelle, assurance auto...).
+- Reprise automatique de l'immobilier, sans ressaisie : mensualites de pret, taxe fonciere (octobre), taxe d'habitation (novembre), copropriete (chaque trimestre), assurance et autres charges des biens (sur 12 mois), loyers percus.
+- Accueil : revenus, depenses et reste a vivre du mois, taux d'endettement (methode bancaire HCSF : credits ÷ revenus nets avant impot, loyers a 70 %, seuil 35 %), alertes (depenses non mensuelles des 3 prochains mois, mois en deficit), montant a mettre de cote chaque mois, graphique et detail des 12 prochains mois.
+- Page Budget : moyenne mensuelle sur 12 mois, depenses classees par categorie.
+
+### Immobilier
 
 - Authentification par mot de passe, avec limitation des tentatives (10 echecs par 15 minutes).
 - Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.

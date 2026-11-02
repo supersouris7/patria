@@ -10,7 +10,9 @@ fr.patria
 │
 ├─ App, Config ............ assemble tous les modules et démarre le serveur (seul endroit où l'on fait « new »)
 │
-├─ portfolio ............... PATRIMOINE : vues de synthèse (vue d'ensemble, fiche d'un bien, mensualités, administration)
+├─ budget .................. BUDGET : accueil, prévisionnel des 12 mois (reprend l'immobilier), dépenses du foyer
+├─ household ............... FOYER : personnes et revenus
+├─ portfolio ............... PATRIMOINE : vues immobilières (immobilier, fiche d'un bien, mensualités, biens et prêts)
 │   ├─ loan ................ PRÊTS : import CSV des échéanciers, calculs à date, pages d'un prêt
 │   ├─ contribution ........ APPORTS : apports personnels d'un bien
 │   ├─ market .............. MARCHÉ : prix au m² du secteur (ventes DVF de data.gouv.fr), calculé en arrière-plan
@@ -35,7 +37,9 @@ fr.patria
 | `auth` | `common`, `ui`, `web` |
 | `property` | `common`, `ui`, `web`, `storage` |
 | `loan`, `contribution`, `market`, `expense`, `rent` | idem + `property` |
-| `portfolio` | tous les modules ci-dessus |
+| `household` | `common`, `ui`, `web`, `storage` |
+| `portfolio` | modules immobiliers ci-dessus |
+| `budget` | modules immobiliers + `household` |
 
 Ces règles sont **vérifiées par un test** (`ArchitectureTest`). Un import interdit fait échouer le build.
 Pour ajouter un module ou une dépendance, il faut le déclarer dans ce test : c'est un choix explicite.
@@ -82,6 +86,9 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment est calculé le prix du marché ? | `market/MarketAnalysis` (filtres, zone, médiane), `market/PriceIndex` (actualisation) |
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
+| Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
+| Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` |
+| Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
 | Comment l'estimation est-elle actualisée ? | coefficient calculé par `market/MarketService.compute` (indice DVF depuis la date d'estimation), appliqué par `property/Valuation.scenarios(property, facteur)` |
 | Comment sont estimées les charges non saisies ? | `expense/ExpenseMath`, coefficients dans `expense/PropertyTaxRevaluation` |

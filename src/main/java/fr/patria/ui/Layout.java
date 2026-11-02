@@ -3,7 +3,26 @@ package fr.patria.ui;
 /** Squelette commun des pages : en-tete, navigation principale, contenu. */
 public final class Layout {
     /** Entree active de la navigation principale. */
-    public enum Section { OVERVIEW, ADMINISTRATION, NONE }
+    public enum Section { HOME, BUDGET, REAL_ESTATE, ADMINISTRATION, NONE }
+
+    /** Rubriques de l'administration, affichees en navigation laterale. */
+    public enum AdminSection {
+        HOUSEHOLD("/administration/foyer", "Foyer et revenus"),
+        EXPENSES("/administration/depenses", "Dépenses"),
+        PROPERTIES("/administration/biens", "Biens et prêts");
+
+        private final String href;
+        private final String label;
+
+        AdminSection(String href, String label) {
+            this.href = href;
+            this.label = label;
+        }
+
+        public String href() {
+            return href;
+        }
+    }
 
     private static final Html LOGOUT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/><path d=\"M16 17l5-5-5-5\"/><path d=\"M21 12H9\"/></svg>");
 
@@ -16,10 +35,17 @@ public final class Layout {
                 <header class="topbar"><div class="shell navigation">%s<nav>%s%s</nav>
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
                 </div></header>""",
-                brand(), navLink("/", "Vue d'ensemble", section == Section.OVERVIEW),
+                brand(), Html.concat(navLink("/", "Accueil", section == Section.HOME), navLink("/budget", "Budget", section == Section.BUDGET),
+                        navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE)),
                 navLink("/administration", "Administration", section == Section.ADMINISTRATION),
                 Components.csrfField(csrf), LOGOUT_ICON);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s</main>", content)));
+    }
+
+    /** Page d'une rubrique d'administration (foyer, depenses, biens) avec sa navigation laterale. */
+    public static Html adminSection(String title, String csrf, AdminSection active, Html content) {
+        Html links = java.util.Arrays.stream(AdminSection.values()).map(section -> navLink(section.href, section.label, section == active)).collect(Html.joining());
+        return adminPage(title, csrf, Html.of("<aside class=\"admin-nav\"><p class=\"eyebrow\">Administration</p>%s</aside>", links), content);
     }
 
     /** Page d'administration d'un bien : navigation laterale + contenu. */

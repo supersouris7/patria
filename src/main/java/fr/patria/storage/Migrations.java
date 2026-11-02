@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 6;
+    public static final int LATEST = 7;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -42,6 +42,7 @@ public final class Migrations {
             if (version < 4) toVersion4(connection, LocalDateTime.now(clock).getYear());
             if (version < 5) toVersion5(connection);
             if (version < 6) toVersion6(connection);
+            if (version < 7) toVersion7(connection);
             return null;
         });
     }
@@ -203,6 +204,40 @@ public final class Migrations {
             statement.execute("ALTER TABLE market_prices ADD COLUMN revaluation TEXT");
         }
         setUserVersion(connection, 6);
+    }
+
+    /** Version 7 : budget du foyer (personnes, revenus, depenses recurrentes). */
+    private static void toVersion7(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE people (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL
+                    )""");
+            statement.execute("""
+                    CREATE TABLE incomes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        label TEXT NOT NULL,
+                        kind TEXT NOT NULL CHECK (kind IN ('SALARY', 'BONUS', 'OTHER')),
+                        amount_cents INTEGER NOT NULL,
+                        frequency TEXT NOT NULL CHECK (frequency IN ('MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL', 'ONCE')),
+                        start_date TEXT NOT NULL,
+                        end_date TEXT
+                    )""");
+            statement.execute("""
+                    CREATE TABLE budget_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        label TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        amount_cents INTEGER NOT NULL,
+                        frequency TEXT NOT NULL CHECK (frequency IN ('MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL', 'ONCE')),
+                        start_date TEXT NOT NULL,
+                        end_date TEXT
+                    )""");
+            statement.execute("CREATE INDEX incomes_by_person ON incomes(person_id)");
+        }
+        setUserVersion(connection, 7);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

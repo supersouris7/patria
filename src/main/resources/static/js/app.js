@@ -209,3 +209,14 @@ document.querySelectorAll("[data-show-more]").forEach((button) => {
     button.closest(".show-more").remove();
   });
 });
+
+// ---- Modeles de depenses : un clic remplit libelle, categorie et frequence ----
+document.querySelectorAll("[data-preset-label]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const form = button.closest(".section").querySelector("form");
+    form.elements.label.value = button.dataset.presetLabel;
+    form.elements.category.value = button.dataset.presetCategory;
+    form.elements.frequency.value = button.dataset.presetFrequency;
+    form.elements.amount.focus();
+  });
+});

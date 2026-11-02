@@ -42,7 +42,7 @@ final class PropertyPages {
                                 Components.input(Input.of("Frais de vente et fiscalité (%)", "sale_fees_pct", NUMBER).placeholder("8").help("Résidence principale : plus-value exonérée, compter les frais d'agence (environ 5 %). Autre bien : ajouter l'impôt sur la plus-value (19 % + 17,2 %, réduit selon la durée de détention)."), values)),
                         Html.raw("<p class=\"muted\">Valeur nette indicative = valeur retenue − frais de vente et fiscalité − capital restant dû.</p>"))));
         if (creating) {
-            Html content = Html.concat(Components.backLink("/administration", "Administration"),
+            Html content = Html.concat(Components.backLink("/administration/biens", "Biens et prêts"),
                     Components.heading("Administration", "Nouveau bien", null, Html.EMPTY), Components.notice(notice),
                     Components.form("/bien", csrf, false, fields, "Créer le bien"));
             return Layout.page("Nouveau bien · Patria", Layout.Section.ADMINISTRATION, csrf, content);

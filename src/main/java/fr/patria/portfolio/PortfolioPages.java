@@ -42,10 +42,10 @@ final class PortfolioPages {
     // ---- Vue d'ensemble : sommes des biens, sans curseur ----
 
     static Html dashboard(Overview overview, String csrf) {
-        Html heading = Components.heading("Votre patrimoine immobilier", "Vue d'ensemble", null, Html.EMPTY);
+        Html heading = Components.heading("Votre patrimoine immobilier", "Immobilier", null, Html.EMPTY);
         if (overview.properties().isEmpty()) {
-            return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
-                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Components.button("/administration", "Aller à l'administration"))));
+            return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
+                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Components.button("/administration/biens", "Aller à l'administration"))));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
@@ -70,7 +70,7 @@ final class PortfolioPages {
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)),
                 Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
-        return Layout.page("Vue d'ensemble · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
     // ---- Fiche d'un bien : curseur enregistre en direct ----
@@ -86,7 +86,7 @@ final class PortfolioPages {
                         Components.button("/administration/bien/" + property.id(), "Renseigner"))
                 : estimateSlider(summary);
         Html content = Html.concat(
-                Components.backLink("/", "Vue d'ensemble"),
+                Components.backLink("/immobilier", "Immobilier"),
                 Components.heading("Bien", property.name(), subtitle, actions), Components.notice(notice), alerts(summary), hero,
                 Components.metrics(4,
                         netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
@@ -101,7 +101,7 @@ final class PortfolioPages {
                         loansTable(summary.loans())),
                 Components.card("Apports", summary.contributions().size(), Html.EMPTY,
                         contributionsTable(summary.contributions(), summary.contributed())));
-        return Layout.page(property.name() + " · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page(property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
     /** Curseur de valeur retenue. Le script {@code app.js} recalcule les tuiles et enregistre la valeur sur le bien. */
@@ -215,7 +215,7 @@ final class PortfolioPages {
         Html content = Html.concat(Components.backLink("/bien/" + property.id(), property.name()),
                 Components.heading("Mensualités", property.name(), "Total des échéances par mois, tous prêts confondus.", Html.EMPTY),
                 Components.card("Échéances", months.size(), Html.EMPTY, table));
-        return Layout.page("Mensualités · " + property.name() + " · Patria", Layout.Section.OVERVIEW, csrf, content);
+        return Layout.page("Mensualités · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
     // ---- Administration ----
@@ -242,7 +242,7 @@ final class PortfolioPages {
                 Components.notice(notice),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY, properties),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, loans));
-        return Layout.page("Administration · Patria", Layout.Section.ADMINISTRATION, csrf, content);
+        return Layout.adminSection("Biens et prêts · Patria", csrf, Layout.AdminSection.PROPERTIES, content);
     }
 
     /** Prets et apports d'un bien, avec liens de gestion. */

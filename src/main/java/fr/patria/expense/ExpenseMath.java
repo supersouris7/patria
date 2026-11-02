@@ -54,6 +54,14 @@ public final class ExpenseMath {
                 .map(YearAmount::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /** Montant d'une charge pour une annee quelconque (saisi ou estime) ; {@code null} si ce type n'a jamais ete saisi. */
+    public static BigDecimal amountFor(List<Expense> entered, ExpenseKind kind, int year) {
+        TreeMap<Integer, BigDecimal> byYear = new TreeMap<>();
+        for (Expense expense : entered) if (expense.kind() == kind) byYear.put(expense.year(), expense.amount());
+        if (byYear.isEmpty()) return null;
+        return byYear.containsKey(year) ? byYear.get(year) : estimate(kind, byYear, year);
+    }
+
     static BigDecimal estimate(ExpenseKind kind, TreeMap<Integer, BigDecimal> entered, int year) {
         Integer before = entered.floorKey(year);
         Integer after = entered.ceilingKey(year);

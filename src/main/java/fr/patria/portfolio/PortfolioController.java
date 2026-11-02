@@ -18,10 +18,10 @@ public final class PortfolioController {
     }
 
     public void register(Router router) {
-        router.get("/", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), request.csrf())));
+        router.get("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), request.csrf())));
         router.get("/bien/{id}", request -> Response.page(PortfolioPages.property(portfolio.property(request.id()), request.confirmation(), request.csrf())));
         router.get("/bien/{id}/mensualites", this::months);
-        router.get("/administration", request -> Response.page(PortfolioPages.administration(portfolio.overview(), request.confirmation(), request.csrf())));
+        router.get("/administration/biens", request -> Response.page(PortfolioPages.administration(portfolio.overview(), request.confirmation(), request.csrf())));
         router.get("/administration/bien/{id}/financements", request -> Response.page(PortfolioPages.financing(portfolio.property(request.id()), request.confirmation(), request.csrf())));
     }
 
