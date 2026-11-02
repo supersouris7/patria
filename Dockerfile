@@ -9,7 +9,8 @@ RUN mvn --batch-mode package -DskipTests
 FROM eclipse-temurin:21-jdk-jammy AS runtime
 
 RUN $JAVA_HOME/bin/jlink \
-    --add-modules java.base,java.logging,java.sql,jdk.httpserver,jdk.unsupported \
+    --add-modules java.base,java.logging,java.net.http,java.sql,jdk.crypto.ec,jdk.httpserver,jdk.localedata,jdk.unsupported \
+    --include-locales=fr,en \
     --strip-debug \
     --no-man-pages \
     --no-header-files \
