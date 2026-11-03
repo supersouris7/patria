@@ -263,16 +263,18 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
     .metrics.strip .metric { border-left: 0; padding: 6px 0; }
     .metrics.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
-    .admin-layout { gap: 16px; grid-template-columns: 1fr; }
+    .admin-layout { gap: 16px; grid-template-columns: minmax(0, 1fr); }
     .admin-nav { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; padding-bottom: 12px; position: static; }
-    .admin-nav .eyebrow { flex-basis: 100%; }
+    .admin-nav .eyebrow { display: none; }
 }
 @media (max-width: 560px) {
     .navigation { gap: 6px; min-height: 56px; }
     .brand span { display: none; }
-    nav { gap: 0; }
-    nav a, button.quiet { font-size: .8rem; padding: 6px 8px; white-space: nowrap; }
+    .brand, .navigation > form { flex-shrink: 0; }
+    nav { gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    nav a, button.quiet { font-size: .8rem; padding: 6px 7px; white-space: nowrap; }
     button.logout span { display: none; }
+    nav .long { display: none; }
     main.shell { padding-top: 22px; }
     .metrics.cols-3, .metrics.cols-4 { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .metric { min-height: 0; padding: 14px; }
@@ -419,6 +421,9 @@ tfoot small { font-weight: 400; }
 .share-row { align-items: end; display: grid; gap: 12px 18px; grid-template-columns: minmax(180px, 1fr) auto auto; padding: 12px 14px; }
 .share-row + .share-row { border-top: 1px solid var(--line); }
 .share-row.loan { padding-left: 32px; }
+.share-row.invalid { background: rgb(255 123 133 / 8%); border-radius: var(--radius-small); }
+.share-row.invalid input { border-color: var(--danger); }
+.share-error { color: var(--danger); font-size: .88rem; font-weight: 650; grid-column: 1 / -1; margin: 0; }
 .share-name b { display: block; }
 .share-name small { color: var(--muted); font-size: .8rem; }
 @media (max-width: 640px) { .share-row { grid-template-columns: 1fr; } .share-row.loan { padding-left: 14px; } }

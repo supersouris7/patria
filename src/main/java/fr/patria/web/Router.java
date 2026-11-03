@@ -116,7 +116,11 @@ public final class Router implements HttpHandler {
             if (!matcher.matches()) continue;
             pathExists = true;
             if (!route.method().equals(method)) continue;
-            if (route.isPrivate() && session == null) return Response.redirect("/connexion");
+            if (route.isPrivate() && session == null) {
+                String query = exchange.getRequestURI().getRawQuery();
+                String target = path + (query == null ? "" : "?" + query);
+                return Response.redirect(method.equals("GET") && !target.equals("/") ? "/connexion?suite=" + LocalPath.encode(target) : "/connexion");
+            }
             Map<String, String> parameters = new HashMap<>();
             for (int i = 0; i < route.parameters().size(); i++) parameters.put(route.parameters().get(i), matcher.group(i + 1));
             Request request = new Request(exchange, parameters, session);

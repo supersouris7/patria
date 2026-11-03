@@ -7,6 +7,7 @@ import fr.patria.household.Person;
 import fr.patria.household.Shares;
 import fr.patria.ui.Notice;
 import fr.patria.web.FormData;
+import fr.patria.web.LocalPath;
 import fr.patria.web.Request;
 import fr.patria.web.Response;
 import fr.patria.web.Router;
@@ -46,14 +47,15 @@ public final class BudgetController {
             BudgetItem item = require(request.id());
             Map<String, String> values = new HashMap<>(BudgetPages.values(item));
             values.putAll(Shares.values(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id()), people()));
-            return Response.page(BudgetPages.edit(item, people(), values, null, request.csrf()));
+            return Response.page(BudgetPages.edit(item, people(), values, null, back(request), request.csrf()));
         });
         router.post("/depense/{id}", this::update);
         router.post("/depense/{id}/supprimer", request -> {
             long id = require(request.id()).id();
             items.delete(id);
             sources.shares().delete(Shares.Subject.BUDGET_ITEM, id);
-            return Response.redirect("/administration/depenses?ok=supprime");
+            String back = back(request);
+            return Response.redirect(back != null ? back : "/administration/depenses?ok=supprime");
         });
         router.get("/administration/repartition", request -> Response.page(sharesPage(request.confirmation(), request.csrf())));
         router.post("/administration/repartition/bien/{id}", request -> saveShares(request, Shares.Subject.PROPERTY,
@@ -91,7 +93,9 @@ public final class BudgetController {
             sources.shares().set(subject, request.id(), Shares.parse(request.form().values(), people()));
             return Response.redirect("/administration/repartition?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(sharesPage(Notice.error(exception.getMessage()), request.csrf()));
+            BudgetPages.Rejected rejected = new BudgetPages.Rejected(new Shares.Key(subject, request.id()), request.form().values(), exception.getMessage());
+            return Response.invalid(BudgetPages.shares(sources.properties().all(), sources.loans().all(), sources.shares().all(), people(), null, rejected,
+                    request.csrf()));
         }
     }
 
@@ -118,10 +122,17 @@ public final class BudgetController {
             Map<Long, Integer> shares = Shares.parse(request.form().values(), people());
             items.update(item);
             sources.shares().set(Shares.Subject.BUDGET_ITEM, current.id(), shares);
-            return Response.redirect("/administration/depenses?ok=enregistre");
+            String back = back(request);
+            return Response.redirect(back != null ? back : "/administration/depenses?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(BudgetPages.edit(current, people(), request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(BudgetPages.edit(current, people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
         }
+    }
+
+    /** Retour au budget quand la depense y a ete ouverte ({@code ?retour=/budget...}). */
+    private static String back(Request request) {
+        String back = LocalPath.safe(request.query("retour"));
+        return back != null && back.startsWith("/budget") ? back : null;
     }
 
     private static BudgetItem read(FormData form, long id) {

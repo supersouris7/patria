@@ -5,6 +5,7 @@ import fr.patria.common.NotFoundException;
 import fr.patria.common.ValidationException;
 import fr.patria.ui.Notice;
 import fr.patria.web.FormData;
+import fr.patria.web.LocalPath;
 import fr.patria.web.Request;
 import fr.patria.web.Response;
 import fr.patria.web.Router;
@@ -35,7 +36,8 @@ public final class HouseholdController {
         router.post("/revenu/{id}", this::update);
         router.post("/revenu/{id}/supprimer", request -> {
             household.deleteIncome(require(request.id()).id());
-            return Response.redirect("/administration/foyer?ok=supprime");
+            String back = back(request);
+            return Response.redirect(back != null ? back : "/administration/foyer?ok=supprime");
         });
     }
 
@@ -64,17 +66,24 @@ public final class HouseholdController {
 
     private Response editForm(Request request) {
         Income income = require(request.id());
-        return Response.page(HouseholdPages.edit(income, household.people(), HouseholdPages.values(income), null, request.csrf()));
+        return Response.page(HouseholdPages.edit(income, household.people(), HouseholdPages.values(income), null, back(request), request.csrf()));
     }
 
     private Response update(Request request) {
         Income current = require(request.id());
         try {
             household.updateIncome(read(request.form(), current.id(), household.people()));
-            return Response.redirect("/administration/foyer?ok=enregistre");
+            String back = back(request);
+            return Response.redirect(back != null ? back : "/administration/foyer?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(HouseholdPages.edit(current, household.people(), request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(HouseholdPages.edit(current, household.people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
         }
+    }
+
+    /** Retour au budget quand le revenu y a ete ouvert ({@code ?retour=/budget...}). */
+    private static String back(Request request) {
+        String back = LocalPath.safe(request.query("retour"));
+        return back != null && back.startsWith("/budget") ? back : null;
     }
 
     private static Income read(FormData form, long id, List<Person> people) {

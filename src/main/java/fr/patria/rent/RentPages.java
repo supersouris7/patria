@@ -69,13 +69,20 @@ final class RentPages {
         return Layout.adminPage("Occupation · " + property.name() + " · Patria", csrf, PropertyNav.of(property, PropertyNav.Tab.RENTS), content);
     }
 
+    /** Nom d'une periode : son libelle, sinon son usage et sa date de debut. */
+    static String title(RentPeriod period) {
+        String name = period.label().isBlank() ? period.kind().label() : period.label();
+        return name + " · " + (period.end() == null ? "depuis le " + Format.date(period.start())
+                : "du " + Format.date(period.start()) + " au " + Format.date(period.end()));
+    }
+
     static Html edit(Property property, RentPeriod period, Map<String, String> values, Notice notice, String csrf) {
         Html content = Html.concat(
                 Components.backLink("/administration/bien/" + property.id() + "/loyers", "Occupation"),
-                Components.heading("Occupation", "Modifier la période", property.name(), Html.EMPTY), Components.notice(notice),
+                Components.heading("Occupation · " + property.name(), title(period), "Modifier la période", Html.EMPTY), Components.notice(notice),
                 Components.card("Période", null, Html.EMPTY, Components.form("/loyer/" + period.id(), csrf, false, fields(values), "Enregistrer")),
                 Components.dangerZone("Supprimer cette période", "Les loyers de cette période ne seront plus comptés.", "/loyer/" + period.id() + "/supprimer",
                         "Supprimer cette période ?", "Supprimer la période", csrf));
-        return Layout.page("Occupation · " + property.name() + " · Patria", Layout.Section.ADMINISTRATION, csrf, content);
+        return Layout.page("Occupation · " + title(period) + " · Patria", Layout.Section.ADMINISTRATION, csrf, content);
     }
 }

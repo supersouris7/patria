@@ -218,6 +218,35 @@ class AppTest {
         assertTrue(get("/budget?personne=" + bob).body().contains("Loyer (40\u00a0%)"));
 
         assertTrue(get("/administration/repartition").body().contains("Biens et prêts") || get("/administration/repartition").body().contains("Aucun bien"));
+
+        // la personne choisie reste selectionnee entre Accueil et Budget
+        assertTrue(aliceHome.contains("href=\"/budget?personne=" + alice + "\""), aliceHome);
+
+        // une depense ouverte depuis le budget y ramene
+        String budget = get("/budget?personne=" + bob).body();
+        Matcher link = Pattern.compile("href=\"(/depense/(\\d+)\\?retour=%2Fbudget%3Fpersonne%3D" + bob + ")\"").matcher(budget);
+        assertTrue(link.find(), budget);
+        String edit = get(link.group(1)).body();
+        assertTrue(edit.contains("href=\"/budget?personne=" + bob + "\""), edit);
+        assertTrue(edit.contains("<title>Dépense · "), edit);
+        HttpResponse<String> saved = post(link.group(1), "csrf=" + csrf + "&label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01");
+        assertEquals("/budget?personne=" + bob, saved.headers().firstValue("Location").orElseThrow());
+        // une adresse de retour exterieure est ignoree
+        HttpResponse<String> outside = post("/depense/" + link.group(2) + "?retour=%2F%2Fexemple.fr", "csrf=" + csrf
+                + "&label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01");
+        assertEquals("/administration/depenses?ok=enregistre", outside.headers().firstValue("Location").orElseThrow());
+    }
+
+    @Test
+    void loginReturnsToRequestedPage() throws Exception {
+        HttpResponse<String> denied = get("/budget?personne=2");
+        assertEquals("/connexion?suite=%2Fbudget%3Fpersonne%3D2", denied.headers().firstValue("Location").orElseThrow());
+        String page = get("/connexion?suite=%2Fbudget%3Fpersonne%3D2").body();
+        assertTrue(page.contains("name=\"suite\" value=\"/budget?personne=2\""), page);
+        assertEquals("/connexion?erreur&suite=%2Fbudget%3Fpersonne%3D2",
+                post("/connexion", "password=faux&suite=%2Fbudget%3Fpersonne%3D2").headers().firstValue("Location").orElseThrow());
+        assertEquals("/budget?personne=2", post("/connexion", "password=secret&suite=%2Fbudget%3Fpersonne%3D2").headers().firstValue("Location").orElseThrow());
+        assertEquals("/", post("/connexion", "password=secret&suite=%2F%2Fexemple.fr").headers().firstValue("Location").orElseThrow());
     }
 
     @Test

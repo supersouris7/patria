@@ -57,7 +57,7 @@ final class HouseholdPages {
         Html personRows = people.stream().map(person -> Html.of("<tr>%s%s<td class=\"actions\"><form method=\"post\" action=\"/personne/%s/supprimer\" data-confirm=\"%s\">%s"
                         + "<button class=\"quiet\" type=\"submit\">Supprimer</button></form></td></tr>",
                 cell(person.name()), Html.of("<td class=\"num\">%s</td>", incomes.stream().filter(income -> income.personId() == person.id()).count()),
-                person.id(), "Supprimer " + person.name() + " et ses revenus ?", Components.csrfField(csrf))).collect(Html.joining());
+                person.id(), "Supprimer " + person.name() + " et ses revenus ?" + (people.size() > 1 ? " Ses parts des dépenses, biens et prêts seront réparties entre les autres personnes." : ""), Components.csrfField(csrf))).collect(Html.joining());
         Html peopleCard = Components.card("Personnes du foyer", people.size(), Html.EMPTY, Html.concat(
                 people.isEmpty() ? Html.raw("<p class=\"empty\">Ajoutez au moins une personne pour saisir ses revenus.</p>")
                         : Components.table(List.of("Nom", "#Revenus", ""), personRows, false, false),
@@ -79,14 +79,16 @@ final class HouseholdPages {
         return Layout.adminSection("Foyer et revenus · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
     }
 
-    static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String csrf) {
+    /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a Foyer et revenus. */
+    static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String back, String csrf) {
+        String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         Html content = Html.concat(
-                Components.backLink("/administration/foyer", "Foyer et revenus"),
+                back == null ? Components.backLink("/administration/foyer", "Foyer et revenus") : Components.backLink(back, "Budget"),
                 Components.heading("Revenu", income.label(), null, Html.EMPTY), Components.notice(notice),
-                Components.card("Revenu", null, Html.EMPTY, Components.form("/revenu/" + income.id(), csrf, false, incomeFields(people, values), "Enregistrer")),
-                Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer",
+                Components.card("Revenu", null, Html.EMPTY, Components.form("/revenu/" + income.id() + suffix, csrf, false, incomeFields(people, values), "Enregistrer")),
+                Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,
                         "Supprimer le revenu « " + income.label() + " » ?", "Supprimer le revenu", csrf));
-        return Layout.adminSection("Revenu · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
+        return Layout.adminSection("Revenu · " + income.label() + " · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
     }
 
     static String period(Income income) {

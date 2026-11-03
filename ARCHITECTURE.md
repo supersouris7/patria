@@ -62,7 +62,7 @@ Chaque module métier suit la même organisation, ce qui permet de s'y retrouver
 ```
 Navigateur ──► Router (web)
                  ├─ fichier statique ? → servi avec cache d'un an (versionné par empreinte)
-                 ├─ route privée sans session → redirection /connexion
+                 ├─ route privée sans session → redirection /connexion?suite=<page demandée>
                  ├─ POST privé sans jeton CSRF valide → 400
                  └─ Controller.handle(Request) ──► Repository / calculs ──► Pages ──► Response
                                                    │
@@ -88,6 +88,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
+| Où mènent les retours (après connexion, après enregistrement depuis le budget) ? | `web/LocalPath.safe` : adresse interne uniquement, sinon page par défaut |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |

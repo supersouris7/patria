@@ -32,13 +32,23 @@ public final class Layout {
 
     /** Page d'une personne connectee ({@code csrf} non nul) ou anonyme (sans en-tete). */
     public static Html page(String title, Section section, String csrf, Html content) {
+        return page(title, section, csrf, "", content);
+    }
+
+    /**
+     * Comme {@link #page(String, Section, String, Html)}, {@code scope} (par exemple {@code ?personne=2}) etant ajoute
+     * aux liens Accueil et Budget pour rester sur la personne choisie.
+     */
+    public static Html page(String title, Section section, String csrf, String scope, Html content) {
         Html header = csrf == null ? Html.EMPTY : Html.of("""
                 <header class="topbar"><div class="shell navigation">%s<nav>%s%s</nav>
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
                 </div></header>""",
-                brand(), Html.concat(navLink("/", "Accueil", section == Section.HOME), navLink("/budget", "Budget", section == Section.BUDGET),
+                brand(), Html.concat(navLink("/" + scope, "Accueil", section == Section.HOME), navLink("/budget" + scope, "Budget", section == Section.BUDGET),
                         navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE)),
-                navLink("/administration", "Administration", section == Section.ADMINISTRATION),
+                section == Section.ADMINISTRATION
+                        ? Html.raw("<a href=\"/administration\" class=\"active\" aria-current=\"page\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>")
+                        : Html.raw("<a href=\"/administration\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>"),
                 Components.csrfField(csrf), LOGOUT_ICON);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s</main>", content)));
     }
