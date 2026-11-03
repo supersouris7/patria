@@ -160,6 +160,12 @@ public final class Router implements HttpHandler {
                 exchange.sendResponseHeaders(303, -1);
             }
             case Response.NoContent ignored -> exchange.sendResponseHeaders(204, -1);
+            case Response.Download download -> {
+                headers.set("Content-Type", download.contentType());
+                headers.set("Content-Disposition", "attachment; filename=\"" + download.filename().replaceAll("[^A-Za-z0-9._-]", "_") + "\"");
+                headers.set("Cache-Control", "no-store");
+                send(exchange, 200, download.body());
+            }
         }
     }
 

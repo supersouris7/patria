@@ -300,8 +300,59 @@ final class BudgetPages {
 
         Html content = Html.concat(Components.heading("Administration", "Dépenses", null, Html.EMPTY), Components.notice(notice),
                 Components.card("Ajouter une dépense", null, Html.EMPTY, form),
+                Components.card("Importer un fichier CSV", null, Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
+                        importForm(csrf)),
                 Components.card("Dépenses saisies", items.size(), Html.EMPTY, Html.concat(table, automatic)));
         return Layout.adminSection("Dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, content);
+    }
+
+    private static Html importForm(String csrf) {
+        Html help = Html.raw("""
+                <p class="muted">Plusieurs dépenses d'un coup, depuis un tableur : une ligne par dépense, colonnes
+                <code>libelle;categorie;montant;frequence;debut;fin</code>, puis <code>part_Prénom</code> par personne si besoin.
+                Le modèle contient l'en-tête et deux exemples. Un aperçu s'affiche avant tout enregistrement.</p>""");
+        return Html.concat(help, Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Voir l'aperçu"));
+    }
+
+    /** Apercu d'un import : chaque ligne lue, ses erreurs ; confirmation seulement si tout est valide. */
+    static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, String csrf) {
+        boolean shared = people.size() >= 2;
+        long errors = rows.stream().filter(row -> !row.valid()).count();
+        long duplicates = rows.stream().filter(row -> row.valid() && row.duplicate()).count();
+        long fresh = rows.size() - errors - duplicates;
+        Html body = rows.stream().map(row -> {
+            if (!row.valid()) {
+                return Html.of("<tr class=\"row-error\"><td>%s</td><td colspan=\"%s\" class=\"negative\">%s</td></tr>", row.line(), shared ? 7 : 6, row.error());
+            }
+            BudgetItem item = row.item();
+            return Html.of("<tr><td>%s</td>%s%s%s%s%s%s<td>%s</td></tr>", row.line(), cell(item.label()), cell(item.category().label()),
+                    number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
+                    cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())),
+                    shared ? cell(Shares.describe(row.shares(), people)) : Html.EMPTY,
+                    row.duplicate() ? Html.raw("<span class=\"badge\">Déjà saisie, ignorée</span>") : Html.raw("<span class=\"badge paid\">À importer</span>"));
+        }).collect(Html.joining());
+        List<String> columns = new java.util.ArrayList<>(List.of("Ligne", "Dépense", "Catégorie", "#Montant", "Fréquence", "Période"));
+        if (shared) columns.add("Répartition");
+        columns.add("État");
+        String summary = fresh + " dépense" + (fresh > 1 ? "s" : "") + " à importer"
+                + (duplicates > 0 ? ", " + duplicates + " déjà saisie" + (duplicates > 1 ? "s" : "") + " (ignorée" + (duplicates > 1 ? "s" : "") + ")" : "")
+                + (errors > 0 ? ", " + errors + " ligne" + (errors > 1 ? "s" : "") + " en erreur" : "") + ".";
+        Html actions;
+        if (errors > 0) {
+            actions = Html.concat(Html.raw("<p class=\"notice error\" role=\"alert\">Rien n'est enregistré : corrigez les lignes en erreur dans le fichier, puis importez-le de nouveau.</p>"),
+                    Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier corrigé", "csv"), "Voir l'aperçu"));
+        } else if (fresh == 0) {
+            actions = Html.raw("<p class=\"muted\">Toutes ces dépenses sont déjà saisies : rien à importer.</p>");
+        } else {
+            String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            actions = Html.of("<form method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
+                    + "<a class=\"button secondary\" href=\"/administration/depenses\">Annuler</a><button type=\"submit\">Importer %s</button></form>",
+                    Components.csrfField(csrf), encoded, fresh + " dépense" + (fresh > 1 ? "s" : ""));
+        }
+        Html page = Html.concat(Components.backLink("/administration/depenses", "Dépenses"),
+                Components.heading("Administration", "Aperçu de l'import", summary, Html.EMPTY),
+                Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(Components.table(columns, body, false, false), actions)));
+        return Layout.adminSection("Import de dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, page);
     }
 
     /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a la liste des depenses. */

@@ -238,6 +238,36 @@ class AppTest {
     }
 
     @Test
+    void importsExpensesFromCsvAfterPreview() throws Exception {
+        String csrf = login();
+        HttpResponse<String> template = get("/administration/depenses/modele.csv");
+        assertEquals(200, template.statusCode());
+        assertTrue(template.headers().firstValue("Content-Disposition").orElseThrow().contains("modele-depenses.csv"));
+        assertTrue(template.body().contains("libelle;categorie;montant;frequence;debut;fin"));
+
+        String csv = "libelle;categorie;montant;frequence;debut;fin\nObjectif Santé;Santé;35,69;Mensuel;01/01/2026;\n"
+                + "Protection juridique;Assurances;26,40;Annuel;01/12/2025;\n";
+        HttpResponse<String> preview = upload("/administration/depenses/import", csrf, "", csv);
+        assertEquals(200, preview.statusCode(), preview.body());
+        assertTrue(preview.body().contains("2 dépenses à importer"), preview.body());
+        assertEquals(0, get("/administration/depenses").body().split("Objectif Santé", -1).length - 1, "rien n'est enregistré avant validation");
+
+        Matcher content = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(preview.body());
+        assertTrue(content.find());
+        HttpResponse<String> saved = post("/administration/depenses/import/valider", "csrf=" + csrf + "&contenu=" + content.group(1));
+        assertEquals("/administration/depenses?ok=importe", saved.headers().firstValue("Location").orElseThrow());
+        assertTrue(get("/budget").body().contains("Objectif Santé"));
+
+        // reimporter le meme fichier ne cree pas de doublon ; une ligne fausse bloque tout
+        assertTrue(upload("/administration/depenses/import", csrf, "", csv).body().contains("Toutes ces dépenses sont déjà saisies"));
+        HttpResponse<String> wrong = upload("/administration/depenses/import", csrf, "", csv + "Gaz;Chauffage;50;Mensuel;01/01/2026;\n");
+        assertEquals(400, wrong.statusCode());
+        assertTrue(wrong.body().contains("Catégorie « Chauffage » inconnue."), wrong.body());
+        assertTrue(!wrong.body().contains("name=\"contenu\""));
+        assertEquals(400, upload("/administration/depenses/import", csrf, "", "libelle;montant\nX;1\n").statusCode());
+    }
+
+    @Test
     void loginReturnsToRequestedPage() throws Exception {
         HttpResponse<String> denied = get("/budget?personne=2");
         assertEquals("/connexion?suite=%2Fbudget%3Fpersonne%3D2", denied.headers().firstValue("Location").orElseThrow());

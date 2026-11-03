@@ -14,7 +14,8 @@ public record Notice(boolean error, String text) {
             "renomme", "Prêt renommé.",
             "marche", "Prix du marché actualisé.",
             "charge", "Charge enregistrée.",
-            "loyer", "Période d'occupation enregistrée.");
+            "loyer", "Période d'occupation enregistrée.",
+            "importe", "Dépenses importées.");
 
     public static Notice error(String text) {
         return new Notice(true, text);

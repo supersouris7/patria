@@ -33,13 +33,18 @@ public final class ShareRepository {
     /** Remplace la repartition ; une repartition vide revient aux parts egales. */
     public void set(Shares.Subject subject, long id, Map<Long, Integer> percents) {
         database.transaction(connection -> {
-            Sql.update(connection, "DELETE FROM shares WHERE subject = ? AND subject_id = ?", subject.name(), id);
-            for (Map.Entry<Long, Integer> entry : percents.entrySet()) {
-                Sql.update(connection, "INSERT INTO shares (subject, subject_id, person_id, percent) VALUES (?, ?, ?, ?)",
-                        subject.name(), id, entry.getKey(), entry.getValue());
-            }
+            write(connection, subject, id, percents);
             return null;
         });
+    }
+
+    /** Meme ecriture que {@link #set}, dans une transaction deja ouverte par l'appelant. */
+    public static void write(java.sql.Connection connection, Shares.Subject subject, long id, Map<Long, Integer> percents) throws java.sql.SQLException {
+        Sql.update(connection, "DELETE FROM shares WHERE subject = ? AND subject_id = ?", subject.name(), id);
+        for (Map.Entry<Long, Integer> entry : percents.entrySet()) {
+            Sql.update(connection, "INSERT INTO shares (subject, subject_id, person_id, percent) VALUES (?, ?, ?, ?)",
+                    subject.name(), id, entry.getKey(), entry.getValue());
+        }
     }
 
     public void delete(Shares.Subject subject, long id) {

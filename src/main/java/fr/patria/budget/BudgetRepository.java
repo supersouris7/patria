@@ -3,6 +3,8 @@ package fr.patria.budget;
 import static fr.patria.storage.Sql.cents;
 
 import fr.patria.common.Frequency;
+import fr.patria.household.ShareRepository;
+import fr.patria.household.Shares;
 import fr.patria.storage.Database;
 import fr.patria.storage.Sql;
 import java.sql.ResultSet;
@@ -30,6 +32,22 @@ public final class BudgetRepository {
         return database.query(connection -> Sql.insert(connection,
                 "INSERT INTO budget_items (label, category, amount_cents, frequency, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
                 item.label(), item.category().name(), cents(item.amount()), item.frequency().name(), item.start(), item.end()));
+    }
+
+    /** Import : toutes les depenses et leurs repartitions sont enregistrees ensemble, ou aucune. */
+    public int insertAll(List<ExpenseCsv.Row> rows) {
+        return database.transaction(connection -> {
+            int count = 0;
+            for (ExpenseCsv.Row row : rows) {
+                BudgetItem item = row.item();
+                long id = Sql.insert(connection,
+                        "INSERT INTO budget_items (label, category, amount_cents, frequency, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                        item.label(), item.category().name(), cents(item.amount()), item.frequency().name(), item.start(), item.end());
+                if (!row.shares().isEmpty()) ShareRepository.write(connection, Shares.Subject.BUDGET_ITEM, id, row.shares());
+                count++;
+            }
+            return count;
+        });
     }
 
     public void update(BudgetItem item) {

@@ -43,6 +43,10 @@ public final class BudgetController {
         router.get("/administration", request -> Response.redirect("/administration/foyer"));
         router.get("/administration/depenses", request -> Response.page(adminPage(defaults(), request.confirmation(), request.csrf())));
         router.post("/administration/depenses", this::create);
+        router.get("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
+                ExpenseCsv.template(people()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        router.post("/administration/depenses/import", this::preview);
+        router.post("/administration/depenses/import/valider", this::confirmImport);
         router.get("/depense/{id}", request -> {
             BudgetItem item = require(request.id());
             Map<String, String> values = new HashMap<>(BudgetPages.values(item));
@@ -101,6 +105,35 @@ public final class BudgetController {
 
     private Map<String, String> defaults() {
         return Map.of("start", LocalDate.now(clock).withDayOfMonth(1).toString());
+    }
+
+    private Response preview(Request request) {
+        try {
+            String content = new String(request.form().requiredFile("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, people(), items.all());
+            boolean ok = rows.stream().allMatch(ExpenseCsv.Row::valid);
+            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, people(), request.csrf()));
+        } catch (ValidationException exception) {
+            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
+        }
+    }
+
+    /** Le contenu est relu et reverifie : l'apercu ne sert qu'a l'affichage. */
+    private Response confirmImport(Request request) {
+        String content;
+        try {
+            content = new String(java.util.Base64.getUrlDecoder().decode(request.form().raw("contenu")), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException exception) {
+            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible : contenu illisible, recommencez depuis le fichier."), request.csrf()));
+        }
+        try {
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, people(), items.all());
+            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people(), request.csrf()));
+            items.insertAll(rows.stream().filter(row -> !row.duplicate()).toList());
+            return Response.redirect("/administration/depenses?ok=importe");
+        } catch (ValidationException exception) {
+            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
+        }
     }
 
     private Response create(Request request) {

@@ -13,6 +13,7 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 - Page Budget : moyenne mensuelle sur 12 mois, depenses classees par categorie.
 - Un budget par personne, identique a celui du foyer : selecteur « Foyer | Alice | Bob » sur l'Accueil et le Budget. Chaque personne voit ses revenus et sa part des depenses, biens (charges, loyers) et prets, avec son propre taux d'endettement.
 - Repartition en pourcentages, a parts egales par defaut (y compris pour les personnes ajoutees ensuite) : dans le formulaire de chaque depense, et dans Administration → Repartition pour les biens et les prets. Un pret suit la repartition de son bien, sauf repartition propre.
+- Import de depenses par fichier CSV (Administration → Depenses), avec modele a telecharger et apercu avant enregistrement (voir « Importer des depenses »).
 
 ### Immobilier
 
@@ -52,6 +53,24 @@ Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche 
 Limites : DVF ne couvre pas l'Alsace-Moselle (57, 67, 68) ni Mayotte ; seules les ventes de la commune du bien (ou de son arrondissement a Paris, Lyon et Marseille) sont prises en compte.
 
 L'import/export JSON sera ajoute dans une version ulterieure.
+
+## Importer des depenses
+
+Administration → Depenses → « Importer un fichier CSV ». « Telecharger le modele » donne l'en-tete et deux exemples, a remplir dans un tableur puis a enregistrer en CSV UTF-8.
+
+```
+libelle;categorie;montant;frequence;debut;fin;part_Camille;part_Alex
+Mutuelle;Santé;35,69;Mensuel;01/01/2026;;;
+Assurance habitation;Assurances;626,65;Annuel;01/01/2026;;100;0
+```
+
+- `libelle`, `categorie`, `montant`, `frequence` et `debut` sont obligatoires ; `fin` et les colonnes `part_<Prénom>` sont facultatives.
+- Categorie et frequence : le libelle affiche dans l'application (« Santé », « Mensuel », sans tenir compte des accents ni des majuscules) ou son code (`HEALTH`, `MONTHLY`).
+- Dates au format 31/01/2026 ou 2026-01-31 ; montants avec virgule ou point, espaces et « € » acceptes.
+- Parts vides : parts egales. Sinon, elles doivent faire 100 %.
+- Point-virgule ou virgule comme separateur, guillemets acceptes autour d'un libelle ; 500 lignes au plus.
+
+Un apercu montre chaque ligne avant tout enregistrement. Une seule ligne en erreur bloque l'import (rien n'est enregistre) et l'apercu indique quoi corriger. Une depense deja saisie (meme libelle, montant, frequence et debut) est ignoree : reimporter un fichier ne cree pas de doublon.
 
 ## Importer un echeancier
 
