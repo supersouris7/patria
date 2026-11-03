@@ -34,11 +34,15 @@ public final class BudgetRepository {
                 item.label(), item.category().name(), cents(item.amount()), item.frequency().name(), item.start(), item.end()));
     }
 
+    /** Depense a importer, avec sa repartition (vide = parts egales). */
+    public record NewExpense(BudgetItem item, java.util.Map<Long, Integer> shares) {
+    }
+
     /** Import : toutes les depenses et leurs repartitions sont enregistrees ensemble, ou aucune. */
-    public int insertAll(List<ExpenseCsv.Row> rows) {
+    public int insertAll(List<NewExpense> rows) {
         return database.transaction(connection -> {
             int count = 0;
-            for (ExpenseCsv.Row row : rows) {
+            for (NewExpense row : rows) {
                 BudgetItem item = row.item();
                 long id = Sql.insert(connection,
                         "INSERT INTO budget_items (label, category, amount_cents, frequency, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",

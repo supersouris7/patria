@@ -44,7 +44,7 @@ public final class BudgetController {
         router.get("/administration/depenses", request -> Response.page(adminPage(defaults(), request.confirmation(), request.csrf())));
         router.post("/administration/depenses", this::create);
         router.get("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
-                ExpenseCsv.template(people()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                ExpenseCsv.template().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         router.post("/administration/depenses/import", this::preview);
         router.post("/administration/depenses/import/valider", this::confirmImport);
         router.get("/depense/{id}", request -> {
@@ -110,9 +110,9 @@ public final class BudgetController {
     private Response preview(Request request) {
         try {
             String content = new String(request.form().requiredFile("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
-            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, people(), items.all());
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
             boolean ok = rows.stream().allMatch(ExpenseCsv.Row::valid);
-            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, people(), request.csrf()));
+            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, people(), Map.of(), request.csrf()));
         } catch (ValidationException exception) {
             return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
         }
@@ -127,13 +127,28 @@ public final class BudgetController {
             return Response.invalid(adminPage(defaults(), Notice.error("Import impossible : contenu illisible, recommencez depuis le fichier."), request.csrf()));
         }
         try {
-            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, people(), items.all());
-            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people(), request.csrf()));
-            items.insertAll(rows.stream().filter(row -> !row.duplicate()).toList());
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
+            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people(), Map.of(), request.csrf()));
+            List<Person> people = people();
+            Map<String, String> form = request.form().values();
+            Map<Long, Integer> all = owner(form.getOrDefault("attribution", ""), people, false);
+            List<BudgetRepository.NewExpense> fresh = rows.stream().filter(ExpenseCsv.Row::fresh).map(row -> {
+                String own = form.getOrDefault("attribution_" + row.line(), "");
+                return new BudgetRepository.NewExpense(row.item(), own.isEmpty() ? all : owner(own, people, true));
+            }).toList();
+            items.insertAll(fresh);
             return Response.redirect("/administration/depenses?ok=importe");
         } catch (ValidationException exception) {
             return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
         }
+    }
+
+    /** Attribution choisie dans l'apercu : vide (ou « egal » sur une ligne) = parts egales, sinon une personne a 100 %. */
+    private static Map<Long, Integer> owner(String value, List<Person> people, boolean line) {
+        if (value.isEmpty() || (line && value.equals("egal")) || people.size() < 2) return Map.of();
+        Person person = people.stream().filter(candidate -> String.valueOf(candidate.id()).equals(value)).findFirst()
+                .orElseThrow(() -> new ValidationException("Attribution invalide : cette personne n'existe plus."));
+        return Shares.only(person.id(), people);
     }
 
     private Response create(Request request) {

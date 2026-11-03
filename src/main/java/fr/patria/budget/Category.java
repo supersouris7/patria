@@ -15,7 +15,9 @@ public enum Category {
     TRANSPORT("Transport", Family.OTHER),
     CHILDREN("Enfants et scolarité", Family.OTHER),
     LEISURE("Loisirs", Family.OTHER),
-    OTHER("Autres", Family.OTHER);
+    OTHER("Autres", Family.OTHER),
+    /** Virement vers un autre membre du foyer : calcule depuis les virements, jamais saisi comme depense. */
+    TRANSFER("Virements", Family.OTHER);
 
     /**
      * Familles du graphique mensuel : six au plus, pour que chaque couleur reste distinguable (palette validee
@@ -56,8 +58,13 @@ public enum Category {
         return family;
     }
 
+    /** Categories proposees a la saisie d'une depense (sans les virements). */
+    public static java.util.List<Category> selectable() {
+        return Arrays.stream(values()).filter(category -> category != TRANSFER).toList();
+    }
+
     public static Category parse(String value) {
-        return Arrays.stream(values()).filter(category -> category.name().equals(value)).findFirst()
+        return selectable().stream().filter(category -> category.name().equals(value)).findFirst()
                 .orElseThrow(() -> new ValidationException("Catégorie invalide."));
     }
 }

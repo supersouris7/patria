@@ -85,6 +85,7 @@ public final class App implements AutoCloseable {
             new ContributionController(contributions, properties, config.clock()).register(router);
             new ExpenseController(expenses, properties, config.clock()).register(router);
             new HouseholdController(household, config.clock()).register(router);
+            new fr.patria.household.TransferController(household, config.clock()).register(router);
             Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
             new BudgetController(new Forecast(budgetSources, config.clock()), budgetSources, config.clock()).register(router);
             new RentController(rents, properties, config.clock()).register(router);

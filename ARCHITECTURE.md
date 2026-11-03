@@ -89,6 +89,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
 | Quel format CSV pour importer des dépenses ? | `budget/ExpenseCsv` (lecture, modèle), enregistrement en une transaction par `BudgetRepository.insertAll` |
+| Comment comptent les virements et le compte joint ? | `household/Transfer`, lignes ajoutées par `Forecast.month` (vue d'un membre seulement) ; crédits du compte joint dans `Forecast.jointCredits` ; membre de type compte : `Person.Kind` (migration v9) |
 | Où mènent les retours (après connexion, après enregistrement depuis le budget) ? | `web/LocalPath.safe` : adresse interne uniquement, sinon page par défaut |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |

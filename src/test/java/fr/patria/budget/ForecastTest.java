@@ -1,6 +1,7 @@
 package fr.patria.budget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import fr.patria.TestData;
@@ -33,6 +34,10 @@ class ForecastTest {
         assertEquals(0, new BigDecimal(expected).compareTo(actual), () -> "attendu " + expected + ", obtenu " + actual);
     }
 
+    private static void assertAmount(String expected, BigDecimal actual, String message) {
+        assertEquals(0, new BigDecimal(expected).compareTo(actual), () -> message + " : attendu " + expected + ", obtenu " + actual);
+    }
+
     private Forecast.View forecast(TestData.Stores stores) {
         return forecast(stores, null);
     }
@@ -40,6 +45,49 @@ class ForecastTest {
     private Forecast.View forecast(TestData.Stores stores, Long person) {
         return new Forecast(new Forecast.Sources(stores.household(), stores.budget(), stores.properties(), stores.loans(), stores.expenses(), stores.rents(), stores.shares()),
                 TestData.CLOCK).next12Months(person);
+    }
+
+    @Test
+    void transfersToJointAccountAreSpendingForSenderIncomeForAccountAndNeutralForHousehold() {
+        TestData.Stores stores = TestData.stores(directory);
+        long alice = stores.household().addPerson("Alice");
+        long bob = stores.household().addPerson("Bob");
+        long joint = stores.household().addMember("Compte joint", fr.patria.household.Person.Kind.ACCOUNT);
+        stores.household().addIncome(new Income(0, alice, "Salaire", IncomeKind.SALARY, new BigDecimal("3000"), Frequency.MONTHLY, LocalDate.of(2025, 1, 1), null));
+        stores.household().addIncome(new Income(0, bob, "Salaire", IncomeKind.SALARY, new BigDecimal("2000"), Frequency.MONTHLY, LocalDate.of(2025, 1, 1), null));
+        long food = stores.budget().insert(new BudgetItem(0, "Courses", Category.OTHER, new BigDecimal("600"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        long car = stores.budget().insert(new BudgetItem(0, "Crédit auto", Category.CREDIT, new BigDecimal("300"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        stores.shares().set(Shares.Subject.BUDGET_ITEM, food, Map.of(joint, 100));
+        stores.shares().set(Shares.Subject.BUDGET_ITEM, car, Map.of(joint, 100));
+        LocalDate today = LocalDate.now(TestData.CLOCK);
+        stores.household().addTransfer(new fr.patria.household.Transfer(0, alice, joint, "", new BigDecimal("1000"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        stores.household().addTransfer(new fr.patria.household.Transfer(0, bob, joint, "", new BigDecimal("800"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        stores.household().addTransfer(new fr.patria.household.Transfer(0, bob, joint, "Vacances", new BigDecimal("500"), Frequency.ONCE, today, null));
+
+        Forecast.Month household = forecast(stores).current();
+        assertAmount("5000", household.income());
+        assertAmount("900", household.spending());
+
+        Forecast.View aliceView = forecast(stores, alice);
+        assertAmount("3000", aliceView.current().income());
+        assertAmount("1000", aliceView.current().spending());
+        assertTrue(aliceView.current().expenses().stream().anyMatch(line -> line.label().equals("Virement vers Compte joint") && line.category() == Category.TRANSFER));
+        // credit paye par le compte joint : moitie chacun ; le virement ne compte pas
+        assertAmount("150", aliceView.debt().credits());
+        assertAmount("3000", aliceView.debt().income());
+
+        Forecast.View bobView = forecast(stores, bob);
+        assertAmount("1300", bobView.current().spending());
+        assertTrue(bobView.current().expenses().stream().anyMatch(line -> line.label().equals("Vacances (vers Compte joint)")));
+        assertAmount("800", bobView.months().get(1).spending(), "ponctuel : seulement ce mois-ci");
+
+        Forecast.View jointView = forecast(stores, joint);
+        assertAmount("2300", jointView.current().income());
+        assertAmount("900", jointView.current().spending());
+        assertNull(jointView.debt().percent(), "pas de taux pour un compte");
+        // les budgets des membres redonnent celui du foyer
+        assertAmount(household.balance().toPlainString(), aliceView.current().balance().add(bobView.current().balance()).add(jointView.current().balance()));
+        stores.database().close();
     }
 
     @Test

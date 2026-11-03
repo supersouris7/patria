@@ -2,8 +2,6 @@ package fr.patria.budget;
 
 import fr.patria.common.Frequency;
 import fr.patria.common.ValidationException;
-import fr.patria.household.Person;
-import fr.patria.household.Shares;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
@@ -11,126 +9,91 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /**
- * Import de depenses par fichier CSV (UTF-8, BOM accepte, separateur point-virgule ou virgule, guillemets acceptes).
+ * Import de depenses par fichier CSV, <b>sans en-tete</b> : chaque ligne est une depense, colonnes dans cet ordre
+ * {@code libelle;categorie;montant;frequence;debut;fin} (fin facultative). UTF-8, BOM accepte, separateur
+ * point-virgule (ou virgule), guillemets acceptes autour d'un libelle.
  *
- * <p>Colonnes : {@code libelle;categorie;montant;frequence;debut;fin}, puis une colonne {@code part_<Prenom>} par
- * personne si besoin. Categorie et frequence acceptent le libelle affiche (« Santé », « Mensuel ») ou le code
- * ({@code HEALTH}, {@code MONTHLY}) ; dates au format 2026-01-31 ou 31/01/2026 ; montants avec virgule ou point.
- * Parts vides : parts egales. Chaque ligne est verifiee comme dans le formulaire.
+ * <p>Categorie et frequence acceptent le libelle affiche (« Santé », « Mensuel ») ou le code ({@code HEALTH},
+ * {@code MONTHLY}) ; dates au format 31/01/2026 ou 2026-01-31 ; montants avec virgule ou point. Le fichier ne dit
+ * pas a qui revient la depense : cela se choisit dans l'apercu, puis dans chaque depense.
  */
 public final class ExpenseCsv {
     static final int MAX_LINES = 500;
     /** L'apercu renvoie le contenu dans un formulaire, limite a 64 Ko une fois encode. */
     static final int MAX_BYTES = 45_000;
+    static final int COLUMNS = 6;
     private static final DateTimeFormatter FRENCH_DATE = DateTimeFormatter.ofPattern("d/M/uuuu").withResolverStyle(java.time.format.ResolverStyle.STRICT);
-    private static final Map<String, String> ALIASES = Map.ofEntries(
-            Map.entry("libelle", "libelle"), Map.entry("label", "libelle"), Map.entry("nom", "libelle"),
-            Map.entry("categorie", "categorie"), Map.entry("category", "categorie"),
-            Map.entry("montant", "montant"), Map.entry("amount", "montant"),
-            Map.entry("frequence", "frequence"), Map.entry("rythme", "frequence"), Map.entry("frequency", "frequence"),
-            Map.entry("debut", "debut"), Map.entry("premier_paiement", "debut"), Map.entry("start", "debut"),
-            Map.entry("fin", "fin"), Map.entry("dernier_paiement", "fin"), Map.entry("end", "fin"));
-    private static final List<String> REQUIRED = List.of("libelle", "categorie", "montant", "frequence", "debut");
 
     /** Une ligne du fichier : la depense lue, ou l'erreur qui l'empeche. {@code duplicate} : deja saisie, elle sera ignoree. */
-    public record Row(int line, BudgetItem item, Map<Long, Integer> shares, String error, boolean duplicate) {
+    public record Row(int line, BudgetItem item, String error, boolean duplicate) {
         public boolean valid() {
             return error == null;
+        }
+
+        /** A enregistrer : valide et pas deja saisie. */
+        public boolean fresh() {
+            return error == null && !duplicate;
         }
     }
 
     private ExpenseCsv() {
     }
 
-    /** Lit tout le fichier ; une erreur d'en-tete arrete la lecture, une erreur de ligne est rapportee sur sa ligne. */
-    public static List<Row> parse(String text, List<Person> people, List<BudgetItem> existing) {
+    /** Lit tout le fichier ; chaque erreur est rapportee sur sa ligne. */
+    public static List<Row> parse(String text, List<BudgetItem> existing) {
         if (text.startsWith("\uFEFF")) text = text.substring(1);
         if (text.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) throw new ValidationException("Le fichier est trop gros (45 Ko au plus, soit environ 500 lignes).");
         String[] lines = text.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
-        int first = 0;
-        while (first < lines.length && lines[first].isBlank()) first++;
-        if (first == lines.length) throw new ValidationException("Le fichier est vide.");
-        char separator = lines[first].indexOf(';') >= 0 ? ';' : ',';
-        List<String> header = split(lines[first], separator);
-        Map<String, Integer> columns = new HashMap<>();
-        Map<Long, Integer> shareColumns = new LinkedHashMap<>();
-        for (int index = 0; index < header.size(); index++) {
-            String title = header.get(index).trim();
-            String name = normalize(title).replace(' ', '_');
-            if (name.isEmpty()) continue;
-            if (name.startsWith("part_") || name.startsWith("part-")) {
-                String who = name.substring(5);
-                Person person = people.stream().filter(candidate -> normalize(candidate.name()).replace(' ', '_').equals(who)).findFirst()
-                        .orElseThrow(() -> new ValidationException("En-tête : « " + title + " » ne correspond à aucune personne du foyer."));
-                shareColumns.put(person.id(), index);
-                continue;
-            }
-            String column = ALIASES.get(name);
-            if (column == null) throw new ValidationException("En-tête : colonne « " + title + " » inconnue. Colonnes attendues : "
-                    + String.join(";", REQUIRED) + ";fin, puis part_<Prénom> si besoin.");
-            if (columns.put(column, index) != null) throw new ValidationException("En-tête : colonne « " + column + " » en double.");
-        }
-        List<String> missing = REQUIRED.stream().filter(column -> !columns.containsKey(column)).toList();
-        if (!missing.isEmpty()) throw new ValidationException("En-tête : colonne(s) manquante(s) : " + String.join(", ", missing) + ".");
-
+        String firstLine = java.util.Arrays.stream(lines).filter(line -> !line.isBlank()).findFirst()
+                .orElseThrow(() -> new ValidationException("Le fichier est vide."));
+        char separator = firstLine.indexOf(';') >= 0 ? ';' : ',';
         List<Row> rows = new ArrayList<>();
         List<BudgetItem> seen = new ArrayList<>(existing);
-        for (int number = first + 2; number <= lines.length; number++) {
+        for (int number = 1; number <= lines.length; number++) {
             String line = lines[number - 1];
             if (line.isBlank() || line.replace(String.valueOf(separator), "").isBlank()) continue;
             if (rows.size() >= MAX_LINES) throw new ValidationException("Le fichier dépasse " + MAX_LINES + " lignes.");
             try {
                 List<String> values = split(line, separator);
-                BudgetItem item = item(values, columns);
-                Map<String, String> form = new HashMap<>();
-                shareColumns.forEach((personId, index) -> form.put("share_" + personId, cell(values, index)));
-                Map<Long, Integer> shares = Shares.parse(form, people);
+                if (rows.isEmpty() && looksLikeHeader(values)) {
+                    throw new ValidationException("Cette ligne ressemble à un en-tête : supprimez-la, le fichier commence directement par les dépenses.");
+                }
+                if (values.size() < COLUMNS - 1 || values.size() > COLUMNS) {
+                    throw new ValidationException(values.size() + " colonne" + (values.size() > 1 ? "s" : "") + " au lieu de 6 : libellé;catégorie;montant;fréquence;début;fin.");
+                }
+                BudgetItem item = item(values);
                 boolean duplicate = seen.stream().anyMatch(other -> same(other, item));
                 seen.add(item);
-                rows.add(new Row(number, item, shares, null, duplicate));
+                rows.add(new Row(number, item, null, duplicate));
             } catch (ValidationException exception) {
-                rows.add(new Row(number, null, Map.of(), exception.getMessage(), false));
+                rows.add(new Row(number, null, exception.getMessage(), false));
             }
         }
-        if (rows.isEmpty()) throw new ValidationException("Le fichier ne contient aucune dépense sous l'en-tête.");
         return rows;
     }
 
-    public static List<Row> parse(byte[] content, List<Person> people, List<BudgetItem> existing) {
-        return parse(new String(content, StandardCharsets.UTF_8), people, existing);
+    /** Modele a telecharger : deux exemples, sans en-tete. */
+    public static String template() {
+        return "\uFEFFMutuelle;Santé;35,69;Mensuel;01/01/2026;\r\nAssurance habitation;Assurances;626,65;Annuel;01/01/2026;\r\n";
     }
 
-    /** Modele a telecharger : l'en-tete, une colonne de part par personne si le foyer en compte plusieurs, deux exemples. */
-    public static String template(List<Person> people) {
-        boolean shared = people.size() >= 2;
-        StringBuilder csv = new StringBuilder("\uFEFFlibelle;categorie;montant;frequence;debut;fin");
-        if (shared) people.forEach(person -> csv.append(";part_").append(person.name()));
-        csv.append("\r\n");
-        csv.append("Mutuelle;Santé;35,69;Mensuel;01/01/2026;");
-        if (shared) people.forEach(person -> csv.append(';'));
-        csv.append("\r\n");
-        csv.append("Assurance habitation;Assurances;626,65;Annuel;01/01/2026;");
-        if (shared) for (int i = 0; i < people.size(); i++) csv.append(';').append(i == 0 ? "100" : "0");
-        csv.append("\r\n");
-        return csv.toString();
+    private static boolean looksLikeHeader(List<String> values) {
+        return values.size() >= 3 && normalize(values.get(2)).matches("montant|amount");
     }
 
-    private static BudgetItem item(List<String> values, Map<String, Integer> columns) {
-        String label = cell(values, columns.get("libelle"));
+    private static BudgetItem item(List<String> values) {
+        String label = cell(values, 0);
         if (label.isEmpty()) throw new ValidationException("Libellé manquant.");
         if (label.length() > 100) throw new ValidationException("Libellé trop long (100 caractères au plus).");
-        Category category = category(cell(values, columns.get("categorie")));
-        BigDecimal amount = amount(cell(values, columns.get("montant")));
-        Frequency frequency = frequency(cell(values, columns.get("frequence")));
-        LocalDate start = date(cell(values, columns.get("debut")), "Début");
-        String rawEnd = columns.containsKey("fin") ? cell(values, columns.get("fin")) : "";
+        Category category = category(cell(values, 1));
+        BigDecimal amount = amount(cell(values, 2));
+        Frequency frequency = frequency(cell(values, 3));
+        LocalDate start = date(cell(values, 4), "Début");
+        String rawEnd = cell(values, 5);
         LocalDate end = rawEnd.isEmpty() ? null : date(rawEnd, "Fin");
         if (end != null && end.isBefore(start)) throw new ValidationException("La fin précède le début.");
         return new BudgetItem(0, label, category, amount, frequency, start, end);
@@ -143,7 +106,7 @@ public final class ExpenseCsv {
     private static Category category(String value) {
         String wanted = normalize(value);
         if (wanted.isEmpty()) throw new ValidationException("Catégorie manquante.");
-        for (Category category : Category.values()) {
+        for (Category category : Category.selectable()) {
             if (normalize(category.name()).equals(wanted) || normalize(category.label()).equals(wanted)) return category;
         }
         throw new ValidationException("Catégorie « " + value + " » inconnue.");
@@ -179,8 +142,8 @@ public final class ExpenseCsv {
         }
     }
 
-    private static String cell(List<String> values, Integer index) {
-        return index == null || index >= values.size() ? "" : values.get(index).trim();
+    private static String cell(List<String> values, int index) {
+        return index >= values.size() ? "" : values.get(index).trim();
     }
 
     /** Minuscules, sans accents ni espaces autour : « Santé » et « sante » se valent. */

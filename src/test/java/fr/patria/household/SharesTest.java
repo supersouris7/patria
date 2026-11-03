@@ -22,6 +22,15 @@ class SharesTest {
     }
 
     @Test
+    void jointAccountTakesPartOnlyWhenGivenAPercentage() {
+        List<Person> members = List.of(new Person(1, "Alice"), new Person(2, "Bob"), new Person(3, "Compte joint", Person.Kind.ACCOUNT));
+        assertEquals(0, new BigDecimal("0.5").compareTo(Shares.weight(Map.of(), members, 1)), "parts égales entre les personnes");
+        assertEquals(0, BigDecimal.ZERO.compareTo(Shares.weight(Map.of(), members, 3)), "le compte n'y prend pas part");
+        assertEquals(0, BigDecimal.ONE.compareTo(Shares.weight(Map.of(3L, 100), members, 3)));
+        assertEquals("Compte joint 100\u00a0%", Shares.describe(Map.of(1L, 0, 2L, 0, 3L, 100), members));
+    }
+
+    @Test
     void customPartsAreNormalisedOverRemainingPeople() {
         assertEquals(0, new BigDecimal("0.6").compareTo(Shares.weight(Map.of(1L, 60, 2L, 40), PEOPLE, 1)));
         assertEquals("Alice 60 % · Bob 40 %", Shares.describe(Map.of(1L, 60, 2L, 40), PEOPLE));

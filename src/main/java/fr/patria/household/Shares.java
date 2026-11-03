@@ -10,7 +10,8 @@ import java.util.stream.Collectors;
 
 /**
  * Repartition d'une depense, d'un bien ou d'un pret entre les personnes du foyer, en pourcentages entiers.
- * Une repartition vide signifie « a parts egales » entre toutes les personnes, y compris celles ajoutees plus tard.
+ * Une repartition vide signifie « a parts egales » entre toutes les personnes, y compris celles ajoutees plus tard ;
+ * un compte (compte joint) n'y prend part que si on lui attribue un pourcentage.
  */
 public final class Shares {
     /** Element reparti ; le code est stocke en base. */
@@ -29,7 +30,12 @@ public final class Shares {
     public static BigDecimal weight(Map<Long, Integer> custom, List<Person> people, long personId) {
         if (people.stream().noneMatch(person -> person.id() == personId)) return BigDecimal.ZERO;
         int sum = people.stream().mapToInt(person -> custom.getOrDefault(person.id(), 0)).sum();
-        if (sum == 0) return BigDecimal.ONE.divide(BigDecimal.valueOf(people.size()), 6, RoundingMode.HALF_UP);
+        if (sum == 0) {
+            List<Person> sharing = people.stream().filter(person -> !person.isAccount()).toList();
+            if (sharing.isEmpty()) sharing = people;
+            boolean included = sharing.stream().anyMatch(person -> person.id() == personId);
+            return included ? BigDecimal.ONE.divide(BigDecimal.valueOf(sharing.size()), 6, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        }
         return BigDecimal.valueOf(custom.getOrDefault(personId, 0)).divide(BigDecimal.valueOf(sum), 6, RoundingMode.HALF_UP);
     }
 
@@ -49,6 +55,13 @@ public final class Shares {
     /** Pourcentage arrondi a l'unite : « 50 % ». */
     public static String percent(BigDecimal weight) {
         return weight.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).toPlainString() + " %";
+    }
+
+    /** Toute la depense pour une seule personne : 100 % pour elle, 0 % pour les autres. */
+    public static Map<Long, Integer> only(long personId, List<Person> people) {
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        for (Person person : people) result.put(person.id(), person.id() == personId ? 100 : 0);
+        return result;
     }
 
     /** Nom du champ de formulaire de la part d'une personne. */

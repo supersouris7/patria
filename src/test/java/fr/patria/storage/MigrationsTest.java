@@ -103,6 +103,11 @@ class MigrationsTest {
                     assertEquals(3, budgetTables.getInt(1), "v7 : tables du budget");
                     ResultSet shareTable = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'shares'");
                     assertEquals(1, shareTable.getInt(1), "v8 : répartition entre les personnes");
+                    statement.execute("INSERT INTO people (name) VALUES ('Camille')");
+                    ResultSet kind = statement.executeQuery("SELECT kind FROM people");
+                    assertEquals("PERSON", kind.getString(1), "v9 : membre de type personne par défaut");
+                    ResultSet transfers = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'transfers'");
+                    assertEquals(1, transfers.getInt(1), "v9 : virements");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

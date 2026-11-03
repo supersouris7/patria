@@ -9,6 +9,7 @@ public final class Layout {
     public enum AdminSection {
         HOUSEHOLD("/administration/foyer", "Foyer et revenus"),
         EXPENSES("/administration/depenses", "Dépenses"),
+        TRANSFERS("/administration/virements", "Virements"),
         PROPERTIES("/administration/biens", "Biens et prêts"),
         SHARES("/administration/repartition", "Répartition");
 

@@ -19,11 +19,47 @@ public final class HouseholdRepository {
     }
 
     public List<Person> people() {
-        return database.query(connection -> Sql.list(connection, "SELECT * FROM people ORDER BY id", row -> new Person(row.getLong("id"), row.getString("name"))));
+        return database.query(connection -> Sql.list(connection, "SELECT * FROM people ORDER BY kind DESC, id",
+                row -> new Person(row.getLong("id"), row.getString("name"), Person.Kind.valueOf(row.getString("kind")))));
     }
 
     public long addPerson(String name) {
-        return database.query(connection -> Sql.insert(connection, "INSERT INTO people (name) VALUES (?) RETURNING id", name));
+        return addMember(name, Person.Kind.PERSON);
+    }
+
+    public long addMember(String name, Person.Kind kind) {
+        return database.query(connection -> Sql.insert(connection, "INSERT INTO people (name, kind) VALUES (?, ?) RETURNING id", name, kind.name()));
+    }
+
+    // ---- Virements ----
+
+    public List<Transfer> transfers() {
+        return database.query(connection -> Sql.list(connection, "SELECT * FROM transfers ORDER BY start_date DESC, id", HouseholdRepository::transfer));
+    }
+
+    public Optional<Transfer> transfer(long id) {
+        return database.query(connection -> Sql.list(connection, "SELECT * FROM transfers WHERE id = ?", HouseholdRepository::transfer, id)).stream().findFirst();
+    }
+
+    public long addTransfer(Transfer transfer) {
+        return database.query(connection -> Sql.insert(connection,
+                "INSERT INTO transfers (from_id, to_id, label, amount_cents, frequency, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                transfer.fromId(), transfer.toId(), transfer.label(), cents(transfer.amount()), transfer.frequency().name(), transfer.start(), transfer.end()));
+    }
+
+    public void updateTransfer(Transfer transfer) {
+        database.query(connection -> Sql.update(connection,
+                "UPDATE transfers SET from_id = ?, to_id = ?, label = ?, amount_cents = ?, frequency = ?, start_date = ?, end_date = ? WHERE id = ?",
+                transfer.fromId(), transfer.toId(), transfer.label(), cents(transfer.amount()), transfer.frequency().name(), transfer.start(), transfer.end(), transfer.id()));
+    }
+
+    public void deleteTransfer(long id) {
+        database.query(connection -> Sql.update(connection, "DELETE FROM transfers WHERE id = ?", id));
+    }
+
+    private static Transfer transfer(ResultSet row) throws SQLException {
+        return new Transfer(row.getLong("id"), row.getLong("from_id"), row.getLong("to_id"), row.getString("label"), Sql.money(row, "amount_cents"),
+                Frequency.valueOf(row.getString("frequency")), Sql.date(row, "start_date"), Sql.date(row, "end_date"));
     }
 
     /** Supprime la personne et ses revenus. */

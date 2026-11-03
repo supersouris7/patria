@@ -63,7 +63,8 @@ final class BudgetPages {
                         tile("Dépenses du mois", "Toutes les dépenses prévues ce mois-ci, prêts et charges immobilières compris.", euroWhole(current.spending()),
                                 nonMonthly.signum() == 0 ? "toutes mensuelles" : "dont " + euroWhole(nonMonthly) + " non mensuelles"),
                         balanceTile(current.balance(), "Revenus du mois − dépenses du mois.", "après toutes les dépenses du mois"),
-                        debtTile(view.debt())),
+                        isAccount(view) ? tile("Taux d'endettement", "Calculé pour les personnes : les crédits payés par un compte joint comptent "
+                                + "à parts égales dans le taux de chacune.", Format.DASH, "pas de taux pour un compte") : debtTile(view.debt())),
                 alerts,
                 Components.card("12 prochains mois", null, Html.EMPTY, Html.concat(
                         view.provision().signum() == 0 ? Html.EMPTY : Html.of("<p class=\"provision\">À mettre de côté chaque mois pour les dépenses non mensuelles : <strong>%s</strong></p>",
@@ -73,17 +74,22 @@ final class BudgetPages {
         return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, scope(view), content);
     }
 
+    private static boolean isAccount(Forecast.View view) {
+        return view.person() != null && view.person().isAccount();
+    }
+
     /** « Budget du foyer » ou « Budget d'Alice ». */
     private static String owner(Forecast.View view) {
         if (view.person() == null) return "Budget du foyer";
         String name = view.person().name();
+        if (view.person().isAccount()) return name.toLowerCase(java.util.Locale.FRENCH).startsWith("compte") ? name : "Compte · " + name;
         return "Budget " + (name.matches("(?i)^[aeiouyhéèêàâîôû].*") ? "d'" : "de ") + name;
     }
 
     /** Selecteur Foyer | Alice | Bob, affiche a partir de deux personnes. */
     /** Une depense ou un revenu ouvert depuis le budget y ramene (lien de retour, puis apres enregistrement). */
     private static String fromBudget(String link, Forecast.View view) {
-        if (link == null || !(link.startsWith("/depense/") || link.startsWith("/revenu/"))) return link;
+        if (link == null || !(link.startsWith("/depense/") || link.startsWith("/revenu/") || link.startsWith("/virement/"))) return link;
         return link + "?retour=" + encode("/budget" + scope(view));
     }
 
@@ -226,7 +232,7 @@ final class BudgetPages {
                         tile("Dépenses", null, euroWhole(spending), "par mois en moyenne"),
                         balanceTile(income.subtract(spending), "Revenus moyens − dépenses moyennes sur 12 mois.", "par mois en moyenne"),
                         tile("À mettre de côté", "Moyenne mensuelle des dépenses non mensuelles (assurances annuelles, taxes...).", euroWhole(view.provision()), "chaque mois")),
-                debtCard(view.debt()),
+                isAccount(view) ? Html.EMPTY : debtCard(view.debt()),
                 Components.card("Dépenses par catégorie", null, Html.EMPTY, byCategory.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense.</p>")
                         : Html.of("<div class=\"ranking\">%s</div>", bars)),
                 Components.card("Revenus", incomes.size(), Html.EMPTY, incomes.isEmpty() ? Html.raw("<p class=\"empty\">Aucun revenu.</p>")
@@ -266,7 +272,7 @@ final class BudgetPages {
     private static Html fields(Map<String, String> values) {
         return Components.fields(3,
                 Components.input(Input.of("Libellé", "label", Field.TEXT).required().maxLength(100).placeholder("Électricité"), values),
-                Components.select("Catégorie", "category", Arrays.stream(Category.values()).map(c -> new Option(c.name(), c.label())).toList(),
+                Components.select("Catégorie", "category", Category.selectable().stream().map(c -> new Option(c.name(), c.label())).toList(),
                         values.getOrDefault("category", Category.OTHER.name())),
                 Components.input(Input.of("Montant (€)", "amount", Field.MONEY).required().help("Montant de chaque paiement."), values),
                 Components.select("Fréquence", "frequency", Arrays.stream(Frequency.values()).map(f -> new Option(f.name(), f.label())).toList(),
@@ -309,34 +315,43 @@ final class BudgetPages {
     private static Html importForm(String csrf) {
         Html help = Html.raw("""
                 <p class="muted">Plusieurs dépenses d'un coup, depuis un tableur : une ligne par dépense, colonnes
-                <code>libelle;categorie;montant;frequence;debut;fin</code>, puis <code>part_Prénom</code> par personne si besoin.
-                Le modèle contient l'en-tête et deux exemples. Un aperçu s'affiche avant tout enregistrement.</p>""");
+                dans cet ordre et <b>sans ligne d'en-tête</b> : <code>libellé;catégorie;montant;fréquence;début;fin</code>.
+                Exemple : <code>Mutuelle;Santé;35,69;Mensuel;01/01/2026;</code>. L'aperçu permet de choisir à qui reviennent
+                les dépenses avant tout enregistrement.</p>""");
         return Html.concat(help, Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Voir l'aperçu"));
     }
 
-    /** Apercu d'un import : chaque ligne lue, ses erreurs ; confirmation seulement si tout est valide. */
-    static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, String csrf) {
+    /**
+     * Apercu d'un import : chaque ligne lue et ses erreurs ; confirmation seulement si tout est valide. Avec plusieurs
+     * personnes, on choisit a qui reviennent les depenses : pour tout le fichier, puis ligne par ligne si besoin.
+     */
+    static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, Map<String, String> choices, String csrf) {
         boolean shared = people.size() >= 2;
         long errors = rows.stream().filter(row -> !row.valid()).count();
         long duplicates = rows.stream().filter(row -> row.valid() && row.duplicate()).count();
         long fresh = rows.size() - errors - duplicates;
+        boolean confirmable = errors == 0 && fresh > 0;
+        String formId = "import-form";
         Html body = rows.stream().map(row -> {
             if (!row.valid()) {
                 return Html.of("<tr class=\"row-error\"><td>%s</td><td colspan=\"%s\" class=\"negative\">%s</td></tr>", row.line(), shared ? 7 : 6, row.error());
             }
             BudgetItem item = row.item();
+            Html owner = !shared ? Html.EMPTY : cell(row.fresh() && confirmable
+                    ? ownerSelect("attribution_" + row.line(), "Comme ci-dessus", people, choices.getOrDefault("attribution_" + row.line(), ""), formId)
+                    : Html.text(Format.DASH));
             return Html.of("<tr><td>%s</td>%s%s%s%s%s%s<td>%s</td></tr>", row.line(), cell(item.label()), cell(item.category().label()),
                     number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
-                    cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())),
-                    shared ? cell(Shares.describe(row.shares(), people)) : Html.EMPTY,
+                    cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())), owner,
                     row.duplicate() ? Html.raw("<span class=\"badge\">Déjà saisie, ignorée</span>") : Html.raw("<span class=\"badge paid\">À importer</span>"));
         }).collect(Html.joining());
         List<String> columns = new java.util.ArrayList<>(List.of("Ligne", "Dépense", "Catégorie", "#Montant", "Fréquence", "Période"));
-        if (shared) columns.add("Répartition");
+        if (shared) columns.add("Attribuée à");
         columns.add("État");
         String summary = fresh + " dépense" + (fresh > 1 ? "s" : "") + " à importer"
                 + (duplicates > 0 ? ", " + duplicates + " déjà saisie" + (duplicates > 1 ? "s" : "") + " (ignorée" + (duplicates > 1 ? "s" : "") + ")" : "")
                 + (errors > 0 ? ", " + errors + " ligne" + (errors > 1 ? "s" : "") + " en erreur" : "") + ".";
+        Html before = Html.EMPTY;
         Html actions;
         if (errors > 0) {
             actions = Html.concat(Html.raw("<p class=\"notice error\" role=\"alert\">Rien n'est enregistré : corrigez les lignes en erreur dans le fichier, puis importez-le de nouveau.</p>"),
@@ -344,15 +359,33 @@ final class BudgetPages {
         } else if (fresh == 0) {
             actions = Html.raw("<p class=\"muted\">Toutes ces dépenses sont déjà saisies : rien à importer.</p>");
         } else {
+            if (shared) {
+                before = Html.of("<div class=\"import-owner\">%s<p class=\"muted\">Pour tout le fichier ; une ligne peut avoir son propre choix dans le tableau. "
+                        + "Modifiable ensuite dans chaque dépense.</p></div>", ownerSelect("attribution", null, people, choices.getOrDefault("attribution", ""), formId));
+            }
             String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            actions = Html.of("<form method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
+            actions = Html.of("<form id=\"%s\" method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
                     + "<a class=\"button secondary\" href=\"/administration/depenses\">Annuler</a><button type=\"submit\">Importer %s</button></form>",
-                    Components.csrfField(csrf), encoded, fresh + " dépense" + (fresh > 1 ? "s" : ""));
+                    formId, Components.csrfField(csrf), encoded, fresh + " dépense" + (fresh > 1 ? "s" : ""));
         }
         Html page = Html.concat(Components.backLink("/administration/depenses", "Dépenses"),
                 Components.heading("Administration", "Aperçu de l'import", summary, Html.EMPTY),
-                Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(Components.table(columns, body, false, false), actions)));
+                Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(before, Components.table(columns, body, false, false), actions)));
         return Layout.adminSection("Import de dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, page);
+    }
+
+    /** Choix d'attribution : parts egales ou une personne seule ; {@code inherit} ajoute « comme ci-dessus » (valeur vide). */
+    private static Html ownerSelect(String name, String inherit, List<Person> people, String selected, String formId) {
+        List<Option> options = new java.util.ArrayList<>();
+        if (inherit != null) options.add(new Option("", inherit));
+        options.add(new Option(inherit == null ? "" : "egal", "Parts égales"));
+        people.forEach(person -> options.add(new Option(String.valueOf(person.id()), person.name() + " (100 %)")));
+        Html choices = options.stream().map(option -> option.value().equals(selected)
+                ? Html.of("<option value=\"%s\" selected>%s</option>", option.value(), option.label())
+                : Html.of("<option value=\"%s\">%s</option>", option.value(), option.label())).collect(Html.joining());
+        return inherit == null
+                ? Html.of("<label>Attribuer les dépenses à<select name=\"%s\" form=\"%s\">%s</select></label>", name, formId, choices)
+                : Html.of("<select class=\"row-owner\" name=\"%s\" form=\"%s\" aria-label=\"Attribution de la ligne\">%s</select>", name, formId, choices);
     }
 
     /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a la liste des depenses. */

@@ -56,13 +56,16 @@ final class HouseholdPages {
     static Html page(List<Person> people, List<Income> incomes, Map<String, String> values, Notice notice, String csrf) {
         Html personRows = people.stream().map(person -> Html.of("<tr>%s%s<td class=\"actions\"><form method=\"post\" action=\"/personne/%s/supprimer\" data-confirm=\"%s\">%s"
                         + "<button class=\"quiet\" type=\"submit\">Supprimer</button></form></td></tr>",
-                cell(person.name()), Html.of("<td class=\"num\">%s</td>", incomes.stream().filter(income -> income.personId() == person.id()).count()),
-                person.id(), "Supprimer " + person.name() + " et ses revenus ?" + (people.size() > 1 ? " Ses parts des dépenses, biens et prêts seront réparties entre les autres personnes." : ""), Components.csrfField(csrf))).collect(Html.joining());
-        Html peopleCard = Components.card("Personnes du foyer", people.size(), Html.EMPTY, Html.concat(
+                cell(person.isAccount() ? Html.of("%s <small class=\"badge\">Compte joint</small>", person.name()) : Html.text(person.name())), Html.of("<td class=\"num\">%s</td>", incomes.stream().filter(income -> income.personId() == person.id()).count()),
+                person.id(), "Supprimer " + person.name() + ", ses revenus et ses virements ?" + (people.size() > 1 ? " Ses parts des dépenses, biens et prêts seront réparties entre les autres membres." : ""), Components.csrfField(csrf))).collect(Html.joining());
+        Html peopleCard = Components.card("Membres du foyer", people.size(), Html.EMPTY, Html.concat(
                 people.isEmpty() ? Html.raw("<p class=\"empty\">Ajoutez au moins une personne pour saisir ses revenus.</p>")
                         : Components.table(List.of("Nom", "#Revenus", ""), personRows, false, false),
-                Html.of("<form method=\"post\" action=\"/administration/foyer/personnes\" class=\"inline-form row-form\">%s%s<button type=\"submit\">Ajouter</button></form>",
-                        Components.csrfField(csrf), Components.input(Input.of("Nouvelle personne", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom"), Map.of()))));
+                Html.of("<form method=\"post\" action=\"/administration/foyer/personnes\" class=\"inline-form row-form\">%s%s%s<button type=\"submit\">Ajouter</button></form>",
+                        Components.csrfField(csrf), Components.input(Input.of("Nouveau membre", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom, ou « Compte joint »"), Map.of()),
+                        Components.select("Type", "kind", Arrays.stream(Person.Kind.values()).map(kind -> new Option(kind.name(), kind.label())).toList(), Person.Kind.PERSON.name())),
+                Html.raw("<p class=\"muted\">Un compte joint a son propre budget : il reçoit des virements (Administration → Virements) "
+                        + "et paie les dépenses qu'on lui attribue. Il ne prend part aux « parts égales » que si on lui donne un pourcentage.</p>")));
 
         Html incomeRows = incomes.stream().map(income -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\"><a href=\"/revenu/%s\">Modifier</a></td></tr>",
                 cell(people.stream().filter(person -> person.id() == income.personId()).map(Person::name).findFirst().orElse(Format.DASH)),

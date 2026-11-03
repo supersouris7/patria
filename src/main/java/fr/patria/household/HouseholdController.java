@@ -48,7 +48,8 @@ public final class HouseholdController {
 
     private Response addPerson(Request request) {
         try {
-            household.addPerson(request.form().requiredText("name", "Nom", 60));
+            String kind = request.form().raw("kind");
+            household.addMember(request.form().requiredText("name", "Nom", 60), kind.isBlank() ? Person.Kind.PERSON : Person.Kind.parse(kind));
             return Response.redirect("/administration/foyer?ok=enregistre");
         } catch (ValidationException exception) {
             return Response.invalid(HouseholdPages.page(household.people(), household.incomes(), Map.of(), Notice.error(exception.getMessage()), request.csrf()));

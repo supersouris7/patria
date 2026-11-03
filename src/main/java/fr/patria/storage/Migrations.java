@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 8;
+    public static final int LATEST = 9;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -44,6 +44,7 @@ public final class Migrations {
             if (version < 6) toVersion6(connection);
             if (version < 7) toVersion7(connection);
             if (version < 8) toVersion8(connection);
+            if (version < 9) toVersion9(connection);
             return null;
         });
     }
@@ -257,6 +258,26 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 8);
+    }
+
+    /** Version 9 : membres de type compte (compte joint) et virements entre membres du foyer. */
+    private static void toVersion9(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE people ADD COLUMN kind TEXT NOT NULL DEFAULT 'PERSON' CHECK (kind IN ('PERSON', 'ACCOUNT'))");
+            statement.execute("""
+                    CREATE TABLE transfers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        from_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        to_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        label TEXT NOT NULL,
+                        amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+                        frequency TEXT NOT NULL,
+                        start_date TEXT NOT NULL,
+                        end_date TEXT,
+                        CHECK (from_id <> to_id)
+                    )""");
+        }
+        setUserVersion(connection, 9);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

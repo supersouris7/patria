@@ -240,31 +240,73 @@ class AppTest {
     @Test
     void importsExpensesFromCsvAfterPreview() throws Exception {
         String csrf = login();
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=William");
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Lou");
+        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Lou)</option>").matcher(get("/administration/foyer").body());
+        java.util.Map<String, String> people = new java.util.HashMap<>();
+        while (ids.find()) people.put(ids.group(2), ids.group(1));
+
         HttpResponse<String> template = get("/administration/depenses/modele.csv");
         assertEquals(200, template.statusCode());
         assertTrue(template.headers().firstValue("Content-Disposition").orElseThrow().contains("modele-depenses.csv"));
-        assertTrue(template.body().contains("libelle;categorie;montant;frequence;debut;fin"));
+        assertTrue(template.body().contains("Mutuelle;Santé;35,69;Mensuel;01/01/2026;"));
+        assertTrue(!template.body().contains("libelle"), "jamais d'en-tête");
 
-        String csv = "libelle;categorie;montant;frequence;debut;fin\nObjectif Santé;Santé;35,69;Mensuel;01/01/2026;\n"
-                + "Protection juridique;Assurances;26,40;Annuel;01/12/2025;\n";
+        String csv = "Objectif Santé;Santé;35,69;Mensuel;01/01/2026;\nProtection juridique;Assurances;26,40;Annuel;01/12/2025;\nInternet;Télécom et abonnements;30;Mensuel;01/01/2026;\n";
         HttpResponse<String> preview = upload("/administration/depenses/import", csrf, "", csv);
         assertEquals(200, preview.statusCode(), preview.body());
-        assertTrue(preview.body().contains("2 dépenses à importer"), preview.body());
-        assertEquals(0, get("/administration/depenses").body().split("Objectif Santé", -1).length - 1, "rien n'est enregistré avant validation");
+        assertTrue(preview.body().contains("3 dépenses à importer"), preview.body());
+        assertTrue(preview.body().contains("name=\"attribution\""));
+        assertTrue(preview.body().contains("name=\"attribution_3\""));
+        assertTrue(!get("/administration/depenses").body().contains("Objectif Santé"), "rien n'est enregistré avant validation");
 
+        // tout le fichier pour William, sauf Internet à parts égales
         Matcher content = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(preview.body());
         assertTrue(content.find());
-        HttpResponse<String> saved = post("/administration/depenses/import/valider", "csrf=" + csrf + "&contenu=" + content.group(1));
+        HttpResponse<String> saved = post("/administration/depenses/import/valider", "csrf=" + csrf + "&contenu=" + content.group(1)
+                + "&attribution=" + people.get("William") + "&attribution_3=egal");
         assertEquals("/administration/depenses?ok=importe", saved.headers().firstValue("Location").orElseThrow());
-        assertTrue(get("/budget").body().contains("Objectif Santé"));
+        String expenses = get("/administration/depenses").body();
+        assertTrue(expenses.contains("William 100\u00a0%"), expenses);
+        assertTrue(expenses.contains("Parts égales"));
+        assertTrue(!get("/budget?personne=" + people.get("Lou")).body().contains("Objectif Santé"));
 
-        // reimporter le meme fichier ne cree pas de doublon ; une ligne fausse bloque tout
+        // reimporter ne cree pas de doublon ; une ligne fausse bloque tout ; un en-tete est refuse
         assertTrue(upload("/administration/depenses/import", csrf, "", csv).body().contains("Toutes ces dépenses sont déjà saisies"));
         HttpResponse<String> wrong = upload("/administration/depenses/import", csrf, "", csv + "Gaz;Chauffage;50;Mensuel;01/01/2026;\n");
         assertEquals(400, wrong.statusCode());
         assertTrue(wrong.body().contains("Catégorie « Chauffage » inconnue."), wrong.body());
         assertTrue(!wrong.body().contains("name=\"contenu\""));
-        assertEquals(400, upload("/administration/depenses/import", csrf, "", "libelle;montant\nX;1\n").statusCode());
+        assertTrue(upload("/administration/depenses/import", csrf, "", "libelle;categorie;montant;frequence;debut;fin\n" + csv).body()
+                .contains("ressemble à un en-tête"));
+    }
+
+    @Test
+    void transfersToJointAccountFromAdministration() throws Exception {
+        String csrf = login();
+        assertTrue(get("/administration/virements").body().contains("Un seul membre dans le foyer") || get("/administration/virements").body().contains("ajoutez un compte joint"));
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=William&kind=PERSON");
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Compte+joint&kind=ACCOUNT");
+        String foyer = get("/administration/foyer").body();
+        assertTrue(foyer.contains("<small class=\"badge\">Compte joint</small>"), foyer);
+        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Compte joint)</option>").matcher(get("/administration/virements").body());
+        java.util.Map<String, String> members = new java.util.HashMap<>();
+        while (ids.find()) members.put(ids.group(2), ids.group(1));
+        String william = members.get("William");
+        String joint = members.get("Compte joint");
+
+        assertEquals(400, post("/administration/virements", "csrf=" + csrf + "&from=" + william + "&to=" + william
+                + "&amount=900&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(303, post("/administration/virements", "csrf=" + csrf + "&from=" + william + "&to=" + joint
+                + "&label=&amount=900&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertTrue(get("/administration/virements").body().contains("William → Compte joint"));
+
+        assertTrue(get("/budget?personne=" + william).body().contains("Virement vers Compte joint"));
+        String account = get("/budget?personne=" + joint).body();
+        assertTrue(account.contains("Virement de William"), account);
+        assertTrue(account.contains("<p class=\"eyebrow\">Compte joint</p>"), account);
+        assertTrue(!get("/budget").body().contains("Virement vers"), "neutre pour le foyer");
+        assertTrue(get("/?personne=" + joint).body().contains("pas de taux pour un compte"));
     }
 
     @Test

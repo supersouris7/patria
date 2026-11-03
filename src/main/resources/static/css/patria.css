@@ -423,6 +423,9 @@ tfoot small { font-weight: 400; }
 .share-row.loan { padding-left: 32px; }
 .share-row.invalid { background: rgb(255 123 133 / 8%); border-radius: var(--radius-small); }
 .share-row.invalid input { border-color: var(--danger); }
+.import-owner { display: grid; gap: 6px; margin-bottom: 16px; max-width: 420px; }
+.row-owner { min-width: 11.5rem; }
+.import-owner p { font-size: .85rem; margin: 0; }
 .share-error { color: var(--danger); font-size: .88rem; font-weight: 650; grid-column: 1 / -1; margin: 0; }
 .share-name b { display: block; }
 .share-name small { color: var(--muted); font-size: .8rem; }

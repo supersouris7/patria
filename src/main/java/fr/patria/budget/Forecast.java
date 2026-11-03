@@ -10,6 +10,7 @@ import fr.patria.household.Income;
 import fr.patria.household.Person;
 import fr.patria.household.ShareRepository;
 import fr.patria.household.Shares;
+import fr.patria.household.Transfer;
 import fr.patria.loan.LineType;
 import fr.patria.loan.Loan;
 import fr.patria.loan.LoanRepository;
@@ -171,7 +172,7 @@ public final class Forecast {
         Scope scope = new Scope(person, data);
         List<Month> months = new ArrayList<>();
         for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data, scope));
-        DebtRatio debt = debtRatio(months, data, scope, today);
+        DebtRatio debt = debtRatio(months, data, scope, today, jointCredits(data, person, today));
         BigDecimal provision = months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.frequency() != Frequency.MONTHLY)
                 .map(Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(HORIZON), 0, RoundingMode.HALF_UP);
         boolean hasIncome = data.incomes().stream().anyMatch(scope::includes) || months.stream().anyMatch(m -> !m.incomes().isEmpty());
@@ -205,7 +206,10 @@ public final class Forecast {
 
     private record Data(List<Person> people, List<Income> incomes, List<BudgetItem> items, List<Property> properties, List<Loan> loans,
                         Map<Long, List<ScheduleLine>> schedules, Map<Long, List<Expense>> charges, Map<Long, List<RentPeriod>> rents,
-                        Map<Shares.Key, Map<Long, Integer>> shares) {
+                        Map<Shares.Key, Map<Long, Integer>> shares, List<Transfer> transfers) {
+        String name(long memberId) {
+            return people.stream().filter(person -> person.id() == memberId).map(Person::name).findFirst().orElse("");
+        }
     }
 
     /**
@@ -241,7 +245,8 @@ public final class Forecast {
         return new Data(sources.household().people(), sources.household().incomes(), sources.items().all(), sources.properties().all(), loans,
                 sources.loans().schedules(loans.stream().map(Loan::id).toList()),
                 sources.expenses().all().stream().collect(Collectors.groupingBy(Expense::propertyId)),
-                sources.rents().all().stream().collect(Collectors.groupingBy(RentPeriod::propertyId)), sources.shares().all());
+                sources.rents().all().stream().collect(Collectors.groupingBy(RentPeriod::propertyId)), sources.shares().all(),
+                sources.household().transfers());
     }
 
     private static Month month(YearMonth month, Data data, Scope scope) {
@@ -256,6 +261,23 @@ public final class Forecast {
             if (!item.dueIn(month)) continue;
             add(expenses, scope.apply(new Line(item.label(), item.category(), item.amount(), item.frequency(), Origin.BUDGET, "/depense/" + item.id()),
                     scope.weight(Shares.Subject.BUDGET_ITEM, item.id())));
+        }
+        // Virements : depense pour l'emetteur, recette pour le destinataire ; internes, donc absents de la vue du foyer
+        if (scope.person() != null) {
+            long me = scope.person().id();
+            for (Transfer transfer : data.transfers()) {
+                if (!transfer.paidIn(month)) continue;
+                String link = "/virement/" + transfer.id();
+                if (transfer.fromId() == me) {
+                    String to = data.name(transfer.toId());
+                    expenses.add(new Line(transfer.label().isBlank() ? "Virement vers " + to : transfer.label() + " (vers " + to + ")", Category.TRANSFER,
+                            transfer.amount(), transfer.frequency(), Origin.BUDGET, link));
+                } else if (transfer.toId() == me) {
+                    String from = data.name(transfer.fromId());
+                    incomes.add(new IncomeLine(transfer.label().isBlank() ? "Virement de " + from : transfer.label() + " (de " + from + ")", from,
+                            transfer.amount(), transfer.frequency(), Origin.BUDGET, link));
+                }
+            }
         }
         Map<Long, String> propertyNames = data.properties().stream().collect(Collectors.toMap(Property::id, Property::name));
         for (Loan loan : data.loans()) {
@@ -320,9 +342,34 @@ public final class Forecast {
 
     // ---- Indicateurs ----
 
-    private static DebtRatio debtRatio(List<Month> months, Data data, Scope scope, LocalDate today) {
-        BigDecimal credits = months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.category() == Category.CREDIT)
+    /** Mensualites moyennes de credit sur les mois donnes. */
+    private static BigDecimal credits(List<Month> months) {
+        return months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.category() == Category.CREDIT)
                 .map(Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(months.size()), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Credits payes par les comptes joints, a la charge de chaque personne pour moitie (ou a parts egales entre
+     * les personnes) : les banques comptent la mensualite, pas le virement qui l'alimente. Zero pour le foyer et
+     * pour un compte.
+     */
+    private static BigDecimal jointCredits(Data data, Person person, LocalDate today) {
+        if (person == null || person.isAccount()) return BigDecimal.ZERO;
+        long persons = data.people().stream().filter(member -> !member.isAccount()).count();
+        BigDecimal total = BigDecimal.ZERO;
+        for (Person account : data.people()) {
+            if (!account.isAccount()) continue;
+            Scope scope = new Scope(account, data);
+            List<Month> months = new ArrayList<>();
+            for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data, scope));
+            total = total.add(credits(months));
+        }
+        return total.divide(BigDecimal.valueOf(persons), 2, RoundingMode.HALF_UP);
+    }
+
+    private static DebtRatio debtRatio(List<Month> months, Data data, Scope scope, LocalDate today, BigDecimal jointCredits) {
+        if (scope.person() != null && scope.person().isAccount()) return new DebtRatio(credits(months), BigDecimal.ZERO, null);
+        BigDecimal credits = credits(months).add(jointCredits);
         BigDecimal income = data.incomes().stream().filter(item -> scope.includes(item) && item.frequency().isRecurring() && item.activeOn(today))
                 .map(item -> item.frequency().monthly(item.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal rents = data.rents().entrySet().stream()

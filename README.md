@@ -13,7 +13,9 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 - Page Budget : moyenne mensuelle sur 12 mois, depenses classees par categorie.
 - Un budget par personne, identique a celui du foyer : selecteur « Foyer | Alice | Bob » sur l'Accueil et le Budget. Chaque personne voit ses revenus et sa part des depenses, biens (charges, loyers) et prets, avec son propre taux d'endettement.
 - Repartition en pourcentages, a parts egales par defaut (y compris pour les personnes ajoutees ensuite) : dans le formulaire de chaque depense, et dans Administration → Repartition pour les biens et les prets. Un pret suit la repartition de son bien, sauf repartition propre.
-- Import de depenses par fichier CSV (Administration → Depenses), avec modele a telecharger et apercu avant enregistrement (voir « Importer des depenses »).
+- Compte joint : un membre du foyer de type « Compte joint », avec son propre budget (onglet a cote des personnes). Il recoit des virements et paie les depenses qu'on lui attribue ; il ne prend part aux « parts egales » que si on lui donne un pourcentage.
+- Virements entre membres (Administration → Virements), recurrents ou ponctuels : depense pour qui envoie, recette pour qui recoit. Neutres pour le budget du foyer, sans effet sur le taux d'endettement. Les credits payes par un compte joint comptent a parts egales dans le taux d'endettement de chaque personne.
+- Import de depenses par fichier CSV sans en-tete (Administration → Depenses), avec modele a telecharger et apercu avant enregistrement ou l'on choisit a qui reviennent les depenses (voir « Importer des depenses »).
 
 ### Immobilier
 
@@ -56,21 +58,26 @@ L'import/export JSON sera ajoute dans une version ulterieure.
 
 ## Importer des depenses
 
-Administration → Depenses → « Importer un fichier CSV ». « Telecharger le modele » donne l'en-tete et deux exemples, a remplir dans un tableur puis a enregistrer en CSV UTF-8.
+Administration → Depenses → « Importer un fichier CSV ». Le fichier n'a **jamais de ligne d'en-tete** : chaque ligne est une depense, colonnes dans cet ordre.
 
 ```
-libelle;categorie;montant;frequence;debut;fin;part_Camille;part_Alex
-Mutuelle;Santé;35,69;Mensuel;01/01/2026;;;
-Assurance habitation;Assurances;626,65;Annuel;01/01/2026;;100;0
+libelle;categorie;montant;frequence;debut;fin
 ```
 
-- `libelle`, `categorie`, `montant`, `frequence` et `debut` sont obligatoires ; `fin` et les colonnes `part_<Prénom>` sont facultatives.
+```
+Mutuelle;Santé;35,69;Mensuel;01/01/2026;
+Assurance emprunteur;Crédits;17,68;Mensuel;01/01/2026;05/09/2042
+```
+
+- `fin` est facultative (vide ou absente : sans fin).
 - Categorie et frequence : le libelle affiche dans l'application (« Santé », « Mensuel », sans tenir compte des accents ni des majuscules) ou son code (`HEALTH`, `MONTHLY`).
 - Dates au format 31/01/2026 ou 2026-01-31 ; montants avec virgule ou point, espaces et « € » acceptes.
-- Parts vides : parts egales. Sinon, elles doivent faire 100 %.
-- Point-virgule ou virgule comme separateur, guillemets acceptes autour d'un libelle ; 500 lignes au plus.
+- Separateur point-virgule (virgule acceptee si les montants n'en contiennent pas), guillemets acceptes autour d'un libelle ; 500 lignes au plus.
+- « Telecharger le modele » donne deux lignes d'exemple.
 
-Un apercu montre chaque ligne avant tout enregistrement. Une seule ligne en erreur bloque l'import (rien n'est enregistre) et l'apercu indique quoi corriger. Une depense deja saisie (meme libelle, montant, frequence et debut) est ignoree : reimporter un fichier ne cree pas de doublon.
+Le fichier ne dit pas a qui revient la depense. L'apercu, affiche avant tout enregistrement, permet de choisir l'attribution pour tout le fichier (parts egales ou une personne), puis ligne par ligne si besoin. Chaque depense reste modifiable ensuite, une par une, dans son formulaire (bloc Repartition).
+
+Une seule ligne en erreur bloque l'import (rien n'est enregistre) et l'apercu indique quoi corriger ; une ligne d'en-tete est signalee comme erreur. Une depense deja saisie (meme libelle, montant, frequence et debut) est ignoree : reimporter un fichier ne cree pas de doublon.
 
 ## Importer un echeancier
 
