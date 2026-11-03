@@ -220,3 +220,23 @@ document.querySelectorAll("[data-preset-label]").forEach((button) => {
     form.elements.amount.focus();
   });
 });
+
+// ---- Graphique du budget : un clic sur un mois ouvre son detail dans la liste ----
+const openMonth = (id, scroll) => {
+  const month = id ? document.getElementById(id) : null;
+  if (!month || !month.classList.contains("month")) return;
+  document.querySelectorAll("details.month").forEach((other) => {
+    other.open = other === month;
+    other.classList.toggle("highlight", other === month);
+  });
+  if (scroll) month.scrollIntoView({behavior: "smooth", block: "start"});
+};
+document.querySelectorAll("svg.chart a.month-link").forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    const id = link.getAttribute("href").slice(1);
+    history.replaceState(null, "", "#" + id);
+    openMonth(id, true);
+  });
+});
+if (location.hash.startsWith("#mois-")) openMonth(location.hash.slice(1), true);

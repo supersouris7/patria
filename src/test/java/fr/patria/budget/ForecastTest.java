@@ -173,6 +173,34 @@ class ForecastTest {
     }
 
     @Test
+    void monthlyPropertyTaxIsSpreadFromJanuaryToOctober() {
+        TestData.Stores stores = TestData.stores(directory);
+        long property = stores.properties().insert(TestData.property("Maison", "200000", null, null));
+        stores.expenses().save(new Expense(0, property, ExpenseKind.PROPERTY_TAX, 2026, new BigDecimal("1760")));
+        stores.expenses().save(new Expense(0, property, ExpenseKind.PROPERTY_TAX, 2027, new BigDecimal("1801")));
+        stores.expenses().setPropertyTaxMonthly(property, true);
+
+        Forecast.View view = forecast(stores);   // juin 2026 → mai 2027
+        java.util.function.Function<Forecast.Month, BigDecimal> tax = month -> month.expenses().stream()
+                .filter(line -> line.label().startsWith("Taxe foncière")).map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertAmount("176", tax.apply(view.months().get(0)));          // juin 2026
+        assertAmount("176", tax.apply(view.months().get(4)));          // octobre 2026
+        assertAmount("0", tax.apply(view.months().get(5)));            // novembre : rien
+        assertAmount("180.10", tax.apply(view.months().get(7)));       // janvier 2027 : 1 801 / 10
+        assertAmount("0", view.provision());                           // mensualisée : rien à mettre de côté
+        BigDecimal year2027 = BigDecimal.ZERO;
+        for (int m = 1; m <= 10; m++) year2027 = year2027.add(Forecast.propertyCharges(TestData.property("Maison", "200000", null, null),
+                stores.expenses().forProperty(property), true, YearMonth.of(2027, m)).getFirst().amount());
+        assertAmount("1801", year2027);                                // octobre absorbe l'arrondi
+
+        stores.expenses().setPropertyTaxMonthly(property, false);
+        view = forecast(stores);
+        assertAmount("0", tax.apply(view.months().get(0)));
+        assertAmount("1760", tax.apply(view.months().get(4)));         // en une fois, en octobre
+        stores.database().close();
+    }
+
+    @Test
     void deficitAndHighDebtAreFlagged() {
         TestData.Stores stores = TestData.stores(directory);
         long me = stores.household().addPerson("Camille");

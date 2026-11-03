@@ -14,7 +14,7 @@ import java.util.Map;
  *
  * <p>Couleurs : six familles au plus, palette categorielle validee pour le daltonisme sur le fond sombre (voir
  * {@code .series-N} dans patria.css). Chaque mois porte une info-bulle detaillee ; la liste des mois sous le
- * graphique donne les memes chiffres en texte.
+ * graphique donne les memes chiffres en texte, et un clic sur un mois l'y ouvre.
  */
 final class BudgetChart {
     private static final int WIDTH = 960;
@@ -80,11 +80,12 @@ final class BudgetChart {
             svg.append(Html.of("<text class=\"axis%s\" x=\"%s\" y=\"%s\" text-anchor=\"middle\">%s</text>", month.balance().signum() < 0 && month.income().signum() > 0 ? " deficit" : "",
                     fmt(x + barWidth / 2), HEIGHT - 12, label));
             // Zone de survol : toute la colonne, plus large que la barre
-            svg.append(Html.of("<rect class=\"hit\" x=\"%s\" y=\"%s\" width=\"%s\" height=\"%s\"><title>%s</title></rect>",
-                    fmt(LEFT + column * i), TOP, fmt(column), fmt(plotHeight + 6), tooltip(month)));
+            // Un clic ouvre le detail du mois dans la liste sous le graphique
+            svg.append(Html.of("<a href=\"#%s\" class=\"month-link\" aria-label=\"%s\"><rect class=\"hit\" x=\"%s\" y=\"%s\" width=\"%s\" height=\"%s\"><title>%s</title></rect></a>",
+                    anchor(month.month()), "Voir le détail de " + Format.month(month.month()), fmt(LEFT + column * i), TOP, fmt(column), fmt(plotHeight + 6), tooltip(month)));
         }
-        String summary = "Revenus et dépenses des 12 prochains mois ; le détail de chaque mois est donné dans la liste ci-dessous.";
-        Html chart = Html.of("<svg class=\"chart\" viewBox=\"0 0 %s %s\" role=\"img\" aria-label=\"%s\" preserveAspectRatio=\"xMidYMid meet\">%s</svg>",
+        String summary = "Revenus et dépenses des 12 prochains mois ; un clic sur un mois ouvre son détail dans la liste ci-dessous.";
+        Html chart = Html.of("<svg class=\"chart\" viewBox=\"0 0 %s %s\" role=\"group\" aria-label=\"%s\" preserveAspectRatio=\"xMidYMid meet\">%s</svg>",
                 WIDTH, HEIGHT, summary, Html.raw(svg.toString()));
         return Html.concat(legend(months), chart);
     }
@@ -108,6 +109,11 @@ final class BudgetChart {
                 .forEach(family -> text.append("\n  · ").append(family.label()).append(" : ").append(Format.euroWhole(families.get(family))));
         text.append("\nReste à vivre : ").append(Format.signedEuroWhole(month.balance()));
         return text.toString();
+    }
+
+    /** Identifiant du mois dans la liste detaillee : {@code mois-2026-11}. */
+    static String anchor(java.time.YearMonth month) {
+        return "mois-" + month;
     }
 
     /** Pas de graduation lisible : 1, 2, 2,5 ou 5 × 10^n. */

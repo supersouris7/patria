@@ -313,6 +313,13 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .chart .income { stroke: var(--text); stroke-linecap: round; stroke-width: 2; }
 .chart .hit { fill: transparent; }
 .chart .hit:hover { fill: rgb(255 255 255 / 4%); }
+.chart .month-link { cursor: pointer; }
+.chart .month-link:focus-visible { outline: none; }
+.chart .month-link:focus-visible .hit { fill: rgb(255 255 255 / 6%); stroke: var(--blue); stroke-width: 2; }
+.month.highlight > summary { background: rgb(255 255 255 / 5%); }
+.month-detail a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.month-detail a:hover { text-decoration-color: currentColor; }
+.tax-links { margin-top: 8px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0 4px; }
 .legend-item { align-items: center; color: var(--text-soft); display: inline-flex; font-size: .8rem; gap: 7px; }
 .swatch { border-radius: 3px; display: inline-block; height: 11px; width: 11px; }

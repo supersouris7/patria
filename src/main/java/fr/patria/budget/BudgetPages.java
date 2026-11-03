@@ -70,7 +70,7 @@ final class BudgetPages {
                         view.provision().signum() == 0 ? Html.EMPTY : Html.of("<p class=\"provision\">À mettre de côté chaque mois pour les dépenses non mensuelles : <strong>%s</strong></p>",
                                 euroWhole(view.provision())),
                         BudgetChart.render(view.months()),
-                        monthList(view.months()))));
+                        monthList(view.months(), "/" + scope(view)))));
         return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, scope(view), content);
     }
 
@@ -89,8 +89,12 @@ final class BudgetPages {
     /** Selecteur Foyer | Alice | Bob, affiche a partir de deux personnes. */
     /** Une depense ou un revenu ouvert depuis le budget y ramene (lien de retour, puis apres enregistrement). */
     private static String fromBudget(String link, Forecast.View view) {
+        return withReturn(link, "/budget" + scope(view));
+    }
+
+    private static String withReturn(String link, String back) {
         if (link == null || !(link.startsWith("/depense/") || link.startsWith("/revenu/") || link.startsWith("/virement/"))) return link;
-        return link + "?retour=" + encode("/budget" + scope(view));
+        return link + "?retour=" + encode(back);
     }
 
     private static String encode(String value) {
@@ -174,28 +178,34 @@ final class BudgetPages {
                 String.format(java.util.Locale.ROOT, "%.1f", fill));
     }
 
-    /** Detail des 12 mois : le mois en cours ouvert, les autres repliables. */
-    private static Html monthList(List<Forecast.Month> months) {
+    /** Detail des 12 mois : le mois en cours ouvert, les autres repliables. Chaque ligne mene a sa saisie, puis ramene a {@code back}. */
+    private static Html monthList(List<Forecast.Month> months, String back) {
         Html items = months.stream().map(month -> {
             Html incomes = month.incomes().isEmpty() ? Html.raw("<p class=\"empty\">Aucun revenu prévu.</p>")
-                    : month.incomes().stream().map(line -> Html.of("<li><span>%s <small>%s</small></span><b>%s</b></li>", line.label(), line.who(), euro(line.amount())))
+                    : month.incomes().stream().map(line -> Html.of("<li><span>%s <small>%s</small></span><b>%s</b></li>", lineLink(line.link(), line.label(), back), line.who(), euro(line.amount())))
                     .collect(Html.joining());
             Map<Category, List<Forecast.Line>> byCategory = month.expenses().stream()
                     .collect(Collectors.groupingBy(Forecast.Line::category, () -> new EnumMap<>(Category.class), Collectors.toList()));
             Html expenses = month.expenses().isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense prévue.</p>")
                     : byCategory.entrySet().stream().map(entry -> Html.of("<li class=\"group\"><span>%s</span><b>%s</b></li>%s", entry.getKey().label(),
                     euro(entry.getValue().stream().map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add)),
-                    entry.getValue().stream().map(line -> Html.of("<li class=\"item\"><span>%s%s</span><b>%s</b></li>", line.label(),
+                    entry.getValue().stream().map(line -> Html.of("<li class=\"item\"><span>%s%s</span><b>%s</b></li>", lineLink(line.link(), line.label(), back),
                             line.frequency() == Frequency.MONTHLY ? Html.EMPTY : Html.of(" <small class=\"badge\">%s</small>", line.frequency().label()),
                             euro(line.amount()))).collect(Html.joining()))).collect(Html.joining());
             String tone = month.balance().signum() < 0 ? "negative" : "";
             return Html.of("""
-                    <details class="month"%s><summary><span class="month-name">%s</span><span>%s</span><span>%s</span><span class="%s">%s</span></summary>
+                    <details class="month" id="%s"%s><summary><span class="month-name">%s</span><span>%s</span><span>%s</span><span class="%s">%s</span></summary>
                     <div class="month-detail"><div><h3>Revenus</h3><ul>%s</ul></div><div><h3>Dépenses</h3><ul>%s</ul></div></div></details>""",
-                    Html.raw(month == months.getFirst() ? " open" : ""), Format.month(month.month()), euroWhole(month.income()), euroWhole(month.spending()),
+                    BudgetChart.anchor(month.month()), Html.raw(month == months.getFirst() ? " open" : ""), Format.month(month.month()), euroWhole(month.income()), euroWhole(month.spending()),
                     tone, Format.signedEuroWhole(month.balance()), incomes, expenses);
         }).collect(Html.joining());
         return Html.of("<div class=\"months\"><div class=\"months-head\"><span>Mois</span><span>Revenus</span><span>Dépenses</span><span>Reste à vivre</span></div>%s</div>", items);
+    }
+
+    /** Libelle cliquable : la saisie de la ligne (depense, revenu, virement, charges du bien), avec retour ici. */
+    private static Html lineLink(String link, String label, String back) {
+        if (link == null) return Html.of("%s", label);
+        return Components.link(withReturn(link, back), label);
     }
 
     // ---- Budget moyen ----
@@ -281,7 +291,8 @@ final class BudgetPages {
                 Components.input(Input.of("Dernier paiement", "end", Field.DATE).help("Vide si sans fin."), values));
     }
 
-    static Html admin(List<BudgetItem> items, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people, Map<String, String> values, Notice notice, String csrf) {
+    static Html admin(List<BudgetItem> items, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people, List<Property> properties,
+                      Map<String, String> values, Notice notice, String csrf) {
         Html presets = Preset.ALL.stream().map(preset -> Html.of(
                 "<button type=\"button\" class=\"chip preset\" data-preset-label=\"%s\" data-preset-category=\"%s\" data-preset-frequency=\"%s\">%s</button>",
                 preset.label(), preset.category().name(), preset.frequency().name(), preset.label())).collect(Html.joining());
@@ -300,15 +311,18 @@ final class BudgetPages {
                 : Components.table(shared ? List.of("Dépense", "Répartition", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", "")
                         : List.of("Dépense", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", ""), rows, true, false);
         Html automatic = Html.raw("""
-                <p class="muted">Repris automatiquement de l'immobilier, rien à ressaisir : mensualités des prêts, taxe foncière (octobre),
-                taxe d'habitation (novembre), charges de copropriété (chaque trimestre), assurance et autres charges des biens (réparties sur 12 mois),
-                loyers perçus.</p>""");
+                <p class="muted">Repris automatiquement de l'immobilier, rien à ressaisir : mensualités des prêts, taxe foncière (octobre, ou de janvier
+                à octobre si mensualisée), taxe d'habitation (novembre), charges de copropriété (chaque trimestre), assurance et autres charges des biens
+                (réparties sur 12 mois), loyers perçus. Ne les ajoutez pas ici : elles compteraient deux fois.</p>""");
+        Html taxLinks = properties.isEmpty() ? Html.EMPTY : Html.of("<p class=\"tax-links\">Taxe foncière et charges : %s</p>",
+                java.util.stream.IntStream.range(0, properties.size()).mapToObj(index -> Html.concat(index == 0 ? Html.EMPTY : Html.raw(" · "),
+                        Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 
         Html content = Html.concat(Components.heading("Administration", "Dépenses", null, Html.EMPTY), Components.notice(notice),
                 Components.card("Ajouter une dépense", null, Html.EMPTY, form),
                 Components.card("Importer un fichier CSV", null, Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
                         importForm(csrf)),
-                Components.card("Dépenses saisies", items.size(), Html.EMPTY, Html.concat(table, automatic)));
+                Components.card("Dépenses saisies", items.size(), Html.EMPTY, Html.concat(table, automatic, taxLinks)));
         return Layout.adminSection("Dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, content);
     }
 

@@ -32,6 +32,7 @@ import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -40,7 +41,7 @@ import java.util.stream.Collectors;
  *
  * <p>Les lignes viennent de deux sources : la saisie du budget (revenus, depenses) et l'immobilier, repris
  * automatiquement (mensualites de pret, charges des biens, loyers percus). Mois de paiement retenus pour les
- * charges des biens : taxe fonciere en octobre, taxe d'habitation en novembre, copropriete par trimestre
+ * charges des biens : taxe fonciere en octobre (ou de janvier a octobre si mensualisee), taxe d'habitation en novembre, copropriete par trimestre
  * (janvier, avril, juillet, octobre), assurance et autres charges reparties sur 12 mois.
  */
 public final class Forecast {
@@ -206,7 +207,7 @@ public final class Forecast {
 
     private record Data(List<Person> people, List<Income> incomes, List<BudgetItem> items, List<Property> properties, List<Loan> loans,
                         Map<Long, List<ScheduleLine>> schedules, Map<Long, List<Expense>> charges, Map<Long, List<RentPeriod>> rents,
-                        Map<Shares.Key, Map<Long, Integer>> shares, List<Transfer> transfers) {
+                        Map<Shares.Key, Map<Long, Integer>> shares, List<Transfer> transfers, Set<Long> monthlyTax) {
         String name(long memberId) {
             return people.stream().filter(person -> person.id() == memberId).map(Person::name).findFirst().orElse("");
         }
@@ -246,7 +247,7 @@ public final class Forecast {
                 sources.loans().schedules(loans.stream().map(Loan::id).toList()),
                 sources.expenses().all().stream().collect(Collectors.groupingBy(Expense::propertyId)),
                 sources.rents().all().stream().collect(Collectors.groupingBy(RentPeriod::propertyId)), sources.shares().all(),
-                sources.household().transfers());
+                sources.household().transfers(), sources.expenses().monthlyPropertyTax());
     }
 
     private static Month month(YearMonth month, Data data, Scope scope) {
@@ -293,7 +294,7 @@ public final class Forecast {
             if (month.isBefore(YearMonth.from(property.purchaseDate()))) continue;
             BigDecimal weight = scope.weight(Shares.Subject.PROPERTY, property.id());
             if (weight.signum() == 0) continue;
-            for (Line line : propertyCharges(property, data.charges().getOrDefault(property.id(), List.of()), month)) add(expenses, scope.apply(line, weight));
+            for (Line line : propertyCharges(property, data.charges().getOrDefault(property.id(), List.of()), data.monthlyTax().contains(property.id()), month)) add(expenses, scope.apply(line, weight));
             for (RentPeriod period : data.rents().getOrDefault(property.id(), List.of())) {
                 boolean active = period.kind() == Occupancy.RENTAL && !period.start().isAfter(month.atEndOfMonth())
                         && (period.end() == null || !period.end().isBefore(month.atDay(1)));
@@ -312,13 +313,20 @@ public final class Forecast {
     }
 
     /** Charges d'un bien pour un mois, selon le calendrier de paiement retenu (voir la description de la classe). */
-    static List<Line> propertyCharges(Property property, List<Expense> charges, YearMonth month) {
+    static List<Line> propertyCharges(Property property, List<Expense> charges, boolean monthlyTax, YearMonth month) {
         List<Line> lines = new ArrayList<>();
         String link = "/administration/bien/" + property.id() + "/charges";
         int year = month.getYear();
         int m = month.getMonthValue();
         BigDecimal propertyTax = ExpenseMath.amountFor(charges, ExpenseKind.PROPERTY_TAX, year);
-        if (propertyTax != null && m == 10) lines.add(new Line("Taxe foncière · " + property.name(), Category.TAXES, propertyTax, Frequency.ANNUAL, Origin.REAL_ESTATE, link));
+        if (propertyTax != null && monthlyTax && m <= 10) {
+            // Mensualisee : un dixieme de janvier a septembre, le reste en octobre (le total de l'annee reste exact)
+            BigDecimal tenth = propertyTax.divide(BigDecimal.TEN, 2, RoundingMode.HALF_UP);
+            BigDecimal amount = m < 10 ? tenth : propertyTax.subtract(tenth.multiply(BigDecimal.valueOf(9)));
+            lines.add(new Line("Taxe foncière · " + property.name(), Category.TAXES, amount, Frequency.MONTHLY, Origin.REAL_ESTATE, link));
+        } else if (propertyTax != null && !monthlyTax && m == 10) {
+            lines.add(new Line("Taxe foncière · " + property.name(), Category.TAXES, propertyTax, Frequency.ANNUAL, Origin.REAL_ESTATE, link));
+        }
         BigDecimal housingTax = ExpenseMath.amountFor(charges, ExpenseKind.HOUSING_TAX, year);
         if (housingTax != null && m == 11) lines.add(new Line("Taxe d'habitation · " + property.name(), Category.TAXES, housingTax, Frequency.ANNUAL, Origin.REAL_ESTATE, link));
         BigDecimal condo = ExpenseMath.amountFor(charges, ExpenseKind.CONDO_FEES, year);

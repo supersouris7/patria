@@ -29,13 +29,14 @@ public final class ExpenseController {
     public void register(Router router) {
         router.get("/administration/bien/{id}/charges", this::page);
         router.post("/administration/bien/{id}/charges", this::save);
+        router.post("/administration/bien/{id}/charges/paiement", this::savePayment);
         router.post("/charge/{id}/supprimer", this::delete);
     }
 
     private Response page(Request request) {
         Property property = PropertyController.require(properties, request.id());
         LocalDate today = LocalDate.now(clock);
-        return Response.page(ExpensePages.page(property, expenses.forProperty(property.id()), today, Map.of("year", String.valueOf(today.getYear())),
+        return Response.page(ExpensePages.page(property, expenses.forProperty(property.id()), expenses.isPropertyTaxMonthly(property.id()), today, Map.of("year", String.valueOf(today.getYear())),
                 request.confirmation(), request.csrf()));
     }
 
@@ -46,9 +47,18 @@ public final class ExpenseController {
             expenses.save(read(request.form(), property.id(), today));
             return Response.redirect("/administration/bien/" + property.id() + "/charges?ok=charge");
         } catch (ValidationException exception) {
-            return Response.invalid(ExpensePages.page(property, expenses.forProperty(property.id()), today, request.form().values(),
+            return Response.invalid(ExpensePages.page(property, expenses.forProperty(property.id()), expenses.isPropertyTaxMonthly(property.id()), today, request.form().values(),
                     Notice.error(exception.getMessage()), request.csrf()));
         }
+    }
+
+    /** Taxe fonciere payee en une fois (octobre) ou mensualisee (janvier a octobre). */
+    private Response savePayment(Request request) {
+        Property property = PropertyController.require(properties, request.id());
+        String payment = request.form().raw("payment");
+        if (!payment.equals("MONTHLY") && !payment.equals("ONCE")) throw new ValidationException("Mode de paiement invalide.");
+        expenses.setPropertyTaxMonthly(property.id(), payment.equals("MONTHLY"));
+        return Response.redirect("/administration/bien/" + property.id() + "/charges?ok=charge");
     }
 
     private Response delete(Request request) {

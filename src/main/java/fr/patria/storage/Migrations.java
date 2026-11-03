@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 9;
+    public static final int LATEST = 10;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -45,6 +45,7 @@ public final class Migrations {
             if (version < 7) toVersion7(connection);
             if (version < 8) toVersion8(connection);
             if (version < 9) toVersion9(connection);
+            if (version < 10) toVersion10(connection);
             return null;
         });
     }
@@ -278,6 +279,14 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 9);
+    }
+
+    /** Version 10 : biens dont la taxe fonciere est mensualisee (10 prelevements, de janvier a octobre). */
+    private static void toVersion10(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE property_tax_monthly (property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE)");
+        }
+        setUserVersion(connection, 10);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

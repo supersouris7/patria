@@ -84,7 +84,7 @@ public final class BudgetController {
     }
 
     private fr.patria.ui.Html adminPage(Map<String, String> values, Notice notice, String csrf) {
-        return BudgetPages.admin(items.all(), sources.shares().all(), people(), values, notice, csrf);
+        return BudgetPages.admin(items.all(), sources.shares().all(), people(), sources.properties().all(), values, notice, csrf);
     }
 
     private fr.patria.ui.Html sharesPage(Notice notice, String csrf) {

@@ -126,6 +126,13 @@ class AppTest {
         assertEquals(400, post(admin + "/loyers", "csrf=" + csrf + "&kind=AUTRE&monthly=500&start=2024-01-01").statusCode());
 
         assertTrue(get(admin + "/charges").body().contains("Estimée"), "années non saisies estimées");
+        assertEquals(303, post(admin + "/charges/paiement", "csrf=" + csrf + "&payment=MONTHLY").statusCode());
+        assertEquals(400, post(admin + "/charges/paiement", "csrf=" + csrf + "&payment=AUTRE").statusCode());
+        assertTrue(get(admin + "/charges").body().contains("<option value=\"MONTHLY\" selected"), "mensualisation enregistrée");
+        assertTrue(get("/administration/depenses").body().contains("href=\"" + admin + "/charges\">Studio</a>"), "lien vers la taxe foncière du bien");
+        String home = get("/").body();
+        assertTrue(home.contains("href=\"#mois-"), "barres du graphique cliquables");
+        assertTrue(home.contains("id=\"mois-"), "détail du mois ciblé");
         String page = get(property).body();
         assertTrue(page.contains("Enrichissement réel"));
         assertTrue(page.contains("Loyers perçus"));

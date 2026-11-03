@@ -24,7 +24,7 @@ final class ExpensePages {
     private ExpensePages() {
     }
 
-    static Html page(Property property, List<Expense> entered, LocalDate today, Map<String, String> values, Notice notice, String csrf) {
+    static Html page(Property property, List<Expense> entered, boolean monthlyTax, LocalDate today, Map<String, String> values, Notice notice, String csrf) {
         Html form = Components.form("/administration/bien/" + property.id() + "/charges", csrf, false, Html.concat(
                 Components.fields(3,
                         Components.select("Type", "kind", Arrays.stream(ExpenseKind.values()).map(kind -> new Option(kind.name(), kind.label())).toList(),
@@ -50,9 +50,17 @@ final class ExpensePages {
                 Html.of("<p class=\"source\">Total payé depuis l'achat (le %s), au prorata de la première et de l'année en cours : <strong>%s</strong></p>",
                         Format.date(property.purchaseDate()), Format.euro(paid)));
 
+        Html payment = Components.form("/administration/bien/" + property.id() + "/charges/paiement", csrf, false, Html.concat(
+                Components.fields(2, Components.select("Prélèvement", "payment", List.of(
+                        new Option("ONCE", "En une fois, en octobre"),
+                        new Option("MONTHLY", "Mensualisée, de janvier à octobre")), monthlyTax ? "MONTHLY" : "ONCE")),
+                Html.raw("<p class=\"muted\">Change seulement les mois du budget où la taxe est payée ; le montant annuel reste celui saisi ci-dessus. "
+                        + "Mensualisée : 10 prélèvements, chacun un dixième du montant de l'année (échéancier des impôts).</p>")), "Enregistrer");
+
         Html content = Html.concat(
                 Components.heading("Bien", "Charges", property.name(), Html.EMPTY), Components.notice(notice),
                 Components.card("Saisir une charge", null, Html.EMPTY, form),
+                Components.card("Paiement de la taxe foncière", null, Html.EMPTY, payment),
                 Components.card("Charges depuis l'achat", null, Html.EMPTY, table));
         return Layout.adminPage("Charges · " + property.name() + " · Patria", csrf, PropertyNav.of(property, PropertyNav.Tab.EXPENSES), content);
     }
