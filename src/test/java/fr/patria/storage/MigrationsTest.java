@@ -101,6 +101,8 @@ class MigrationsTest {
                     assertEquals(1, revaluation.getInt(1), "v6 : colonne d'actualisation");
                     ResultSet budgetTables = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('people', 'incomes', 'budget_items')");
                     assertEquals(3, budgetTables.getInt(1), "v7 : tables du budget");
+                    ResultSet shareTable = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'shares'");
+                    assertEquals(1, shareTable.getInt(1), "v8 : répartition entre les personnes");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

@@ -10,6 +10,7 @@ import fr.patria.contribution.ContributionRepository;
 import fr.patria.expense.ExpenseController;
 import fr.patria.expense.ExpenseRepository;
 import fr.patria.household.HouseholdController;
+import fr.patria.household.ShareRepository;
 import fr.patria.household.HouseholdRepository;
 import fr.patria.loan.LoanController;
 import fr.patria.loan.LoanRepository;
@@ -70,6 +71,7 @@ public final class App implements AutoCloseable {
             RentRepository rents = new RentRepository(database);
             HouseholdRepository household = new HouseholdRepository(database);
             BudgetRepository budgetItems = new BudgetRepository(database);
+            ShareRepository shares = new ShareRepository(database);
 
             Sessions sessions = new Sessions(config.clock());
             Router router = new Router(sessions);
@@ -83,8 +85,8 @@ public final class App implements AutoCloseable {
             new ContributionController(contributions, properties, config.clock()).register(router);
             new ExpenseController(expenses, properties, config.clock()).register(router);
             new HouseholdController(household, config.clock()).register(router);
-            new BudgetController(new Forecast(new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents), config.clock()),
-                    budgetItems, config.clock()).register(router);
+            Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
+            new BudgetController(new Forecast(budgetSources, config.clock()), budgetSources, config.clock()).register(router);
             new RentController(rents, properties, config.clock()).register(router);
 
             HttpServer server = HttpServer.create(new InetSocketAddress(config.port()), 0);

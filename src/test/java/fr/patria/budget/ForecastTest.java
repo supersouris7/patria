@@ -9,6 +9,7 @@ import fr.patria.expense.Expense;
 import fr.patria.expense.ExpenseKind;
 import fr.patria.household.Income;
 import fr.patria.household.IncomeKind;
+import fr.patria.household.Shares;
 import fr.patria.loan.LineType;
 import fr.patria.loan.ScheduleLine;
 import fr.patria.rent.Occupancy;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,8 +34,53 @@ class ForecastTest {
     }
 
     private Forecast.View forecast(TestData.Stores stores) {
-        return new Forecast(new Forecast.Sources(stores.household(), stores.budget(), stores.properties(), stores.loans(), stores.expenses(), stores.rents()),
-                TestData.CLOCK).next12Months();
+        return forecast(stores, null);
+    }
+
+    private Forecast.View forecast(TestData.Stores stores, Long person) {
+        return new Forecast(new Forecast.Sources(stores.household(), stores.budget(), stores.properties(), stores.loans(), stores.expenses(), stores.rents(), stores.shares()),
+                TestData.CLOCK).next12Months(person);
+    }
+
+    @Test
+    void eachPersonSeesOwnIncomesAndShareOfExpensesLoansAndRents() {
+        TestData.Stores stores = TestData.stores(directory);
+        long alice = stores.household().addPerson("Alice");
+        long bob = stores.household().addPerson("Bob");
+        stores.household().addIncome(new Income(0, alice, "Salaire", IncomeKind.SALARY, new BigDecimal("3000"), Frequency.MONTHLY, LocalDate.of(2025, 1, 1), null));
+        stores.household().addIncome(new Income(0, bob, "Salaire", IncomeKind.SALARY, new BigDecimal("2000"), Frequency.MONTHLY, LocalDate.of(2025, 1, 1), null));
+        long electricity = stores.budget().insert(new BudgetItem(0, "Électricité", Category.ENERGY, new BigDecimal("100"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        long car = stores.budget().insert(new BudgetItem(0, "Crédit auto", Category.CREDIT, new BigDecimal("300"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+        stores.shares().set(Shares.Subject.BUDGET_ITEM, car, Map.of(bob, 100));          // à Bob seul ; électricité à parts égales
+
+        long property = stores.properties().insert(TestData.property("Studio", "100000", null, null));
+        List<ScheduleLine> schedule = new ArrayList<>();
+        for (int i = 0; i < 24; i++) {
+            schedule.add(new ScheduleLine(LocalDate.of(2026, 1, 5).plusMonths(i), LineType.INSTALLMENT, new BigDecimal("800"), null, null, null, null, null));
+        }
+        stores.loans().create(property, "Prêt", schedule);                                 // suit la répartition du bien
+        stores.shares().set(Shares.Subject.PROPERTY, property, Map.of(alice, 75, bob, 25));
+        stores.rents().insert(new RentPeriod(0, property, Occupancy.RENTAL, "", LocalDate.of(2026, 1, 1), null, new BigDecimal("400")));
+
+        Forecast.Month household = forecast(stores).current();
+        assertAmount("5400", household.income());
+        assertAmount("1200", household.spending());
+
+        Forecast.View aliceView = forecast(stores, alice);
+        assertEquals("Alice", aliceView.person().name());
+        assertAmount("3300", aliceView.current().income());                // 3 000 + 75 % du loyer
+        assertAmount("650", aliceView.current().spending());               // 50 électricité + 600 de prêt
+        assertTrue(aliceView.current().expenses().stream().anyMatch(line -> line.label().equals("Électricité (50\u00a0%)")));
+        // endettement : 600 / (3 000 + 300 × 70 %)
+        assertAmount("18.7", aliceView.debt().percent());
+
+        Forecast.Month bobMonth = forecast(stores, bob).current();
+        assertAmount("2100", bobMonth.income());
+        assertAmount("550", bobMonth.spending());                          // 50 + 300 crédit auto + 200 de prêt
+
+        // les parts des deux personnes refont le total du foyer
+        assertAmount(household.spending().toPlainString(), aliceView.current().spending().add(bobMonth.spending()));
+        stores.database().close();
     }
 
     @Test
@@ -93,9 +140,36 @@ class ForecastTest {
     }
 
     @Test
+    void manyDeficitMonthsAreGroupedInOneAlert() {
+        TestData.Stores stores = TestData.stores(directory);
+        long me = stores.household().addPerson("Camille");
+        stores.household().addIncome(new Income(0, me, "Salaire", IncomeKind.SALARY, new BigDecimal("1000"), Frequency.MONTHLY, LocalDate.of(2025, 1, 1), null));
+        stores.budget().insert(new BudgetItem(0, "Loyer", Category.HOUSING, new BigDecimal("1200"), Frequency.MONTHLY, LocalDate.of(2026, 1, 1), null));
+
+        List<Forecast.Alert> alerts = forecast(stores).alerts();
+
+        assertEquals(1, alerts.stream().filter(alert -> alert.text().contains("déficit")).count());
+        assertTrue(alerts.stream().anyMatch(alert -> alert.text().equals("12 mois sur 12 en déficit, dès juin 2026 : il manque 200\u00a0€ par mois.")),
+                alerts.toString());
+        stores.database().close();
+    }
+
+    @Test
     void chartStepsAreReadable() {
         assertEquals(1000, BudgetChart.niceStep(830));
         assertEquals(2500, BudgetChart.niceStep(2100));
         assertEquals(5000, BudgetChart.niceStep(4100));
+    }
+
+    @Test
+    void debtLevelsFollowThe33And35PercentThresholds() {
+        BigDecimal income = new BigDecimal("3000");
+        assertEquals(Forecast.DebtRatio.Level.GOOD, new Forecast.DebtRatio(new BigDecimal("960"), income, new BigDecimal("32.9")).level());
+        assertEquals(Forecast.DebtRatio.Level.WARNING, new Forecast.DebtRatio(new BigDecimal("990"), income, new BigDecimal("33.0")).level());
+        assertEquals(Forecast.DebtRatio.Level.WARNING, new Forecast.DebtRatio(new BigDecimal("1050"), income, new BigDecimal("35.0")).level());
+        assertEquals(Forecast.DebtRatio.Level.SERIOUS, new Forecast.DebtRatio(new BigDecimal("1053"), income, new BigDecimal("35.1")).level());
+        // 33 % de 3 000 = 990 : il reste 90 € de mensualite possible
+        assertEquals(0, new BigDecimal("90").compareTo(new Forecast.DebtRatio(new BigDecimal("900"), income, new BigDecimal("30.0")).marginToComfort()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(new Forecast.DebtRatio(new BigDecimal("1053"), income, new BigDecimal("35.1")).marginToComfort()));
     }
 }

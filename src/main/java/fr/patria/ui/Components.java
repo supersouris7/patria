@@ -127,11 +127,16 @@ public final class Components {
 
     /** Tableau de donnees. Une colonne dont le libelle commence par « # » est numerique (alignee a droite). */
     public static Html table(List<String> columns, Html rows, boolean sortable, boolean filterable) {
+        return table(columns, rows, Html.EMPTY, sortable, filterable);
+    }
+
+    /** Tableau avec une ligne de pied (totaux), hors tri et hors filtre. */
+    public static Html table(List<String> columns, Html rows, Html footer, boolean sortable, boolean filterable) {
         Html head = columns.stream().map(column -> column.startsWith("#")
                 ? Html.of("<th class=\"num\">%s</th>", column.substring(1)) : Html.of("<th>%s</th>", column)).collect(Html.joining());
         String classes = sortable ? "data sortable" : "data";
-        return Html.of("<div class=\"table-wrap\"><table class=\"%s\"%s><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>",
-                classes, Html.raw(filterable ? " data-filter" : ""), head, rows);
+        return Html.of("<div class=\"table-wrap\"><table class=\"%s\"%s><thead><tr>%s</tr></thead><tbody>%s</tbody>%s</table></div>",
+                classes, Html.raw(filterable ? " data-filter" : ""), head, rows, footer.isEmpty() ? Html.EMPTY : Html.of("<tfoot>%s</tfoot>", footer));
     }
 
     /** Cellule numerique ; {@code sort} est la valeur brute utilisee pour le tri. */

@@ -7,6 +7,10 @@ import static fr.patria.ui.Format.euro;
 import static fr.patria.ui.Format.euroWhole;
 
 import fr.patria.common.Frequency;
+import fr.patria.household.Person;
+import fr.patria.household.Shares;
+import fr.patria.loan.Loan;
+import fr.patria.property.Property;
 import fr.patria.ui.Components;
 import fr.patria.ui.Components.Field;
 import fr.patria.ui.Components.Input;
@@ -34,7 +38,12 @@ final class BudgetPages {
 
     static Html home(Forecast.View view, String csrf) {
         Forecast.Month current = view.current();
-        Html heading = Components.heading("Votre budget", Format.month(current.month()), null, Html.EMPTY);
+        Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), null, Html.EMPTY), scopeTabs(view, "/"));
+        if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
+            return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, Html.concat(heading, Components.emptyState("Rien pour " + view.person().name(),
+                    "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Foyer et revenus, la répartition des dépenses dans chaque dépense.",
+                    Components.button("/administration/foyer", "Foyer et revenus"))));
+        }
         if (!view.hasIncome() && !view.hasExpenses()) {
             return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, Html.concat(heading, Components.emptyState("Votre budget est vide",
                     "Commencez par le foyer : les personnes et leurs revenus, puis les dépenses (une seule saisie par dépense, l'application prévoit les mois suivants). "
@@ -64,19 +73,84 @@ final class BudgetPages {
         return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, content);
     }
 
+    /** « Budget du foyer » ou « Budget d'Alice ». */
+    private static String owner(Forecast.View view) {
+        if (view.person() == null) return "Budget du foyer";
+        String name = view.person().name();
+        return "Budget " + (name.matches("(?i)^[aeiouyhéèêàâîôû].*") ? "d'" : "de ") + name;
+    }
+
+    /** Selecteur Foyer | Alice | Bob, affiche a partir de deux personnes. */
+    private static Html scopeTabs(Forecast.View view, String path) {
+        if (view.people().size() < 2) return Html.EMPTY;
+        Html tabs = Html.concat(scopeTab(path, "Foyer", view.person() == null),
+                view.people().stream().map(person -> scopeTab(path + "?personne=" + person.id(), person.name(),
+                        view.person() != null && view.person().id() == person.id())).collect(Html.joining()));
+        return Html.of("<nav class=\"scope-tabs\" aria-label=\"Budget de\">%s</nav>", tabs);
+    }
+
+    private static Html scopeTab(String href, String label, boolean active) {
+        return Html.of("<a href=\"%s\"%s>%s</a>", href, Html.raw(active ? " class=\"active\" aria-current=\"page\"" : ""), label);
+    }
+
     private static Html balanceTile(BigDecimal balance, String hint, String sub) {
         String tone = balance.signum() < 0 ? "negative" : "positive";
         return Html.of("<article class=\"metric\">%s<strong class=\"%s\">%s</strong><small>%s</small></article>",
                 Components.label("Reste à vivre", hint), tone, Format.signedEuroWhole(balance), balance.signum() < 0 ? "dépenses supérieures aux revenus" : sub);
     }
 
+    private static final String DEBT_HINT = "Méthode bancaire (HCSF) : mensualités de crédit assurance comprise ÷ revenus nets avant impôt, "
+            + "loyers perçus comptés à 70 %. Vert sous 33 %, orange de 33 à 35 %, rouge au-delà.";
+
     private static Html debtTile(Forecast.DebtRatio debt) {
-        if (debt.percent() == null) return tile("Taux d'endettement", "Mensualités de crédit ÷ revenus nets avant impôt (méthode bancaire).", Format.DASH, "revenus non renseignés");
-        String state = debt.isAboveLimit() ? "▲ au-dessus du seuil de 35 %" : "✓ sous le seuil de 35 %";
-        return Html.of("<article class=\"metric\">%s<strong>%s</strong><small class=\"%s\">%s</small></article>",
-                Components.label("Taux d'endettement", "Méthode bancaire (HCSF) : mensualités de crédit assurance comprise ÷ revenus nets avant impôt, "
-                        + "loyers perçus comptés à 70 %. " + euroWhole(debt.credits()) + " de crédits pour " + euroWhole(debt.income()) + " de revenus retenus."),
-                Format.percent(debt.percent()), debt.isAboveLimit() ? "status-serious" : "status-good", state);
+        if (debt.percent() == null) return tile("Taux d'endettement", DEBT_HINT, Format.DASH, "revenus non renseignés");
+        return Html.of("<article class=\"metric debt %s\">%s<strong>%s</strong>%s<small>%s</small></article>",
+                debtClass(debt), Components.label("Taux d'endettement", DEBT_HINT + " " + euroWhole(debt.credits()) + " de crédits pour "
+                        + euroWhole(debt.income()) + " de revenus retenus."),
+                Format.percent(debt.percent()), debtGauge(debt), debtState(debt));
+    }
+
+    /** Carte detaillee de la page Budget : jauge, calcul et marge avant 33 %. */
+    private static Html debtCard(Forecast.DebtRatio debt) {
+        if (debt.percent() == null) {
+            return Components.card("Taux d'endettement", null, Html.EMPTY,
+                    Html.raw("<p class=\"empty\">Renseignez les revenus du foyer pour calculer le taux d'endettement.</p>"));
+        }
+        BigDecimal margin = debt.marginToComfort();
+        return Components.card("Taux d'endettement", null, Html.EMPTY, Html.of("""
+                <div class="debt-detail %s"><div class="debt-figure"><strong>%s</strong><span>%s</span></div>%s
+                <dl class="calc-grid"><div><dt>Mensualités de crédit</dt><dd>%s</dd></div><div><dt>Revenus retenus</dt><dd>%s</dd></div>                <div><dt>Marge avant 33 %%</dt><dd>%s</dd></div></dl>
+                <p class="muted">%s</p></div>""".replace("%%", "%"),
+                debtClass(debt), Format.percent(debt.percent()), debtState(debt), Html.concat(debtGauge(debt),
+                        Html.raw("<span class=\"gauge-scale\" aria-hidden=\"true\"><span class=\"before\" style=\"left:66%\">33 %</span><span style=\"left:70%\">35 %</span></span>")),
+                euroWhole(debt.credits()) + "/mois", euroWhole(debt.income()) + "/mois",
+                margin.signum() == 0 ? "aucune" : euroWhole(margin) + "/mois",
+                DEBT_HINT));
+    }
+
+    private static String debtClass(Forecast.DebtRatio debt) {
+        return switch (debt.level()) {
+            case GOOD -> "level-good";
+            case WARNING -> "level-warning";
+            case SERIOUS -> "level-serious";
+        };
+    }
+
+    private static String debtState(Forecast.DebtRatio debt) {
+        return switch (debt.level()) {
+            case GOOD -> "✓ sous 33 %";
+            case WARNING -> "▲ entre 33 et 35 %";
+            case SERIOUS -> "▲ au-dessus de 35 %";
+        };
+    }
+
+    /** Jauge de 0 a 50 % avec les reperes 33 % et 35 % ; la valeur reste lisible en texte a cote. */
+    private static Html debtGauge(Forecast.DebtRatio debt) {
+        double scale = 50;
+        double fill = Math.min(debt.percent().doubleValue(), scale) / scale * 100;
+        return Html.of("<span class=\"gauge\" aria-hidden=\"true\"><i class=\"gauge-fill\" style=\"width:%s%%\"></i>"
+                .replace("%%", "%") + "<i class=\"gauge-mark\" style=\"left:66%\"></i><i class=\"gauge-mark\" style=\"left:70%\"></i></span>",
+                String.format(java.util.Locale.ROOT, "%.1f", fill));
     }
 
     /** Detail des 12 mois : le mois en cours ouvert, les autres repliables. */
@@ -108,8 +182,9 @@ final class BudgetPages {
     static Html budget(Forecast.View view, List<Forecast.Average> incomes, List<Forecast.Average> expenses, String csrf) {
         BigDecimal income = incomes.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal spending = expenses.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Html heading = Components.heading("Budget", "Moyenne mensuelle", "Sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois.",
-                Components.secondaryButton("/administration/foyer", "Administrer"));
+        Html heading = Html.concat(Components.heading(owner(view), "Moyenne mensuelle", "Sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
+                        + (view.person() == null ? "" : " Part de " + view.person().name() + " seulement."),
+                Components.secondaryButton("/administration/foyer", "Administrer")), scopeTabs(view, "/budget"));
 
         Map<Category, BigDecimal> byCategory = new EnumMap<>(Category.class);
         for (Forecast.Average line : expenses) byCategory.merge(line.category(), line.monthly(), BigDecimal::add);
@@ -136,6 +211,7 @@ final class BudgetPages {
                         tile("Dépenses", null, euroWhole(spending), "par mois en moyenne"),
                         balanceTile(income.subtract(spending), "Revenus moyens − dépenses moyennes sur 12 mois.", "par mois en moyenne"),
                         tile("À mettre de côté", "Moyenne mensuelle des dépenses non mensuelles (assurances annuelles, taxes...).", euroWhole(view.provision()), "chaque mois")),
+                debtCard(view.debt()),
                 Components.card("Dépenses par catégorie", null, Html.EMPTY, byCategory.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense.</p>")
                         : Html.of("<div class=\"ranking\">%s</div>", bars)),
                 Components.card("Revenus", incomes.size(), Html.EMPTY, incomes.isEmpty() ? Html.raw("<p class=\"empty\">Aucun revenu.</p>")
@@ -158,6 +234,20 @@ final class BudgetPages {
         return values;
     }
 
+    /** Champs de repartition : une part par personne, vides = parts egales. */
+    static Html shareFields(List<Person> people, Map<String, String> values, String emptyHint) {
+        if (people.size() < 2) return Html.EMPTY;
+        Html inputs = people.stream().map(person -> Html.of("<label class=\"share-input\"><span>%s</span><span class=\"suffix\"><input name=\"%s\" value=\"%s\" inputmode=\"numeric\" placeholder=\"%s\">%%</span></label>"
+                        .replace("%%", "%"), person.name(), Shares.field(person), values.getOrDefault(Shares.field(person), ""),
+                Shares.percent(Shares.weight(Map.of(), people, person.id())).replace("\u00a0%", "")))
+                .collect(Html.joining());
+        return Html.of("<fieldset class=\"shares\"><legend>Répartition</legend><div class=\"share-inputs\">%s</div><span class=\"help\">%s</span></fieldset>", inputs, emptyHint);
+    }
+
+    private static Html fields(Map<String, String> values, List<Person> people) {
+        return Html.concat(fields(values), shareFields(people, values, "Laisser vide pour partager à parts égales. Sinon, des parts qui font 100 % au total."));
+    }
+
     private static Html fields(Map<String, String> values) {
         return Components.fields(3,
                 Components.input(Input.of("Libellé", "label", Field.TEXT).required().maxLength(100).placeholder("Électricité"), values),
@@ -170,21 +260,24 @@ final class BudgetPages {
                 Components.input(Input.of("Dernier paiement", "end", Field.DATE).help("Vide si sans fin."), values));
     }
 
-    static Html admin(List<BudgetItem> items, Map<String, String> values, Notice notice, String csrf) {
+    static Html admin(List<BudgetItem> items, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people, Map<String, String> values, Notice notice, String csrf) {
         Html presets = Preset.ALL.stream().map(preset -> Html.of(
                 "<button type=\"button\" class=\"chip preset\" data-preset-label=\"%s\" data-preset-category=\"%s\" data-preset-frequency=\"%s\">%s</button>",
                 preset.label(), preset.category().name(), preset.frequency().name(), preset.label())).collect(Html.joining());
         Html form = Html.concat(Html.of("<p class=\"muted\">Modèles : un clic remplit le formulaire, il reste le montant et la date.</p><div class=\"presets\">%s</div>", presets),
-                Components.form("/administration/depenses", csrf, false, fields(values), "Ajouter la dépense"));
+                Components.form("/administration/depenses", csrf, false, fields(values, people), "Ajouter la dépense"));
 
         Map<Category, List<BudgetItem>> byCategory = items.stream()
                 .collect(Collectors.groupingBy(BudgetItem::category, () -> new EnumMap<>(Category.class), Collectors.toList()));
+        boolean shared = people.size() >= 2;
         Html rows = byCategory.entrySet().stream().flatMap(entry -> entry.getValue().stream()).map(item -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\"><a href=\"/depense/%s\">Modifier</a></td></tr>",
-                cell(item.label()), cell(item.category().label()), number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
+                Html.concat(cell(item.label()), shared ? cell(Shares.describe(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()), people)) : Html.EMPTY),
+                cell(item.category().label()), number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
                 number(item.frequency().monthly(item.amount()), item.frequency().isRecurring() ? euro(item.frequency().monthly(item.amount())) : Format.DASH),
                 cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())), item.id())).collect(Html.joining());
         Html table = items.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense saisie.</p>")
-                : Components.table(List.of("Dépense", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", ""), rows, true, false);
+                : Components.table(shared ? List.of("Dépense", "Répartition", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", "")
+                        : List.of("Dépense", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", ""), rows, true, false);
         Html automatic = Html.raw("""
                 <p class="muted">Repris automatiquement de l'immobilier, rien à ressaisir : mensualités des prêts, taxe foncière (octobre),
                 taxe d'habitation (novembre), charges de copropriété (chaque trimestre), assurance et autres charges des biens (réparties sur 12 mois),
@@ -196,13 +289,59 @@ final class BudgetPages {
         return Layout.adminSection("Dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, content);
     }
 
-    static Html edit(BudgetItem item, Map<String, String> values, Notice notice, String csrf) {
+    static Html edit(BudgetItem item, List<Person> people, Map<String, String> values, Notice notice, String csrf) {
         Html content = Html.concat(
                 Components.backLink("/administration/depenses", "Dépenses"),
                 Components.heading("Dépense", item.label(), item.category().label(), Html.EMPTY), Components.notice(notice),
-                Components.card("Dépense", null, Html.EMPTY, Components.form("/depense/" + item.id(), csrf, false, fields(values), "Enregistrer")),
+                Components.card("Dépense", null, Html.EMPTY, Components.form("/depense/" + item.id(), csrf, false, fields(values, people), "Enregistrer")),
                 Components.dangerZone("Supprimer cette dépense", "Elle ne sera plus comptée dans le budget.", "/depense/" + item.id() + "/supprimer",
                         "Supprimer la dépense « " + item.label() + " » ?", "Supprimer la dépense", csrf));
         return Layout.adminSection("Dépense · Patria", csrf, Layout.AdminSection.EXPENSES, content);
+    }
+
+    // ---- Repartition des biens et des prets ----
+
+    static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people,
+                       Notice notice, String csrf) {
+        Html heading = Components.heading("Administration", "Répartition", "Part de chaque personne dans les biens et les prêts : "
+                + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
+        if (people.size() < 2) {
+            return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading,
+                    Components.emptyState("Une seule personne dans le foyer", "La répartition sert à partir de deux personnes.",
+                            Components.button("/administration/foyer", "Ajouter une personne"))));
+        }
+        if (properties.isEmpty()) {
+            return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading, Components.notice(notice),
+                    Html.raw("<p class=\"empty\">Aucun bien. Les dépenses se répartissent directement dans leur formulaire.</p>")));
+        }
+        Html rows = properties.stream().map(property -> {
+            Map<Long, Integer> own = shares.getOrDefault(new Shares.Key(Shares.Subject.PROPERTY, property.id()), Map.of());
+            Html propertyRow = shareRow("/administration/repartition/bien/" + property.id(), property.name(), Shares.describe(own, people),
+                    Shares.values(own, people), people, Map.of(), false, csrf);
+            Html loanRows = loans.stream().filter(loan -> loan.propertyId() == property.id()).map(loan -> {
+                Map<Long, Integer> loanShare = shares.getOrDefault(new Shares.Key(Shares.Subject.LOAN, loan.id()), Map.of());
+                String description = Shares.isEqual(loanShare, people) ? "Comme le bien" : Shares.describe(loanShare, people);
+                return shareRow("/administration/repartition/pret/" + loan.id(), loan.name(), description, Shares.values(loanShare, people), people, own, true, csrf);
+            }).collect(Html.joining());
+            return Html.of("<div class=\"share-group\">%s%s</div>", propertyRow, loanRows);
+        }).collect(Html.joining());
+        Html content = Html.concat(heading, Components.notice(notice),
+                Components.card("Biens et prêts", null, Html.EMPTY, Html.concat(Html.of("<div class=\"share-list\">%s</div>", rows),
+                        Html.raw("<p class=\"source\">Champs vides : parts égales pour un bien, même répartition que le bien pour un prêt. "
+                                + "Sinon, des parts qui font 100 % au total. Les dépenses saisies à la main se répartissent dans leur propre formulaire.</p>"))));
+        return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, content);
+    }
+
+    /** Une ligne : nom, repartition en vigueur, une part par personne (le texte grise montre la valeur par defaut). */
+    private static Html shareRow(String action, String name, String description, Map<String, String> values, List<Person> people,
+                                 Map<Long, Integer> fallback, boolean loan, String csrf) {
+        Html inputs = people.stream().map(person -> Html.of(
+                "<label class=\"share-input\"><span>%s</span><span class=\"suffix\"><input name=\"%s\" value=\"%s\" inputmode=\"numeric\" placeholder=\"%s\">%%</span></label>"
+                        .replace("%%", "%"), person.name(), Shares.field(person), values.getOrDefault(Shares.field(person), ""),
+                Shares.percent(Shares.weight(fallback, people, person.id())).replace("\u00a0%", ""))).collect(Html.joining());
+        return Html.of("""
+                <form method="post" action="%s" class="share-row%s">%s<div class="share-name"><b>%s</b><small>%s</small></div>\
+                <div class="share-inputs">%s</div><button type="submit" class="secondary">Enregistrer</button></form>""",
+                action, Html.raw(loan ? " loan" : ""), Components.csrfField(csrf), loan ? "Prêt · " + name : name, description, inputs);
     }
 }

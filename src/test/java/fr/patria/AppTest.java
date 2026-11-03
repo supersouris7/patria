@@ -188,6 +188,39 @@ class AppTest {
     }
 
     @Test
+    void eachPersonHasOwnBudgetWithSharedExpenses() throws Exception {
+        String csrf = login();
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Alice");
+        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Bob");
+        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(Alice|Bob)</option>").matcher(get("/administration/foyer").body());
+        java.util.Map<String, String> people = new java.util.HashMap<>();
+        while (ids.find()) people.put(ids.group(2), ids.group(1));
+        String alice = people.get("Alice");
+        String bob = people.get("Bob");
+        post("/administration/foyer/revenus", "csrf=" + csrf + "&person=" + alice + "&kind=SALARY&label=Salaire&amount=3000&frequency=MONTHLY&start=2026-01-01");
+
+        // une répartition qui ne fait pas 100 % est refusée ; vide = parts égales
+        assertEquals(400, post("/administration/depenses", "csrf=" + csrf + "&label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01"
+                + "&share_" + alice + "=60&share_" + bob + "=30").statusCode());
+        assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01"
+                + "&share_" + alice + "=60&share_" + bob + "=40").statusCode());
+        assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Internet&category=TELECOM&amount=40&frequency=MONTHLY&start=2026-01-01").statusCode());
+        String expenses = get("/administration/depenses").body();
+        assertTrue(expenses.contains("Alice 60\u00a0% · Bob 40\u00a0%"), expenses);
+        assertTrue(expenses.contains("Parts égales"));
+
+        String home = get("/").body();
+        assertTrue(home.contains("Budget du foyer"));
+        assertTrue(home.contains("class=\"scope-tabs\""));
+        String aliceHome = get("/?personne=" + alice).body();
+        assertTrue(aliceHome.contains("Budget d'Alice") || aliceHome.contains("Budget d&#39;Alice"), aliceHome);
+        assertTrue(aliceHome.contains("+2\u202f380\u00a0€"), "3 000 − 600 de loyer − 20 d'internet");
+        assertTrue(get("/budget?personne=" + bob).body().contains("Loyer (40\u00a0%)"));
+
+        assertTrue(get("/administration/repartition").body().contains("Biens et prêts") || get("/administration/repartition").body().contains("Aucun bien"));
+    }
+
+    @Test
     void unknownPagesReturn404WithNavigation() throws Exception {
         login();
         HttpResponse<String> response = get("/bien/999");

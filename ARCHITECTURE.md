@@ -11,7 +11,7 @@ fr.patria
 ├─ App, Config ............ assemble tous les modules et démarre le serveur (seul endroit où l'on fait « new »)
 │
 ├─ budget .................. BUDGET : accueil, prévisionnel des 12 mois (reprend l'immobilier), dépenses du foyer
-├─ household ............... FOYER : personnes et revenus
+├─ household ............... FOYER : personnes, revenus, répartition entre les personnes (Shares)
 ├─ portfolio ............... PATRIMOINE : vues immobilières (immobilier, fiche d'un bien, mensualités, biens et prêts)
 │   ├─ loan ................ PRÊTS : import CSV des échéanciers, calculs à date, pages d'un prêt
 │   ├─ contribution ........ APPORTS : apports personnels d'un bien
@@ -87,6 +87,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
+| Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |

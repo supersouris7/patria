@@ -140,12 +140,37 @@ final class PortfolioPages {
         Html rows = loans.stream().map(item -> {
             LoanMath.Status status = item.status();
             return Html.of("<tr>%s%s%s%s%s%s</tr>", cell(link("/pret/" + item.loan().id(), item.loan().name())),
-                    number(status.borrowed(), euro(status.borrowed())), number(status.currentRate(), percent(status.currentRate())),
-                    number(status.remaining(), euro(status.remaining())),
-                    sortedCell(status.progressPercent(), Components.progress(status.progressPercent())),
-                    sortedCell(status.remainingMonths(), Format.duration(status.remainingMonths())));
+                    number(status.borrowed(), euroWhole(status.borrowed())), number(status.currentRate(), percent(status.currentRate())),
+                    number(status.remaining(), euroWhole(status.remaining())),
+                    sortedCell(status.progressPercent(), Html.concat(Components.progress(status.progressPercent()),
+                            Html.of("<small>%s restants</small>", Format.duration(status.remainingMonths())))),
+                    interestCell(status));
         }).collect(Html.joining());
-        return Components.table(List.of("Prêt", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "Durée restante"), rows, true, false);
+        Html footer = loans.size() < 2 ? Html.EMPTY : Html.of("<tr><th>Total</th>%s<td></td>%s<td></td>%s</tr>",
+                totalCell(loans, LoanMath.Status::borrowed), totalCell(loans, LoanMath.Status::remaining),
+                totalInterestCell(loans));
+        return Components.table(List.of("Prêt", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "#Intérêts"),
+                rows, footer, true, false);
+    }
+
+    /** Une seule colonne : interets payes, et en dessous le total des interets du pret. Tri sur les interets payes. */
+    private static Html interestCell(LoanMath.Status status) {
+        return number(status.interestPaid(), interestText(status.interestPaid(), status.interestTotal()));
+    }
+
+    private static Html interestText(BigDecimal paid, BigDecimal total) {
+        return Html.of("%s payés<small>sur %s au total</small>", euroWhole(paid), euroWhole(total));
+    }
+
+    private static Html totalCell(List<LoanSummary> loans, java.util.function.Function<LoanMath.Status, BigDecimal> value) {
+        BigDecimal total = loans.stream().map(item -> value.apply(item.status())).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return Html.of("<td class=\"num\">%s</td>", euroWhole(total));
+    }
+
+    private static Html totalInterestCell(List<LoanSummary> loans) {
+        BigDecimal paid = loans.stream().map(item -> item.status().interestPaid()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = loans.stream().map(item -> item.status().interestTotal()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return Html.of("<td class=\"num\">%s</td>", interestText(paid, total));
     }
 
     /** Taxes foncieres par annee, tous biens confondus, avec l'evolution d'une annee sur l'autre. */
@@ -178,17 +203,23 @@ final class PortfolioPages {
         Html rows = overview.properties().stream().flatMap(summary -> summary.loans().stream().map(item -> {
             LoanMath.Status status = item.status();
             var next = status.nextInstallment();
-            return Html.of("<tr>%s%s%s%s%s%s%s%s</tr>",
+            return Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                     cell(link("/pret/" + item.loan().id(), item.loan().name())),
                     cell(link("/bien/" + summary.property().id(), summary.property().name())),
-                    number(status.borrowed(), euro(status.borrowed())), number(status.currentRate(), percent(status.currentRate())),
-                    number(status.remaining(), euro(status.remaining())),
-                    sortedCell(status.progressPercent(), Components.progress(status.progressPercent())),
-                    sortedCell(status.remainingMonths(), Format.duration(status.remainingMonths())),
+                    number(status.borrowed(), Html.of("%s<small>à %s</small>", euroWhole(status.borrowed()), percent(status.currentRate()))),
+                    number(status.remaining(), euroWhole(status.remaining())),
+                    sortedCell(status.progressPercent(), Html.concat(Components.progress(status.progressPercent()),
+                            Html.of("<small>%s restants</small>", Format.duration(status.remainingMonths())))),
+                    interestCell(status),
                     next == null ? Html.raw("<td class=\"num\">–</td>")
-                            : number(next.amount(), Html.of("%s<small>%s</small>", euro(next.amount()), date(next.date()))));
+                            : number(next.amount(), Html.of("%s<small>%s</small>", euroWhole(next.amount()), date(next.date()))));
         })).collect(Html.joining());
-        return Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Taux actuel", "#Restant dû", "Progression", "Durée restante", "#Prochaine échéance"), rows, true, false);
+        List<LoanSummary> loans = overview.properties().stream().flatMap(summary -> summary.loans().stream()).toList();
+        Html footer = Html.of("<tr><th colspan=\"2\">Total</th>%s%s<td></td>%s<td></td></tr>",
+                totalCell(loans, LoanMath.Status::borrowed), totalCell(loans, LoanMath.Status::remaining),
+                totalInterestCell(loans));
+        return Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Restant dû", "Progression",
+                "#Intérêts", "#Prochaine échéance"), rows, footer, true, false);
     }
 
     private static Html contributionsTable(List<Contribution> contributions, BigDecimal total) {

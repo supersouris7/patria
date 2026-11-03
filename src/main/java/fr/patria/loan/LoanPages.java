@@ -50,8 +50,20 @@ final class LoanPages {
                                 status.lastDate() == null ? null : "Fin le " + date(status.lastDate()))),
                 Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>Progression</h2><span class=\"muted\">%s %% du capital emprunté</span></div>%s</section>".replace("%%", "%"),
                         status.progressPercent(), Components.progress(status.progressPercent())),
+                interestCard(status),
                 Components.card("Échéancier", lines.size(), Html.EMPTY, table));
         return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+    }
+
+    /** Interets seuls (hors assurance et frais) : payes, a payer et total, avec la part deja payee. */
+    private static Html interestCard(LoanMath.Status status) {
+        if (status.interestTotal().signum() == 0) return Html.EMPTY;
+        return Html.of("""
+                <section class="card section"><div class="section-title"><h2>Intérêts</h2><span class="muted">%s %% déjà payés</span></div>%s
+                <dl class="calc-grid"><div><dt>Payés</dt><dd>%s</dd></div><div><dt>Total du prêt</dt><dd>%s</dd></div></dl>
+                <p class="source">Intérêts seuls, d'après l'échéancier : l'assurance et les frais n'y sont pas comptés.</p></section>""".replace("%%", "%"),
+                status.interestPaidPercent(), Components.progress(status.interestPaidPercent()),
+                euro(status.interestPaid()), euro(status.interestTotal()));
     }
 
     static Html manage(Loan loan, Property property, Notice notice, String csrf) {

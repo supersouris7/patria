@@ -9,7 +9,8 @@ public final class Layout {
     public enum AdminSection {
         HOUSEHOLD("/administration/foyer", "Foyer et revenus"),
         EXPENSES("/administration/depenses", "Dépenses"),
-        PROPERTIES("/administration/biens", "Biens et prêts");
+        PROPERTIES("/administration/biens", "Biens et prêts"),
+        SHARES("/administration/repartition", "Répartition");
 
         private final String href;
         private final String label;

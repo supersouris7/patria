@@ -8,6 +8,8 @@ import fr.patria.expense.ExpenseRepository;
 import fr.patria.household.HouseholdRepository;
 import fr.patria.household.Income;
 import fr.patria.household.Person;
+import fr.patria.household.ShareRepository;
+import fr.patria.household.Shares;
 import fr.patria.loan.LineType;
 import fr.patria.loan.Loan;
 import fr.patria.loan.LoanRepository;
@@ -43,6 +45,8 @@ import java.util.stream.Collectors;
 public final class Forecast {
     /** Seuil d'endettement du Haut Conseil de stabilite financiere (HCSF). */
     public static final BigDecimal DEBT_LIMIT = new BigDecimal("35");
+    /** En dessous : endettement confortable (affiche en vert). Entre ce seuil et la limite : vigilance (orange). */
+    public static final BigDecimal DEBT_COMFORT = new BigDecimal("33");
     /** Part des loyers percus retenue par les banques. */
     private static final BigDecimal RENT_SHARE = new BigDecimal("0.70");
     /** Une depense non mensuelle est signalee a partir de ce montant. */
@@ -51,7 +55,7 @@ public final class Forecast {
     private static final int ALERT_MONTHS = 3;
 
     public record Sources(HouseholdRepository household, BudgetRepository items, PropertyRepository properties, LoanRepository loans,
-                          ExpenseRepository expenses, RentRepository rents) {
+                          ExpenseRepository expenses, RentRepository rents, ShareRepository shares) {
     }
 
     /** Provenance d'une ligne : saisie du budget ou reprise de l'immobilier. */
@@ -99,8 +103,25 @@ public final class Forecast {
      * @param percent {@code null} sans revenus
      */
     public record DebtRatio(BigDecimal credits, BigDecimal income, BigDecimal percent) {
+        /** Vert sous 33 %, orange de 33 a 35 %, rouge au-dela. */
+        public enum Level { GOOD, WARNING, SERIOUS }
+
         public boolean isAboveLimit() {
             return percent != null && percent.compareTo(DEBT_LIMIT) > 0;
+        }
+
+        /** {@code null} sans revenus. */
+        public Level level() {
+            if (percent == null) return null;
+            if (isAboveLimit()) return Level.SERIOUS;
+            return percent.compareTo(DEBT_COMFORT) < 0 ? Level.GOOD : Level.WARNING;
+        }
+
+        /** Mensualite supplementaire possible avant d'atteindre 33 % (zero si deja atteint). */
+        public BigDecimal marginToComfort() {
+            if (percent == null) return BigDecimal.ZERO;
+            BigDecimal room = income.multiply(DEBT_COMFORT).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP).subtract(credits);
+            return room.max(BigDecimal.ZERO);
         }
     }
 
@@ -110,7 +131,12 @@ public final class Forecast {
     /**
      * @param provision moyenne mensuelle des depenses non mensuelles : a mettre de cote chaque mois pour ne pas etre surpris
      */
-    public record View(List<Month> months, DebtRatio debt, BigDecimal provision, List<Alert> alerts, boolean hasIncome, boolean hasExpenses) {
+    /**
+     * @param person  personne affichee, {@code null} pour le foyer entier
+     * @param people  toutes les personnes du foyer (pour le selecteur)
+     */
+    public record View(List<Month> months, DebtRatio debt, BigDecimal provision, List<Alert> alerts, boolean hasIncome, boolean hasExpenses,
+                       Person person, List<Person> people) {
         public Month current() {
             return months.getFirst();
         }
@@ -129,16 +155,27 @@ public final class Forecast {
         this.clock = clock;
     }
 
+    /** Previsionnel du foyer entier. */
     public View next12Months() {
+        return next12Months(null);
+    }
+
+    /**
+     * Previsionnel d'une personne : ses revenus et sa part de chaque depense, bien et pret. {@code null} ou une
+     * personne inconnue donne le foyer entier.
+     */
+    public View next12Months(Long personId) {
         LocalDate today = LocalDate.now(clock);
         Data data = load();
+        Person person = personId == null ? null : data.people().stream().filter(p -> p.id() == personId).findFirst().orElse(null);
+        Scope scope = new Scope(person, data);
         List<Month> months = new ArrayList<>();
-        for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data));
-        DebtRatio debt = debtRatio(months, data, today);
+        for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data, scope));
+        DebtRatio debt = debtRatio(months, data, scope, today);
         BigDecimal provision = months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.frequency() != Frequency.MONTHLY)
                 .map(Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(HORIZON), 0, RoundingMode.HALF_UP);
-        return new View(months, debt, provision, alerts(months, debt), !data.incomes().isEmpty() || months.stream().anyMatch(m -> !m.incomes().isEmpty()),
-                months.stream().anyMatch(m -> !m.expenses().isEmpty()));
+        boolean hasIncome = data.incomes().stream().anyMatch(scope::includes) || months.stream().anyMatch(m -> !m.incomes().isEmpty());
+        return new View(months, debt, provision, alerts(months, debt), hasIncome, months.stream().anyMatch(m -> !m.expenses().isEmpty()), person, data.people());
     }
 
     /** Revenus et depenses ramenes a leur moyenne mensuelle sur les 12 prochains mois, ligne par ligne. */
@@ -167,7 +204,36 @@ public final class Forecast {
     // ---- Construction des mois ----
 
     private record Data(List<Person> people, List<Income> incomes, List<BudgetItem> items, List<Property> properties, List<Loan> loans,
-                        Map<Long, List<ScheduleLine>> schedules, Map<Long, List<Expense>> charges, Map<Long, List<RentPeriod>> rents) {
+                        Map<Long, List<ScheduleLine>> schedules, Map<Long, List<Expense>> charges, Map<Long, List<RentPeriod>> rents,
+                        Map<Shares.Key, Map<Long, Integer>> shares) {
+    }
+
+    /**
+     * Ce que voit la vue : tout le foyer (part 1 partout) ou une personne (ses revenus, et sa part de chaque
+     * element). Un pret sans repartition propre suit celle de son bien.
+     */
+    private record Scope(Person person, Data data) {
+        boolean includes(Income income) {
+            return person == null || income.personId() == person.id();
+        }
+
+        BigDecimal weight(Shares.Subject subject, long id) {
+            if (person == null) return BigDecimal.ONE;
+            return Shares.weight(data.shares().getOrDefault(new Shares.Key(subject, id), Map.of()), data.people(), person.id());
+        }
+
+        BigDecimal loan(Loan loan) {
+            Map<Long, Integer> own = data.shares().getOrDefault(new Shares.Key(Shares.Subject.LOAN, loan.id()), Map.of());
+            return Shares.isEqual(own, data.people()) ? weight(Shares.Subject.PROPERTY, loan.propertyId()) : weight(Shares.Subject.LOAN, loan.id());
+        }
+
+        /** Applique la part : montant reduit, part indiquee dans le libelle. {@code null} si la part est nulle. */
+        Line apply(Line line, BigDecimal weight) {
+            if (weight.signum() == 0) return null;
+            if (weight.compareTo(BigDecimal.ONE) == 0) return line;
+            return new Line(line.label() + " (" + Shares.percent(weight) + ")", line.category(), line.amount().multiply(weight).setScale(2, RoundingMode.HALF_UP),
+                    line.frequency(), line.origin(), line.link());
+        }
     }
 
     private Data load() {
@@ -175,19 +241,21 @@ public final class Forecast {
         return new Data(sources.household().people(), sources.household().incomes(), sources.items().all(), sources.properties().all(), loans,
                 sources.loans().schedules(loans.stream().map(Loan::id).toList()),
                 sources.expenses().all().stream().collect(Collectors.groupingBy(Expense::propertyId)),
-                sources.rents().all().stream().collect(Collectors.groupingBy(RentPeriod::propertyId)));
+                sources.rents().all().stream().collect(Collectors.groupingBy(RentPeriod::propertyId)), sources.shares().all());
     }
 
-    private static Month month(YearMonth month, Data data) {
+    private static Month month(YearMonth month, Data data, Scope scope) {
         List<IncomeLine> incomes = new ArrayList<>();
         for (Income income : data.incomes()) {
-            if (!income.paidIn(month)) continue;
+            if (!income.paidIn(month) || !scope.includes(income)) continue;
             String who = data.people().stream().filter(person -> person.id() == income.personId()).map(Person::name).findFirst().orElse("");
             incomes.add(new IncomeLine(income.label(), who, income.amount(), income.frequency(), Origin.BUDGET, "/revenu/" + income.id()));
         }
         List<Line> expenses = new ArrayList<>();
         for (BudgetItem item : data.items()) {
-            if (item.dueIn(month)) expenses.add(new Line(item.label(), item.category(), item.amount(), item.frequency(), Origin.BUDGET, "/depense/" + item.id()));
+            if (!item.dueIn(month)) continue;
+            add(expenses, scope.apply(new Line(item.label(), item.category(), item.amount(), item.frequency(), Origin.BUDGET, "/depense/" + item.id()),
+                    scope.weight(Shares.Subject.BUDGET_ITEM, item.id())));
         }
         Map<Long, String> propertyNames = data.properties().stream().collect(Collectors.toMap(Property::id, Property::name));
         for (Loan loan : data.loans()) {
@@ -195,23 +263,30 @@ public final class Forecast {
                     .filter(line -> line.type() == LineType.INSTALLMENT && line.amount() != null && YearMonth.from(line.date()).equals(month))
                     .map(ScheduleLine::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
             if (installments.signum() > 0) {
-                expenses.add(new Line("Mensualité " + loan.name() + " · " + propertyNames.getOrDefault(loan.propertyId(), ""), Category.CREDIT,
-                        installments, Frequency.MONTHLY, Origin.REAL_ESTATE, "/pret/" + loan.id()));
+                add(expenses, scope.apply(new Line("Mensualité " + loan.name() + " · " + propertyNames.getOrDefault(loan.propertyId(), ""), Category.CREDIT,
+                        installments, Frequency.MONTHLY, Origin.REAL_ESTATE, "/pret/" + loan.id()), scope.loan(loan)));
             }
         }
         for (Property property : data.properties()) {
             if (month.isBefore(YearMonth.from(property.purchaseDate()))) continue;
-            expenses.addAll(propertyCharges(property, data.charges().getOrDefault(property.id(), List.of()), month));
+            BigDecimal weight = scope.weight(Shares.Subject.PROPERTY, property.id());
+            if (weight.signum() == 0) continue;
+            for (Line line : propertyCharges(property, data.charges().getOrDefault(property.id(), List.of()), month)) add(expenses, scope.apply(line, weight));
             for (RentPeriod period : data.rents().getOrDefault(property.id(), List.of())) {
                 boolean active = period.kind() == Occupancy.RENTAL && !period.start().isAfter(month.atEndOfMonth())
                         && (period.end() == null || !period.end().isBefore(month.atDay(1)));
                 if (active) {
-                    incomes.add(new IncomeLine("Loyer perçu · " + property.name(), "Immobilier", period.monthly(), Frequency.MONTHLY, Origin.REAL_ESTATE,
-                            "/administration/bien/" + property.id() + "/loyers"));
+                    String label = "Loyer perçu · " + property.name() + (weight.compareTo(BigDecimal.ONE) == 0 ? "" : " (" + Shares.percent(weight) + ")");
+                    incomes.add(new IncomeLine(label, "Immobilier", period.monthly().multiply(weight).setScale(2, RoundingMode.HALF_UP), Frequency.MONTHLY,
+                            Origin.REAL_ESTATE, "/administration/bien/" + property.id() + "/loyers"));
                 }
             }
         }
         return new Month(month, incomes, expenses);
+    }
+
+    private static void add(List<Line> lines, Line line) {
+        if (line != null) lines.add(line);
     }
 
     /** Charges d'un bien pour un mois, selon le calendrier de paiement retenu (voir la description de la classe). */
@@ -245,12 +320,14 @@ public final class Forecast {
 
     // ---- Indicateurs ----
 
-    static DebtRatio debtRatio(List<Month> months, Data data, LocalDate today) {
+    private static DebtRatio debtRatio(List<Month> months, Data data, Scope scope, LocalDate today) {
         BigDecimal credits = months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.category() == Category.CREDIT)
                 .map(Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(months.size()), 2, RoundingMode.HALF_UP);
-        BigDecimal income = data.incomes().stream().filter(item -> item.frequency().isRecurring() && item.activeOn(today))
+        BigDecimal income = data.incomes().stream().filter(item -> scope.includes(item) && item.frequency().isRecurring() && item.activeOn(today))
                 .map(item -> item.frequency().monthly(item.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal rents = data.rents().values().stream().map(periods -> RentMath.currentMonthly(periods, today)).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal rents = data.rents().entrySet().stream()
+                .map(entry -> RentMath.currentMonthly(entry.getValue(), today).multiply(scope.weight(Shares.Subject.PROPERTY, entry.getKey())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         income = income.add(rents.multiply(RENT_SHARE)).setScale(2, RoundingMode.HALF_UP);
         BigDecimal percent = income.signum() == 0 ? null : credits.multiply(BigDecimal.valueOf(100)).divide(income, 1, RoundingMode.HALF_UP);
         return new DebtRatio(credits, income, percent);
@@ -265,14 +342,24 @@ public final class Forecast {
             alerts.add(new Alert(Format.month(month.month()) + " : " + big.stream().map(line -> line.label() + " " + Format.euroWhole(line.amount()))
                     .collect(Collectors.joining(", ")) + (big.size() > 1 ? " — " + Format.euroWhole(total) + " au total" : "") + ", en plus des dépenses habituelles.", false));
         }
-        for (Month month : months) {
-            if (month.balance().signum() < 0 && !month.incomes().isEmpty()) {
+        List<Month> deficits = months.stream().filter(month -> month.balance().signum() < 0 && !month.incomes().isEmpty()).toList();
+        if (deficits.size() <= 2) {
+            for (Month month : deficits) {
                 alerts.add(new Alert(Format.month(month.month()) + " : il manque " + Format.euroWhole(month.balance().negate())
                         + ", les dépenses dépassent les revenus.", true));
             }
+        } else {
+            // Au-dela de deux mois, une seule alerte : nombre de mois, premier mois et ecart du manque
+            BigDecimal least = deficits.stream().map(month -> month.balance().negate()).min(BigDecimal::compareTo).orElseThrow();
+            BigDecimal most = deficits.stream().map(month -> month.balance().negate()).max(BigDecimal::compareTo).orElseThrow();
+            String gap = least.compareTo(most) == 0 ? Format.euroWhole(most) : "de " + Format.euroWhole(least) + " à " + Format.euroWhole(most);
+            alerts.add(new Alert(deficits.size() + " mois sur " + months.size() + " en déficit, dès " + Format.month(deficits.getFirst().month()).toLowerCase(java.util.Locale.FRENCH)
+                    + " : il manque " + gap + " par mois.", true));
         }
-        if (debt.isAboveLimit()) {
+        if (debt.level() == DebtRatio.Level.SERIOUS) {
             alerts.add(new Alert("Taux d'endettement de " + Format.percent(debt.percent()) + ", au-dessus du seuil de 35 % retenu par les banques.", true));
+        } else if (debt.level() == DebtRatio.Level.WARNING) {
+            alerts.add(new Alert("Taux d'endettement de " + Format.percent(debt.percent()) + ", proche du seuil de 35 % retenu par les banques.", false));
         }
         return alerts;
     }

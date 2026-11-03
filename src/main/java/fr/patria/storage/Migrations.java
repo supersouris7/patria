@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 7;
+    public static final int LATEST = 8;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -43,6 +43,7 @@ public final class Migrations {
             if (version < 5) toVersion5(connection);
             if (version < 6) toVersion6(connection);
             if (version < 7) toVersion7(connection);
+            if (version < 8) toVersion8(connection);
             return null;
         });
     }
@@ -238,6 +239,24 @@ public final class Migrations {
             statement.execute("CREATE INDEX incomes_by_person ON incomes(person_id)");
         }
         setUserVersion(connection, 7);
+    }
+
+    /**
+     * Repartition des depenses, biens et prets entre les personnes du foyer. Sans ligne pour un element, il est
+     * partage a parts egales : l'existant n'a pas besoin d'etre converti.
+     */
+    private static void toVersion8(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE shares (
+                        subject TEXT NOT NULL CHECK (subject IN ('BUDGET_ITEM', 'PROPERTY', 'LOAN')),
+                        subject_id INTEGER NOT NULL,
+                        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        percent INTEGER NOT NULL CHECK (percent BETWEEN 0 AND 100),
+                        PRIMARY KEY (subject, subject_id, person_id)
+                    )""");
+        }
+        setUserVersion(connection, 8);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

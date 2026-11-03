@@ -9,8 +9,10 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 - Foyer de plusieurs personnes ; revenus nets avant impot (salaire mensuel, primes et 13e mois annuels, revenus ponctuels).
 - Depenses saisies une seule fois avec leur frequence (mensuelle, trimestrielle, semestrielle, annuelle, ponctuelle) et leur premier paiement ; modeles en un clic (electricite, mutuelle, assurance auto...).
 - Reprise automatique de l'immobilier, sans ressaisie : mensualites de pret, taxe fonciere (octobre), taxe d'habitation (novembre), copropriete (chaque trimestre), assurance et autres charges des biens (sur 12 mois), loyers percus.
-- Accueil : revenus, depenses et reste a vivre du mois, taux d'endettement (methode bancaire HCSF : credits ÷ revenus nets avant impot, loyers a 70 %, seuil 35 %), alertes (depenses non mensuelles des 3 prochains mois, mois en deficit), montant a mettre de cote chaque mois, graphique et detail des 12 prochains mois.
+- Accueil : revenus, depenses et reste a vivre du mois, taux d'endettement (methode bancaire HCSF : credits ÷ revenus nets avant impot, loyers a 70 %, en vert sous 33 %, orange de 33 à 35 %, rouge au-delà ; détail, jauge et marge avant 33 % sur la page Budget), alertes (depenses non mensuelles des 3 prochains mois, mois en deficit), montant a mettre de cote chaque mois, graphique et detail des 12 prochains mois.
 - Page Budget : moyenne mensuelle sur 12 mois, depenses classees par categorie.
+- Un budget par personne, identique a celui du foyer : selecteur « Foyer | Alice | Bob » sur l'Accueil et le Budget. Chaque personne voit ses revenus et sa part des depenses, biens (charges, loyers) et prets, avec son propre taux d'endettement.
+- Repartition en pourcentages, a parts egales par defaut (y compris pour les personnes ajoutees ensuite) : dans le formulaire de chaque depense, et dans Administration → Repartition pour les biens et les prets. Un pret suit la repartition de son bien, sauf repartition propre.
 
 ### Immobilier
 
@@ -19,7 +21,7 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 - Actualisation automatique de l'estimation depuis sa date, selon l'evolution mensuelle des prix du departement (indice DVF, meme type de bien) ; le curseur et les scenarios partent de la valeur actualisee. Signalement d'une estimation de plus de 3 ans et d'un bien sans periode d'occupation.
 - Fiche de bien : curseur de valeur retenue (scenarios pessimiste, prudent, fourchette, optimiste ou valeur libre), enregistre en direct sur le bien. Il est remis sur le scenario prudent quand les estimations du bien changent.
 - Vue d'ensemble : somme des valeurs retenues de chaque bien (sans curseur), valeur nette indicative calculee bien par bien, plus-value latente, capital restant du, prochaine mensualite.
-- Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte.
+- Prets associes a un bien, crees a partir d'un echeancier CSV. Taux actuel, capital restant du et prochaine echeance sont calcules depuis l'echeancier a la date du jour ; un pret pas encore commence compte pour la totalite du capital emprunte. Interets payes et total du pret (interets seuls, hors assurance et frais) sur la fiche du pret et dans les tableaux de prets, avec une ligne Total.
 - Apports personnels par bien.
 - Charges par annee (taxe fonciere, copropriete, assurance, autre) : une seule saisie suffit, les autres annees sont estimees (taxe fonciere revalorisee chaque annee selon le coefficient legal, autres charges constantes).
 - Occupation par periode : location (loyer percu) ou residence principale (loyer de reference saisi, compte comme loyer economise dans l'enrichissement reel) ; les jours sans periode comptent comme vacants. Rendement brut sur les seuls loyers percus.
