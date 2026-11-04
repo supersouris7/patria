@@ -50,7 +50,7 @@ Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquis
 - zone : 500 m autour de l'adresse, elargie a 1 km, puis 2 km, puis a la commune tant qu'il y a moins de 30 ventes comparables ;
 - chaque vente est actualisee a aujourd'hui avec l'evolution des prix du departement ; les valeurs extremes sont ecartees ;
 - resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien ;
-- detail : « Voir les N ventes en detail » liste les ventes retenues pour la mediane (date, adresse, surface, prix, prix au m² actualise, distance), triables et filtrables, chacune avec un lien vers la carte publique DVF (explore.data.gouv.fr), ainsi qu'un lien vers la carte centree sur le bien.
+- detail : « Voir les N ventes en detail » liste les ventes retenues pour la mediane (date, adresse, surface, prix, prix au m² actualise, distance), triables et filtrables, chacune avec un lien vers Google Maps (sur l'adresse) et vers la carte publique DVF (explore.data.gouv.fr), ainsi qu'un lien vers la carte centree sur le bien.
 
 Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr`, `tabular-api.data.gouv.fr` et, pour le taux du marche, `data-api.ecb.europa.eu`. Sans acces, le reste de l'application fonctionne normalement.
 

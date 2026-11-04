@@ -35,8 +35,8 @@ final class MarketPages {
             boolean distances = data.sales().stream().anyMatch(sale -> sale.distance() != null);
             Html rows = data.sales().stream().map(sale -> Html.of("""
                             <tr><td data-sort="%s">%s</td><td>%s</td><td class="num" data-sort="%s">%s</td><td class="num" data-sort="%s">%s</td>\
-                            <td class="num" data-sort="%s">%s</td>%s<td><a href="%s" target="_blank" rel="noopener" aria-label="Voir cette vente sur la carte DVF">Carte ↗</a></td></tr>""",
-                    sale.date(), Format.date(sale.date()), sale.address().isBlank() ? Format.DASH : sale.address(),
+                            <td class="num" data-sort="%s">%s</td>%s<td><a href="%s" target="_blank" rel="noopener" aria-label="Voir cette vente sur la carte DVF">DVF ↗</a></td></tr>""",
+                    sale.date(), Format.date(sale.date()), address(sale),
                     Format.plain(sale.area()), Format.area(sale.area()), Format.plain(sale.price()), Format.euroWhole(sale.price()),
                     Format.plain(sale.perSquareMeter()), Format.perSquareMeter(sale.perSquareMeter()),
                     distances ? Html.of("<td class=\"num\" data-sort=\"%s\">%s</td>", sale.distance() == null ? "" : sale.distance(), distance(sale.distance())) : Html.EMPTY,
@@ -54,6 +54,16 @@ final class MarketPages {
                     Components.card("Ventes retenues", data.sales().size(), Html.EMPTY, Html.concat(table, source)));
         }
         return Layout.page("Ventes du secteur · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+    }
+
+    /** Adresse de la vente, avec un lien vers Google Maps (pointe sur les coordonnees DVF, plus sures que l'adresse seule). */
+    private static Html address(MarketSale sale) {
+        String label = sale.address().isBlank() ? "Voir le lieu" : sale.address();
+        return Html.of("<a href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"Ouvrir dans Google Maps\">%s ↗</a>", googleMaps(sale.latitude(), sale.longitude()), label);
+    }
+
+    static String googleMaps(double latitude, double longitude) {
+        return String.format(Locale.ROOT, "https://www.google.com/maps/search/?api=1&query=%.6f,%.6f", latitude, longitude);
     }
 
     private static String distance(Integer meters) {
