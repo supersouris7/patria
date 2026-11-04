@@ -29,7 +29,7 @@ public final class LoanController {
     public void register(Router router) {
         router.get("/bien/{id}/prets/nouveau", this::newForm);
         router.post("/bien/{id}/prets", this::create);
-        router.get("/pret/{id}", this::detail);
+        router.estateGet("/pret/{id}", this::detail);
         router.get("/pret/{id}/gerer", this::manage);
         router.get("/pret/{id}/echeancier", request -> Response.redirect("/pret/" + request.id() + "/gerer"));
         router.post("/pret/{id}/echeancier", this::replaceSchedule);

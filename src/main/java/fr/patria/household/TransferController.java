@@ -25,26 +25,30 @@ public final class TransferController {
     }
 
     public void register(Router router) {
-        router.get("/administration/virements", request -> Response.page(page(defaults(), request.confirmation(), request.csrf())));
-        router.post("/administration/virements", this::create);
-        router.get("/virement/{id}", request -> {
-            Transfer transfer = require(request.id());
-            return Response.page(TransferPages.edit(transfer, household.people(), TransferPages.values(transfer), null, back(request), request.csrf()));
+        router.userGet("/administration/virements", request -> Response.page(page(request, defaults(request), request.confirmation())));
+        router.userPost("/administration/virements", this::create);
+        router.userGet("/virement/{id}", request -> {
+            Transfer transfer = require(request);
+            return Response.page(TransferPages.edit(transfer, household.people(), visibility(request).people(), TransferPages.values(transfer), null, back(request), request.csrf()));
         });
-        router.post("/virement/{id}", this::update);
-        router.post("/virement/{id}/supprimer", request -> {
-            household.deleteTransfer(require(request.id()).id());
+        router.userPost("/virement/{id}", this::update);
+        router.userPost("/virement/{id}/supprimer", request -> {
+            household.deleteTransfer(require(request).id());
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/virements?ok=supprime");
         });
     }
 
-    private fr.patria.ui.Html page(Map<String, String> values, Notice notice, String csrf) {
-        return TransferPages.page(household.people(), household.transfers(), values, notice, csrf);
+    private Visibility visibility(Request request) {
+        return Visibility.of(request.viewer(), household.people());
     }
 
-    private Map<String, String> defaults() {
-        List<Person> people = household.people();
+    private fr.patria.ui.Html page(Request request, Map<String, String> values, Notice notice) {
+        return TransferPages.page(visibility(request), household.transfers(), values, notice, request.csrf());
+    }
+
+    private Map<String, String> defaults(Request request) {
+        List<Person> people = visibility(request).people();
         Map<String, String> values = new java.util.HashMap<>();
         values.put("start", LocalDate.now(clock).withDayOfMonth(1).toString());
         people.stream().filter(person -> !person.isAccount()).findFirst().ifPresent(person -> values.put("from", String.valueOf(person.id())));
@@ -54,21 +58,22 @@ public final class TransferController {
 
     private Response create(Request request) {
         try {
-            household.addTransfer(read(request.form(), 0, household.people()));
+            household.addTransfer(read(request.form(), 0, visibility(request).people()));
             return Response.redirect("/administration/virements?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(page(request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(page(request, request.form().values(), Notice.error(exception.getMessage())));
         }
     }
 
     private Response update(Request request) {
-        Transfer current = require(request.id());
+        Transfer current = require(request);
         try {
-            household.updateTransfer(read(request.form(), current.id(), household.people()));
+            household.updateTransfer(read(request.form(), current.id(), visibility(request).people()));
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/virements?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(TransferPages.edit(current, household.people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
+            return Response.invalid(TransferPages.edit(current, household.people(), visibility(request).people(), request.form().values(),
+                    Notice.error(exception.getMessage()), back(request), request.csrf()));
         }
     }
 
@@ -99,7 +104,12 @@ public final class TransferController {
         return back != null && back.startsWith("/budget") ? back : null;
     }
 
-    private Transfer require(long id) {
-        return household.transfer(id).orElseThrow(() -> new NotFoundException("Virement introuvable", "Ce virement n'existe pas."));
+    /** Virement que la personne connectee peut modifier : entre deux membres dont la vue est ouverte. */
+    private Transfer require(Request request) {
+        Transfer transfer = household.transfer(request.id()).orElseThrow(() -> new NotFoundException("Virement introuvable", "Ce virement n'existe pas."));
+        Visibility visibility = visibility(request);
+        if (!visibility.canSeeAny(transfer.fromId(), transfer.toId())) throw new NotFoundException("Virement introuvable", "Ce virement n'existe pas.");
+        visibility.requireEdit(visibility.canEditAll(transfer.fromId(), transfer.toId()));
+        return transfer;
     }
 }

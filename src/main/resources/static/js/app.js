@@ -125,7 +125,8 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   };
 
   const save = (value) => {
-    if (value === saved) return;
+    // Sans data-save (consultation par un utilisateur), le curseur reste local.
+    if (value === saved || !hero.dataset.save) return;
     showState("Enregistrement…");
     const body = new URLSearchParams({csrf, value: String(value)});
     fetch(hero.dataset.save, {method: "POST", body, credentials: "same-origin", keepalive: true})
@@ -261,4 +262,10 @@ document.querySelectorAll("button[data-copy]").forEach((button) => {
     status.textContent = copied ? "Prompt copié : collez-le dans votre assistant IA et joignez-y vos documents."
       : "Copie automatique impossible : le prompt est sélectionné ci-dessous, copiez-le (Ctrl+C).";
   });
+});
+
+// ---- Selecteur de foyer (en-tete) : changement immediat ----
+document.querySelectorAll("select[data-autosubmit]").forEach((select) => {
+  select.form.classList.add("auto");
+  select.addEventListener("change", () => select.form.submit());
 });

@@ -53,7 +53,15 @@ final class HouseholdPages {
                         + "Le prélèvement à la source se saisit dans les dépenses, catégorie « Impôts et taxes ».</p>"));
     }
 
-    static Html page(List<Person> people, List<Income> incomes, Map<String, String> values, Notice notice, String csrf) {
+    /**
+     * {@code people} : tous les membres ; {@code visibility} : ce que la personne connectee voit et modifie. Un
+     * utilisateur ne gere pas les membres et ne voit que les revenus de ses vues ouvertes.
+     */
+    static Html page(Visibility visibility, List<Income> allIncomes, Map<String, String> values, Notice notice, String csrf) {
+        List<Person> people = visibility.everyone();
+        List<Person> formPeople = visibility.people();
+        boolean admin = visibility.isAdmin();
+        List<Income> incomes = allIncomes.stream().filter(income -> visibility.canSeeAny(income.personId())).toList();
         Html personRows = people.stream().map(person -> Html.of("<tr>%s%s<td class=\"actions\"><form method=\"post\" action=\"/personne/%s/supprimer\" data-confirm=\"%s\">%s"
                         + "<button class=\"quiet\" type=\"submit\">Supprimer</button></form></td></tr>",
                 cell(person.isAccount() ? Html.of("%s <small class=\"badge\">Compte joint</small>", person.name()) : Html.text(person.name())), Html.of("<td class=\"num\">%s</td>", incomes.stream().filter(income -> income.personId() == person.id()).count()),
@@ -67,26 +75,29 @@ final class HouseholdPages {
                 Html.raw("<p class=\"muted\">Un compte joint a son propre budget : il reçoit des virements (Administration → Virements) "
                         + "et paie les dépenses qu'on lui attribue. Il ne prend part aux « parts égales » que si on lui donne un pourcentage.</p>")));
 
-        Html incomeRows = incomes.stream().map(income -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\"><a href=\"/revenu/%s\">Modifier</a></td></tr>",
+        Html incomeRows = incomes.stream().map(income -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\">%s</td></tr>",
                 cell(people.stream().filter(person -> person.id() == income.personId()).map(Person::name).findFirst().orElse(Format.DASH)),
                 cell(income.label()), cell(income.kind().label()), number(income.amount(), Format.euro(income.amount())),
-                cell(income.frequency().label()), cell(period(income)), income.id())).collect(Html.joining());
+                cell(income.frequency().label()), cell(period(income)),
+                visibility.sees(income.personId()) ? Html.of("<a href=\"/revenu/%s\">Modifier</a>", income.id())
+                        : Html.raw("<span class=\"readonly-note\">Lecture seule</span>"))).collect(Html.joining());
         Html incomesCard = Components.card("Revenus", incomes.size(), Html.EMPTY, incomes.isEmpty()
                 ? Html.raw("<p class=\"empty\">Aucun revenu saisi.</p>")
                 : Components.table(List.of("Personne", "Libellé", "Type", "#Montant", "Fréquence", "Période", ""), incomeRows, true, false));
-        Html addIncome = people.isEmpty() ? Html.EMPTY : Components.card("Ajouter un revenu", null, Html.EMPTY,
-                Components.form("/administration/foyer/revenus", csrf, false, incomeFields(people, values), "Ajouter le revenu"));
+        Html addIncome = formPeople.isEmpty() ? Html.EMPTY : Components.card("Ajouter un revenu", null, Html.EMPTY,
+                Components.form("/administration/foyer/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"));
 
-        Html content = Html.concat(Components.heading("Administration", "Foyer et revenus", null, Html.EMPTY), Components.notice(notice),
-                peopleCard, addIncome, incomesCard);
-        return Layout.adminSection("Foyer et revenus · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
+        String title = admin ? "Foyer et revenus" : "Revenus";
+        Html content = Html.concat(Components.heading("Administration", title, null, Html.EMPTY), Components.notice(notice),
+                admin ? peopleCard : Html.EMPTY, addIncome, incomesCard);
+        return Layout.adminSection(title + " · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
     }
 
     /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a Foyer et revenus. */
     static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String back, String csrf) {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         Html content = Html.concat(
-                back == null ? Components.backLink("/administration/foyer", "Foyer et revenus") : Components.backLink(back, "Budget"),
+                back == null ? Components.backLink("/administration/foyer", Layout.isAdmin() ? "Foyer et revenus" : "Revenus") : Components.backLink(back, "Budget"),
                 Components.heading("Revenu", income.label(), null, Html.EMPTY), Components.notice(notice),
                 Components.card("Revenu", null, Html.EMPTY, Components.form("/revenu/" + income.id() + suffix, csrf, false, incomeFields(people, values), "Enregistrer")),
                 Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,

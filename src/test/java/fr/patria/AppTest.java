@@ -27,7 +27,7 @@ class AppTest {
 
     @BeforeEach
     void start() {
-        app = App.start(new Config("secret", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK));
+        app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK));
         base = "http://127.0.0.1:" + app.port();
         client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
     }

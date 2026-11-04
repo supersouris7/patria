@@ -19,7 +19,8 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 
 ### Immobilier
 
-- Authentification par mot de passe, avec limitation des tentatives (10 echecs par 15 minutes).
+- Connexion par identifiant et mot de passe, avec limitation des tentatives (10 echecs par 15 minutes) : un administrateur (defini dans l'environnement) et des utilisateurs crees par lui.
+- Plusieurs foyers, chacun avec ses propres donnees ; chaque utilisateur ne voit que les foyers et les vues que l'administrateur lui ouvre.
 - Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.
 - Actualisation automatique de l'estimation depuis sa date, selon l'evolution mensuelle des prix du departement (indice DVF, meme type de bien) ; le curseur et les scenarios partent de la valeur actualisee. Signalement d'une estimation de plus de 3 ans et d'un bien sans periode d'occupation.
 - Fiche de bien : curseur de valeur retenue (scenarios pessimiste, prudent, fourchette, optimiste ou valeur libre), enregistre en direct sur le bien. Il est remis sur le scenario prudent quand les estimations du bien changent.
@@ -91,6 +92,24 @@ Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CON
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
 
+## Foyers et utilisateurs
+
+**Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout, et gere dans Administration :
+
+- **Foyers** : creer, renommer, supprimer. Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`. Le foyer affiche se choisit dans l'en-tete.
+- **Utilisateurs** : identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression. Pour chaque foyer : acces, vue « Foyer » (total de tous les membres), vues des membres ouvertes (une personne, le compte joint...), consultation de l'immobilier.
+
+**Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Accueil et Budget. Dans Administration, il a Revenus, Depenses et Virements :
+
+- il voit les lignes qui concernent au moins une de ses vues (toutes avec la vue « Foyer ») ;
+- il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre reste en lecture seule ;
+- « parts egales » se repartit entre ses membres seulement ;
+- pas de gestion des membres, des biens, de la repartition, des foyers ni des utilisateurs ; l'immobilier en lecture seule, s'il est ouvert.
+
+Il change son mot de passe dans « Mon compte » (icone de l'en-tete). Desactiver un compte, le supprimer ou reinitialiser son mot de passe le deconnecte aussitot.
+
+Les foyers, utilisateurs et droits sont dans `comptes.sqlite3`, a cote de DATABASE_PATH (mots de passe chiffres avec bcrypt). Pour une sauvegarde, copier tout le volume de donnees.
+
 ## Architecture
 
 Le code est organise en modules (biens, prets, apports, patrimoine) au-dessus d'un socle commun (web, interface, stockage). Voir [ARCHITECTURE.md](ARCHITECTURE.md) pour la carte des modules, les regles de dependance et la marche a suivre pour ajouter une fonctionnalite.
@@ -121,7 +140,7 @@ docker compose pull
 docker compose up -d
 ```
 
-`APP_PASSWORD` est obligatoire et doit etre un mot de passe long. Un hash `{bcrypt}...` reste accepte lors d'une migration. Ne commitez jamais `.env` ni le volume de donnees.
+`APP_PASSWORD` est obligatoire et doit etre un mot de passe long : c'est celui de l'administrateur, dont l'identifiant est `admin` (modifiable avec `ADMIN_LOGIN`). Un hash `{bcrypt}...` reste accepte lors d'une migration. Ne commitez jamais `.env` ni le volume de donnees.
 
 ## Developpement
 

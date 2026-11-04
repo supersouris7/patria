@@ -135,12 +135,18 @@ public final class Forecast {
      */
     /**
      * @param person  personne affichee, {@code null} pour le foyer entier
-     * @param people  toutes les personnes du foyer (pour le selecteur)
+     * @param people  personnes proposees dans le selecteur (toutes, ou celles dont la vue est ouverte)
+     * @param householdTab onglet « Foyer » propose dans le selecteur
      */
     public record View(List<Month> months, DebtRatio debt, BigDecimal provision, List<Alert> alerts, boolean hasIncome, boolean hasExpenses,
-                       Person person, List<Person> people) {
+                       Person person, List<Person> people, boolean householdTab) {
         public Month current() {
             return months.getFirst();
+        }
+
+        /** Meme vue, selecteur limite aux vues ouvertes d'un utilisateur. */
+        public View withTabs(boolean household, List<Person> open) {
+            return new View(months, debt, provision, alerts, hasIncome, hasExpenses, person, open, household);
         }
     }
 
@@ -177,7 +183,7 @@ public final class Forecast {
         BigDecimal provision = months.stream().flatMap(month -> month.expenses().stream()).filter(line -> line.frequency() != Frequency.MONTHLY)
                 .map(Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(HORIZON), 0, RoundingMode.HALF_UP);
         boolean hasIncome = data.incomes().stream().anyMatch(scope::includes) || months.stream().anyMatch(m -> !m.incomes().isEmpty());
-        return new View(months, debt, provision, alerts(months, debt), hasIncome, months.stream().anyMatch(m -> !m.expenses().isEmpty()), person, data.people());
+        return new View(months, debt, provision, alerts(months, debt), hasIncome, months.stream().anyMatch(m -> !m.expenses().isEmpty()), person, data.people(), true);
     }
 
     /** Revenus et depenses ramenes a leur moyenne mensuelle sur les 12 prochains mois, ligne par ligne. */

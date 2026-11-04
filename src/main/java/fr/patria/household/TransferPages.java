@@ -37,31 +37,38 @@ final class TransferPages {
         return values;
     }
 
-    static Html page(List<Person> people, List<Transfer> transfers, Map<String, String> values, Notice notice, String csrf) {
+    /** Virements visibles par la personne connectee ; ceux qui concernent un membre non ouvert sont en lecture seule. */
+    static Html page(Visibility visibility, List<Transfer> allTransfers, Map<String, String> values, Notice notice, String csrf) {
+        List<Person> people = visibility.everyone();
+        List<Person> formPeople = visibility.people();
+        List<Transfer> transfers = allTransfers.stream().filter(transfer -> visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
         Html heading = Components.heading("Administration", "Virements", EXPLANATION, Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, Html.concat(heading, Components.notice(notice),
                     Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : ajoutez un compte joint ou une deuxième personne.",
                             Components.button("/administration/foyer", "Foyer et revenus"))));
         }
-        Html rows = transfers.stream().map(transfer -> Html.of("<tr>%s%s%s%s%s<td class=\"actions\"><a href=\"/virement/%s\">Modifier</a></td></tr>",
+        Html rows = transfers.stream().map(transfer -> Html.of("<tr>%s%s%s%s%s<td class=\"actions\">%s</td></tr>",
                 cell(name(people, transfer.fromId()) + " → " + name(people, transfer.toId())), cell(transfer.label().isBlank() ? Format.DASH : transfer.label()),
-                number(transfer.amount(), Format.euro(transfer.amount())), cell(transfer.frequency().label()), cell(period(transfer)), transfer.id())).collect(Html.joining());
+                number(transfer.amount(), Format.euro(transfer.amount())), cell(transfer.frequency().label()), cell(period(transfer)),
+                visibility.canEditAll(transfer.fromId(), transfer.toId()) ? Html.of("<a href=\"/virement/%s\">Modifier</a>", transfer.id())
+                        : Html.raw("<span class=\"readonly-note\">Lecture seule</span>"))).collect(Html.joining());
         Html list = transfers.isEmpty() ? Html.raw("<p class=\"empty\">Aucun virement.</p>")
                 : Components.table(List.of("Virement", "Libellé", "#Montant", "Fréquence", "Période", ""), rows, true, false);
         Html content = Html.concat(heading, Components.notice(notice),
-                Components.card("Nouveau virement", null, Html.EMPTY, Components.form("/administration/virements", csrf, false, fields(people, values), "Ajouter le virement")),
+                formPeople.size() < 2 ? Html.EMPTY
+                        : Components.card("Nouveau virement", null, Html.EMPTY, Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement")),
                 Components.card("Virements", transfers.size(), Html.EMPTY, list));
         return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }
 
-    static Html edit(Transfer transfer, List<Person> people, Map<String, String> values, Notice notice, String back, String csrf) {
+    static Html edit(Transfer transfer, List<Person> people, List<Person> formPeople, Map<String, String> values, Notice notice, String back, String csrf) {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         String title = name(people, transfer.fromId()) + " → " + name(people, transfer.toId());
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/virements", "Virements") : Components.backLink(back, "Budget"),
                 Components.heading("Virement", title, transfer.label().isBlank() ? null : transfer.label(), Html.EMPTY), Components.notice(notice),
-                Components.card("Virement", null, Html.EMPTY, Components.form("/virement/" + transfer.id() + suffix, csrf, false, fields(people, values), "Enregistrer")),
+                Components.card("Virement", null, Html.EMPTY, Components.form("/virement/" + transfer.id() + suffix, csrf, false, fields(formPeople, values), "Enregistrer")),
                 Components.dangerZone("Supprimer ce virement", "Il disparaîtra du budget des deux membres.", "/virement/" + transfer.id() + "/supprimer" + suffix,
                         "Supprimer le virement « " + title + " » ?", "Supprimer le virement", csrf));
         return Layout.adminSection("Virement · " + title + " · Patria", csrf, Layout.AdminSection.TRANSFERS, content);

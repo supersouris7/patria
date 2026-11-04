@@ -3,6 +3,7 @@ package fr.patria.web;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import fr.patria.common.ForbiddenException;
 import fr.patria.common.NotFoundException;
 import fr.patria.common.ValidationException;
 import fr.patria.ui.Assets;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -25,6 +27,10 @@ import java.util.regex.Pattern;
  * <p>Regles communes appliquees ici, une fois pour toutes :
  * <ul>
  *   <li>route privee sans session -> redirection vers la page de connexion ;</li>
+ *   <li>route reservee : {@link Access#ADMIN} par defaut ({@code get}, {@code post}), ouverte aux utilisateurs avec
+ *       {@code userGet}/{@code userPost} (le controleur filtre alors selon {@link Viewer}), a ceux qui voient
+ *       l'immobilier avec {@code estateGet} ; sinon 403 ;</li>
+ *   <li>routes d'un foyer : le routeur principal confie la requete au routeur du foyer affiche par la session ;</li>
  *   <li>POST prive sans jeton CSRF valide -> 400 ;</li>
  *   <li>{@link ValidationException} -> 400, {@link NotFoundException} -> 404, autre exception -> 500 journalisee ;</li>
  *   <li>en-tetes de securite sur chaque page.</li>
@@ -36,7 +42,22 @@ public final class Router implements HttpHandler {
         Response handle(Request request);
     }
 
-    private record Route(String method, Pattern pattern, List<String> parameters, boolean isPrivate, Handler handler) {
+    /** Qui peut ouvrir une route privee. */
+    public enum Access { ADMIN, USER, REAL_ESTATE }
+
+    /** Droits de la personne connectee, relus a chaque requete ; vide si le compte n'existe plus ou n'a plus de foyer. */
+    @FunctionalInterface
+    public interface Viewers {
+        Optional<Viewer> of(Session session);
+    }
+
+    /** Routeur des pages d'un foyer (chaque foyer a sa base). */
+    @FunctionalInterface
+    public interface Households {
+        Router router(long householdId);
+    }
+
+    private record Route(String method, Pattern pattern, List<String> parameters, boolean isPrivate, Access access, Handler handler) {
     }
 
     private static final Logger LOG = Logger.getLogger(Router.class.getName());
@@ -45,30 +66,55 @@ public final class Router implements HttpHandler {
             + "script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
     private final List<Route> routes = new ArrayList<>();
     private final Sessions sessions;
+    private final Viewers viewers;
+    private final Households households;
 
-    public Router(Sessions sessions) {
+    /** Routeur principal : connexion, comptes, puis routes du foyer affiche. */
+    public Router(Sessions sessions, Viewers viewers, Households households) {
         this.sessions = sessions;
+        this.viewers = viewers;
+        this.households = households;
+    }
+
+    /** Routeur des pages d'un foyer, appele par le routeur principal. */
+    public Router() {
+        this(null, null, null);
     }
 
     // ---- Declaration des routes ----
 
+    /** Page reservee a l'administrateur. */
     public void get(String path, Handler handler) {
-        add("GET", path, true, handler);
+        add("GET", path, true, Access.ADMIN, handler);
     }
 
     public void post(String path, Handler handler) {
-        add("POST", path, true, handler);
+        add("POST", path, true, Access.ADMIN, handler);
+    }
+
+    /** Page ouverte aux utilisateurs : le controleur ne montre que les vues ouvertes ({@link Request#viewer()}). */
+    public void userGet(String path, Handler handler) {
+        add("GET", path, true, Access.USER, handler);
+    }
+
+    public void userPost(String path, Handler handler) {
+        add("POST", path, true, Access.USER, handler);
+    }
+
+    /** Consultation de l'immobilier, pour les utilisateurs qui y ont acces. */
+    public void estateGet(String path, Handler handler) {
+        add("GET", path, true, Access.REAL_ESTATE, handler);
     }
 
     public void publicGet(String path, Handler handler) {
-        add("GET", path, false, handler);
+        add("GET", path, false, Access.USER, handler);
     }
 
     public void publicPost(String path, Handler handler) {
-        add("POST", path, false, handler);
+        add("POST", path, false, Access.USER, handler);
     }
 
-    private void add(String method, String path, boolean isPrivate, Handler handler) {
+    private void add(String method, String path, boolean isPrivate, Access access, Handler handler) {
         List<String> parameters = new ArrayList<>();
         Matcher matcher = PARAMETER.matcher(path);
         StringBuilder regex = new StringBuilder();
@@ -77,7 +123,7 @@ public final class Router implements HttpHandler {
             matcher.appendReplacement(regex, "(\\\\d{1,18})");
         }
         matcher.appendTail(regex);
-        routes.add(new Route(method, Pattern.compile(regex.toString()), parameters, isPrivate, handler));
+        routes.add(new Route(method, Pattern.compile(regex.toString()), parameters, isPrivate, access, handler));
     }
 
     // ---- Traitement ----
@@ -93,9 +139,18 @@ public final class Router implements HttpHandler {
                 return;
             }
             session = sessions.find(cookie(exchange)).orElse(null);
-            write(exchange, dispatch(exchange, path, session));
+            Viewer viewer = session == null ? null : viewers.of(session).orElse(null);
+            if (session != null && viewer == null) {
+                // Compte desactive ou supprime, ou plus aucun foyer : la session est fermee.
+                sessions.remove(session);
+                session = null;
+            }
+            Layout.CHROME.set(chrome(viewer));
+            write(exchange, dispatch(exchange, path, session, viewer));
         } catch (ValidationException exception) {
             write(exchange, new Response.Page(400, Layout.message("Demande invalide", exception.getMessage(), csrf(session))));
+        } catch (ForbiddenException exception) {
+            write(exchange, new Response.Page(403, Layout.message("Accès réservé", exception.getMessage(), csrf(session))));
         } catch (NotFoundException exception) {
             write(exchange, new Response.Page(404, Layout.message(exception.title(), exception.getMessage(), csrf(session))));
         } catch (PayloadTooLargeException exception) {
@@ -104,11 +159,19 @@ public final class Router implements HttpHandler {
             LOG.log(Level.SEVERE, "Erreur sur " + exchange.getRequestMethod() + " " + exchange.getRequestURI(), exception);
             write(exchange, new Response.Page(500, Layout.message("Erreur interne", "Une erreur est survenue.", csrf(session))));
         } finally {
+            Layout.CHROME.remove();
             exchange.close();
         }
     }
 
-    private Response dispatch(HttpExchange exchange, String path, Session session) {
+    /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
+    private static Layout.Chrome chrome(Viewer viewer) {
+        if (viewer == null) return null;
+        return new Layout.Chrome(viewer.name(), viewer.isAdmin(), viewer.realEstate(),
+                viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name())).toList(), viewer.household().id());
+    }
+
+    private Response dispatch(HttpExchange exchange, String path, Session session, Viewer viewer) {
         String method = exchange.getRequestMethod().equals("HEAD") ? "GET" : exchange.getRequestMethod();
         boolean pathExists = false;
         for (Route route : routes) {
@@ -123,12 +186,31 @@ public final class Router implements HttpHandler {
             }
             Map<String, String> parameters = new HashMap<>();
             for (int i = 0; i < route.parameters().size(); i++) parameters.put(route.parameters().get(i), matcher.group(i + 1));
-            Request request = new Request(exchange, parameters, session);
+            if (route.isPrivate() && !allowed(route.access(), viewer)) {
+                throw new ForbiddenException(route.access() == Access.REAL_ESTATE ? "L'immobilier n'est pas ouvert pour votre compte."
+                        : "Cette page est réservée à l'administrateur.");
+            }
+            Request request = new Request(exchange, parameters, session, viewer);
             if (route.isPrivate() && method.equals("POST")) checkCsrf(request);
             return route.handler().handle(request);
         }
+        if (!pathExists && households != null) {
+            if (viewer != null) return households.router(viewer.household().id()).dispatch(exchange, path, session, viewer);
+            String query = exchange.getRequestURI().getRawQuery();
+            String target = path + (query == null ? "" : "?" + query);
+            return Response.redirect(method.equals("GET") && !target.equals("/") ? "/connexion?suite=" + LocalPath.encode(target) : "/connexion");
+        }
         if (pathExists) return new Response.Page(405, Layout.message("Méthode non autorisée", "Cette action n'est pas disponible.", csrf(session)));
         throw new NotFoundException("Page introuvable", "Cette page n'existe pas.");
+    }
+
+    private static boolean allowed(Access access, Viewer viewer) {
+        if (viewer.isAdmin()) return true;
+        return switch (access) {
+            case ADMIN -> false;
+            case USER -> true;
+            case REAL_ESTATE -> viewer.realEstate();
+        };
     }
 
     private static void checkCsrf(Request request) {

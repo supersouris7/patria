@@ -3,8 +3,10 @@ package fr.patria.budget;
 import fr.patria.common.Frequency;
 import fr.patria.common.NotFoundException;
 import fr.patria.common.ValidationException;
+import fr.patria.common.ForbiddenException;
 import fr.patria.household.Person;
 import fr.patria.household.Shares;
+import fr.patria.household.Visibility;
 import fr.patria.ui.Notice;
 import fr.patria.web.FormData;
 import fr.patria.web.LocalPath;
@@ -35,27 +37,28 @@ public final class BudgetController {
     }
 
     public void register(Router router) {
-        router.get("/", request -> Response.page(BudgetPages.home(forecast.next12Months(person(request)), request.csrf())));
-        router.get("/budget", request -> {
-            Forecast.View view = forecast.next12Months(person(request));
+        router.userGet("/", request -> Response.page(BudgetPages.home(view(request), request.csrf())));
+        router.userGet("/budget", request -> {
+            Forecast.View view = view(request);
             return Response.page(BudgetPages.budget(view, forecast.averageIncomes(view), forecast.averageExpenses(view), request.csrf()));
         });
-        router.get("/administration", request -> Response.redirect("/administration/foyer"));
-        router.get("/administration/depenses", request -> Response.page(adminPage(defaults(), request.confirmation(), request.csrf())));
-        router.post("/administration/depenses", this::create);
-        router.get("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
+        router.userGet("/administration", request -> Response.redirect("/administration/foyer"));
+        router.userGet("/administration/depenses", request -> Response.page(adminPage(request, defaults(), request.confirmation())));
+        router.userPost("/administration/depenses", this::create);
+        router.userGet("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
                 ExpenseCsv.template().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        router.post("/administration/depenses/import", this::preview);
-        router.post("/administration/depenses/import/valider", this::confirmImport);
-        router.get("/depense/{id}", request -> {
-            BudgetItem item = require(request.id());
+        router.userPost("/administration/depenses/import", this::preview);
+        router.userPost("/administration/depenses/import/valider", this::confirmImport);
+        router.userGet("/depense/{id}", request -> {
+            BudgetItem item = editable(request);
+            Visibility visibility = visibility(request);
             Map<String, String> values = new HashMap<>(BudgetPages.values(item));
-            values.putAll(Shares.values(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id()), people()));
-            return Response.page(BudgetPages.edit(item, people(), values, null, back(request), request.csrf()));
+            values.putAll(Shares.values(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id()), visibility.people()));
+            return Response.page(BudgetPages.edit(item, visibility.people(), values, null, back(request), request.csrf()));
         });
-        router.post("/depense/{id}", this::update);
-        router.post("/depense/{id}/supprimer", request -> {
-            long id = require(request.id()).id();
+        router.userPost("/depense/{id}", this::update);
+        router.userPost("/depense/{id}/supprimer", request -> {
+            long id = editable(request).id();
             items.delete(id);
             sources.shares().delete(Shares.Subject.BUDGET_ITEM, id);
             String back = back(request);
@@ -84,8 +87,50 @@ public final class BudgetController {
         return sources.household().people();
     }
 
-    private fr.patria.ui.Html adminPage(Map<String, String> values, Notice notice, String csrf) {
-        return BudgetPages.admin(items.all(), sources.shares().all(), people(), sources.properties().all(), values, notice, csrf);
+    private Visibility visibility(Request request) {
+        return Visibility.of(request.viewer(), people());
+    }
+
+    /**
+     * Previsionnel affiche : la personne demandee si sa vue est ouverte, sinon le foyer (si ouvert) ou la premiere
+     * vue ouverte. Le selecteur ne propose que les vues ouvertes.
+     */
+    private Forecast.View view(Request request) {
+        Visibility visibility = visibility(request);
+        Long asked = person(request);
+        if (visibility.isAdmin()) return forecast.next12Months(asked);
+        List<Person> open = visibility.people();
+        Long scope;
+        if (asked != null && open.stream().anyMatch(person -> person.id() == asked)) scope = asked;
+        else if (visibility.wholeHousehold()) scope = null;
+        else if (!open.isEmpty()) scope = open.getFirst().id();
+        else throw new ForbiddenException("Aucune vue ne vous est ouverte dans ce foyer.");
+        return forecast.next12Months(scope).withTabs(visibility.wholeHousehold(), open);
+    }
+
+    /** Depenses visibles par la personne connectee, et celles qu'elle ne peut que consulter. */
+    private fr.patria.ui.Html adminPage(Request request, Map<String, String> values, Notice notice) {
+        Visibility visibility = visibility(request);
+        Map<Shares.Key, Map<Long, Integer>> shares = sources.shares().all();
+        List<BudgetItem> visible = new java.util.ArrayList<>();
+        java.util.Set<Long> readOnly = new java.util.HashSet<>();
+        for (BudgetItem item : items.all()) {
+            Map<Long, Integer> own = shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of());
+            if (!visibility.canSee(own)) continue;
+            visible.add(item);
+            if (!visibility.canEdit(own)) readOnly.add(item.id());
+        }
+        return BudgetPages.admin(visible, shares, people(), visibility.people(), readOnly, sources.properties().all(), values, notice, request.csrf());
+    }
+
+    /** Depense que la personne connectee peut modifier (403 si elle concerne un membre non ouvert, 404 si invisible). */
+    private BudgetItem editable(Request request) {
+        BudgetItem item = require(request.id());
+        Visibility visibility = visibility(request);
+        Map<Long, Integer> own = sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id());
+        if (!visibility.canSee(own)) throw new NotFoundException("Dépense introuvable", "Cette dépense n'existe pas.");
+        visibility.requireEdit(visibility.canEdit(own));
+        return item;
     }
 
     private fr.patria.ui.Html sharesPage(Notice notice, String csrf) {
@@ -131,9 +176,9 @@ public final class BudgetController {
             String content = new String(request.form().requiredFile("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
             List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
             boolean ok = rows.stream().allMatch(ExpenseCsv.Row::valid);
-            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, people(), Map.of(), request.csrf()));
+            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, visibility(request).people(), Map.of(), request.csrf()));
         } catch (ValidationException exception) {
-            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
+            return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible. " + exception.getMessage())));
         }
     }
 
@@ -143,22 +188,23 @@ public final class BudgetController {
         try {
             content = new String(java.util.Base64.getUrlDecoder().decode(request.form().raw("contenu")), java.nio.charset.StandardCharsets.UTF_8);
         } catch (IllegalArgumentException exception) {
-            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible : contenu illisible, recommencez depuis le fichier."), request.csrf()));
+            return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible : contenu illisible, recommencez depuis le fichier.")));
         }
         try {
             List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
-            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people(), Map.of(), request.csrf()));
-            List<Person> people = people();
+            Visibility visibility = visibility(request);
+            List<Person> people = visibility.people();
+            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people, Map.of(), request.csrf()));
             Map<String, String> form = request.form().values();
             Map<Long, Integer> all = owner(form.getOrDefault("attribution", ""), people, false);
             List<BudgetRepository.NewExpense> fresh = rows.stream().filter(ExpenseCsv.Row::fresh).map(row -> {
                 String own = form.getOrDefault("attribution_" + row.line(), "");
-                return new BudgetRepository.NewExpense(row.item(), own.isEmpty() ? all : owner(own, people, true));
+                return new BudgetRepository.NewExpense(row.item(), visibility.normalize(own.isEmpty() ? all : owner(own, people, true)));
             }).toList();
             items.insertAll(fresh);
             return Response.redirect("/administration/depenses?ok=importe");
         } catch (ValidationException exception) {
-            return Response.invalid(adminPage(defaults(), Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
+            return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible. " + exception.getMessage())));
         }
     }
 
@@ -173,26 +219,28 @@ public final class BudgetController {
     private Response create(Request request) {
         try {
             BudgetItem item = read(request.form(), 0);
-            Map<Long, Integer> shares = Shares.parse(request.form().values(), people());
+            Visibility visibility = visibility(request);
+            Map<Long, Integer> shares = visibility.normalize(Shares.parse(request.form().values(), visibility.people()));
             long id = items.insert(item);
             sources.shares().set(Shares.Subject.BUDGET_ITEM, id, shares);
             return Response.redirect("/administration/depenses?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(adminPage(request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(adminPage(request, request.form().values(), Notice.error(exception.getMessage())));
         }
     }
 
     private Response update(Request request) {
-        BudgetItem current = require(request.id());
+        BudgetItem current = editable(request);
+        Visibility visibility = visibility(request);
         try {
             BudgetItem item = read(request.form(), current.id());
-            Map<Long, Integer> shares = Shares.parse(request.form().values(), people());
+            Map<Long, Integer> shares = visibility.normalize(Shares.parse(request.form().values(), visibility.people()));
             items.update(item);
             sources.shares().set(Shares.Subject.BUDGET_ITEM, current.id(), shares);
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/depenses?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(BudgetPages.edit(current, people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
+            return Response.invalid(BudgetPages.edit(current, visibility.people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
         }
     }
 

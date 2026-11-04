@@ -107,8 +107,8 @@ final class BudgetPages {
     }
 
     private static Html scopeTabs(Forecast.View view, String path) {
-        if (view.people().size() < 2) return Html.EMPTY;
-        Html tabs = Html.concat(scopeTab(path, "Foyer", view.person() == null),
+        if (view.people().size() + (view.householdTab() ? 1 : 0) < 2) return Html.EMPTY;
+        Html tabs = Html.concat(view.householdTab() ? scopeTab(path, "Foyer", view.person() == null) : Html.EMPTY,
                 view.people().stream().map(person -> scopeTab(path + "?personne=" + person.id(), person.name(),
                         view.person() != null && view.person().id() == person.id())).collect(Html.joining()));
         return Html.of("<nav class=\"scope-tabs\" aria-label=\"Budget de\">%s</nav>", tabs);
@@ -303,22 +303,28 @@ final class BudgetPages {
                 Components.input(Input.of("Dernier paiement", "end", Field.DATE).help("Vide si sans fin."), values));
     }
 
-    static Html admin(List<BudgetItem> items, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people, List<Property> properties,
-                      Map<String, String> values, Notice notice, String csrf) {
+    /**
+     * {@code people} : tous les membres (colonne Repartition) ; {@code formPeople} : ceux proposes a la saisie (vues
+     * ouvertes) ; {@code readOnly} : depenses affichees sans lien de modification.
+     */
+    static Html admin(List<BudgetItem> items, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people, List<Person> formPeople,
+                      java.util.Set<Long> readOnly, List<Property> properties, Map<String, String> values, Notice notice, String csrf) {
         Html presets = Preset.ALL.stream().map(preset -> Html.of(
                 "<button type=\"button\" class=\"chip preset\" data-preset-label=\"%s\" data-preset-category=\"%s\" data-preset-frequency=\"%s\">%s</button>",
                 preset.label(), preset.category().name(), preset.frequency().name(), preset.label())).collect(Html.joining());
         Html form = Html.concat(Html.of("<p class=\"muted\">Modèles : un clic remplit le formulaire, il reste le montant et la date.</p><div class=\"presets\">%s</div>", presets),
-                Components.form("/administration/depenses", csrf, false, fields(values, people), "Ajouter la dépense"));
+                Components.form("/administration/depenses", csrf, false, fields(values, formPeople), "Ajouter la dépense"));
 
         Map<Category, List<BudgetItem>> byCategory = items.stream()
                 .collect(Collectors.groupingBy(BudgetItem::category, () -> new EnumMap<>(Category.class), Collectors.toList()));
         boolean shared = people.size() >= 2;
-        Html rows = byCategory.entrySet().stream().flatMap(entry -> entry.getValue().stream()).map(item -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\"><a href=\"/depense/%s\">Modifier</a></td></tr>",
+        Html rows = byCategory.entrySet().stream().flatMap(entry -> entry.getValue().stream()).map(item -> Html.of("<tr>%s%s%s%s%s%s<td class=\"actions\">%s</td></tr>",
                 Html.concat(cell(item.label()), shared ? cell(Shares.describe(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()), people)) : Html.EMPTY),
                 cell(item.category().label()), number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
                 number(item.frequency().monthly(item.amount()), item.frequency().isRecurring() ? euro(item.frequency().monthly(item.amount())) : Format.DASH),
-                cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())), item.id())).collect(Html.joining());
+                cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())),
+                readOnly.contains(item.id()) ? Html.raw("<span class=\"readonly-note\" title=\"Partagée avec un membre dont la vue ne vous est pas ouverte\">Lecture seule</span>")
+                        : Html.of("<a href=\"/depense/%s\">Modifier</a>", item.id()))).collect(Html.joining());
         Html table = items.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense saisie.</p>")
                 : Components.table(shared ? List.of("Dépense", "Répartition", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", "")
                         : List.of("Dépense", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", ""), rows, true, false);
@@ -326,7 +332,7 @@ final class BudgetPages {
                 <p class="muted">Repris automatiquement de l'immobilier, rien à ressaisir : mensualités des prêts, taxe foncière (octobre, ou de janvier
                 à octobre si mensualisée), taxe d'habitation (novembre), charges de copropriété (chaque trimestre), assurance et autres charges des biens
                 (réparties sur 12 mois), loyers perçus. Ne les ajoutez pas ici : elles compteraient deux fois.</p>""");
-        Html taxLinks = properties.isEmpty() ? Html.EMPTY : Html.of("<p class=\"tax-links\">Taxe foncière et charges : %s</p>",
+        Html taxLinks = properties.isEmpty() || !Layout.isAdmin() ? Html.EMPTY : Html.of("<p class=\"tax-links\">Taxe foncière et charges : %s</p>",
                 java.util.stream.IntStream.range(0, properties.size()).mapToObj(index -> Html.concat(index == 0 ? Html.EMPTY : Html.raw(" · "),
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 

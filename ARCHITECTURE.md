@@ -9,6 +9,9 @@ Le code est découpé en **modules** (packages Java) qui ne dépendent les uns d
 fr.patria
 │
 ├─ App, Config ............ assemble tous les modules et démarre le serveur (seul endroit où l'on fait « new »)
+├─ HouseholdSite ........... un foyer : sa base SQLite, ses dépôts, ses contrôleurs et son routeur
+│
+├─ account ................. COMPTES : foyers, utilisateurs, droits (base comptes.sqlite3), Mon compte
 │
 ├─ budget .................. BUDGET : accueil, prévisionnel des 12 mois (reprend l'immobilier), dépenses du foyer
 ├─ household ............... FOYER : personnes, revenus, répartition entre les personnes (Shares)
@@ -37,7 +40,7 @@ fr.patria
 | `auth` | `common`, `ui`, `web` |
 | `property` | `common`, `ui`, `web`, `storage` |
 | `loan`, `contribution`, `market`, `expense`, `rent` | idem + `property` |
-| `household` | `common`, `ui`, `web`, `storage` |
+| `household`, `account` | `common`, `ui`, `web`, `storage` |
 | `portfolio` | modules immobiliers ci-dessus |
 | `budget` | modules immobiliers + `household` |
 
@@ -60,17 +63,32 @@ Chaque module métier suit la même organisation, ce qui permet de s'y retrouver
 ## Parcours d'une requête
 
 ```
-Navigateur ──► Router (web)
+Navigateur ──► Router principal (web)
                  ├─ fichier statique ? → servi avec cache d'un an (versionné par empreinte)
-                 ├─ route privée sans session → redirection /connexion?suite=<page demandée>
-                 ├─ POST privé sans jeton CSRF valide → 400
-                 └─ Controller.handle(Request) ──► Repository / calculs ──► Pages ──► Response
-                                                   │
-                 ValidationException → 400 · NotFoundException → 404 · autre → 500 journalisée
+                 ├─ session → Viewer (droits relus dans comptes.sqlite3 ; compte désactivé → déconnecté)
+                 ├─ routes de connexion, foyers, utilisateurs, Mon compte
+                 └─ sinon → Router du foyer affiché (HouseholdSite, une base par foyer)
+                              ├─ route privée sans session → redirection /connexion?suite=<page demandée>
+                              ├─ route réservée (Access) → 403
+                              ├─ POST privé sans jeton CSRF valide → 400
+                              └─ Controller.handle(Request) ──► Repository / calculs ──► Pages ──► Response
+
+ValidationException → 400 · ForbiddenException → 403 · NotFoundException → 404 · autre → 500 journalisée
 ```
 
 Le routeur applique ces règles **une seule fois** pour toutes les routes : un contrôleur n'a jamais à vérifier
 la session ou le jeton CSRF, ni à construire une page d'erreur.
+
+### Droits
+
+- **Isolation des foyers** : chaque foyer a sa base et son jeu complet de dépôts et de contrôleurs (`HouseholdSite`).
+  Une requête ne peut donc lire que le foyer de la session ; aucune requête SQL n'a de filtre « foyer ».
+- **Niveau de la route** (`Router.Access`) : `get`/`post` sont réservées à l'administrateur **par défaut** ;
+  `userGet`/`userPost` ouvrent une page aux utilisateurs ; `estateGet` à ceux qui consultent l'immobilier.
+- **Lignes** : sur une route ouverte, le contrôleur filtre avec `household/Visibility` (à partir de
+  `Request.viewer()`) : ligne visible si un de ses membres a sa vue ouverte, modifiable si tous l'ont.
+- **En-tête** : `Layout.CHROME` (posé par le routeur le temps de la requête) donne le nom, les foyers et les
+  rubriques permises ; `Layout.isAdmin()` masque les actions réservées dans les pages partagées.
 
 ## Où se trouve quoi
 
@@ -94,6 +112,8 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment comptent les virements et le compte joint ? | `household/Transfer`, lignes ajoutées par `Forecast.month` (vue d'un membre seulement) ; crédits du compte joint dans `Forecast.jointCredits` ; membre de type compte : `Person.Kind` (migration v9) |
 | Où mènent les retours (après connexion, après enregistrement depuis le budget) ? | `web/LocalPath.safe` : adresse interne uniquement, sinon page par défaut |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` ; taxe foncière mensualisée (10 prélèvements, janvier à octobre) : table `property_tax_monthly` (migration v10), choisie dans les charges du bien ; payeur de la taxe foncière (compte joint, personne) : table `property_tax_payers` (migration v11), choisi dans Administration → Répartition, appliqué par `Forecast.month` |
+| Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
+| Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
 | Comment l'estimation est-elle actualisée ? | coefficient calculé par `market/MarketService.compute` (indice DVF depuis la date d'estimation), appliqué par `property/Valuation.scenarios(property, facteur)` |
@@ -158,6 +178,7 @@ L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit fi
 | Charges et loyers | `ExpenseMathTest`, `RentMathTest` | estimation, revalorisation, prorata, vacance |
 | HTML | `HtmlTest` | échappement |
 | Application | `AppTest` | vrai serveur HTTP : connexion, CSRF, parcours complet, 404 |
+| Comptes | `AccountsTest` | vrai serveur HTTP : vues ouvertes, lecture seule, pages réservées, mot de passe, foyers séparés |
 | Architecture | `ArchitectureTest` | sens des dépendances entre modules |
 
 Les tests utilisent une horloge fixe (`TestData.CLOCK`) : les calculs « à date » sont reproductibles.

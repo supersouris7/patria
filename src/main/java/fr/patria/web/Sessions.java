@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Sessions en memoire : un redemarrage du serveur deconnecte tout le monde (application mono-utilisateur). */
+/** Sessions en memoire : un redemarrage du serveur deconnecte tout le monde. */
 public final class Sessions {
     public static final String COOKIE = "patria_session";
     public static final Duration LIFETIME = Duration.ofHours(12);
@@ -20,10 +20,11 @@ public final class Sessions {
         this.clock = clock;
     }
 
-    public Session create() {
+    /** Nouvelle session ; {@code userId} nul pour l'administrateur. */
+    public Session create(Long userId, long householdId) {
         long now = clock.millis();
         sessions.values().removeIf(session -> session.expiresAt() < now);
-        Session session = new Session(token(), token(), now + LIFETIME.toMillis());
+        Session session = new Session(token(), token(), now + LIFETIME.toMillis(), userId, householdId);
         sessions.put(session.id(), session);
         return session;
     }
@@ -40,6 +41,18 @@ public final class Sessions {
 
     public void remove(Session session) {
         sessions.remove(session.id());
+    }
+
+    /** Change le foyer affiche par cette session. */
+    public Session select(Session session, long householdId) {
+        Session updated = session.withHousehold(householdId);
+        sessions.replace(session.id(), updated);
+        return updated;
+    }
+
+    /** Deconnecte toutes les sessions d'un utilisateur (compte desactive ou supprime, mot de passe reinitialise). */
+    public void removeUser(long userId) {
+        sessions.values().removeIf(session -> session.userId() != null && session.userId() == userId);
     }
 
     private static String token() {

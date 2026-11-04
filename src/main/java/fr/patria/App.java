@@ -1,36 +1,33 @@
 package fr.patria;
 
 import com.sun.net.httpserver.HttpServer;
+import fr.patria.account.AccountController;
+import fr.patria.account.AccountRepository;
+import fr.patria.account.Household;
+import fr.patria.account.HouseholdDirectory;
+import fr.patria.account.User;
 import fr.patria.auth.AuthController;
-import fr.patria.budget.BudgetController;
-import fr.patria.budget.BudgetRepository;
-import fr.patria.budget.Forecast;
-import fr.patria.contribution.ContributionController;
-import fr.patria.contribution.ContributionRepository;
-import fr.patria.expense.ExpenseController;
-import fr.patria.expense.ExpenseRepository;
-import fr.patria.household.HouseholdController;
-import fr.patria.household.ShareRepository;
-import fr.patria.household.HouseholdRepository;
-import fr.patria.loan.LoanController;
-import fr.patria.loan.LoanRepository;
-import fr.patria.market.MarketController;
-import fr.patria.market.MarketService;
-import fr.patria.portfolio.Portfolio;
-import fr.patria.portfolio.PortfolioController;
-import fr.patria.property.PropertyController;
-import fr.patria.property.PropertyRepository;
-import fr.patria.rent.RentController;
-import fr.patria.rent.RentRepository;
+import fr.patria.common.NotFoundException;
 import fr.patria.storage.Database;
-import fr.patria.storage.Migrations;
 import fr.patria.web.Response;
 import fr.patria.web.Router;
+import fr.patria.web.Session;
 import fr.patria.web.Sessions;
+import fr.patria.web.Viewer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -39,17 +36,78 @@ import java.util.logging.Logger;
 /**
  * Point d'entree : assemble les modules et demarre le serveur HTTP.
  * C'est le seul endroit ou les dependances sont creees ; ailleurs, elles sont recues par constructeur.
+ *
+ * <p>Chaque foyer a sa base ({@link HouseholdSite}, ouverte a la premiere visite) ; les foyers, utilisateurs et
+ * droits sont dans la base des comptes, {@code comptes.sqlite3}, a cote de DATABASE_PATH.
  */
 public final class App implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(App.class.getName());
+    static final String ACCOUNTS_FILE = "comptes.sqlite3";
     private final HttpServer server;
     private final ExecutorService executor;
-    private final Database database;
+    private final Database accountsDatabase;
+    private final Sites sites;
 
-    private App(HttpServer server, ExecutorService executor, Database database) {
+    private App(HttpServer server, ExecutorService executor, Database accountsDatabase, Sites sites) {
         this.server = server;
         this.executor = executor;
-        this.database = database;
+        this.accountsDatabase = accountsDatabase;
+        this.sites = sites;
+    }
+
+    /** Bases des foyers ouvertes, par identifiant de foyer. */
+    private static final class Sites implements HouseholdDirectory {
+        private final Config config;
+        private final AccountRepository accounts;
+        private final Map<Long, HouseholdSite> open = new ConcurrentHashMap<>();
+
+        Sites(Config config, AccountRepository accounts) {
+            this.config = config;
+            this.accounts = accounts;
+        }
+
+        HouseholdSite site(long householdId) {
+            return open.computeIfAbsent(householdId, id -> {
+                Household household = accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe plus."));
+                return HouseholdSite.open(file(household), config.clock());
+            });
+        }
+
+        Path file(Household household) {
+            Path primary = config.databasePath().toAbsolutePath();
+            return household.isPrimary() ? primary : primary.resolveSibling(household.file());
+        }
+
+        @Override
+        public List<Member> members(long householdId) {
+            return site(householdId).household.people().stream().map(person -> new Member(person.id(), person.name(), person.isAccount())).toList();
+        }
+
+        @Override
+        public void created(Household household) {
+            site(household.id());
+        }
+
+        @Override
+        public void deleted(Household household) {
+            HouseholdSite site = open.remove(household.id());
+            if (site != null) site.close();
+            Path file = file(household);
+            String suffix = ".supprime-" + LocalDateTime.now(config.clock()).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+            try {
+                for (String extension : List.of("", "-wal", "-shm")) {
+                    Path part = file.resolveSibling(file.getFileName() + extension);
+                    if (Files.exists(part)) Files.move(part, file.resolveSibling(file.getFileName() + extension + suffix), StandardCopyOption.ATOMIC_MOVE);
+                }
+            } catch (IOException exception) {
+                LOG.warning("Base du foyer supprimé non renommée : " + file + " (" + exception.getMessage() + ")");
+            }
+        }
+
+        void closeAll() {
+            open.values().forEach(HouseholdSite::close);
+            open.clear();
+        }
     }
 
     public static void main(String[] args) {
@@ -61,44 +119,59 @@ public final class App implements AutoCloseable {
     public static App start(Config config) {
         try {
             if (config.databasePath().toAbsolutePath().getParent() != null) Files.createDirectories(config.databasePath().toAbsolutePath().getParent());
-            Database database = Database.open(config.databasePath());
-            Migrations.apply(database, config.clock());
-
-            PropertyRepository properties = new PropertyRepository(database);
-            LoanRepository loans = new LoanRepository(database);
-            ContributionRepository contributions = new ContributionRepository(database);
-            ExpenseRepository expenses = new ExpenseRepository(database);
-            RentRepository rents = new RentRepository(database);
-            HouseholdRepository household = new HouseholdRepository(database);
-            BudgetRepository budgetItems = new BudgetRepository(database);
-            ShareRepository shares = new ShareRepository(database);
+            Database accountsDatabase = Database.open(config.databasePath().toAbsolutePath().resolveSibling(ACCOUNTS_FILE));
+            AccountRepository accounts = new AccountRepository(accountsDatabase);
+            accounts.ensurePrimary("Mon foyer", LocalDate.now(config.clock()));
+            Sites sites = new Sites(config, accounts);
+            sites.site(accounts.households().getFirst().id());
 
             Sessions sessions = new Sessions(config.clock());
-            Router router = new Router(sessions);
+            Router router = new Router(sessions, session -> viewer(session, accounts), household -> sites.site(household).router);
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
-            new AuthController(sessions, config.password(), config.clock()).register(router);
-            MarketService market = new MarketService(database, config.clock());
-            new PortfolioController(new Portfolio(new Portfolio.Stores(properties, loans, contributions, expenses, rents), market, config.clock()), properties).register(router);
-            new MarketController(market, properties).register(router);
-            new PropertyController(properties, config.clock()).register(router);
-            new LoanController(loans, properties, config.clock()).register(router);
-            new ContributionController(contributions, properties, config.clock()).register(router);
-            new ExpenseController(expenses, properties, config.clock()).register(router);
-            new HouseholdController(household, config.clock()).register(router);
-            new fr.patria.household.TransferController(household, config.clock()).register(router);
-            Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
-            new BudgetController(new Forecast(budgetSources, config.clock()), budgetSources, config.clock()).register(router);
-            new RentController(rents, properties, config.clock()).register(router);
+            new AuthController(sessions, config.adminLogin(), config.password(), new AuthController.Users() {
+                @Override
+                public Optional<Long> authenticate(String login, String password) {
+                    return accounts.authenticate(login, password).map(User::id);
+                }
+
+                @Override
+                public OptionalLong firstHousehold(Long userId) {
+                    if (userId == null) return OptionalLong.of(accounts.households().getFirst().id());
+                    return accounts.accesses(userId).stream().mapToLong(fr.patria.account.Access::householdId).findFirst();
+                }
+            }, config.clock()).register(router);
+            new AccountController(accounts, sites, sessions, config.adminLogin(), config.clock()).register(router);
 
             HttpServer server = HttpServer.create(new InetSocketAddress(config.port()), 0);
             ExecutorService executor = Executors.newFixedThreadPool(4);
             server.createContext("/", router);
             server.setExecutor(executor);
             server.start();
-            return new App(server, executor, database);
+            return new App(server, executor, accountsDatabase, sites);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
+    }
+
+    /**
+     * Droits de la session : l'administrateur voit tout ; un utilisateur actif, les foyers et vues ouverts. Le foyer
+     * de la session est garde s'il est encore accessible, sinon le premier.
+     */
+    static Optional<Viewer> viewer(Session session, AccountRepository accounts) {
+        if (session.isAdmin()) {
+            List<Viewer.Household> households = accounts.households().stream().map(household -> new Viewer.Household(household.id(), household.name())).toList();
+            if (households.isEmpty()) return Optional.empty();
+            Viewer.Household current = households.stream().filter(household -> household.id() == session.householdId()).findFirst().orElse(households.getFirst());
+            return Optional.of(Viewer.admin("Admin", current, households));
+        }
+        Optional<User> user = accounts.user(session.userId()).filter(User::active);
+        if (user.isEmpty()) return Optional.empty();
+        List<fr.patria.account.Access> accesses = accounts.accesses(session.userId());
+        if (accesses.isEmpty()) return Optional.empty();
+        fr.patria.account.Access access = accesses.stream().filter(candidate -> candidate.householdId() == session.householdId()).findFirst().orElse(accesses.getFirst());
+        List<Viewer.Household> households = accesses.stream().map(candidate -> new Viewer.Household(candidate.householdId(), candidate.householdName())).toList();
+        return Optional.of(new Viewer(session.userId(), user.get().name(), new Viewer.Household(access.householdId(), access.householdName()), households,
+                access.wholeHousehold(), access.members(), access.realEstate()));
     }
 
     public int port() {
@@ -115,6 +188,7 @@ public final class App implements AutoCloseable {
             Thread.currentThread().interrupt();
             executor.shutdownNow();
         }
-        database.close();
+        sites.closeAll();
+        accountsDatabase.close();
     }
 }

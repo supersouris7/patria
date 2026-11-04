@@ -5,17 +5,21 @@ import java.util.Map;
 /** Message affiche en haut de page : erreur de saisie ou confirmation d'une action. */
 public record Notice(boolean error, String text) {
     /** Confirmations transmises apres redirection par le parametre {@code ?ok=code}. */
-    private static final Map<String, String> CONFIRMATIONS = Map.of(
-            "cree", "Bien créé.",
-            "enregistre", "Modifications enregistrées.",
-            "supprime", "Suppression effectuée.",
-            "echeancier", "Échéancier importé.",
-            "apport", "Apport enregistré.",
-            "renomme", "Prêt renommé.",
-            "marche", "Prix du marché actualisé.",
-            "charge", "Charge enregistrée.",
-            "loyer", "Période d'occupation enregistrée.",
-            "importe", "Dépenses importées.");
+    private static final Map<String, String> CONFIRMATIONS = Map.ofEntries(
+            Map.entry("cree", "Bien créé."),
+            Map.entry("enregistre", "Modifications enregistrées."),
+            Map.entry("supprime", "Suppression effectuée."),
+            Map.entry("echeancier", "Échéancier importé."),
+            Map.entry("apport", "Apport enregistré."),
+            Map.entry("renomme", "Prêt renommé."),
+            Map.entry("marche", "Prix du marché actualisé."),
+            Map.entry("charge", "Charge enregistrée."),
+            Map.entry("loyer", "Période d'occupation enregistrée."),
+            Map.entry("importe", "Dépenses importées."),
+            Map.entry("foyer", "Foyer créé."),
+            Map.entry("utilisateur", "Utilisateur créé. Choisissez maintenant ses foyers et ses vues."),
+            Map.entry("acces", "Droits enregistrés."),
+            Map.entry("mot-de-passe", "Mot de passe modifié."));
 
     public static Notice error(String text) {
         return new Notice(true, text);

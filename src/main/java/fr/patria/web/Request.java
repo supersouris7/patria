@@ -16,12 +16,19 @@ public final class Request {
     private final HttpExchange exchange;
     private final Map<String, String> pathParameters;
     private final Session session;
+    private final Viewer viewer;
     private FormData form;
 
-    Request(HttpExchange exchange, Map<String, String> pathParameters, Session session) {
+    Request(HttpExchange exchange, Map<String, String> pathParameters, Session session, Viewer viewer) {
         this.exchange = exchange;
         this.pathParameters = pathParameters;
         this.session = session;
+        this.viewer = viewer;
+    }
+
+    /** Droits de la personne connectee ; toujours present sur une route privee. */
+    public Viewer viewer() {
+        return viewer;
     }
 
     public String method() {

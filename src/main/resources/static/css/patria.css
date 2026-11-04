@@ -53,6 +53,24 @@ nav { display: flex; gap: 4px; margin-right: auto; }
 nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 7px 12px; text-decoration: none; }
 nav a:hover { background: var(--surface); color: var(--text); }
 nav a.active { background: var(--surface-raised); color: var(--text); }
+.account-bar { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
+.account-link { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .88rem; font-weight: 650; gap: 6px;
+    padding: 7px 10px; text-decoration: none; white-space: nowrap; }
+.account-link span { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
+.account-link:hover, .account-link.active { background: var(--surface-raised); color: var(--text); }
+.household-switch { align-items: center; display: flex; gap: 6px; }
+.household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
+.household-switch.auto button { display: none; }
+.visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+.access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
+.access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
+.access-grid input, label.check input { min-height: 0; width: auto; }
+.rename-form { align-items: center; display: flex; gap: 8px; }
+.rename-form input { max-width: 260px; }
+.access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
+.access-form h3 { font-size: 1rem; margin: 0; }
+.access-form label.check input[name="access"] + * { font-weight: 750; }
+.readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
 
 /* ---- Titres de page ---- */
 .back-link { color: var(--muted); display: inline-block; font-size: .88rem; font-weight: 650; margin-bottom: 14px; text-decoration: none; }
@@ -244,6 +262,24 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .admin-nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 8px 12px; text-decoration: none; }
 .admin-nav a:hover { background: var(--surface); color: var(--text); }
 .admin-nav a.active { background: var(--surface-raised); color: var(--text); }
+.account-bar { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
+.account-link { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .88rem; font-weight: 650; gap: 6px;
+    padding: 7px 10px; text-decoration: none; white-space: nowrap; }
+.account-link span { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
+.account-link:hover, .account-link.active { background: var(--surface-raised); color: var(--text); }
+.household-switch { align-items: center; display: flex; gap: 6px; }
+.household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
+.household-switch.auto button { display: none; }
+.visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+.access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
+.access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
+.access-grid input, label.check input { min-height: 0; width: auto; }
+.rename-form { align-items: center; display: flex; gap: 8px; }
+.rename-form input { max-width: 260px; }
+.access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
+.access-form h3 { font-size: 1rem; margin: 0; }
+.access-form label.check input[name="access"] + * { font-weight: 750; }
+.readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
 
 /* ---- Messages ---- */
 .notice { border: 1px solid; border-radius: var(--radius-small); font-size: .9rem; font-weight: 650; margin: 0 0 16px; padding: 11px 14px; }
@@ -277,6 +313,15 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
     .navigation { gap: 6px; min-height: 56px; }
     .brand span { display: none; }
     .brand, .navigation > form { flex-shrink: 0; }
+    /* Le selecteur de foyer passe sur une deuxieme ligne, pleine largeur. */
+    .navigation { flex-wrap: wrap; }
+    .navigation > nav { flex: 1 1 0; }
+    .account-bar { display: contents; }
+    .account-link { padding: 6px 7px; }
+    .account-link span { display: none; }
+    .household-switch { flex: 1 0 100%; order: 10; padding-bottom: 8px; }
+    .household-switch label { flex: 1; }
+    .household-switch select { font-size: .85rem; max-width: none; width: 100%; }
     nav { gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
     nav a, button.quiet { font-size: .8rem; padding: 6px 7px; white-space: nowrap; }
     button.logout span { display: none; }
