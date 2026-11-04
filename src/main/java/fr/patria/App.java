@@ -60,16 +60,19 @@ public final class App implements AutoCloseable {
         private final Config config;
         private final AccountRepository accounts;
         private final Map<Long, HouseholdSite> open = new ConcurrentHashMap<>();
+        /** Taux moyen des credits immobiliers, partage par tous les foyers. */
+        private final fr.patria.market.HousingRates rates;
 
         Sites(Config config, AccountRepository accounts) {
             this.config = config;
             this.accounts = accounts;
+            this.rates = new fr.patria.market.HousingRates(config.clock());
         }
 
         HouseholdSite site(long householdId) {
             return open.computeIfAbsent(householdId, id -> {
                 Household household = accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe plus."));
-                return HouseholdSite.open(file(household), config.clock());
+                return HouseholdSite.open(file(household), config.clock(), rates);
             });
         }
 

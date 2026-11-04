@@ -52,11 +52,19 @@ Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquis
 - resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien ;
 - detail : « Voir les N ventes en detail » liste les ventes retenues pour la mediane (date, adresse, surface, prix, prix au m² actualise, distance), triables et filtrables, chacune avec un lien vers la carte publique DVF (explore.data.gouv.fr), ainsi qu'un lien vers la carte centree sur le bien.
 
-Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr` et `tabular-api.data.gouv.fr`. Sans acces, le reste de l'application fonctionne normalement.
+Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr`, `tabular-api.data.gouv.fr` et, pour le taux du marche, `data-api.ecb.europa.eu`. Sans acces, le reste de l'application fonctionne normalement.
 
 Limites : DVF ne couvre pas l'Alsace-Moselle (57, 67, 68) ni Mayotte ; seules les ventes de la commune du bien (ou de son arrondissement a Paris, Lyon et Marseille) sont prises en compte.
 
 L'import/export JSON sera ajoute dans une version ulterieure.
+
+## Taux du marche et renegociation
+
+A cote du taux de chaque pret (fiche du pret, Immobilier, fiche du bien, syntheses PDF), Patria affiche le taux moyen actuel des nouveaux credits immobiliers en France a taux fixe sur plus de 10 ans (statistiques MIR de la BCE, donnees Banque de France, taux nominal hors assurance) et l'ecart avec votre taux.
+
+La fiche du pret ajoute un repere de renegociation : mensualite hors assurance recalculee au taux du marche (meme capital restant du, meme duree restante), economie d'interets, puis economie apres penalites de remboursement anticipe au plafond legal (6 mois d'interets, au plus 3 % du capital restant du). Lecture : a partir de 0,7 point d'ecart avec une economie nette, demander une simulation a sa banque.
+
+Limites : moyenne nationale, publiee avec environ deux mois de decalage ; toutes les durees de plus de 10 ans sont regroupees (precision d'environ 0,3 point) ; comparaison indicative s'il reste moins de 10 ans ; frais de dossier, de garantie et assurance non comptes. Le taux est telecharge une fois par jour depuis `data-api.ecb.europa.eu` (acces internet sortant), sans cle d'API ; sans acces, la comparaison n'est pas affichee.
 
 ## Importer des depenses
 

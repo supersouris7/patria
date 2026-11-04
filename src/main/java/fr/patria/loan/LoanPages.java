@@ -25,7 +25,8 @@ final class LoanPages {
     private LoanPages() {
     }
 
-    static Html detail(Loan loan, Property property, List<ScheduleLine> lines, LoanMath.Status status, LocalDate today, Notice notice, String csrf) {
+    static Html detail(Loan loan, Property property, List<ScheduleLine> lines, LoanMath.Status status, java.util.Optional<Renegotiation> renegotiation,
+                       LocalDate today, Notice notice, String csrf) {
         Html rows = lines.stream().map(line -> Html.of("<tr%s>%s%s%s%s%s%s%s%s%s</tr>",
                 Html.raw(line == status.nextInstallment() ? " class=\"highlight\"" : ""),
                 sortedCell(line.date(), date(line.date())), cell(line.type().label()), cell(Components.paidBadge(LoanMath.isPast(line, today))),
@@ -45,15 +46,49 @@ final class LoanPages {
                         tile("Capital emprunté", "Total des déblocages de l'échéancier.", euro(status.borrowed()), null),
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui. Avant la première échéance, c'est le capital emprunté.", euro(status.remaining()), status.progressPercent() + " % remboursé"),
                         tile("Capital remboursé", "Part de capital des échéances déjà passées.", euro(status.repaid()), null),
-                        tile("Taux actuel", "Taux annuel de la dernière échéance passée.", percent(status.currentRate()), null),
+                        tile("Taux actuel", "Taux annuel de la dernière échéance passée.", percent(status.currentRate()),
+                                renegotiation.map(item -> "marché : " + percent(item.marketRate())).orElse(null)),
                         tile("Prochaine échéance", null, next == null ? Format.DASH : euro(next.amount()), next == null ? "Aucune échéance à venir" : date(next.date())),
                         tile("Durée restante", "Durée jusqu'à la dernière échéance connue.", Format.duration(status.remainingMonths()),
                                 status.lastDate() == null ? null : "Fin le " + date(status.lastDate()))),
                 Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>Progression</h2><span class=\"muted\">%s %% du capital emprunté</span></div>%s</section>".replace("%%", "%"),
                         status.progressPercent(), Components.progress(status.progressPercent())),
                 interestCard(status),
+                renegotiation.map(LoanPages::marketCard).orElse(Html.EMPTY),
                 Components.card("Échéancier", lines.size(), Html.EMPTY, table));
         return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+    }
+
+    /** Comparaison avec le taux moyen actuel du marche, et repere de renegociation. */
+    private static Html marketCard(Renegotiation item) {
+        String month = Format.month(item.month()).toLowerCase(java.util.Locale.FRENCH);
+        String gap = (item.gap().signum() > 0 ? "+" : item.gap().signum() < 0 ? "−" : "") + Format.number(item.gap().abs(), 2) + " point";
+        String verdict = switch (item.verdict()) {
+            case WORTH -> "Votre taux dépasse le marché de " + gap + " : une renégociation (ou un rachat par une autre banque) peut valoir la peine. "
+                    + "Demandez une simulation chiffrée.";
+            case SMALL -> "Économie possible, mais l'écart (" + gap + ") est sous 0,7 point : les frais de dossier et de garantie risquent de l'absorber.";
+            case NONE -> item.gap().signum() <= 0 ? "Votre taux est au niveau du marché ou en dessous : pas d'intérêt à renégocier aujourd'hui."
+                    : "Une fois les pénalités de remboursement anticipé déduites, il ne reste pas d'économie.";
+        };
+        String tone = item.verdict() == Renegotiation.Verdict.NONE ? "success" : "warning";
+        boolean cheaper = item.grossSaving().signum() <= 0;
+        Html savings = cheaper
+                ? Html.of("<div><dt>Mensualité au taux du marché</dt><dd>%s au lieu de %s</dd></div><div><dt>Avantage de votre taux</dt><dd class=\"positive\">%s d'intérêts en moins</dd></div>",
+                        euro(item.newPayment()), euro(item.currentPayment()), Format.euroWhole(item.grossSaving().negate()))
+                : Html.of("<div><dt>Mensualité hors assurance</dt><dd>%s → %s</dd></div><div><dt>Économie d'intérêts</dt><dd>%s</dd></div>"
+                                + "<div><dt>Après pénalités (%s)</dt><dd>%s</dd></div>", euro(item.currentPayment()), euro(item.newPayment()),
+                        Format.signedEuroWhole(item.grossSaving()), euro(item.penalty()), Format.signedEuroWhole(item.netSaving()));
+        return Components.card("Comparaison avec les taux actuels", null, Html.EMPTY, Html.of("""
+                <p class="notice %s">%s</p>
+                <dl class="calc-grid"><div><dt>Votre taux</dt><dd>%s</dd></div><div><dt>Taux moyen du marché</dt><dd>%s</dd></div><div><dt>Écart</dt><dd>%s</dd></div></dl>
+                <dl class="calc-grid">%s</dl>
+                <p class="source">Taux moyen : nouveaux crédits immobiliers à taux fixe sur plus de 10 ans en France, %s (BCE, données Banque de France),
+                taux nominal hors assurance. Toutes durées de plus de 10 ans confondues : précision d'environ 0,3 point ; un bon dossier obtient souvent moins.%s
+                Calcul : même capital restant dû (%s) et même durée restante (%s), mensualité recalculée au taux du marché ; pénalités au plafond légal
+                (6 mois d'intérêts, au plus 3 %% du capital restant dû). Frais de dossier, de garantie et assurance non comptés.</p>""".replace("%%", "%"),
+                tone, verdict, percent(item.ownRate()), percent(item.marketRate()), gap, savings, month,
+                item.shortRemaining() ? " Il reste moins de 10 ans : la comparaison est indicative." : "",
+                euro(item.remaining()), Format.duration(item.remainingMonths())));
     }
 
     /** Interets seuls (hors assurance et frais) : payes, a payer et total, avec la part deja payee. */

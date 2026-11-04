@@ -16,6 +16,7 @@ import static fr.patria.ui.Format.plain;
 
 import fr.patria.contribution.Contribution;
 import fr.patria.loan.LoanMath;
+import fr.patria.market.HousingRate;
 import fr.patria.market.MarketPrice;
 import fr.patria.portfolio.Portfolio.LoanSummary;
 import fr.patria.portfolio.Portfolio.Overview;
@@ -33,6 +34,7 @@ import fr.patria.ui.Layout;
 import fr.patria.ui.Notice;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 /** Pages de synthese : vue d'ensemble, fiche d'un bien, mensualites, administration. Aucun calcul ici. */
 final class PortfolioPages {
@@ -41,7 +43,7 @@ final class PortfolioPages {
 
     // ---- Vue d'ensemble : sommes des biens, sans curseur ----
 
-    static Html dashboard(Overview overview, String csrf) {
+    static Html dashboard(Overview overview, Optional<HousingRate> rate, String csrf) {
         Html heading = Components.heading("Votre patrimoine immobilier", "Immobilier", null,
                 overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
         if (overview.properties().isEmpty()) {
@@ -69,14 +71,14 @@ final class PortfolioPages {
                         overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY,
                         Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
-                Components.card("Prêts", overview.loanCount(), Html.EMPTY, allLoansTable(overview)),
+                Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))),
                 Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
         return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
     // ---- Fiche d'un bien : curseur enregistre en direct ----
 
-    static Html property(PropertySummary summary, Notice notice, String csrf) {
+    static Html property(PropertySummary summary, Optional<HousingRate> rate, Notice notice, String csrf) {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
                 + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate())
@@ -101,7 +103,7 @@ final class PortfolioPages {
                         summary.contributed(), summary.returns()),
                 marketCard(summary, csrf),
                 Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
-                        loansTable(summary.loans())),
+                        loansTable(summary.loans(), rate)),
                 Components.card("Apports", summary.contributions().size(), Html.EMPTY,
                         contributionsTable(summary.contributions(), summary.contributed())));
         return Layout.page(property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
@@ -124,7 +126,7 @@ final class PortfolioPages {
                 <div class="hero-head"><div><span class="metric-label">Valeur retenue</span><strong class="hero-value" data-estimate-value>%s</strong>
                 <span class="muted">%s <span class="save-state" data-save-state aria-live="polite"></span></span></div>
                 <span class="scenario-badge" data-estimate-label>%s</span></div>
-                <input class="slider" type="range" min="%s" max="%s" step="10000" value="%s" aria-label="Valeur retenue">
+                <input class="slider" type="range" min="%s" max="%s" step="1000" value="%s" aria-label="Valeur retenue">
                 <div class="chips">%s</div></section>""",
                 Layout.isAdmin() ? Html.of(" data-save=\"/bien/%s/valeur\"", property.id()) : Html.EMPTY, plain(property.saleFeesRate()), plain(summary.debt()), plain(property.purchase()),
                 plain(property.area()), summary.squareMeter().market() != null && summary.squareMeter().market().isAvailable() ? plain(summary.squareMeter().market().median()) : "",
@@ -138,12 +140,13 @@ final class PortfolioPages {
                 Html.raw(value.compareTo(current) == 0 ? " active" : ""), label, plain(value), hint, label, euroWhole(value));
     }
 
-    private static Html loansTable(List<LoanSummary> loans) {
+    private static Html loansTable(List<LoanSummary> loans, Optional<HousingRate> rate) {
         if (loans.isEmpty()) return Html.raw("<p class=\"empty\">Aucun prêt pour ce bien.</p>");
         Html rows = loans.stream().map(item -> {
             LoanMath.Status status = item.status();
             return Html.of("<tr>%s%s%s%s%s%s</tr>", cell(link("/pret/" + item.loan().id(), item.loan().name())),
-                    number(status.borrowed(), euroWhole(status.borrowed())), number(status.currentRate(), percent(status.currentRate())),
+                    number(status.borrowed(), euroWhole(status.borrowed())),
+                    number(status.currentRate(), Html.concat(Html.text(percent(status.currentRate())), marketRate(status, rate))),
                     number(status.remaining(), euroWhole(status.remaining())),
                     sortedCell(status.progressPercent(), Html.concat(Components.progress(status.progressPercent()),
                             Html.of("<small>%s restants</small>", Format.duration(status.remainingMonths())))),
@@ -201,7 +204,7 @@ final class PortfolioPages {
     }
 
     /** Tous les prets du patrimoine, avec le bien finance et la prochaine echeance. */
-    private static Html allLoansTable(Overview overview) {
+    private static Html allLoansTable(Overview overview, Optional<HousingRate> rate) {
         if (overview.loanCount() == 0) return Html.raw("<p class=\"empty\">Aucun prêt enregistré.</p>");
         Html rows = overview.properties().stream().flatMap(summary -> summary.loans().stream().map(item -> {
             LoanMath.Status status = item.status();
@@ -209,7 +212,8 @@ final class PortfolioPages {
             return Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                     cell(link("/pret/" + item.loan().id(), item.loan().name())),
                     cell(link("/bien/" + summary.property().id(), summary.property().name())),
-                    number(status.borrowed(), Html.of("%s<small>à %s</small>", euroWhole(status.borrowed()), percent(status.currentRate()))),
+                    number(status.borrowed(), Html.concat(Html.of("%s<small>à %s</small>", euroWhole(status.borrowed()), percent(status.currentRate())),
+                            marketRate(status, rate))),
                     number(status.remaining(), euroWhole(status.remaining())),
                     sortedCell(status.progressPercent(), Html.concat(Components.progress(status.progressPercent()),
                             Html.of("<small>%s restants</small>", Format.duration(status.remainingMonths())))),
@@ -362,6 +366,25 @@ final class PortfolioPages {
         Html gap = sqm.gapPercent() == null ? Html.EMPTY : Html.of("<small class=\"%s\">%s</small>",
                 sqm.gapPercent().signum() > 0 ? "positive" : sqm.gapPercent().signum() < 0 ? "negative" : "", Format.signedPercent(sqm.gapPercent()) + " vs marché");
         return Html.of("<td class=\"num\" data-sort=\"%s\">%s%s</td>", plain(market.median()), Format.perSquareMeter(market.median()), gap);
+    }
+
+    // ---- Taux du marche ----
+
+    /** « marché 3,19 % · +0,4 pt » sous le taux d'un pret en cours. */
+    private static Html marketRate(LoanMath.Status status, Optional<HousingRate> rate) {
+        if (rate.isEmpty() || status.currentRate() == null || status.remaining() == null || status.remaining().signum() <= 0) return Html.EMPTY;
+        BigDecimal gap = status.currentRate().subtract(rate.get().rate());
+        String text = "marché " + percent(rate.get().rate()) + " · " + (gap.signum() > 0 ? "+" : gap.signum() < 0 ? "−" : "")
+                + Format.number(gap.abs(), 2) + " pt";
+        return Html.of("<small class=\"%s\" title=\"%s\">%s</small>", gap.compareTo(new BigDecimal("0.7")) >= 0 ? "negative" : gap.signum() < 0 ? "positive" : "",
+                "Taux moyen des nouveaux crédits immobiliers à taux fixe sur plus de 10 ans (BCE, " + Format.month(rate.get().month()).toLowerCase(java.util.Locale.FRENCH)
+                        + "). Écart = votre taux − taux du marché.", text);
+    }
+
+    private static Html rateSource(Optional<HousingRate> rate) {
+        return rate.isEmpty() ? Html.EMPTY : Html.of("<p class=\"source\">Taux du marché : moyenne des nouveaux crédits immobiliers à taux fixe sur plus de 10 ans "
+                + "en France, %s (BCE, données Banque de France), hors assurance. Détail et repère de renégociation sur la fiche de chaque prêt.</p>",
+                Format.month(rate.get().month()).toLowerCase(java.util.Locale.FRENCH));
     }
 
     // ---- Tuiles partagees ----

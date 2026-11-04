@@ -105,7 +105,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Où sont les ventes affichées dans « Voir les N ventes en détail » ? | retenues par `market/MarketAnalysis.analyse`, enregistrées avec le prix par `MarketRepository.save` : table `market_sales` et position du bien (`market_prices.latitude/longitude`, migration v12) ; page `market/MarketPages.sales` |
 | D'où vient le prompt IA des imports ? | `budget/ExpenseCsv.llmPrompt`, `loan/CsvScheduleParser.llmPrompt` (construits depuis les catégories, fréquences et types), affichés par `ui/Components.llmPrompt`, copiés par `app.js` |
-| Quelles API externes sont appelées ? | `market/DataGouvClient`, uniquement (data.gouv.fr, sans clé) |
+| Quelles API externes sont appelées ? | `market/DataGouvClient` (data.gouv.fr) et `market/HousingRates` (BCE), sans clé |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
 | Quel format CSV pour importer des dépenses ? | `budget/ExpenseCsv` (lecture, modèle), enregistrement en une transaction par `BudgetRepository.insertAll` |
@@ -115,6 +115,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
 | Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée dans `App` |
 | Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite |
+| D'où vient le taux du marché affiché à côté des prêts ? | `market/HousingRates` (BCE, série MIR France, taux fixe plus de 10 ans) ; comparaison et repère de renégociation calculés par `loan/Renegotiation` (fonctions pures) |
 | Comment sont produites les synthèses PDF ? | `ui/PdfReport` (mise en page A4 commune, OpenPDF, polices standard) ; contenu par `budget/BudgetReports`, `portfolio/PortfolioReports`, `loan/LoanReports` ; routes `*.pdf` dans les contrôleurs de chaque page |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
@@ -160,7 +161,9 @@ Ajouter une page « Charges » à un bien :
 
 ## Appels réseau
 
-Seul le module `market` appelle l'extérieur, via l'interface `MarketData` (implémentée par `DataGouvClient`).
+Seul le module `market` appelle l'extérieur : `MarketData` (implémentée par `DataGouvClient`, data.gouv.fr) et
+`HousingRates` (taux moyen des crédits immobiliers, API publique de la BCE, gardé en mémoire et rafraîchi chaque jour,
+partagé par tous les foyers).
 Ces appels ne bloquent jamais une page : le calcul est lancé en arrière-plan par `MarketService`, la fiche du bien
 affiche l'ancien résultat ou « calcul en cours » et se recharge quand il est terminé (`app.js`). La vue d'ensemble
 lit seulement le résultat en base. Une panne de data.gouv.fr n'efface pas un résultat valable ; l'indice

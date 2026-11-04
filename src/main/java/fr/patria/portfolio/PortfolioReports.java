@@ -24,7 +24,7 @@ final class PortfolioReports {
     private PortfolioReports() {
     }
 
-    static byte[] overview(Overview overview, LocalDate today) {
+    static byte[] overview(Overview overview, java.util.Optional<fr.patria.market.HousingRate> rate, LocalDate today) {
         PdfReport report = PdfReport.create("Patrimoine immobilier", Format.plural(overview.properties().size(), "bien", "biens"), today);
         if (overview.properties().isEmpty()) return report.paragraph("Aucun bien enregistré.").toBytes();
         report.metrics(List.of(
@@ -53,6 +53,7 @@ final class PortfolioReports {
         if (!loans.isEmpty()) {
             report.section("Prêts").table(List.of("Prêt", "Bien", "#Emprunté", "#Taux", "#Capital dû", "#Fin", "#Mensualité"), loans,
                     new float[]{2, 2, 1.1f, 0.8f, 1.1f, 1, 1.1f}, false);
+            marketNote(report, rate);
         }
         if (!overview.propertyTaxes().isEmpty()) {
             report.section("Taxes foncières").table(List.of("Année", "#Biens", "Origine", "#Montant", "#Évolution"), overview.propertyTaxes().stream().limit(6)
@@ -64,7 +65,7 @@ final class PortfolioReports {
         return report.toBytes();
     }
 
-    static byte[] property(PropertySummary summary, LocalDate today) {
+    static byte[] property(PropertySummary summary, java.util.Optional<fr.patria.market.HousingRate> rate, LocalDate today) {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
                 + (property.area() == null ? "" : " · " + Format.area(property.area())) + " · acquis le " + Format.date(property.purchaseDate());
@@ -87,6 +88,7 @@ final class PortfolioReports {
         if (!summary.loans().isEmpty()) {
             report.section("Prêts").table(List.of("Prêt", "Bien", "#Emprunté", "#Taux", "#Capital dû", "#Fin", "#Mensualité"),
                     summary.loans().stream().map(item -> loanRow(item, property.name())).toList(), new float[]{2, 2, 1.1f, 0.8f, 1.1f, 1, 1.1f}, false);
+            marketNote(report, rate);
         }
         if (!summary.contributions().isEmpty()) {
             report.section("Apports").table(List.of("Apport", "Date", "#Montant"), summary.contributions().stream()
@@ -137,6 +139,11 @@ final class PortfolioReports {
                 new String[]{"Loyer perçu actuel", rent},
                 new String[]{"Rendement brut", Format.percent(returns.grossYield())},
                 new String[]{"Charges de l'année", euroWhole(returns.yearExpenses())}), false);
+    }
+
+    private static void marketNote(PdfReport report, java.util.Optional<fr.patria.market.HousingRate> rate) {
+        rate.ifPresent(value -> report.note("Taux moyen actuel des nouveaux crédits immobiliers à taux fixe sur plus de 10 ans : " + Format.percent(value.rate())
+                + " (" + Format.month(value.month()).toLowerCase(java.util.Locale.FRENCH) + ", BCE, hors assurance). Détail par prêt dans sa synthèse."));
     }
 
     private static List<String> loanRow(Portfolio.LoanSummary item, String property) {

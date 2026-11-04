@@ -44,7 +44,7 @@ class ValuationTest {
 
         // plafond : optimiste × 1,33 (actualisation maximale) + 50 000
         assertEquals(0, new BigDecimal("580000").compareTo(scenarios.clamp(new BigDecimal("900000000"))));
-        assertEquals(0, new BigDecimal("330000").compareTo(scenarios.clamp(new BigDecimal("331234"))));
+        assertEquals(0, new BigDecimal("331000").compareTo(scenarios.clamp(new BigDecimal("331234"))), "pas de 1 000 €");
     }
 
     @Test

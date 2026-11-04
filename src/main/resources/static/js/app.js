@@ -146,7 +146,7 @@ document.querySelectorAll("[data-estimate]").forEach((hero) => {
   const render = (value) => {
     const min = Number(slider.min);
     const max = Number(slider.max);
-    value = Math.min(max, Math.max(min, Math.round(value / 10000) * 10000));
+    value = Math.min(max, Math.max(min, Math.round(value / 1000) * 1000));
     slider.value = value;
     valueElement.textContent = euroWhole.format(value);
     // Les boutons de scenario portent leur nom et leur valeur : le badge affiche le premier qui correspond.

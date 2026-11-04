@@ -13,6 +13,8 @@ import fr.patria.household.ShareRepository;
 import fr.patria.household.TransferController;
 import fr.patria.loan.LoanController;
 import fr.patria.loan.LoanRepository;
+import fr.patria.loan.Renegotiation;
+import fr.patria.market.HousingRates;
 import fr.patria.market.MarketController;
 import fr.patria.market.MarketService;
 import fr.patria.portfolio.Portfolio;
@@ -34,7 +36,7 @@ final class HouseholdSite implements AutoCloseable {
     final PropertyRepository properties;
     final Router router = new Router();
 
-    private HouseholdSite(Database database, Clock clock) {
+    private HouseholdSite(Database database, Clock clock, HousingRates rates) {
         this.database = database;
         properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
@@ -46,10 +48,11 @@ final class HouseholdSite implements AutoCloseable {
         ShareRepository shares = new ShareRepository(database);
 
         MarketService market = new MarketService(database, clock);
-        new PortfolioController(new Portfolio(new Portfolio.Stores(properties, loans, contributions, expenses, rents), market, clock), properties).register(router);
+        new PortfolioController(new Portfolio(new Portfolio.Stores(properties, loans, contributions, expenses, rents), market, clock), properties, rates).register(router);
         new MarketController(market, properties).register(router);
         new PropertyController(properties, clock).register(router);
-        new LoanController(loans, properties, clock).register(router);
+        new LoanController(loans, properties, clock, () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null))
+                .register(router);
         new ContributionController(contributions, properties, clock).register(router);
         new ExpenseController(expenses, properties, clock).register(router);
         new HouseholdController(household, clock).register(router);
@@ -60,11 +63,11 @@ final class HouseholdSite implements AutoCloseable {
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */
-    static HouseholdSite open(Path file, Clock clock) {
+    static HouseholdSite open(Path file, Clock clock, HousingRates rates) {
         Database database = Database.open(file);
         try {
             Migrations.apply(database, clock);
-            return new HouseholdSite(database, clock);
+            return new HouseholdSite(database, clock, rates);
         } catch (RuntimeException exception) {
             database.close();
             throw exception;

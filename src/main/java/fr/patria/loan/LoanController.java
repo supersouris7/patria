@@ -19,11 +19,14 @@ public final class LoanController {
     private final LoanRepository loans;
     private final PropertyRepository properties;
     private final Clock clock;
+    private final java.util.function.Supplier<Renegotiation.Reference> rates;
 
-    public LoanController(LoanRepository loans, PropertyRepository properties, Clock clock) {
+    /** {@code rates} : taux moyen actuel du marche, {@code null} s'il n'est pas (encore) connu. */
+    public LoanController(LoanRepository loans, PropertyRepository properties, Clock clock, java.util.function.Supplier<Renegotiation.Reference> rates) {
         this.loans = loans;
         this.properties = properties;
         this.clock = clock;
+        this.rates = rates;
     }
 
     public void register(Router router) {
@@ -35,7 +38,7 @@ public final class LoanController {
             List<ScheduleLine> lines = loans.schedule(loan.id());
             LocalDate today = LocalDate.now(clock);
             return new Response.Download(fr.patria.ui.Format.slug(loan.name()) + "-" + today + ".pdf", "application/pdf",
-                    LoanReports.loan(loan, propertyOf(loan), lines, LoanMath.status(lines, today), today));
+                    LoanReports.loan(loan, propertyOf(loan), lines, LoanMath.status(lines, today), Renegotiation.of(LoanMath.status(lines, today), rates.get()), today));
         });
         router.get("/pret/{id}/gerer", this::manage);
         router.get("/pret/{id}/echeancier", request -> Response.redirect("/pret/" + request.id() + "/gerer"));
@@ -65,7 +68,8 @@ public final class LoanController {
         Loan loan = require(request.id());
         List<ScheduleLine> lines = loans.schedule(loan.id());
         LocalDate today = LocalDate.now(clock);
-        return Response.page(LoanPages.detail(loan, propertyOf(loan), lines, LoanMath.status(lines, today), today, request.confirmation(), request.csrf()));
+        LoanMath.Status status = LoanMath.status(lines, today);
+        return Response.page(LoanPages.detail(loan, propertyOf(loan), lines, status, Renegotiation.of(status, rates.get()), today, request.confirmation(), request.csrf()));
     }
 
     private Response manage(Request request) {

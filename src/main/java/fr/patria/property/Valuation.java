@@ -19,7 +19,10 @@ import java.math.RoundingMode;
 public final class Valuation {
     public static final BigDecimal DEFAULT_SALE_FEES = new BigDecimal("0.08");
     private static final BigDecimal PESSIMISTIC_FACTOR = new BigDecimal("0.95");
+    /** Arrondi des scenarios : des valeurs rondes, lisibles. */
     private static final BigDecimal STEP = new BigDecimal("10000");
+    /** Pas du curseur de la valeur retenue : 1 000 €, pour un reglage fin. */
+    static final BigDecimal SLIDER_STEP = new BigDecimal("1000");
     private static final BigDecimal SLIDER_MARGIN = new BigDecimal("50000");
     /** Plafond de l'actualisation (identique a celui de l'indice DVF). */
     private static final BigDecimal MAX_REVALUATION = new BigDecimal("1.33");
@@ -50,11 +53,12 @@ public final class Valuation {
         }
 
         /**
-         * Ramene une valeur enregistree par le curseur sur la graduation (pas de 10 000 €). Les bornes sont larges
+         * Ramene une valeur enregistree par le curseur sur sa graduation (pas de 1 000 €). Les bornes sont larges
          * car le curseur affiche les scenarios actualises, inconnus ici.
          */
         public BigDecimal clamp(BigDecimal value) {
-            return round(value).max(BigDecimal.ZERO).min(round(optimistic.multiply(MAX_REVALUATION)).add(SLIDER_MARGIN));
+            BigDecimal step = value.divide(SLIDER_STEP, 0, RoundingMode.HALF_UP).multiply(SLIDER_STEP);
+            return step.max(BigDecimal.ZERO).min(round(optimistic.multiply(MAX_REVALUATION)).add(SLIDER_MARGIN));
         }
 
         boolean sameAs(Scenarios other) {
