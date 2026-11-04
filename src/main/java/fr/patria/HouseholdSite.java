@@ -36,7 +36,7 @@ final class HouseholdSite implements AutoCloseable {
     final PropertyRepository properties;
     final Router router = new Router();
 
-    private HouseholdSite(Database database, Clock clock, HousingRates rates) {
+    private HouseholdSite(Database database, Clock clock, HousingRates rates, HouseholdController.Logins logins) {
         this.database = database;
         properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
@@ -55,7 +55,7 @@ final class HouseholdSite implements AutoCloseable {
                 .register(router);
         new ContributionController(contributions, properties, clock).register(router);
         new ExpenseController(expenses, properties, clock).register(router);
-        new HouseholdController(household, clock).register(router);
+        new HouseholdController(household, clock, logins).register(router);
         new TransferController(household, clock).register(router);
         Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
         new BudgetController(new Forecast(budgetSources, clock), budgetSources, clock).register(router);
@@ -63,11 +63,11 @@ final class HouseholdSite implements AutoCloseable {
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */
-    static HouseholdSite open(Path file, Clock clock, HousingRates rates) {
+    static HouseholdSite open(Path file, Clock clock, HousingRates rates, HouseholdController.Logins logins) {
         Database database = Database.open(file);
         try {
             Migrations.apply(database, clock);
-            return new HouseholdSite(database, clock, rates);
+            return new HouseholdSite(database, clock, rates, logins);
         } catch (RuntimeException exception) {
             database.close();
             throw exception;

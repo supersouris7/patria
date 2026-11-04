@@ -114,12 +114,22 @@ La synthese reprend la vue affichee (foyer ou membre) et les droits de la person
 
 ## Foyers et utilisateurs
 
-**Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout, et gere dans Administration :
+**Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout. Le menu Administration a deux groupes :
 
-- **Foyers** : creer, renommer, supprimer. Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un bien se deplace d'un foyer a l'autre depuis sa fiche d'administration (« Foyer du bien ») : il part avec ses prets, echeanciers, apports, charges, occupation et prix du marche ; sa repartition entre membres repart a « parts egales ». Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`. Le foyer affiche se choisit dans l'en-tete.
-- **Utilisateurs** : identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression. Pour chaque foyer : acces, vue « Foyer » (total de tous les membres), vues des membres ouvertes (une personne, le compte joint...), consultation de l'immobilier.
+- **Comptes** : Foyers, Utilisateurs, Mon compte (valables pour tous les foyers) ;
+- **Foyer · nom du foyer affiche** : Membres, Revenus, Depenses, Virements, Biens et prets, Repartition (le contenu de ce foyer). Chaque page rappelle le foyer modifie.
 
-**Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Previsionnel et Budget moyen. Dans Administration, il a Revenus, Depenses et Virements :
+On cree d'abord un **foyer**, puis on le remplit :
+
+1. Administration → Foyers → « Nouveau foyer ». Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`.
+2. Dans la carte du foyer : « Ajouter le membre » (les personnes, puis le compte joint), puis « Gerer ce foyer » pour saisir revenus, depenses et biens.
+3. Pour qu'une personne se connecte : Utilisateurs → « Nouvel utilisateur », champ « Ce compte represente » (un membre existant, ou un nouveau membre a son nom). Le compte voit alors aussitot la vue de ce membre. Depuis Membres, le lien « Creer un compte » preremplit ce choix.
+
+Un **membre** est une personne du budget (ou un compte joint) ; un **utilisateur** est un compte de connexion. Un membre appartient a son foyer et n'en change pas. Un bien, lui, se deplace d'un foyer a l'autre depuis sa fiche d'administration (« Foyer du bien »), avec ses prets, echeanciers, apports, charges, occupation et prix du marche ; sa repartition entre membres repart a « parts egales ».
+
+Droits d'un utilisateur, pour chaque foyer (Utilisateurs → un utilisateur → Foyers et droits) : acces, vue « Foyer » (total de tous les membres), les membres qu'il represente ou suit (une personne, le compte joint...), consultation de l'immobilier. Identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression.
+
+**Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Previsionnel et Budget moyen. Dans Administration, il a Revenus, Depenses, Virements et Mon compte :
 
 - il voit les lignes qui concernent au moins une de ses vues (toutes avec la vue « Foyer ») ;
 - il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre s'ouvre en lecture seule (« Voir ») ;

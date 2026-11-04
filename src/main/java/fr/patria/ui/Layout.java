@@ -20,22 +20,31 @@ public final class Layout {
 
     public static final ThreadLocal<Chrome> CHROME = new ThreadLocal<>();
 
-    /** Rubriques de l'administration, affichees en navigation laterale ; {@code userLabel} : nom pour un utilisateur, {@code null} si reservee. */
-    public enum AdminSection {
-        HOUSEHOLD("/administration/foyer", "Foyer et revenus", "Revenus"),
-        EXPENSES("/administration/depenses", "Dépenses", "Dépenses"),
-        TRANSFERS("/administration/virements", "Virements", "Virements"),
-        PROPERTIES("/administration/biens", "Biens et prêts", null),
-        SHARES("/administration/repartition", "Répartition", null),
-        HOUSEHOLDS("/administration/foyers", "Foyers", null),
-        USERS("/administration/utilisateurs", "Utilisateurs", null),
-        ACCOUNT("/compte", "Mon compte", "Mon compte");
+    /** Groupes du menu d'administration : les comptes (tous les foyers), puis le contenu du foyer affiche. */
+    public enum AdminGroup { ACCOUNTS, HOUSEHOLD }
 
+    /**
+     * Rubriques de l'administration, affichees en navigation laterale, par groupe ; {@code userLabel} : nom pour un
+     * utilisateur, {@code null} si reservee a l'administrateur.
+     */
+    public enum AdminSection {
+        HOUSEHOLDS(AdminGroup.ACCOUNTS, "/administration/foyers", "Foyers", null),
+        USERS(AdminGroup.ACCOUNTS, "/administration/utilisateurs", "Utilisateurs", null),
+        ACCOUNT(AdminGroup.ACCOUNTS, "/compte", "Mon compte", "Mon compte"),
+        MEMBERS(AdminGroup.HOUSEHOLD, "/administration/membres", "Membres", null),
+        INCOMES(AdminGroup.HOUSEHOLD, "/administration/revenus", "Revenus", "Revenus"),
+        EXPENSES(AdminGroup.HOUSEHOLD, "/administration/depenses", "Dépenses", "Dépenses"),
+        TRANSFERS(AdminGroup.HOUSEHOLD, "/administration/virements", "Virements", "Virements"),
+        PROPERTIES(AdminGroup.HOUSEHOLD, "/administration/biens", "Biens et prêts", null),
+        SHARES(AdminGroup.HOUSEHOLD, "/administration/repartition", "Répartition", null);
+
+        private final AdminGroup group;
         private final String href;
         private final String label;
         private final String userLabel;
 
-        AdminSection(String href, String label, String userLabel) {
+        AdminSection(AdminGroup group, String href, String label, String userLabel) {
+            this.group = group;
             this.href = href;
             this.label = label;
             this.userLabel = userLabel;
@@ -97,13 +106,40 @@ public final class Layout {
                 active ? " active" : "", Html.raw(active ? " aria-current=\"page\"" : ""), chrome.name(), ACCOUNT_ICON, chrome.name());
     }
 
-    /** Page d'une rubrique d'administration (foyer, depenses, biens) avec sa navigation laterale. */
+    /**
+     * Page d'une rubrique d'administration avec sa navigation laterale en deux groupes : « Comptes » (foyers,
+     * utilisateurs : tous les foyers) et « Foyer : Martin » (ce qu'il contient). Un utilisateur ne voit que ses rubriques.
+     */
     public static Html adminSection(String title, String csrf, AdminSection active, Html content) {
         Chrome chrome = CHROME.get();
         boolean admin = chrome == null || chrome.admin();
-        Html links = java.util.Arrays.stream(AdminSection.values()).filter(section -> admin || section.userLabel != null)
+        Html accounts = group(AdminGroup.ACCOUNTS, admin, active);
+        Html household = group(AdminGroup.HOUSEHOLD, admin, active);
+        String name = householdName(chrome);
+        Html householdTitle = Html.of("<p class=\"eyebrow nav-group\">Foyer%s</p>", name.isEmpty() ? Html.EMPTY : Html.of(" · <span>%s</span>", name));
+        Html accountsTitle = Html.of("<p class=\"eyebrow nav-group\">%s</p>", admin ? "Comptes" : "Mon compte");
+        Html nav = admin ? Html.concat(accountsTitle, accounts, householdTitle, household) : Html.concat(householdTitle, household, accountsTitle, accounts);
+        Html body = active.group == AdminGroup.HOUSEHOLD ? Html.concat(householdBanner(chrome), content) : content;
+        return page(title, Section.ADMINISTRATION, csrf, Html.of("<div class=\"admin-layout\"><aside class=\"admin-nav\">%s</aside><div>%s</div></div>", nav, body));
+    }
+
+    private static Html group(AdminGroup group, boolean admin, AdminSection active) {
+        return java.util.Arrays.stream(AdminSection.values()).filter(section -> section.group == group && (admin || section.userLabel != null))
                 .map(section -> navLink(section.href, admin ? section.label : section.userLabel, section == active)).collect(Html.joining());
-        return adminPage(title, csrf, Html.of("<aside class=\"admin-nav\"><p class=\"eyebrow\">Administration</p>%s</aside>", links), content);
+    }
+
+    private static String householdName(Chrome chrome) {
+        if (chrome == null) return "";
+        return chrome.households().stream().filter(choice -> choice.id() == chrome.household()).map(Choice::name).findFirst().orElse("");
+    }
+
+    /** Rappel du foyer modifie, en tete des pages qui en dependent (utile sur smartphone, ou le menu est replie). */
+    private static Html householdBanner(Chrome chrome) {
+        String name = householdName(chrome);
+        if (name.isEmpty()) return Html.EMPTY;
+        Html change = chrome.households().size() > 1
+                ? Html.raw(chrome.admin() ? " · <a href=\"/administration/foyers\">changer de foyer</a>" : " · changez de foyer dans l'en-tête") : Html.EMPTY;
+        return Html.of("<p class=\"household-banner\">Foyer modifié : <b>%s</b>%s</p>", name, change);
     }
 
     /** Vrai si la personne connectee est l'administrateur (ou en dehors d'une requete, dans les tests de pages). */
@@ -121,14 +157,15 @@ public final class Layout {
         Chrome chrome = CHROME.get();
         if (chrome == null || chrome.admin() || href == null) return true;
         if (href.startsWith("/administration/bien") || href.startsWith("/administration/repartition") || href.startsWith("/administration/foyers")
+                || href.startsWith("/administration/membres")
                 || href.startsWith("/administration/utilisateur") || href.startsWith("/apport/") || href.startsWith("/loyer/") || href.startsWith("/charge/")) return false;
         if (href.startsWith("/bien/") || href.startsWith("/pret/") || href.startsWith("/immobilier")) return chrome.realEstate();
         return true;
     }
 
-    /** Page d'administration d'un bien : navigation laterale + contenu. */
+    /** Page d'administration d'un bien : navigation laterale + contenu, avec le rappel du foyer modifie. */
     public static Html adminPage(String title, String csrf, Html sideNav, Html content) {
-        return page(title, Section.ADMINISTRATION, csrf, Html.of("<div class=\"admin-layout\">%s<div>%s</div></div>", sideNav, content));
+        return page(title, Section.ADMINISTRATION, csrf, Html.of("<div class=\"admin-layout\">%s<div>%s%s</div></div>", sideNav, householdBanner(CHROME.get()), content));
     }
 
     public static Html message(String title, String text, String csrf) {

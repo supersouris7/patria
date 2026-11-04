@@ -47,7 +47,7 @@ public final class BudgetController {
             Forecast.View view = view(request);
             return pdf("budget-moyen", BudgetReports.average(view, forecast.averageIncomes(view), forecast.averageExpenses(view), LocalDate.now(clock)));
         });
-        router.userGet("/administration", request -> Response.redirect("/administration/foyer"));
+        router.userGet("/administration", request -> Response.redirect(request.viewer().isAdmin() ? "/administration/membres" : "/administration/revenus"));
         router.userGet("/administration/depenses", request -> Response.page(adminPage(request, defaults(), request.confirmation())));
         router.userPost("/administration/depenses", this::create);
         router.userGet("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",

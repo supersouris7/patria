@@ -17,7 +17,7 @@ public record Notice(boolean error, String text) {
             Map.entry("loyer", "Période d'occupation enregistrée."),
             Map.entry("importe", "Dépenses importées."),
             Map.entry("foyer", "Foyer créé."),
-            Map.entry("utilisateur", "Utilisateur créé. Choisissez maintenant ses foyers et ses vues."),
+            Map.entry("utilisateur", "Utilisateur créé. Vérifiez ci-dessous ses foyers et ce qu'il voit."),
             Map.entry("acces", "Droits enregistrés."),
             Map.entry("mot-de-passe", "Mot de passe modifié."),
             Map.entry("deplace", "Bien déplacé : il est maintenant dans ce foyer, avec ses prêts et ses charges."));

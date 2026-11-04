@@ -69,14 +69,14 @@ class AccountsTest {
     void userSeesOnlyTheViewsOpenedByTheAdministrator() throws Exception {
         Visitor admin = login("admin", "secret");
         // Foyer principal : Paul (1), Camille (2), compte joint (3)
-        assertEquals(303, post(admin, "/administration/foyer/personnes", "name=Paul&kind=PERSON").statusCode());
-        assertEquals(303, post(admin, "/administration/foyer/personnes", "name=Camille&kind=PERSON").statusCode());
-        assertEquals(303, post(admin, "/administration/foyer/personnes", "name=Compte+joint&kind=ACCOUNT").statusCode());
+        assertEquals(303, post(admin, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
+        assertEquals(303, post(admin, "/administration/membres", "name=Camille&kind=PERSON").statusCode());
+        assertEquals(303, post(admin, "/administration/membres", "name=Compte+joint&kind=ACCOUNT").statusCode());
         String expense = "&category=OTHER&amount=10&frequency=MONTHLY&start=2026-01-01";
         assertEquals(303, post(admin, "/administration/depenses", "label=Club+de+Paul" + expense + "&share_1=100&share_2=0&share_3=0").statusCode());
         assertEquals(303, post(admin, "/administration/depenses", "label=Courses+communes" + expense).statusCode());
         assertEquals(303, post(admin, "/administration/depenses", "label=Yoga+de+Camille" + expense + "&share_1=0&share_2=100&share_3=0").statusCode());
-        assertEquals(303, post(admin, "/administration/foyer/revenus", "person=2&kind=SALARY&label=Salaire+Camille&amount=2000&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(303, post(admin, "/administration/revenus", "person=2&kind=SALARY&label=Salaire+Camille&amount=2000&frequency=MONTHLY&start=2026-01-01").statusCode());
 
         HttpResponse<String> created = post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1");
         assertEquals("/administration/utilisateur/1?ok=utilisateur", created.headers().firstValue("Location").orElseThrow());
@@ -104,7 +104,7 @@ class AccountsTest {
         for (String reserved : new String[]{"/immobilier", "/administration/biens", "/administration/repartition", "/administration/utilisateurs", "/administration/foyers"}) {
             assertEquals(403, get(paul, reserved).statusCode(), reserved);
         }
-        assertEquals(403, post(paul, "/administration/foyer/personnes", "name=Intrus&kind=PERSON").statusCode());
+        assertEquals(403, post(paul, "/administration/membres", "name=Intrus&kind=PERSON").statusCode());
 
         String expenses = get(paul, "/administration/depenses").body();
         assertTrue(expenses.contains("Club de Paul") && expenses.contains("href=\"/depense/1\""), "sa dépense, modifiable");
@@ -121,11 +121,11 @@ class AccountsTest {
         assertEquals(303, post(paul, "/administration/depenses", "label=Essence" + expense).statusCode());
         assertTrue(get(admin, "/administration/depenses").body().contains("Paul 100"), "« parts égales » d'un utilisateur : entre ses membres seulement");
 
-        String incomes = get(paul, "/administration/foyer").body();
+        String incomes = get(paul, "/administration/revenus").body();
         assertFalse(incomes.contains("Salaire Camille"), "revenus de Camille invisibles");
         assertFalse(incomes.contains("Membres du foyer"), "pas de gestion des membres");
         assertEquals(404, get(paul, "/revenu/1").statusCode());
-        assertEquals(400, post(paul, "/administration/foyer/revenus", "person=2&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode(),
+        assertEquals(400, post(paul, "/administration/revenus", "person=2&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode(),
                 "revenu pour Camille refusé");
         assertEquals(303, post(paul, "/administration/virements", "from=1&to=3&amount=300&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(400, post(paul, "/administration/virements", "from=2&to=3&amount=300&frequency=MONTHLY&start=2026-01-01").statusCode());
@@ -153,6 +153,31 @@ class AccountsTest {
     }
 
     @Test
+    void householdFirstThenItsMembersThenAnAccountLinkedToAMember() throws Exception {
+        Visitor admin = login("admin", "secret");
+        assertEquals("/administration/foyers?ok=foyer#foyer-2", post(admin, "/administration/foyers", "name=Foyer+Martin").headers().firstValue("Location").orElseThrow());
+        String households = get(admin, "/administration/foyers").body();
+        assertTrue(households.contains("id=\"foyer-2\"") && households.contains("Ajoutez ses membres"), "foyer vide : étapes à suivre");
+        assertEquals(303, post(admin, "/administration/foyers/2/membres", "name=Martine&kind=PERSON").statusCode(), "membre ajouté depuis la page Foyers");
+        assertTrue(get(admin, "/administration/foyers").body().contains(">Martine<"));
+        assertEquals("/administration/membres", post(admin, "/foyer/choisir", "foyer=2&suite=%2Fadministration%2Fmembres").headers().firstValue("Location").orElseThrow(),
+                "« Gérer ce foyer »");
+        String members = get(admin, "/administration/membres").body();
+        assertTrue(members.contains("Foyer modifié : <b>Foyer Martin</b>"), "le foyer modifié est rappelé");
+        assertTrue(members.contains("/administration/utilisateurs?membre=2:1"), "créer un compte pour ce membre");
+        assertTrue(get(admin, "/administration/utilisateurs?membre=2:1").body().contains("<option value=\"2:1\" selected>"), "membre présélectionné");
+
+        assertEquals(303, post(admin, "/administration/utilisateurs", "login=martine&name=Martine&password=motdepasse1&membre=2%3A1").statusCode());
+        assertTrue(get(admin, "/administration/membres").body().contains("martine"), "compte affiché à côté du membre");
+        assertEquals(303, post(admin, "/administration/utilisateurs", "login=jules&name=Jules&password=motdepasse1&membre=2%3Anouveau").statusCode());
+        assertTrue(get(admin, "/administration/membres").body().contains("Jules"), "membre créé au nom de l'utilisateur");
+        Visitor martine = login("martine", "motdepasse1");
+        assertTrue(get(martine, "/").body().contains("Budget de Martine"), "voit sa vue sans autre réglage");
+        assertEquals(403, get(martine, "/administration/membres").statusCode(), "la gestion des membres reste à l'administrateur");
+        assertEquals(400, post(admin, "/administration/utilisateurs", "login=x1&name=X&password=motdepasse1&membre=2%3A99").statusCode(), "membre inconnu");
+    }
+
+    @Test
     void aValidAccountDoesNotResetTheFailuresOfItsAddress() throws Exception {
         Visitor admin = login("admin", "secret");
         assertEquals(303, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1").statusCode());
@@ -167,17 +192,17 @@ class AccountsTest {
     @Test
     void householdsAreSeparateAndSelectable() throws Exception {
         Visitor admin = login("admin", "secret");
-        assertEquals(303, post(admin, "/administration/foyer/personnes", "name=Paul&kind=PERSON").statusCode());
-        assertEquals("/administration/foyers?ok=foyer", post(admin, "/administration/foyers", "name=Foyer+Martin").headers().firstValue("Location").orElseThrow());
+        assertEquals(303, post(admin, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
+        assertEquals("/administration/foyers?ok=foyer#foyer-2", post(admin, "/administration/foyers", "name=Foyer+Martin").headers().firstValue("Location").orElseThrow());
         assertTrue(Files.exists(directory.resolve("foyer-2.sqlite3")), "une base par foyer");
         assertTrue(Files.exists(directory.resolve(App.ACCOUNTS_FILE)));
 
         assertTrue(get(admin, "/").body().contains("name=\"foyer\""), "sélecteur de foyer à partir de deux foyers");
         assertEquals(303, post(admin, "/foyer/choisir", "foyer=2").statusCode());
-        assertFalse(get(admin, "/administration/foyer").body().contains("Paul"), "foyer Martin : ses propres membres");
-        assertEquals(303, post(admin, "/administration/foyer/personnes", "name=Martine&kind=PERSON").statusCode());
+        assertFalse(get(admin, "/administration/membres").body().contains("Paul"), "foyer Martin : ses propres membres");
+        assertEquals(303, post(admin, "/administration/membres", "name=Martine&kind=PERSON").statusCode());
         assertEquals(303, post(admin, "/foyer/choisir", "foyer=1").statusCode());
-        String first = get(admin, "/administration/foyer").body();
+        String first = get(admin, "/administration/membres").body();
         assertTrue(first.contains("Paul") && !first.contains("Martine"));
 
         assertEquals(303, post(admin, "/administration/utilisateurs", "login=martine&name=Martine&password=motdepasse1").statusCode());

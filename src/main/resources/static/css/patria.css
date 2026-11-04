@@ -66,6 +66,18 @@ nav .short-label { display: none; }
 .access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
 .access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
 .access-grid input, label.check input { min-height: 0; width: auto; }
+.admin-nav .nav-group { margin-top: 18px; }
+.admin-nav .nav-group:first-child { margin-top: 0; }
+.admin-nav .nav-group span { color: var(--text); letter-spacing: .06em; }
+.household-banner { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .86rem; margin: 0 0 14px; padding: 8px 12px; }
+.household-banner a { color: var(--blue); font-weight: 650; }
+.household-card { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.household-card:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.household-card .eyebrow { margin-top: 14px; }
+.household-card h3 { align-items: center; display: flex; flex-wrap: wrap; font-size: 1.05rem; gap: 8px 12px; margin: 0 0 8px; }
+.household-card .chips-line { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.household-card .steps { color: var(--text-soft); font-size: .88rem; margin: 6px 0 10px; padding-left: 20px; }
+.household-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .rename-form { align-items: center; display: flex; gap: 8px; }
 .rename-form input { max-width: 260px; }
 .access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
@@ -301,6 +313,18 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
 .access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
 .access-grid input, label.check input { min-height: 0; width: auto; }
+.admin-nav .nav-group { margin-top: 18px; }
+.admin-nav .nav-group:first-child { margin-top: 0; }
+.admin-nav .nav-group span { color: var(--text); letter-spacing: .06em; }
+.household-banner { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .86rem; margin: 0 0 14px; padding: 8px 12px; }
+.household-banner a { color: var(--blue); font-weight: 650; }
+.household-card { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.household-card:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.household-card .eyebrow { margin-top: 14px; }
+.household-card h3 { align-items: center; display: flex; flex-wrap: wrap; font-size: 1.05rem; gap: 8px 12px; margin: 0 0 8px; }
+.household-card .chips-line { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.household-card .steps { color: var(--text-soft); font-size: .88rem; margin: 6px 0 10px; padding-left: 20px; }
+.household-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .rename-form { align-items: center; display: flex; gap: 8px; }
 .rename-form input { max-width: 260px; }
 .access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }

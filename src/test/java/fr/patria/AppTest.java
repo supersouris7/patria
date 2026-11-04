@@ -190,13 +190,13 @@ class AppTest {
         String csrf = login();
         assertTrue(get("/").body().contains("Votre budget est vide"));
 
-        assertEquals(303, post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Camille").statusCode());
-        String household = get("/administration/foyer").body();
+        assertEquals(303, post("/administration/membres", "csrf=" + csrf + "&name=Camille").statusCode());
+        String household = get("/administration/revenus").body();
         Matcher person = Pattern.compile("<option value=\"(\\d+)\"[^>]*>Camille</option>").matcher(household);
         assertTrue(person.find(), household);
-        assertEquals(303, post("/administration/foyer/revenus", "csrf=" + csrf + "&person=" + person.group(1)
+        assertEquals(303, post("/administration/revenus", "csrf=" + csrf + "&person=" + person.group(1)
                 + "&kind=SALARY&label=Salaire&amount=3000&frequency=MONTHLY&start=2026-01-01").statusCode());
-        assertEquals(400, post("/administration/foyer/revenus", "csrf=" + csrf + "&person=999&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertEquals(400, post("/administration/revenus", "csrf=" + csrf + "&person=999&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Mutuelle&category=HEALTH&amount=120&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(303, post("/administration/depenses", "csrf=" + csrf + "&label=Assurance+auto&category=INSURANCE&amount=600&frequency=ANNUAL&start=2026-08-01").statusCode());
 
@@ -214,14 +214,14 @@ class AppTest {
     @Test
     void eachPersonHasOwnBudgetWithSharedExpenses() throws Exception {
         String csrf = login();
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Alice");
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Bob");
-        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(Alice|Bob)</option>").matcher(get("/administration/foyer").body());
+        post("/administration/membres", "csrf=" + csrf + "&name=Alice");
+        post("/administration/membres", "csrf=" + csrf + "&name=Bob");
+        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(Alice|Bob)</option>").matcher(get("/administration/revenus").body());
         java.util.Map<String, String> people = new java.util.HashMap<>();
         while (ids.find()) people.put(ids.group(2), ids.group(1));
         String alice = people.get("Alice");
         String bob = people.get("Bob");
-        post("/administration/foyer/revenus", "csrf=" + csrf + "&person=" + alice + "&kind=SALARY&label=Salaire&amount=3000&frequency=MONTHLY&start=2026-01-01");
+        post("/administration/revenus", "csrf=" + csrf + "&person=" + alice + "&kind=SALARY&label=Salaire&amount=3000&frequency=MONTHLY&start=2026-01-01");
 
         // une répartition qui ne fait pas 100 % est refusée ; vide = parts égales
         assertEquals(400, post("/administration/depenses", "csrf=" + csrf + "&label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01"
@@ -264,9 +264,9 @@ class AppTest {
     @Test
     void importsExpensesFromCsvAfterPreview() throws Exception {
         String csrf = login();
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=William");
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Lou");
-        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Lou)</option>").matcher(get("/administration/foyer").body());
+        post("/administration/membres", "csrf=" + csrf + "&name=William");
+        post("/administration/membres", "csrf=" + csrf + "&name=Lou");
+        Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Lou)</option>").matcher(get("/administration/revenus").body());
         java.util.Map<String, String> people = new java.util.HashMap<>();
         while (ids.find()) people.put(ids.group(2), ids.group(1));
 
@@ -309,9 +309,9 @@ class AppTest {
     void transfersToJointAccountFromAdministration() throws Exception {
         String csrf = login();
         assertTrue(get("/administration/virements").body().contains("Un seul membre dans le foyer") || get("/administration/virements").body().contains("ajoutez un compte joint"));
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=William&kind=PERSON");
-        post("/administration/foyer/personnes", "csrf=" + csrf + "&name=Compte+joint&kind=ACCOUNT");
-        String foyer = get("/administration/foyer").body();
+        post("/administration/membres", "csrf=" + csrf + "&name=William&kind=PERSON");
+        post("/administration/membres", "csrf=" + csrf + "&name=Compte+joint&kind=ACCOUNT");
+        String foyer = get("/administration/membres").body();
         assertTrue(foyer.contains("<small class=\"badge\">Compte joint</small>"), foyer);
         Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Compte joint)</option>").matcher(get("/administration/virements").body());
         java.util.Map<String, String> members = new java.util.HashMap<>();

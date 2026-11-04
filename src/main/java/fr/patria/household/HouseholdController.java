@@ -14,30 +14,41 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-/** Administration des personnes du foyer et de leurs revenus. */
+/** Administration des membres du foyer (administrateur) et de leurs revenus (utilisateurs, selon leurs vues). */
 public final class HouseholdController {
+    /** Comptes de connexion lies a chaque membre d'un foyer : identifiants par membre, fournis par l'assemblage. */
+    @FunctionalInterface
+    public interface Logins {
+        Map<Long, List<String>> byMember(long householdId);
+    }
+
     private final HouseholdRepository household;
     private final Clock clock;
+    private final Logins logins;
 
-    public HouseholdController(HouseholdRepository household, Clock clock) {
+    public HouseholdController(HouseholdRepository household, Clock clock, Logins logins) {
         this.household = household;
         this.clock = clock;
+        this.logins = logins;
     }
 
     public void register(Router router) {
-        router.userGet("/administration/foyer", this::page);
-        router.post("/administration/foyer/personnes", this::addPerson);
+        // Ancienne page « Foyer et revenus », scindee en Membres et Revenus.
+        router.userGet("/administration/foyer", request -> Response.redirect(request.viewer().isAdmin() ? "/administration/membres" : "/administration/revenus"));
+        router.get("/administration/membres", request -> Response.page(membersPage(request, request.confirmation())));
+        router.post("/administration/membres", this::addPerson);
         router.post("/personne/{id}/supprimer", request -> {
             household.deletePerson(request.id());
-            return Response.redirect("/administration/foyer?ok=supprime");
+            return Response.redirect("/administration/membres?ok=supprime");
         });
-        router.userPost("/administration/foyer/revenus", this::addIncome);
+        router.userGet("/administration/revenus", this::page);
+        router.userPost("/administration/revenus", this::addIncome);
         router.userGet("/revenu/{id}", this::editForm);
         router.userPost("/revenu/{id}", this::update);
         router.userPost("/revenu/{id}/supprimer", request -> {
             household.deleteIncome(require(request).id());
             String back = back(request);
-            return Response.redirect(back != null ? back : "/administration/foyer?ok=supprime");
+            return Response.redirect(back != null ? back : "/administration/revenus?ok=supprime");
         });
     }
 
@@ -45,8 +56,13 @@ public final class HouseholdController {
         return Visibility.of(request.viewer(), household.people());
     }
 
+    private fr.patria.ui.Html membersPage(Request request, Notice notice) {
+        return HouseholdPages.members(household.people(), household.incomes(), logins.byMember(request.viewer().household().id()),
+                request.viewer().household().id(), notice, request.csrf());
+    }
+
     private Response page(Request request) {
-        return Response.page(HouseholdPages.page(visibility(request), household.incomes(), Map.of("start", LocalDate.now(clock).withDayOfMonth(1).toString()),
+        return Response.page(HouseholdPages.incomes(visibility(request), household.incomes(), Map.of("start", LocalDate.now(clock).withDayOfMonth(1).toString()),
                 request.confirmation(), request.csrf()));
     }
 
@@ -54,18 +70,18 @@ public final class HouseholdController {
         try {
             String kind = request.form().raw("kind");
             household.addMember(request.form().requiredText("name", "Nom", 60), kind.isBlank() ? Person.Kind.PERSON : Person.Kind.parse(kind));
-            return Response.redirect("/administration/foyer?ok=enregistre");
+            return Response.redirect("/administration/membres?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(HouseholdPages.page(visibility(request), household.incomes(), Map.of(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(membersPage(request, Notice.error(exception.getMessage())));
         }
     }
 
     private Response addIncome(Request request) {
         try {
             household.addIncome(read(request.form(), 0, visibility(request).people()));
-            return Response.redirect("/administration/foyer?ok=enregistre");
+            return Response.redirect("/administration/revenus?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(HouseholdPages.page(visibility(request), household.incomes(), request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(HouseholdPages.incomes(visibility(request), household.incomes(), request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
         }
     }
 
@@ -82,7 +98,7 @@ public final class HouseholdController {
         try {
             household.updateIncome(read(request.form(), current.id(), visibility(request).people()));
             String back = back(request);
-            return Response.redirect(back != null ? back : "/administration/foyer?ok=enregistre");
+            return Response.redirect(back != null ? back : "/administration/revenus?ok=enregistre");
         } catch (ValidationException exception) {
             return Response.invalid(HouseholdPages.edit(current, visibility(request).people(), request.form().values(), Notice.error(exception.getMessage()), back(request), false, request.csrf()));
         }

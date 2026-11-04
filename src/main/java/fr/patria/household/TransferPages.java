@@ -46,7 +46,7 @@ final class TransferPages {
         if (people.size() < 2) {
             return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, Html.concat(heading, Components.notice(notice),
                     Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : ajoutez un compte joint ou une deuxième personne.",
-                            Components.button("/administration/foyer", "Foyer et revenus"))));
+                            Components.button("/administration/membres", "Membres"))));
         }
         Html rows = transfers.stream().map(transfer -> Html.of("<tr>%s%s%s%s%s<td class=\"actions\">%s</td></tr>",
                 cell(name(people, transfer.fromId()) + " → " + name(people, transfer.toId())), cell(transfer.label().isBlank() ? Format.DASH : transfer.label()),

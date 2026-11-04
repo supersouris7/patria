@@ -72,7 +72,7 @@ public final class App implements AutoCloseable {
         HouseholdSite site(long householdId) {
             return open.computeIfAbsent(householdId, id -> {
                 Household household = accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe plus."));
-                return HouseholdSite.open(file(household), config.clock(), rates);
+                return HouseholdSite.open(file(household), config.clock(), rates, this::logins);
             });
         }
 
@@ -84,6 +84,25 @@ public final class App implements AutoCloseable {
         @Override
         public List<Member> members(long householdId) {
             return site(householdId).household.people().stream().map(person -> new Member(person.id(), person.name(), person.isAccount())).toList();
+        }
+
+        @Override
+        public long addMember(long householdId, String name, boolean account) {
+            return site(householdId).household.addMember(name, account ? fr.patria.household.Person.Kind.ACCOUNT : fr.patria.household.Person.Kind.PERSON);
+        }
+
+        /** Identifiants des utilisateurs lies a chaque membre d'un foyer (page Membres). */
+        Map<Long, List<String>> logins(long householdId) {
+            Map<Long, List<String>> result = new java.util.HashMap<>();
+            for (User user : accounts.users()) {
+                for (fr.patria.account.Access access : accounts.accesses(user.id())) {
+                    if (access.householdId() != householdId) continue;
+                    for (long person : access.members()) {
+                        result.computeIfAbsent(person, key -> new java.util.ArrayList<>()).add(user.login() + (user.active() ? "" : " (désactivé)"));
+                    }
+                }
+            }
+            return result;
         }
 
         @Override

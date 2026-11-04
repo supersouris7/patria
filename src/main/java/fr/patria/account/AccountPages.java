@@ -17,31 +17,65 @@ final class AccountPages {
 
     // ---- Foyers ----
 
-    static Html households(List<Household> households, Map<Long, Integer> users, Map<String, String> values, Notice notice, String csrf) {
-        Html rows = households.stream().map(household -> Html.of("""
-                        <tr><td><form method="post" action="/administration/foyers/%s/renommer" class="rename-form">%s\
-                        <input name="name" value="%s" maxlength="60" required aria-label="Nom du foyer"><button class="secondary" type="submit">Renommer</button></form></td>\
-                        <td>%s</td><td class="num">%s</td><td>%s</td></tr>""",
-                household.id(), Components.csrfField(csrf), household.name(), household.isPrimary() ? "Principal (base de départ)" : household.file(),
-                users.getOrDefault(household.id(), 0),
-                household.isPrimary() || households.size() < 2 ? Html.EMPTY : Html.of("""
-                        <form method="post" action="/administration/foyers/%s/supprimer" data-confirm="Supprimer le foyer « %s » ? Sa base est mise de côté, \
-                        ses utilisateurs n'y ont plus accès.">%s<button class="danger" type="submit">Supprimer</button></form>""",
-                        household.id(), household.name(), Components.csrfField(csrf)))).collect(Html.joining());
+    /** Un foyer et son contenu, pour la page Foyers : ses membres et les utilisateurs qui y ont acces. */
+    record HouseholdCard(Household household, List<HouseholdDirectory.Member> members, List<String> users) {
+    }
+
+    /**
+     * Page Foyers : une carte par foyer (renommer, membres avec ajout direct, utilisateurs, « Gerer ce foyer »),
+     * {@code current} : foyer affiche. Un foyer vide montre les etapes a suivre.
+     */
+    static Html households(List<HouseholdCard> cards, long current, Map<String, String> values, Notice notice, String csrf) {
+        Html blocks = cards.stream().map(card -> householdCard(card, current, cards.size(), csrf)).collect(Html.joining());
         Html form = Components.form("/administration/foyers", csrf, false, Components.fields(2,
                 Components.input(Input.of("Nom du foyer", "name", Field.TEXT).required().maxLength(60).placeholder("Foyer Martin"), values)), "Créer le foyer");
-        Html content = Html.concat(Components.heading("Administration", "Foyers", "Chaque foyer a ses propres membres, revenus, dépenses, virements et biens.", Html.EMPTY),
+        Html content = Html.concat(Components.heading("Administration", "Foyers",
+                        "Un foyer d'abord, puis ce qu'il contient : ses membres, leurs revenus et dépenses, ses biens. Chaque foyer est séparé des autres.", Html.EMPTY),
                 Components.notice(notice),
-                Components.card("Nouveau foyer", null, Html.EMPTY, Html.concat(Html.raw("""
-                        <p class="muted">Le foyer est vide à sa création. Choisissez-le dans l'en-tête pour y ajouter ses membres, puis ouvrez-le à des
-                        utilisateurs dans Utilisateurs.</p>"""), form)),
-                Components.card("Foyers", households.size(), Html.EMPTY, Components.table(List.of("Nom", "Base", "#Utilisateurs", ""), rows, false, false)));
+                Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
+                Components.card("Nouveau foyer", null, Html.EMPTY, form));
         return Layout.adminSection("Foyers · Patria", csrf, Layout.AdminSection.HOUSEHOLDS, content);
+    }
+
+    private static Html householdCard(HouseholdCard card, long current, int count, String csrf) {
+        Household household = card.household();
+        boolean shown = household.id() == current;
+        Html members = card.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre pour l'instant.</p>")
+                : Html.of("<div class=\"chips-line\">%s</div>", card.members().stream()
+                .map(member -> Html.of("<span class=\"badge\">%s%s</span>", member.name(), member.account() ? " · compte joint" : "")).collect(Html.joining()));
+        Html steps = card.members().isEmpty() ? Html.raw("""
+                <ol class="steps"><li>Ajoutez ses membres ci-dessous (les personnes, puis le compte joint s'il y en a un).</li>
+                <li>« Gérer ce foyer » : saisissez leurs revenus, les dépenses, les biens.</li>
+                <li>Ouvrez-le à des utilisateurs (Utilisateurs → un utilisateur → Foyers et droits).</li></ol>""") : Html.EMPTY;
+        Html addMember = Html.of("""
+                <form method="post" action="/administration/foyers/%s/membres" class="row-form">%s%s%s<button class="secondary" type="submit">Ajouter le membre</button></form>""",
+                household.id(), Components.csrfField(csrf),
+                Components.input(Input.of("Nouveau membre", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom, ou « Compte joint »"), Map.of()),
+                Components.select("Type", "kind", List.of(new Components.Option("PERSON", "Personne"), new Components.Option("ACCOUNT", "Compte joint")), "PERSON"));
+        Html manage = Html.of("""
+                <form method="post" action="/foyer/choisir">%s<input type="hidden" name="foyer" value="%s"><input type="hidden" name="suite" value="/administration/membres">                <button type="submit"%s>%s</button></form>""", Components.csrfField(csrf), household.id(),
+                Html.raw(shown ? " class=\"secondary\"" : ""), shown ? "Foyer affiché : modifier son contenu" : "Gérer ce foyer");
+        Html rename = Html.of("""
+                <form method="post" action="/administration/foyers/%s/renommer" class="rename-form">%s<input name="name" value="%s" maxlength="60" required                 aria-label="Nom du foyer"><button class="secondary" type="submit">Renommer</button></form>""", household.id(), Components.csrfField(csrf), household.name());
+        Html delete = household.isPrimary() || count < 2 ? Html.EMPTY : Html.of("""
+                <form method="post" action="/administration/foyers/%s/supprimer" data-confirm="Supprimer le foyer « %s » ? Sa base est mise de côté,                 ses utilisateurs n'y ont plus accès.">%s<button class="danger" type="submit">Supprimer</button></form>""", household.id(), household.name(), Components.csrfField(csrf));
+        return Html.of("""
+                        <section class="household-card" id="foyer-%s"><h3>%s%s</h3>
+                        <p class="eyebrow">Membres</p>%s%s%s
+                        <p class="eyebrow">Utilisateurs qui y ont accès</p><p class="muted">%s</p>
+                        <div class="household-actions">%s%s%s</div></section>""",
+                household.id(), household.name(), shown ? Html.raw(" <span class=\"badge paid\">affiché</span>") : Html.EMPTY,
+                members, steps, addMember, card.users().isEmpty() ? "Aucun (l'administrateur voit tous les foyers)." : String.join(", ", card.users()),
+                manage, rename, delete);
     }
 
     // ---- Utilisateurs ----
 
-    static Html users(List<User> users, Map<Long, List<Access>> accesses, Map<String, String> values, Notice notice, String csrf) {
+    /** Choix « ce compte represente » a la creation : un membre existant ou nouveau d'un foyer, ou aucun. */
+    record MemberChoice(String value, String label, String group) {
+    }
+
+    static Html users(List<User> users, Map<Long, List<Access>> accesses, List<MemberChoice> choices, Map<String, String> values, Notice notice, String csrf) {
         Html rows = users.stream().map(user -> Html.of("<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>",
                 user.name(), user.login(), user.active() ? Html.raw("<span class=\"badge paid\">Actif</span>") : Html.raw("<span class=\"badge\">Désactivé</span>"),
                 accesses.getOrDefault(user.id(), List.of()).stream().map(Access::householdName).reduce((a, b) -> a + ", " + b).orElse("Aucun foyer"),
@@ -50,7 +84,8 @@ final class AccountPages {
                 Components.input(Input.of("Nom affiché", "name", Field.TEXT).required().maxLength(60).placeholder("Paul"), values),
                 Components.input(Input.of("Identifiant", "login", Field.TEXT).required().maxLength(40).placeholder("paul")
                         .help("Lettres, chiffres, point, tiret. Sert à la connexion."), values),
-                password("Mot de passe initial", "password", "new-password", "Au moins " + AccountRepository.MIN_PASSWORD + " caractères ; l'utilisateur pourra le changer.")),
+                password("Mot de passe initial", "password", "new-password", "Au moins " + AccountRepository.MIN_PASSWORD + " caractères ; l'utilisateur pourra le changer."),
+                memberSelect(choices, values.getOrDefault("membre", ""))),
                 "Créer l'utilisateur");
         Html content = Html.concat(Components.heading("Administration", "Utilisateurs",
                         "L'administrateur se connecte avec le compte défini dans l'environnement (APP_PASSWORD). Les utilisateurs ne voient que ce que vous leur ouvrez.",
@@ -60,6 +95,24 @@ final class AccountPages {
                 Components.card("Utilisateurs", users.size(), Html.EMPTY, users.isEmpty() ? Html.raw("<p class=\"empty\">Aucun utilisateur.</p>")
                         : Components.table(List.of("Nom", "Identifiant", "État", "Foyers", ""), rows, false, false)));
         return Layout.adminSection("Utilisateurs · Patria", csrf, Layout.AdminSection.USERS, content);
+    }
+
+    /** Liste deroulante groupee par foyer : aucun, un membre existant, ou un nouveau membre au nom de l'utilisateur. */
+    private static Html memberSelect(List<MemberChoice> choices, String selected) {
+        StringBuilder options = new StringBuilder();
+        options.append(Html.of("<option value=\"\"%s>Aucun pour l'instant (droits à régler ensuite)</option>", selected.isEmpty() ? Html.raw(" selected") : Html.EMPTY));
+        String group = null;
+        for (MemberChoice choice : choices) {
+            if (!choice.group().equals(group)) {
+                if (group != null) options.append("</optgroup>");
+                options.append(Html.of("<optgroup label=\"%s\">", choice.group()));
+                group = choice.group();
+            }
+            options.append(Html.of("<option value=\"%s\"%s>%s</option>", choice.value(), choice.value().equals(selected) ? Html.raw(" selected") : Html.EMPTY, choice.label()));
+        }
+        if (group != null) options.append("</optgroup>");
+        return Html.of("<label>Ce compte représente<select name=\"membre\">%s</select><span class=\"help\">Le membre du foyer que cette personne est : "
+                + "elle verra et modifiera ses lignes. Les autres vues se règlent ensuite dans ses droits.</span></label>", Html.raw(options.toString()));
     }
 
     /** Membres d'un foyer, avec ce que l'utilisateur y voit (vide : pas d'acces). */
@@ -90,9 +143,11 @@ final class AccountPages {
 
     private static Html accessForm(User user, HouseholdAccess entry, String csrf) {
         Access access = entry.access().orElse(null);
-        Html members = entry.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre dans ce foyer pour l'instant : ajoutez-les dans Foyer et revenus.</p>")
-                : entry.members().stream().map(member -> option("member_" + member.id(), member.name() + (member.account() ? " · compte joint" : ""),
-                "Onglet « " + member.name() + " » dans Prévisionnel et Budget moyen (sa part de chaque dépense). Saisie et modification de "
+        Html members = entry.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre dans ce foyer pour l'instant : ajoutez-les dans Foyers.</p>")
+                : entry.members().stream().map(member -> option("member_" + member.id(),
+                member.account() ? "Gère « " + member.name() + " »" : "C'est " + member.name(),
+                (member.account() ? "Ce compte gère le compte joint « " + member.name() + " » : " : "Ce compte représente " + member.name() + " : ")
+                        + "onglet « " + member.name() + " » dans Prévisionnel et Budget moyen, saisie et modification de "
                         + (member.account() ? "ses dépenses et virements." : "ses revenus, dépenses et virements."),
                 access != null && access.members().contains(member.id()))).collect(Html.joining());
         return Html.of("""
@@ -100,7 +155,7 @@ final class AccountPages {
                         <div class="access-head"><h3>%s</h3><p class="access-summary %s">%s</p></div>
                         %s
                         <fieldset class="access-details" data-access-details><legend class="eyebrow">Ce qu'il voit</legend>%s%s
-                        <p class="eyebrow">Membres : ce qu'il voit et modifie</p><div class="access-options">%s</div>
+                        <p class="eyebrow">Membres : qui ce compte représente</p><div class="access-options">%s</div>
                         <p class="muted small">Une ligne qui concerne seulement ses membres cochés est modifiable. Une ligne partagée avec un membre non coché
                         (ex. « parts égales » avec une autre personne) reste visible en lecture seule. Il ne gère jamais les membres, les biens, la répartition,
                         les foyers ni les utilisateurs.</p></fieldset>

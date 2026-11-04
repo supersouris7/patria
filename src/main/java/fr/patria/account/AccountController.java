@@ -36,7 +36,16 @@ public final class AccountController {
     }
 
     public void register(Router router) {
-        router.get("/administration/foyers", request -> Response.page(householdsPage(Map.of(), request.confirmation(), request.csrf())));
+        router.get("/administration/foyers", request -> Response.page(householdsPage(request, Map.of(), request.confirmation())));
+        router.post("/administration/foyers/{id}/membres", request -> {
+            Household household = household(request.id());
+            try {
+                directory.addMember(household.id(), request.form().requiredText("name", "Nom du membre", 60), "ACCOUNT".equals(request.form().raw("kind")));
+                return Response.redirect("/administration/foyers?ok=enregistre#foyer-" + household.id());
+            } catch (ValidationException exception) {
+                return Response.invalid(householdsPage(request, Map.of(), Notice.error(exception.getMessage())));
+            }
+        });
         router.post("/administration/foyers", this::createHousehold);
         router.post("/administration/foyers/{id}/renommer", request -> {
             Household household = household(request.id());
@@ -44,12 +53,15 @@ public final class AccountController {
                 accounts.renameHousehold(household.id(), request.form().requiredText("name", "Nom du foyer", 60));
                 return Response.redirect("/administration/foyers?ok=enregistre");
             } catch (ValidationException exception) {
-                return Response.invalid(householdsPage(Map.of(), Notice.error(exception.getMessage()), request.csrf()));
+                return Response.invalid(householdsPage(request, Map.of(), Notice.error(exception.getMessage())));
             }
         });
         router.post("/administration/foyers/{id}/supprimer", this::deleteHousehold);
 
-        router.get("/administration/utilisateurs", request -> Response.page(usersPage(Map.of(), request.confirmation(), request.csrf())));
+        router.get("/administration/utilisateurs", request -> {
+            String member = request.query("membre");
+            return Response.page(usersPage(member == null ? Map.of() : Map.of("membre", member), request.confirmation(), request.csrf()));
+        });
         router.post("/administration/utilisateurs", this::createUser);
         router.get("/administration/utilisateur/{id}", request -> Response.page(userPage(user(request.id()), request.confirmation(), request.csrf())));
         router.post("/administration/utilisateur/{id}", request -> {
@@ -94,23 +106,29 @@ public final class AccountController {
                 throw new ForbiddenException("Ce foyer n'est pas ouvert pour votre compte.");
             }
             sessions.select(request.session(), household);
-            return Response.redirect("/");
+            String next = fr.patria.web.LocalPath.safe(request.form().raw("suite"));
+            return Response.redirect(next != null && next.startsWith("/administration") ? next : "/");
         });
     }
 
     // ---- Foyers ----
 
-    private fr.patria.ui.Html householdsPage(Map<String, String> values, Notice notice, String csrf) {
-        return AccountPages.households(accounts.households(), accounts.usersPerHousehold(), values, notice, csrf);
+    private fr.patria.ui.Html householdsPage(Request request, Map<String, String> values, Notice notice) {
+        List<User> users = accounts.users();
+        Map<Long, List<Access>> accesses = users.stream().collect(Collectors.toMap(User::id, user -> accounts.accesses(user.id())));
+        List<AccountPages.HouseholdCard> cards = accounts.households().stream().map(household -> new AccountPages.HouseholdCard(household,
+                directory.members(household.id()), users.stream().filter(user -> accesses.get(user.id()).stream().anyMatch(access -> access.householdId() == household.id()))
+                .map(user -> user.name() + (user.active() ? "" : " (désactivé)")).toList())).toList();
+        return AccountPages.households(cards, request.viewer().household().id(), values, notice, request.csrf());
     }
 
     private Response createHousehold(Request request) {
         try {
             Household household = accounts.createHousehold(request.form().requiredText("name", "Nom du foyer", 60), LocalDate.now(clock));
             directory.created(household);
-            return Response.redirect("/administration/foyers?ok=foyer");
+            return Response.redirect("/administration/foyers?ok=foyer#foyer-" + household.id());
         } catch (ValidationException exception) {
-            return Response.invalid(householdsPage(request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(householdsPage(request, request.form().values(), Notice.error(exception.getMessage())));
         }
     }
 
@@ -132,7 +150,14 @@ public final class AccountController {
     private fr.patria.ui.Html usersPage(Map<String, String> values, Notice notice, String csrf) {
         List<User> users = accounts.users();
         Map<Long, List<Access>> accesses = users.stream().collect(Collectors.toMap(User::id, user -> accounts.accesses(user.id())));
-        return AccountPages.users(users, accesses, values, notice, csrf);
+        List<AccountPages.MemberChoice> choices = new java.util.ArrayList<>();
+        for (Household household : accounts.households()) {
+            for (HouseholdDirectory.Member member : directory.members(household.id())) {
+                choices.add(new AccountPages.MemberChoice(household.id() + ":" + member.id(), member.name() + (member.account() ? " (compte joint)" : ""), household.name()));
+            }
+            choices.add(new AccountPages.MemberChoice(household.id() + ":nouveau", "Nouveau membre, au nom de l'utilisateur", household.name()));
+        }
+        return AccountPages.users(users, accesses, choices, values, notice, csrf);
     }
 
     private Response createUser(Request request) {
@@ -142,7 +167,27 @@ public final class AccountController {
                 throw new ValidationException("Identifiant : de 2 à 40 caractères, lettres minuscules, chiffres, point, tiret ou souligné.");
             }
             if (login.equalsIgnoreCase(adminLogin)) throw new ValidationException("Cet identifiant est celui de l'administrateur.");
-            long id = accounts.createUser(login, request.form().requiredText("name", "Nom affiché", 60), request.form().raw("password"), LocalDate.now(clock));
+            String name = request.form().requiredText("name", "Nom affiché", 60);
+            Long household = null;
+            String member = request.form().raw("membre").trim();
+            if (!member.isEmpty()) {
+                String[] parts = member.split(":", 2);
+                try {
+                    household = household(Long.parseLong(parts[0])).id();
+                } catch (NumberFormatException | ArrayIndexOutOfBoundsException exception) {
+                    throw new ValidationException("Membre invalide.");
+                }
+                if (parts.length < 2 || (!parts[1].equals("nouveau") && directory.members(household).stream().noneMatch(candidate -> String.valueOf(candidate.id()).equals(parts[1])))) {
+                    throw new ValidationException("Ce membre n'existe plus : choisissez-en un autre.");
+                }
+            }
+            long id = accounts.createUser(login, name, request.form().raw("password"), LocalDate.now(clock));
+            if (household != null) {
+                String[] parts = member.split(":", 2);
+                long person = parts[1].equals("nouveau") ? directory.addMember(household, name, false) : Long.parseLong(parts[1]);
+                Household target = household(household);
+                accounts.setAccess(id, household, new Access(id, household, target.name(), false, Set.of(person), false));
+            }
             return Response.redirect("/administration/utilisateur/" + id + "?ok=utilisateur");
         } catch (ValidationException exception) {
             Map<String, String> values = new java.util.HashMap<>(request.form().values());

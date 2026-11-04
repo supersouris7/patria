@@ -120,14 +120,6 @@ public final class AccountRepository {
         database.query(connection -> Sql.update(connection, "DELETE FROM households WHERE id = ?", id));
     }
 
-    /** Nombre d'utilisateurs ayant acces a chaque foyer. */
-    public Map<Long, Integer> usersPerHousehold() {
-        Map<Long, Integer> result = new LinkedHashMap<>();
-        database.query(connection -> Sql.list(connection, "SELECT household_id, count(*) FROM user_households GROUP BY household_id",
-                row -> result.put(row.getLong(1), row.getInt(2))));
-        return result;
-    }
-
     private static Household household(ResultSet row) throws SQLException {
         return new Household(row.getLong("id"), row.getString("name"), row.getString("file"));
     }

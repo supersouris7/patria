@@ -10,6 +10,9 @@ public interface HouseholdDirectory {
 
     List<Member> members(long householdId);
 
+    /** Ajoute un membre (personne ou compte joint) dans un foyer ; renvoie son identifiant. */
+    long addMember(long householdId, String name, boolean account);
+
     /** Cree et initialise la base d'un nouveau foyer. */
     void created(Household household);
 
