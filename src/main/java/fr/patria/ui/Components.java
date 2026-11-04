@@ -205,6 +205,18 @@ public final class Components {
                 input.label(), mark, input.name(), values.getOrDefault(input.name(), ""), Html.raw(attributes.toString()), placeholder, help);
     }
 
+    /**
+     * Bouton « Copier le prompt IA » : un texte pret a coller dans un assistant IA avec ses documents, qui renvoie un
+     * fichier au format de l'import. Le prompt reste lisible (et copiable a la main) dans un bloc depliable.
+     */
+    public static Html llmPrompt(String id, String prompt) {
+        return Html.of("""
+                <div class="llm-prompt"><div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
+                <span class="muted copy-status" role="status">À coller dans votre assistant IA (ChatGPT, Claude, Le Chat…), en y joignant vos documents.</span></div>\
+                <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
+                id, id, prompt);
+    }
+
     public static Html fileInput(String label, String name) {
         return Html.of("<label>%s <span class=\"required-mark\">*</span><input name=\"%s\" type=\"file\" accept=\".csv,text/csv\" required></label>", label, name);
     }

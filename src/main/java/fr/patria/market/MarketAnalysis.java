@@ -35,13 +35,17 @@ final class MarketAnalysis {
     record Location(double latitude, double longitude, String citycode, String label, boolean precise) {
     }
 
-    private record Adjusted(BigDecimal perSquareMeter, double distance) {
+    private record Adjusted(Sale sale, BigDecimal perSquareMeter, double distance) {
+    }
+
+    /** Prix calcule et ventes retenues (apres ecart des valeurs aberrantes), de la plus recente a la plus ancienne. */
+    record Result(MarketPrice price, List<MarketSale> sales) {
     }
 
     private MarketAnalysis() {
     }
 
-    static MarketPrice analyse(long propertyId, String fingerprint, LocalDate today, PropertyKind kind, BigDecimal area,
+    static Result analyse(long propertyId, String fingerprint, LocalDate today, PropertyKind kind, BigDecimal area,
                                Location location, String place, List<Sale> sales, PriceIndex index, String period) {
         List<Adjusted> comparable = new ArrayList<>();
         for (Sale sale : sales) {
@@ -49,7 +53,7 @@ final class MarketAnalysis {
             if (area != null && !similarArea(sale.area(), area)) continue;
             BigDecimal perSquareMeter = sale.pricePerSquareMeter();
             if (perSquareMeter.compareTo(MIN_PER_SQM) < 0 || perSquareMeter.compareTo(MAX_PER_SQM) > 0) continue;
-            comparable.add(new Adjusted(perSquareMeter.multiply(index.factor(YearMonth.from(sale.date()))),
+            comparable.add(new Adjusted(sale, perSquareMeter.multiply(index.factor(YearMonth.from(sale.date()))),
                     distance(location.latitude(), location.longitude(), sale.latitude(), sale.longitude())));
         }
         MarketPrice.Scope scope = MarketPrice.Scope.COMMUNE;
@@ -67,11 +71,21 @@ final class MarketAnalysis {
         }
         List<BigDecimal> values = withoutOutliers(selected.stream().map(Adjusted::perSquareMeter).sorted().toList());
         if (values.size() < (scope == MarketPrice.Scope.COMMUNE ? MIN_SALES_COMMUNE : MIN_SALES)) {
-            return new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.INSUFFICIENT, null, null, null, values.size(), scope, place, period,
-                    index.latestMonth(), "Trop peu de ventes comparables (" + values.size() + ") pour estimer un prix fiable.", null);
+            return new Result(new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.INSUFFICIENT, null, null, null, values.size(), scope, place, period,
+                    index.latestMonth(), "Trop peu de ventes comparables (" + values.size() + ") pour estimer un prix fiable.", null), List.of());
         }
-        return new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.OK, round(quantile(values, 0.5)), round(quantile(values, 0.25)),
-                round(quantile(values, 0.75)), values.size(), scope, place, period, index.latestMonth(), null, null);
+        // Les valeurs gardees forment un intervalle continu : une vente est retenue si son prix est entre la plus basse et la plus haute.
+        BigDecimal lowest = values.getFirst();
+        BigDecimal highest = values.getLast();
+        boolean precise = location.precise();
+        List<MarketSale> retained = selected.stream()
+                .filter(sale -> sale.perSquareMeter().compareTo(lowest) >= 0 && sale.perSquareMeter().compareTo(highest) <= 0)
+                .map(sale -> new MarketSale(sale.sale().date(), sale.sale().address(), sale.sale().area(), sale.sale().price(),
+                        sale.perSquareMeter().setScale(0, RoundingMode.HALF_UP), precise ? (int) Math.round(sale.distance()) : null,
+                        sale.sale().latitude(), sale.sale().longitude()))
+                .sorted(Comparator.comparing(MarketSale::date).reversed()).toList();
+        return new Result(new MarketPrice(propertyId, fingerprint, today, MarketPrice.Status.OK, round(quantile(values, 0.5)), round(quantile(values, 0.25)),
+                round(quantile(values, 0.75)), values.size(), scope, place, period, index.latestMonth(), null, null), retained);
     }
 
     private static boolean similarArea(BigDecimal saleArea, BigDecimal area) {

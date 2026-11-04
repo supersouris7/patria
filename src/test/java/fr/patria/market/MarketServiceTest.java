@@ -83,6 +83,23 @@ class MarketServiceTest {
     }
 
     @Test
+    void retainedSalesAreStoredForTheDetailPage() {
+        TestData.Stores stores = TestData.stores(directory);
+        long id = stores.properties().insert(property(0, "1 rue du Port", "Arcachon"));
+        MarketService service = new MarketService(new FakeData(), new MarketRepository(stores.database()), TestData.CLOCK, Runnable::run, Runnable::run);
+        Property property = property(id, "1 rue du Port", "Arcachon");
+
+        MarketPrice price = service.forProperty(property).orElseThrow();
+        MarketSales sales = service.sales(property).orElseThrow();
+
+        assertEquals(price.salesCount(), sales.sales().size(), "les ventes de la médiane, ni plus ni moins");
+        assertTrue(sales.latitude() != null && sales.longitude() != null, "position du bien pour la carte DVF");
+        assertTrue(sales.sales().getFirst().date().compareTo(sales.sales().getLast().date()) >= 0, "plus récentes d'abord");
+        assertTrue(service.sales(property(id, "8 rue du Port", "Arcachon")).isEmpty(), "bien modifié : ancien détail ignoré");
+        stores.database().close();
+    }
+
+    @Test
     void slowIndexDoesNotPreventThePriceButIsRetriedTheNextDay() {
         TestData.Stores stores = TestData.stores(directory);
         long id = stores.properties().insert(property(0, "1 rue du Port", "Arcachon"));
@@ -141,7 +158,7 @@ class MarketServiceTest {
         assertEquals(MarketPrice.Status.UNAVAILABLE, service.compute(property(id, "", "Strasbourg")).status());
 
         data.citycode = "75056";
-        MarketPrice paris = service.compute(property(id, "", "Paris"));
+        MarketPrice paris = service.compute(property(id, "", "Paris")).price();
         assertEquals(MarketPrice.Scope.COMMUNE, paris.scope());
         assertTrue(data.requested.contains("75120/2025"), "les 20 arrondissements sont interrogés");
         stores.database().close();

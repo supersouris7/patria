@@ -344,7 +344,7 @@ final class BudgetPages {
                 dans cet ordre et <b>sans ligne d'en-tête</b> : <code>libellé;catégorie;montant;fréquence;début;fin</code>.
                 Exemple : <code>Mutuelle;Santé;35,69;Mensuel;01/01/2026;</code>. L'aperçu permet de choisir à qui reviennent
                 les dépenses avant tout enregistrement.</p>""");
-        return Html.concat(help, Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Voir l'aperçu"));
+        return Html.concat(help, Components.llmPrompt("prompt-depenses", ExpenseCsv.llmPrompt()), Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Voir l'aperçu"));
     }
 
     /**

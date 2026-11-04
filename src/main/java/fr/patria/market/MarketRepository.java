@@ -31,8 +31,42 @@ final class MarketRepository {
                 .filter(price -> propertyIds.contains(price.propertyId())).collect(Collectors.toMap(MarketPrice::propertyId, Function.identity()));
     }
 
-    void save(MarketPrice price) {
-        database.query(connection -> Sql.update(connection, """
+    /** Enregistre le prix, la position du bien et les ventes retenues (remplacees), en une transaction. */
+    void save(MarketService.Computed computed) {
+        MarketPrice price = computed.price();
+        database.transaction(connection -> {
+            save(connection, price);
+            MarketAnalysis.Location location = computed.location();
+            Sql.update(connection, "UPDATE market_prices SET latitude = ?, longitude = ? WHERE property_id = ?",
+                    location == null ? null : String.valueOf(location.latitude()), location == null ? null : String.valueOf(location.longitude()), price.propertyId());
+            Sql.update(connection, "DELETE FROM market_sales WHERE property_id = ?", price.propertyId());
+            for (MarketSale sale : computed.sales()) {
+                Sql.update(connection, """
+                        INSERT INTO market_sales (property_id, sold_on, address, area, price_cents, per_sqm_cents, distance_m, latitude, longitude)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", price.propertyId(), sale.date(), sale.address(), sale.area(), cents(sale.price()),
+                        cents(sale.perSquareMeter()), sale.distance(), String.valueOf(sale.latitude()), String.valueOf(sale.longitude()));
+            }
+            return null;
+        });
+    }
+
+    /** Ventes retenues pour ce prix, de la plus recente a la plus ancienne. */
+    MarketSales sales(MarketPrice price) {
+        return database.query(connection -> {
+            List<String[]> location = Sql.list(connection, "SELECT latitude, longitude FROM market_prices WHERE property_id = ?",
+                    row -> new String[]{row.getString("latitude"), row.getString("longitude")}, price.propertyId());
+            String latitude = location.isEmpty() ? null : location.getFirst()[0];
+            String longitude = location.isEmpty() ? null : location.getFirst()[1];
+            List<MarketSale> sales = Sql.list(connection, "SELECT * FROM market_sales WHERE property_id = ? ORDER BY sold_on DESC, id",
+                    row -> new MarketSale(Sql.date(row, "sold_on"), row.getString("address"), Sql.decimal(row, "area"), Sql.money(row, "price_cents"),
+                            Sql.money(row, "per_sqm_cents"), row.getObject("distance_m") == null ? null : row.getInt("distance_m"), Double.parseDouble(row.getString("latitude")),
+                            Double.parseDouble(row.getString("longitude"))), price.propertyId());
+            return new MarketSales(price, latitude == null ? null : Double.valueOf(latitude), longitude == null ? null : Double.valueOf(longitude), sales);
+        });
+    }
+
+    private static void save(java.sql.Connection connection, MarketPrice price) throws SQLException {
+        Sql.update(connection, """
                 INSERT INTO market_prices (property_id, fingerprint, computed_on, status, median_cents, low_cents, high_cents, sales_count,
                     scope, place, period, index_month, message, revaluation)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -42,7 +76,7 @@ final class MarketRepository {
                     index_month = excluded.index_month, message = excluded.message, revaluation = excluded.revaluation""",
                 price.propertyId(), price.fingerprint(), price.computedOn(), price.status().name(), cents(price.median()), cents(price.low()),
                 cents(price.high()), price.salesCount(), price.scope() == null ? null : price.scope().name(), price.place(), price.period(),
-                price.indexMonth() == null ? null : price.indexMonth().toString(), price.message(), price.revaluation()));
+                price.indexMonth() == null ? null : price.indexMonth().toString(), price.message(), price.revaluation());
     }
 
     private static MarketPrice map(ResultSet row) throws SQLException {

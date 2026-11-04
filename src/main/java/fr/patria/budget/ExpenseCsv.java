@@ -76,6 +76,41 @@ public final class ExpenseCsv {
         return rows;
     }
 
+    /**
+     * Prompt a coller dans un assistant IA avec ses documents (releves, avis, contrats) : il renvoie un fichier au
+     * format de l'import. Construit a partir des categories et frequences, pour rester a jour.
+     */
+    public static String llmPrompt() {
+        String categories = Category.selectable().stream().map(Category::label).collect(java.util.stream.Collectors.joining(", "));
+        String frequencies = java.util.Arrays.stream(Frequency.values()).map(Frequency::label).collect(java.util.stream.Collectors.joining(", "));
+        return """
+                Tu prépares un fichier CSV à importer dans Patria, une application de budget du foyer. À partir du ou des documents joints \
+                (relevés bancaires, avis d'imposition, échéanciers, contrats, factures), liste les dépenses du foyer.
+
+                Format, à respecter strictement :
+                - une ligne par dépense, SANS ligne d'en-tête ;
+                - 6 colonnes séparées par un point-virgule, dans cet ordre : libellé;catégorie;montant;fréquence;début;fin
+                - libellé : court et clair (ex. « Mutuelle », « Électricité EDF »), sans point-virgule ;
+                - catégorie : exactement l'une de : %s ;
+                - montant : montant d'un seul prélèvement, en euros, positif, virgule décimale, sans symbole € ni espace (ex. 35,69) ;
+                - fréquence : exactement l'une de : %s ;
+                - début : date du premier prélèvement, au format JJ/MM/AAAA ;
+                - fin : date du dernier prélèvement au format JJ/MM/AAAA, ou vide si la dépense continue (la ligne finit alors par « ; »).
+
+                Exemple : Mutuelle;Santé;35,69;Mensuel;01/01/2026;
+
+                Règles :
+                - regroupe les prélèvements qui se répètent en une seule ligne avec la bonne fréquence, pas une ligne par mois ;
+                - un paiement unique : fréquence Ponctuel, début = date du paiement, fin vide ;
+                - n'inclus pas les virements entre comptes du foyer, l'épargne, les remboursements reçus, ni ce que Patria reprend déjà \
+                de l'immobilier : mensualités des prêts immobiliers, taxe foncière, taxe d'habitation, charges de copropriété, assurance des biens ;
+                - %d lignes au plus ;
+                - n'invente rien : si une information manque ou est incertaine, fais au mieux et signale la ligne après le fichier.
+
+                Réponse : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis la liste courte des lignes à vérifier.
+                """.formatted(categories, frequencies, MAX_LINES);
+    }
+
     /** Modele a telecharger : deux exemples, sans en-tete. */
     public static String template() {
         return "\uFEFFMutuelle;Santé;35,69;Mensuel;01/01/2026;\r\nAssurance habitation;Assurances;626,65;Annuel;01/01/2026;\r\n";

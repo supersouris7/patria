@@ -112,6 +112,10 @@ class MigrationsTest {
                     assertEquals(1, monthlyTax.getInt(1), "v10 : taxe foncière mensualisée");
                     ResultSet taxPayers = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'property_tax_payers'");
                     assertEquals(1, taxPayers.getInt(1), "v11 : payeur de la taxe foncière");
+                    ResultSet marketSales = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'market_sales'");
+                    assertEquals(1, marketSales.getInt(1), "v12 : ventes retenues du prix du marché");
+                    ResultSet latitude = statement.executeQuery("SELECT count(*) FROM pragma_table_info('market_prices') WHERE name = 'latitude'");
+                    assertEquals(1, latitude.getInt(1), "v12 : position du bien");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

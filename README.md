@@ -48,7 +48,8 @@ Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquis
 - ventes du meme type (appartement ou maison), de surface comparable (±40 %), sur les 3 dernieres annees publiees ;
 - zone : 500 m autour de l'adresse, elargie a 1 km, puis 2 km, puis a la commune tant qu'il y a moins de 30 ventes comparables ;
 - chaque vente est actualisee a aujourd'hui avec l'evolution des prix du departement ; les valeurs extremes sont ecartees ;
-- resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien.
+- resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien ;
+- detail : « Voir les N ventes en detail » liste les ventes retenues pour la mediane (date, adresse, surface, prix, prix au m² actualise, distance), triables et filtrables, chacune avec un lien vers la carte publique DVF (explore.data.gouv.fr), ainsi qu'un lien vers la carte centree sur le bien.
 
 Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr` et `tabular-api.data.gouv.fr`. Sans acces, le reste de l'application fonctionne normalement.
 
@@ -74,6 +75,7 @@ Assurance emprunteur;Crédits;17,68;Mensuel;01/01/2026;05/09/2042
 - Dates au format 31/01/2026 ou 2026-01-31 ; montants avec virgule ou point, espaces et « € » acceptes.
 - Separateur point-virgule (virgule acceptee si les montants n'en contiennent pas), guillemets acceptes autour d'un libelle ; 500 lignes au plus.
 - « Telecharger le modele » donne deux lignes d'exemple.
+- « Copier le prompt IA » copie un texte a coller dans un assistant IA (ChatGPT, Claude, Le Chat…) en y joignant vos documents (releves, avis d'imposition, contrats) : il renvoie le fichier dans ce format. Le prompt reste visible sous « Voir le prompt » (la copie automatique demande HTTPS ; sinon le texte est selectionne pour un Ctrl+C).
 
 Le fichier ne dit pas a qui revient la depense. L'apercu, affiche avant tout enregistrement, permet de choisir l'attribution pour tout le fichier (parts egales ou une personne), puis ligne par ligne si besoin. Chaque depense reste modifiable ensuite, une par une, dans son formulaire (bloc Repartition).
 
@@ -85,7 +87,7 @@ Depuis la page « Prets et apports » d'un bien, bouton « Ajouter un pret » (o
 
 L'en-tete est strict : seules les colonnes `date`, `type`, `montant`, `capital_rembourse`, `interets`, `frais`, `capital_restant_du` et `taux_annuel_pct` sont acceptees. `date` et `type` sont obligatoires ; les autres colonnes peuvent etre omises. Chaque ligne doit contenir au moins une valeur financiere. Les separateurs virgule et point-virgule sont acceptes, ainsi que les nombres avec virgule ou point decimal.
 
-Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION` et `AJUSTEMENT`. La casse n'a pas d'importance. Trois fichiers generiques sont disponibles dans `docs/examples/`.
+Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION` et `AJUSTEMENT`. La casse n'a pas d'importance. Trois fichiers generiques sont disponibles dans `docs/examples/`. Le bouton « Copier le prompt IA » donne un texte a coller dans un assistant IA avec le tableau d'amortissement pour obtenir ce fichier.
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
 

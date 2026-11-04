@@ -44,12 +44,22 @@ final class DvfSales {
                 BigDecimal area = new BigDecimal(row[column.get("surface_reelle_bati")]);
                 if (price.signum() <= 0 || area.signum() <= 0) continue;
                 sales.add(new Sale(LocalDate.parse(row[column.get("date_mutation")]), price, area, kind(row[column.get("type_local")]),
-                        Double.parseDouble(row[column.get("latitude")]), Double.parseDouble(row[column.get("longitude")])));
+                        Double.parseDouble(row[column.get("latitude")]), Double.parseDouble(row[column.get("longitude")]), address(row, column)));
             } catch (RuntimeException ignored) {
                 // ligne incomplete (coordonnees ou montant absents) : ignoree
             }
         }
         return sales;
+    }
+
+    /** Adresse lisible (« 12 B rue des Lilas »), vide si les colonnes d'adresse manquent. */
+    private static String address(String[] row, Map<String, Integer> column) {
+        List<String> parts = new ArrayList<>();
+        for (String name : List.of("adresse_numero", "adresse_suffixe", "adresse_nom_voie")) {
+            Integer index = column.get(name);
+            if (index != null && !row[index].isBlank()) parts.add(row[index].trim());
+        }
+        return String.join(" ", parts);
     }
 
     /** Decoupe une ligne CSV en respectant les champs entre guillemets. */

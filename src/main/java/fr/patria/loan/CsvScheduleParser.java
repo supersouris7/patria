@@ -24,6 +24,37 @@ public final class CsvScheduleParser {
     private CsvScheduleParser() {
     }
 
+    /** Prompt a coller dans un assistant IA avec le tableau d'amortissement : il renvoie un echeancier au format de l'import. */
+    public static String llmPrompt() {
+        String types = java.util.Arrays.stream(LineType.values()).map(type -> type.code() + " (" + type.label().toLowerCase() + ")")
+                .collect(java.util.stream.Collectors.joining(", "));
+        return """
+                Tu prépares l'échéancier d'un prêt à importer dans Patria, une application de suivi de patrimoine. À partir du ou des \
+                documents joints (tableau d'amortissement, offre de prêt, relevés du prêt), produis un fichier CSV.
+
+                Format, à respecter strictement :
+                - première ligne, cet en-tête exactement : %s
+                - puis une ligne par opération, de la plus ancienne à la plus récente ;
+                - séparateur virgule, sans guillemets, point décimal, sans symbole € ni espace des milliers (ex. 14500.00) ;
+                - date : AAAA-MM-JJ ;
+                - type : %s ;
+                - montant : total payé ce jour-là, assurance et frais compris (pour un déblocage : somme versée) ;
+                - capital_rembourse et interets : part de capital et d'intérêts de l'échéance ;
+                - frais : assurance emprunteur et autres frais de l'échéance ;
+                - capital_restant_du : capital restant dû après l'opération ;
+                - taux_annuel_pct : taux nominal annuel en pourcentage (ex. 3.20) ;
+                - une valeur inconnue reste vide, mais chaque ligne a toujours 8 colonnes et au moins un montant.
+
+                Exemple : 2026-01-05,ECHEANCE,850.00,500.00,330.00,20.00,14500.00,3.20
+
+                Règles :
+                - recopie toutes les lignes du tableau, échéances futures comprises, jusqu'à la dernière ;
+                - n'invente et ne recalcule rien : une valeur absente du document reste vide ; signale après le fichier les lignes incertaines.
+
+                Réponse : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis la liste courte des points à vérifier.
+                """.formatted(HEADER, types);
+    }
+
     public static List<ScheduleLine> parse(byte[] content) {
         String text = new String(content, StandardCharsets.UTF_8);
         if (text.startsWith("\uFEFF")) text = text.substring(1);

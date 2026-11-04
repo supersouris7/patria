@@ -240,3 +240,25 @@ document.querySelectorAll("svg.chart a.month-link").forEach((link) => {
   });
 });
 if (location.hash.startsWith("#mois-")) openMonth(location.hash.slice(1), true);
+
+// ---- Prompt IA des imports : copie dans le presse-papiers ----
+// L'API presse-papiers n'existe qu'en HTTPS (ou sur localhost) : sinon, le prompt est affiche et selectionne.
+document.querySelectorAll("button[data-copy]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const source = document.getElementById(button.dataset.copy);
+    const status = button.parentElement.querySelector(".copy-status");
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(source.value);
+      copied = true;
+    } catch {
+      const details = source.closest("details");
+      if (details) details.open = true;
+      source.focus();
+      source.select();
+      try { copied = document.execCommand("copy"); } catch { copied = false; }
+    }
+    status.textContent = copied ? "Prompt copié : collez-le dans votre assistant IA et joignez-y vos documents."
+      : "Copie automatique impossible : le prompt est sélectionné ci-dessous, copiez-le (Ctrl+C).";
+  });
+});

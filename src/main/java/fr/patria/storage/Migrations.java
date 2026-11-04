@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 11;
+    public static final int LATEST = 12;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -47,6 +47,7 @@ public final class Migrations {
             if (version < 9) toVersion9(connection);
             if (version < 10) toVersion10(connection);
             if (version < 11) toVersion11(connection);
+            if (version < 12) toVersion12(connection);
             return null;
         });
     }
@@ -300,6 +301,33 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 11);
+    }
+
+    /** Version 12 : ventes DVF retenues pour le prix du marche d'un bien, et position du bien (centre de la carte DVF). */
+    private static void toVersion12(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE market_prices ADD COLUMN latitude TEXT");
+            statement.execute("ALTER TABLE market_prices ADD COLUMN longitude TEXT");
+            createMarketSales(statement);
+        }
+        setUserVersion(connection, 12);
+    }
+
+    private static void createMarketSales(Statement statement) throws SQLException {
+        statement.execute("""
+                CREATE TABLE IF NOT EXISTS market_sales (
+                    id INTEGER PRIMARY KEY,
+                    property_id INTEGER NOT NULL REFERENCES market_prices(property_id) ON DELETE CASCADE,
+                    sold_on TEXT NOT NULL,
+                    address TEXT NOT NULL DEFAULT '',
+                    area TEXT NOT NULL,
+                    price_cents INTEGER NOT NULL,
+                    per_sqm_cents INTEGER NOT NULL,
+                    distance_m INTEGER,
+                    latitude TEXT NOT NULL,
+                    longitude TEXT NOT NULL
+                )""");
+        statement.execute("CREATE INDEX IF NOT EXISTS market_sales_property ON market_sales(property_id)");
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

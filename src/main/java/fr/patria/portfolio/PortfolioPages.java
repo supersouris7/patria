@@ -345,8 +345,10 @@ final class PortfolioPages {
         String adjustment = market.indexMonth() == null ? " (non actualisées : indice du département momentanément indisponible, nouvel essai demain)"
                 : ", actualisées à " + Format.month(market.indexMonth()).toLowerCase() + " selon l'évolution des prix du département";
         return Html.of("<p class=\"source\">Médiane de %s ventes de surface comparable %s (%s), %s%s. Valeurs extrêmes écartées.<br>"
-                        + "Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr · calculé le %s, mis à jour tous les 30 jours.</p>",
-                market.salesCount(), market.scope() == null ? "" : market.scope().label(), market.place(), market.period(), adjustment, date(market.computedOn()));
+                        + "Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr · calculé le %s, mis à jour tous les 30 jours.</p>"
+                        + "<p class=\"market-sales-link\"><a href=\"/bien/%s/marche/ventes\">Voir les %s ventes en détail →</a></p>",
+                market.salesCount(), market.scope() == null ? "" : market.scope().label(), market.place(), market.period(), adjustment, date(market.computedOn()),
+                market.propertyId(), market.salesCount());
     }
 
     private static Html marketCell(SquareMeter sqm) {

@@ -18,11 +18,11 @@ class MarketAnalysisTest {
 
     private static Sale sale(int perSqm, int area, double metersNorth, PropertyKind kind) {
         return new Sale(LocalDate.of(2025, 1, 1), BigDecimal.valueOf((long) perSqm * area), BigDecimal.valueOf(area), kind,
-                HOME.latitude() + metersNorth / 100 * DEGREE_100M, HOME.longitude());
+                HOME.latitude() + metersNorth / 100 * DEGREE_100M, HOME.longitude(), "");
     }
 
     private static MarketPrice analyse(List<Sale> sales, BigDecimal area, PriceIndex index) {
-        return MarketAnalysis.analyse(1, "f", TODAY, PropertyKind.APARTMENT, area, HOME, "Grenoble", sales, index, "2023–2025");
+        return MarketAnalysis.analyse(1, "f", TODAY, PropertyKind.APARTMENT, area, HOME, "Grenoble", sales, index, "2023–2025").price();
     }
 
     @Test

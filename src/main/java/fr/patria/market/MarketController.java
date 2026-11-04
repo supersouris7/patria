@@ -22,6 +22,10 @@ public final class MarketController {
             market.refreshInBackground(property);
             return Response.redirect("/bien/" + property.id() + "#marche");
         });
+        router.get("/bien/{id}/marche/ventes", request -> {
+            Property property = PropertyController.require(properties, request.id());
+            return Response.page(MarketPages.sales(property, market.sales(property), request.csrf()));
+        });
         // Interroge par la fiche du bien pendant un calcul : « pending » puis « ready ».
         router.get("/bien/{id}/marche/etat", request ->
                 new Response.Text(200, market.isComputing(request.id()) ? "pending" : "ready"));

@@ -93,8 +93,12 @@ final class LoanPages {
         return Layout.page("Nouveau prêt · " + property.name() + " · Patria", Layout.Section.ADMINISTRATION, csrf, content);
     }
 
-    /** Aide sur le format CSV, repliee par defaut. */
+    /** Aide sur le format CSV, repliee par defaut, et prompt IA pour produire le fichier. */
     static Html csvHelp() {
+        return Html.concat(Components.llmPrompt("prompt-echeancier", CsvScheduleParser.llmPrompt()), formatHelp());
+    }
+
+    private static Html formatHelp() {
         return Html.of("""
                 <details class="help-block"><summary>Format du fichier CSV</summary>
                 <p class="muted">Fichier UTF-8 de 1 Mio maximum, séparateur virgule ou point-virgule, sans guillemets. Les nombres acceptent la virgule ou le point décimal.</p>

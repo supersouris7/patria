@@ -98,6 +98,11 @@ class AppTest {
                 + "2026-01-01,DEBLOCAGE,200000,,,,200000,3\n2026-06-01,ECHEANCE,1000,500,500,,199500,3\n2026-07-01,ECHEANCE,1000,501,499,,198999,3\n";
         HttpResponse<String> loan = upload(propertyPath + "/prets", csrf, "Prêt principal", csv);
         assertEquals(303, loan.statusCode(), loan.body());
+        assertTrue(get(propertyPath + "/prets/nouveau").body().contains("data-copy=\"prompt-echeancier\""), "prompt IA de l'échéancier");
+        assertTrue(get("/administration/depenses").body().contains("data-copy=\"prompt-depenses\""), "prompt IA des dépenses");
+        HttpResponse<String> sales = get(propertyPath + "/marche/ventes");
+        assertEquals(200, sales.statusCode());
+        assertTrue(sales.body().contains("Ventes du secteur"), "détail des ventes DVF, même sans calcul");
 
         assertEquals(204, post(propertyPath + "/valeur", "csrf=" + csrf + "&value=350000").statusCode());
 

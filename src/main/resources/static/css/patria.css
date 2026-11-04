@@ -210,6 +210,12 @@ th[data-order="desc"]::after { content: "▼"; opacity: 1; }
 .help-block { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
 .help-block summary { color: var(--blue); cursor: pointer; font-size: .88rem; font-weight: 700; }
 .help-block[open] summary { margin-bottom: 10px; }
+.llm-prompt { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-small); margin: 12px 0; padding: 12px; }
+.llm-prompt-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.llm-prompt-actions .copy-status { font-size: .86rem; }
+.llm-prompt summary { color: var(--blue); cursor: pointer; font-size: .86rem; font-weight: 700; margin-top: 8px; }
+.llm-prompt textarea { font: .82rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 8px; resize: vertical; width: 100%; }
+.market-sales-link { font-size: .9rem; font-weight: 700; margin-top: 6px; }
 .stack { display: grid; gap: 14px; }
 form.stack > .card { margin-bottom: 0; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }

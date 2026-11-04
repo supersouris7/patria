@@ -41,6 +41,17 @@ public final class MarketService {
     private static final Map<String, List<String>> ARRONDISSEMENTS = Map.of(
             "75056", codes(75101, 75120), "69123", codes(69381, 69389), "13055", codes(13201, 13216));
 
+    /** Resultat d'un calcul : prix, position du bien ({@code null} si introuvable) et ventes retenues. */
+    record Computed(MarketPrice price, MarketAnalysis.Location location, List<MarketSale> sales) {
+        static Computed failure(MarketPrice price) {
+            return new Computed(price, null, List.of());
+        }
+
+        MarketPrice.Status status() {
+            return price.status();
+        }
+    }
+
     private record CachedIndex(LocalDate fetchedOn, List<PriceIndex.Point> points) {
     }
 
@@ -113,10 +124,10 @@ public final class MarketService {
         background.execute(() -> {
             try {
                 MarketPrice previous = repository.find(property.id()).orElse(null);
-                MarketPrice result = compute(property);
+                Computed result = compute(property);
                 // Une panne reseau n'efface pas un resultat valable : on le garde et on reessaiera plus tard.
                 boolean keepPrevious = result.status() == MarketPrice.Status.ERROR && previous != null && previous.isAvailable()
-                        && previous.fingerprint().equals(result.fingerprint());
+                        && previous.fingerprint().equals(result.price().fingerprint());
                 if (!keepPrevious) repository.save(result);
             } catch (RuntimeException exception) {
                 LOG.log(Level.WARNING, "Enregistrement du prix du marché impossible pour le bien " + property.id(), exception);
@@ -132,16 +143,24 @@ public final class MarketService {
         return !price.computedOn().plusDays(days).isBefore(today());
     }
 
-    MarketPrice compute(Property property) {
+    /**
+     * Ventes retenues pour le dernier prix calcule avec les caracteristiques actuelles du bien, sans appel reseau.
+     * Vide si aucun prix valable n'est en base.
+     */
+    public Optional<MarketSales> sales(Property property) {
+        return currentFor(property).filter(MarketPrice::isAvailable).map(price -> repository.sales(price));
+    }
+
+    Computed compute(Property property) {
         String fingerprint = fingerprint(property);
         LocalDate today = today();
         try {
             Optional<MarketAnalysis.Location> location = data.locate(property.address(), property.commune());
-            if (location.isEmpty()) return MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE, "Adresse ou commune introuvable.");
+            if (location.isEmpty()) return Computed.failure(MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE, "Adresse ou commune introuvable."));
             String department = department(location.get().citycode());
             if (NOT_COVERED.contains(department)) {
-                return MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE,
-                        "Les ventes de ce département ne sont pas publiées dans DVF (Alsace-Moselle, Mayotte).");
+                return Computed.failure(MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE,
+                        "Les ventes de ce département ne sont pas publiées dans DVF (Alsace-Moselle, Mayotte)."));
             }
             List<String> communes = ARRONDISSEMENTS.getOrDefault(location.get().citycode(), List.of(location.get().citycode()));
             // L'indice (API lente) est demande en parallele des fichiers de ventes.
@@ -171,18 +190,19 @@ public final class MarketService {
                 }
                 if (published) years.add(year.getKey());
             }
-            if (years.isEmpty()) return MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE, "Aucune vente publiée pour cette commune.");
+            if (years.isEmpty()) return Computed.failure(MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.UNAVAILABLE, "Aucune vente publiée pour cette commune."));
             PriceIndex index = new PriceIndex(indexPoints.join());
             // Actualisation de l'estimation du bien : evolution de l'indice depuis le mois d'estimation.
             BigDecimal revaluation = index.latestMonth() == null ? null : index.factor(YearMonth.from(property.estimateDate()));
             String period = years.size() == 1 ? String.valueOf(years.getFirst()) : years.getLast() + "–" + years.getFirst();
-            return MarketAnalysis.analyse(property.id(), fingerprint, today, property.kind(), property.area(), location.get(),
-                    location.get().label(), sales, index, period).withRevaluation(revaluation);
+            MarketAnalysis.Result result = MarketAnalysis.analyse(property.id(), fingerprint, today, property.kind(), property.area(), location.get(),
+                    location.get().label(), sales, index, period);
+            return new Computed(result.price().withRevaluation(revaluation), location.get(), result.sales());
         } catch (IOException | RuntimeException exception) {
             Throwable cause = exception instanceof CompletionException && exception.getCause() != null ? exception.getCause() : exception;
             LOG.log(Level.WARNING, "Prix du marché indisponible pour le bien " + property.id(), cause);
-            return MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.ERROR,
-                    "Données publiques momentanément injoignables. Nouvel essai automatique demain.");
+            return Computed.failure(MarketPrice.failure(property.id(), fingerprint, today, MarketPrice.Status.ERROR,
+                    "Données publiques momentanément injoignables. Nouvel essai automatique demain."));
         }
     }
 
@@ -208,7 +228,7 @@ public final class MarketService {
     }
 
     /** A incrementer quand la methode de calcul change : les resultats en base sont alors recalcules. */
-    static final String METHOD_VERSION = "m2";
+    static final String METHOD_VERSION = "m3";
 
     static String fingerprint(Property property) {
         return String.join("|", METHOD_VERSION, property.kind().name(), property.area() == null ? "" : property.area().stripTrailingZeros().toPlainString(),
