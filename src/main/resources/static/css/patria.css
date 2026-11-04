@@ -429,6 +429,11 @@ tfoot small { font-weight: 400; }
 .scope-tabs a { border-radius: 99px; color: var(--muted); font-size: .88rem; font-weight: 700; padding: 6px 16px; text-decoration: none; }
 .scope-tabs a:hover { color: var(--text); }
 .scope-tabs a.active { background: var(--blue-deep); color: #fff; }
+/* Smartphone : les noms passent sur deux lignes, un cadre rectangulaire reste net */
+@media (max-width: 560px) {
+    .scope-tabs { border-radius: var(--radius-small); display: flex; }
+    .scope-tabs a { flex: 1 1 auto; text-align: center; }
+}
 
 /* ---- Repartition entre les personnes ---- */
 .shares { border: 1px solid var(--line); border-radius: var(--radius-small); margin: 4px 0 0; padding: 12px 14px 10px; }
