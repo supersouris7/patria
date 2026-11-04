@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 12;
+    public static final int LATEST = 13;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -48,6 +48,7 @@ public final class Migrations {
             if (version < 10) toVersion10(connection);
             if (version < 11) toVersion11(connection);
             if (version < 12) toVersion12(connection);
+            if (version < 13) toVersion13(connection);
             return null;
         });
     }
@@ -311,6 +312,31 @@ public final class Migrations {
             createMarketSales(statement);
         }
         setUserVersion(connection, 12);
+    }
+
+    /**
+     * Version 13 : progression de l'assistant d'import, par personne connectee ({@code owner} : « admin » ou
+     * « user:ID ») : etapes faites ou passees, documents rassembles ou non concernes.
+     */
+    private static void toVersion13(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE wizard_steps (
+                        owner TEXT NOT NULL,
+                        step TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK (status IN ('DONE', 'SKIPPED')),
+                        updated_on TEXT NOT NULL,
+                        PRIMARY KEY (owner, step)
+                    )""");
+            statement.execute("""
+                    CREATE TABLE wizard_documents (
+                        owner TEXT NOT NULL,
+                        document TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK (status IN ('HAVE', 'NOT_CONCERNED')),
+                        PRIMARY KEY (owner, document)
+                    )""");
+        }
+        setUserVersion(connection, 13);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

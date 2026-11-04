@@ -9,12 +9,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Conversion entre le formulaire d'un bien et un {@link Property} valide. */
-final class PropertyForm {
+public final class PropertyForm {
     private PropertyForm() {
     }
 
     /** Lit et valide la saisie. {@code current} vaut {@code null} a la creation. */
-    static Property read(FormData form, Property current, LocalDate today) {
+    public static Property read(FormData form, Property current, LocalDate today) {
         LocalDate purchaseDate = form.pastDate("purchase_date", "Date d'acquisition", today, current == null ? today : current.purchaseDate());
         LocalDate estimateDate = form.pastDate("estimate_date", "Date d'estimation", today, purchaseDate);
         if (estimateDate.isBefore(purchaseDate)) throw new ValidationException("La date d'estimation ne peut pas précéder l'acquisition.");
@@ -24,10 +24,12 @@ final class PropertyForm {
             throw new ValidationException("L'estimation optimiste doit être supérieure ou égale à l'estimation prudente.");
         }
         BigDecimal purchase = form.optionalAmount("purchase", "Coût d'acquisition");
+        BigDecimal area = form.optionalAmount("area", "Surface");
+        if (area != null && area.compareTo(BigDecimal.valueOf(100_000)) > 0) throw new ValidationException("Surface : 100 000 m² au plus.");
         Property property = new Property(current == null ? 0 : current.id(),
                 form.requiredText("name", "Nom du bien", 100), PropertyKind.parse(form.raw("kind")),
                 form.optionalText("commune", "Commune", 100), form.optionalText("address", "Adresse", 200),
-                positiveOrNull(form.optionalAmount("area", "Surface")), purchase == null ? BigDecimal.ZERO : purchase, purchaseDate,
+                positiveOrNull(area), purchase == null ? BigDecimal.ZERO : purchase, purchaseDate,
                 low, high, estimateDate, form.percent("sale_fees_pct", "Frais de vente et fiscalité", Valuation.DEFAULT_SALE_FEES), null);
         // La valeur retenue reste valable tant que les scenarios du bien ne changent pas.
         boolean keepSelection = current != null && Valuation.scenarios(property).sameAs(Valuation.scenarios(current));

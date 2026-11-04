@@ -15,7 +15,7 @@ import java.util.Map;
  * {@link ValidationException} dont le message est affiche a l'utilisateur.
  */
 public final class FormData {
-    private static final BigDecimal MAX_AMOUNT = new BigDecimal("1000000000");
+    private static final BigDecimal MAX_AMOUNT = fr.patria.common.InputRules.MAX_AMOUNT;
     private final Map<String, String> values;
     private final Map<String, byte[]> files;
 
@@ -51,13 +51,13 @@ public final class FormData {
         String value = raw(name).trim();
         if (value.isEmpty()) throw new ValidationException(label + " est obligatoire.");
         if (value.length() > maxLength) throw new ValidationException(label + " : " + maxLength + " caractères maximum.");
-        return value;
+        return fr.patria.common.InputRules.checkText(value, label);
     }
 
     public String optionalText(String name, String label, int maxLength) {
         String value = raw(name).trim();
         if (value.length() > maxLength) throw new ValidationException(label + " : " + maxLength + " caractères maximum.");
-        return value;
+        return fr.patria.common.InputRules.checkText(value, label);
     }
 
     /** Montant positif ou nul ; accepte « 250 000,50 », « 250000.50 », « 250 000 € ». */
@@ -93,11 +93,13 @@ public final class FormData {
     public LocalDate date(String name, String label) {
         String value = raw(name).trim();
         if (value.isEmpty()) throw new ValidationException(label + " est obligatoire.");
+        LocalDate date;
         try {
-            return LocalDate.parse(value);
+            date = LocalDate.parse(value);
         } catch (DateTimeParseException exception) {
             throw new ValidationException(label + " invalide.");
         }
+        return fr.patria.common.InputRules.checkDate(date, label);
     }
 
     /** Date facultative qui ne peut pas etre dans le futur. */
@@ -117,10 +119,8 @@ public final class FormData {
     private BigDecimal optionalDecimal(String name, String label) {
         String value = raw(name).replaceAll("[\\s\\u00a0\\u202f€%]", "").replace(',', '.');
         if (value.isEmpty()) return null;
-        try {
-            return new BigDecimal(value);
-        } catch (NumberFormatException exception) {
-            throw new ValidationException(label + " invalide.");
-        }
+        BigDecimal number = fr.patria.common.InputRules.decimal(value);
+        if (number == null) throw new ValidationException(label + " invalide : un nombre comme 1250 ou 1250,50.");
+        return number;
     }
 }

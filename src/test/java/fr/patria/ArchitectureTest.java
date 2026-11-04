@@ -34,6 +34,7 @@ class ArchitectureTest {
             Map.entry("household", Set.of("common", "ui", "web", "storage")),
             Map.entry("account", Set.of("common", "ui", "web", "storage")),
             Map.entry("budget", Set.of("common", "ui", "web", "storage", "property", "loan", "expense", "rent", "household")),
+            Map.entry("wizard", Set.of("common", "ui", "web", "storage", "property", "loan", "expense", "rent", "household", "budget")),
             Map.entry("portfolio", Set.of("common", "ui", "web", "storage", "property", "loan", "contribution", "market", "expense", "rent")));
     private static final Pattern IMPORT = Pattern.compile("^import (?:static )?fr\\.patria\\.(\\w+)\\.", Pattern.MULTILINE);
 

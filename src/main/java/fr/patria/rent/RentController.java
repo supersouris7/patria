@@ -42,7 +42,9 @@ public final class RentController {
     private Response create(Request request) {
         Property property = PropertyController.require(properties, request.id());
         try {
-            rents.insert(read(request.form(), 0, property.id()));
+            RentPeriod period = read(request.form(), 0, property.id());
+            RentMath.requireNoOverlap(rents.forProperty(property.id()), period);
+            rents.insert(period);
             return Response.redirect("/administration/bien/" + property.id() + "/loyers?ok=loyer");
         } catch (ValidationException exception) {
             return Response.invalid(RentPages.page(property, rents.forProperty(property.id()), today(), request.form().values(),
@@ -58,7 +60,9 @@ public final class RentController {
     private Response update(Request request) {
         RentPeriod current = require(request.id());
         try {
-            rents.update(read(request.form(), current.id(), current.propertyId()));
+            RentPeriod period = read(request.form(), current.id(), current.propertyId());
+            RentMath.requireNoOverlap(rents.forProperty(current.propertyId()), period);
+            rents.update(period);
             return Response.redirect("/administration/bien/" + current.propertyId() + "/loyers?ok=loyer");
         } catch (ValidationException exception) {
             return Response.invalid(RentPages.edit(propertyOf(current), current, request.form().values(), Notice.error(exception.getMessage()), request.csrf()));

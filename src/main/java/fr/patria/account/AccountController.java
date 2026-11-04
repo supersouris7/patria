@@ -40,7 +40,9 @@ public final class AccountController {
         router.post("/administration/foyers/{id}/membres", request -> {
             Household household = household(request.id());
             try {
-                directory.addMember(household.id(), request.form().requiredText("name", "Nom du membre", 60), "ACCOUNT".equals(request.form().raw("kind")));
+                String kind = request.form().raw("kind");
+                if (!kind.equals("PERSON") && !kind.equals("ACCOUNT")) throw new ValidationException("Type de membre invalide.");
+                directory.addMember(household.id(), request.form().requiredText("name", "Nom du membre", 60), kind.equals("ACCOUNT"));
                 return Response.redirect("/administration/foyers?ok=enregistre#foyer-" + household.id());
             } catch (ValidationException exception) {
                 return Response.invalid(householdsPage(request, Map.of(), Notice.error(exception.getMessage())));
@@ -89,6 +91,7 @@ public final class AccountController {
         router.post("/administration/utilisateur/{id}/supprimer", request -> {
             User user = user(request.id());
             accounts.deleteUser(user.id());
+            directory.forgetUser(user.id());
             sessions.removeUser(user.id());
             return Response.redirect("/administration/utilisateurs?ok=supprime");
         });

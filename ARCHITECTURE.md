@@ -12,6 +12,7 @@ fr.patria
 ├─ HouseholdSite ........... un foyer : sa base SQLite, ses dépôts, ses contrôleurs et son routeur
 │
 ├─ account ................. COMPTES : foyers, utilisateurs, droits (base comptes.sqlite3), Mon compte
+├─ wizard .................. ASSISTANT : import guidé par étapes (documents, listes à cocher, progression)
 │
 ├─ budget .................. BUDGET : accueil, prévisionnel des 12 mois (reprend l'immobilier), dépenses du foyer
 ├─ household ............... FOYER : personnes, revenus, répartition entre les personnes (Shares)
@@ -43,6 +44,7 @@ fr.patria
 | `household`, `account` | `common`, `ui`, `web`, `storage` |
 | `portfolio` | modules immobiliers ci-dessus |
 | `budget` | modules immobiliers + `household` |
+| `wizard` | modules immobiliers + `household` + `budget` |
 
 Ces règles sont **vérifiées par un test** (`ArchitectureTest`). Un import interdit fait échouer le build.
 Pour ajouter un module ou une dépendance, il faut le déclarer dans ce test : c'est un choix explicite.
@@ -110,12 +112,14 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
 | Quel format CSV pour importer des dépenses ? | `budget/ExpenseCsv` (lecture, modèle), enregistrement en une transaction par `BudgetRepository.insertAll` |
 | Comment comptent les virements et le compte joint ? | `household/Transfer`, lignes ajoutées par `Forecast.month` (vue d'un membre seulement) ; crédits du compte joint dans `Forecast.jointCredits` ; membre de type compte : `Person.Kind` (migration v9) |
+| Quelles valeurs une saisie accepte-t-elle ? | `common/InputRules` (nombres simples sans notation scientifique, montants ≤ 1 milliard, dates 1900–2100, textes sans caractères de contrôle), appliqué par `web/FormData` et les imports CSV (`budget/ExpenseCsv`, `loan/CsvScheduleParser`) |
 | Où mènent les retours (après connexion, après enregistrement depuis le budget) ? | `web/LocalPath.safe` : adresse interne uniquement, sinon page par défaut |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` ; taxe foncière mensualisée (10 prélèvements, janvier à octobre) : table `property_tax_monthly` (migration v10), choisie dans les charges du bien ; payeur de la taxe foncière (compte joint, personne) : table `property_tax_payers` (migration v11), choisi dans Administration → Répartition, appliqué par `Forecast.month` |
 | Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
 | Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée dans `App` |
 | Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite |
 | D'où vient le taux du marché affiché à côté des prêts ? | `market/HousingRates` (BCE, série MIR France, taux fixe plus de 10 ans) ; comparaison et repère de renégociation calculés par `loan/Renegotiation` (fonctions pures) |
+| Où sont les étapes et les listes de l'assistant ? | `wizard/Step` (ordre, étapes réservées), `wizard/Documents` (documents et coches automatiques), `wizard/Checklist` (dépenses par thème) ; progression dans `wizard/WizardRepository` (tables `wizard_steps`, `wizard_documents`, migration v13) |
 | Comment sont produites les synthèses PDF ? | `ui/PdfReport` (mise en page A4 commune, OpenPDF, polices standard) ; contenu par `budget/BudgetReports`, `portfolio/PortfolioReports`, `loan/LoanReports` ; routes `*.pdf` dans les contrôleurs de chaque page |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
@@ -184,6 +188,7 @@ L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit fi
 | Charges et loyers | `ExpenseMathTest`, `RentMathTest` | estimation, revalorisation, prorata, vacance |
 | HTML | `HtmlTest` | échappement |
 | Application | `AppTest` | vrai serveur HTTP : connexion, CSRF, parcours complet, 404 |
+| Assistant | `WizardTest` | vrai serveur HTTP : étapes, coches, listes à cocher, progression, droits d'un utilisateur |
 | Comptes | `AccountsTest` | vrai serveur HTTP : vues ouvertes, lecture seule, pages réservées, mot de passe, foyers séparés |
 | Architecture | `ArchitectureTest` | sens des dépendances entre modules |
 

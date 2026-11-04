@@ -278,3 +278,11 @@ document.querySelectorAll("form[data-access-form]").forEach((form) => {
   access.addEventListener("change", update);
   update();
 });
+
+// ---- Assistant : taper un montant coche la ligne ----
+document.querySelectorAll(".check-row").forEach((row) => {
+  const box = row.querySelector("input[data-check-row]");
+  const amount = row.querySelector("input[name^='amount_']");
+  if (!box || !amount) return;
+  amount.addEventListener("input", () => { if (amount.value.trim() !== "") box.checked = true; });
+});

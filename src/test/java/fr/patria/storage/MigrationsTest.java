@@ -116,6 +116,8 @@ class MigrationsTest {
                     assertEquals(1, marketSales.getInt(1), "v12 : ventes retenues du prix du marché");
                     ResultSet latitude = statement.executeQuery("SELECT count(*) FROM pragma_table_info('market_prices') WHERE name = 'latitude'");
                     assertEquals(1, latitude.getInt(1), "v12 : position du bien");
+                    ResultSet wizard = statement.executeQuery("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('wizard_steps', 'wizard_documents')");
+                    assertEquals(2, wizard.getInt(1), "v13 : progression de l'assistant");
 
                     statement.execute("DELETE FROM properties WHERE id = 1");
                     ResultSet remaining = statement.executeQuery("SELECT count(*) FROM schedule_lines");

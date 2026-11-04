@@ -100,6 +100,18 @@ Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CON
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
 
+## Assistant d'import
+
+L'icone Assistant de l'en-tete (etincelles) guide le remplissage d'un foyer, etape par etape, sans chercher dans les menus :
+
+1. **Documents a rassembler** : bulletins de salaire, avis d'impot, releves bancaires, tableaux d'amortissement, avis de taxe fonciere, contrats et abonnements, garde d'enfants, transports... Chacun dit ou trouver le chiffre utile. Coche verte automatique quand l'information est deja dans Patria, sinon « J'ai ce document » ou « Pas concerne ».
+2. **Membres**, 3. **Revenus**, 4. **Logement** (locataire : loyer, charges, assurance habitation ; proprietaire : etapes suivantes).
+5. **Biens**, 6. **Prets** (import de l'echeancier, avec le prompt IA), 7. **Charges et loyers des biens**.
+8. **Depenses fixes** : listes a cocher par theme (energie, telecom, medias et abonnements, enfants, deplacements recurrents, sante, assurances, credits, vie courante), avec montant, frequence, premier paiement et « pour qui ». Une ligne deja saisie apparait cochee et n'est pas reproposee. Raccourci : le prompt IA pour tout importer depuis les releves bancaires.
+9. **Impots** (prelevement a la source par personne, solde, acomptes), 10. **Virements** vers le compte joint, 11. **Repartition**, 12. **Recapitulatif**.
+
+Une ligne deja saisie n'est jamais recreee (meme en renvoyant une ancienne page), sauf les lignes qui se saisissent par personne (impot a la source, forfaits mobiles, mutuelle...), toujours proposees avec les saisies existantes. Deux periodes d'occupation d'un meme bien ne peuvent pas se chevaucher (le loyer compterait deux fois), dans l'assistant comme dans l'administration. Chaque etape explique ce qu'elle attend (depense fixe ou variable, ce que Patria reprend deja de l'immobilier pour eviter les doublons), peut etre **passee**, et se saisit sur place. « Reprendre » saute les etapes faites ou passees ; « Tout revoir » les repasse toutes avec ce qui est deja saisi (revue annuelle) ; « Recommencer a zero » efface la progression, pas les donnees. La progression est gardee par personne connectee (table `wizard_steps`, migration v13). Un utilisateur a sa propre version : documents, revenus, logement, depenses, impots et virements de ses membres, avec les memes droits que dans l'administration.
+
 ## Syntheses PDF
 
 Un bouton « Exporter en PDF » sur les pages de consultation telecharge une synthese au format A4 :

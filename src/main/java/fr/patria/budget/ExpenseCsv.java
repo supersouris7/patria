@@ -124,6 +124,7 @@ public final class ExpenseCsv {
         String label = cell(values, 0);
         if (label.isEmpty()) throw new ValidationException("Libellé manquant.");
         if (label.length() > 100) throw new ValidationException("Libellé trop long (100 caractères au plus).");
+        fr.patria.common.InputRules.checkText(label, "Libellé");
         Category category = category(cell(values, 1));
         BigDecimal amount = amount(cell(values, 2));
         Frequency frequency = frequency(cell(values, 3));
@@ -159,19 +160,18 @@ public final class ExpenseCsv {
     private static BigDecimal amount(String value) {
         String cleaned = value.replace("€", "").replace(" ", "").replace(" ", "").replace(" ", "").replace(',', '.');
         if (cleaned.isEmpty()) throw new ValidationException("Montant manquant.");
-        try {
-            BigDecimal amount = new BigDecimal(cleaned);
-            if (amount.signum() > 0 && amount.scale() <= 2) return amount;
-        } catch (NumberFormatException ignored) {
-            // message commun ci-dessous
+        BigDecimal amount = fr.patria.common.InputRules.decimal(cleaned);
+        if (amount != null && fr.patria.common.InputRules.tooLarge(amount)) {
+            throw new ValidationException("Montant « " + value + " » trop élevé (un milliard au plus).");
         }
+        if (amount != null && amount.signum() > 0 && amount.scale() <= 2) return amount;
         throw new ValidationException("Montant « " + value + " » invalide (nombre positif, 2 décimales au plus).");
     }
 
     private static LocalDate date(String value, String label) {
         if (value.isEmpty()) throw new ValidationException(label + " manquant.");
         try {
-            return value.contains("/") ? LocalDate.parse(value, FRENCH_DATE) : LocalDate.parse(value);
+            return fr.patria.common.InputRules.checkDate(value.contains("/") ? LocalDate.parse(value, FRENCH_DATE) : LocalDate.parse(value), label);
         } catch (DateTimeParseException exception) {
             throw new ValidationException(label + " : date « " + value + " » invalide (31/01/2026 ou 2026-01-31).");
         }

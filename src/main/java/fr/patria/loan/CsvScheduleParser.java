@@ -131,7 +131,7 @@ public final class CsvScheduleParser {
 
     private static LocalDate date(String value, int lineNumber) {
         try {
-            return LocalDate.parse(value.trim());
+            return fr.patria.common.InputRules.checkDate(LocalDate.parse(value.trim()), "Ligne " + lineNumber);
         } catch (DateTimeParseException exception) {
             throw new ValidationException("Ligne " + lineNumber + " : date invalide.");
         }
@@ -140,12 +140,14 @@ public final class CsvScheduleParser {
     private static BigDecimal number(String value, String column, int lineNumber) {
         value = value.trim().replace(" ", "").replace(',', '.');
         if (value.isEmpty()) return null;
-        try {
-            BigDecimal number = new BigDecimal(value);
-            if (number.signum() >= 0) return number;
-        } catch (NumberFormatException ignored) {
-            // message commun ci-dessous
+        BigDecimal number = fr.patria.common.InputRules.decimal(value);
+        if (number != null && fr.patria.common.InputRules.tooLarge(number)) {
+            throw new ValidationException("Ligne " + lineNumber + " : " + column + " trop élevé (un milliard au plus).");
         }
+        if (number != null && column.equals("taux_annuel_pct") && number.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new ValidationException("Ligne " + lineNumber + " : taux annuel en pourcentage attendu (3.2 pour 3,2 %).");
+        }
+        if (number != null && number.signum() >= 0) return number;
         throw new ValidationException("Ligne " + lineNumber + " : " + column + " invalide.");
     }
 }

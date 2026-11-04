@@ -26,6 +26,8 @@ import fr.patria.rent.RentRepository;
 import fr.patria.storage.Database;
 import fr.patria.storage.Migrations;
 import fr.patria.web.Router;
+import fr.patria.wizard.WizardController;
+import fr.patria.wizard.WizardRepository;
 import java.nio.file.Path;
 import java.time.Clock;
 
@@ -34,6 +36,7 @@ final class HouseholdSite implements AutoCloseable {
     final Database database;
     final HouseholdRepository household;
     final PropertyRepository properties;
+    final WizardRepository wizard;
     final Router router = new Router();
 
     private HouseholdSite(Database database, Clock clock, HousingRates rates, HouseholdController.Logins logins) {
@@ -60,6 +63,9 @@ final class HouseholdSite implements AutoCloseable {
         Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
         new BudgetController(new Forecast(budgetSources, clock), budgetSources, clock).register(router);
         new RentController(rents, properties, clock).register(router);
+        wizard = new WizardRepository(database);
+        new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard), clock)
+                .register(router);
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */

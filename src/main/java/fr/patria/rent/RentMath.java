@@ -17,6 +17,24 @@ public final class RentMath {
     }
 
     /** Loyers percus (locations) jusqu'a aujourd'hui. */
+    /**
+     * Refuse une periode qui chevauche une autre periode du meme bien : les periodes s'additionnent, un chevauchement
+     * compterait deux loyers pour les memes jours. {@code candidate.id()} est ignore (modification d'une periode).
+     */
+    public static void requireNoOverlap(List<RentPeriod> periods, RentPeriod candidate) {
+        LocalDate start = candidate.start();
+        LocalDate end = candidate.end() == null ? LocalDate.MAX : candidate.end();
+        for (RentPeriod other : periods) {
+            if (other.id() == candidate.id() || other.propertyId() != candidate.propertyId()) continue;
+            LocalDate otherEnd = other.end() == null ? LocalDate.MAX : other.end();
+            if (!start.isAfter(otherEnd) && !other.start().isAfter(end)) {
+                throw new fr.patria.common.ValidationException("Cette période chevauche « " + other.kind().label() + " depuis le "
+                        + fr.patria.ui.Format.date(other.start()) + (other.end() == null ? " » (sans fin)" : " au " + fr.patria.ui.Format.date(other.end()) + " »")
+                        + " : les loyers compteraient deux fois. Terminez d'abord cette période (date de fin), puis ajoutez la nouvelle.");
+            }
+        }
+    }
+
     public static BigDecimal receivedToDate(List<RentPeriod> periods, LocalDate today) {
         return toDate(periods, Occupancy.RENTAL, today);
     }
