@@ -62,19 +62,21 @@ public final class AuthController {
         String client = request.clientAddress();
         String next = LocalPath.safe(request.form().raw("suite"));
         String keep = next == null ? "" : "&suite=" + LocalPath.encode(next);
-        if (throttle.isBlocked(client)) return Response.redirect("/connexion?bloque" + keep);
-        String login = request.form().raw("login").trim();
+        String identifier = request.form().raw("login").trim();
+        String accountKey = identifier.isEmpty() ? adminLogin : identifier;
+        if (throttle.isBlocked(client, accountKey)) return Response.redirect("/connexion?bloque" + keep);
+        String login = identifier;
         String entered = request.form().raw("password");
         Long userId;
         if (login.isEmpty() || login.equalsIgnoreCase(adminLogin)) {
-            if (!password.matches(entered)) return failure(client, keep);
+            if (!password.matches(entered)) return failure(client, accountKey, keep);
             userId = null;
         } else {
             Optional<Long> user = users.authenticate(login, entered);
-            if (user.isEmpty()) return failure(client, keep);
+            if (user.isEmpty()) return failure(client, accountKey, keep);
             userId = user.get();
         }
-        throttle.reset(client);
+        throttle.reset(accountKey);
         OptionalLong household = users.firstHousehold(userId);
         if (household.isEmpty()) return Response.redirect("/connexion?sans-foyer");
         Session session = sessions.create(userId, household.getAsLong());
@@ -83,8 +85,8 @@ public final class AuthController {
         return new Response.Redirect(next == null || next.startsWith("/connexion") ? "/" : next, List.of(cookie));
     }
 
-    private Response failure(String client, String keep) {
-        throttle.recordFailure(client);
+    private Response failure(String client, String login, String keep) {
+        throttle.recordFailure(client, login);
         return Response.redirect("/connexion?erreur" + keep);
     }
 

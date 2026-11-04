@@ -19,7 +19,7 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 
 ### Immobilier
 
-- Connexion par identifiant et mot de passe, avec limitation des tentatives (10 echecs par 15 minutes) : un administrateur (defini dans l'environnement) et des utilisateurs crees par lui.
+- Connexion par identifiant et mot de passe, avec limitation des tentatives sur 15 minutes (10 echecs par adresse, 30 par identifiant) : un administrateur (defini dans l'environnement) et des utilisateurs crees par lui.
 - Plusieurs foyers, chacun avec ses propres donnees ; chaque utilisateur ne voit que les foyers et les vues que l'administrateur lui ouvre.
 - Gestion de plusieurs biens : type, commune, adresse, surface, cout d'acquisition, estimations prudente et optimiste, frais de vente.
 - Actualisation automatique de l'estimation depuis sa date, selon l'evolution mensuelle des prix du departement (indice DVF, meme type de bien) ; le curseur et les scenarios partent de la valeur actualisee. Signalement d'une estimation de plus de 3 ans et d'un bien sans periode d'occupation.

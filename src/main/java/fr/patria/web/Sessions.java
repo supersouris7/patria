@@ -50,6 +50,11 @@ public final class Sessions {
         return updated;
     }
 
+    /** Deconnecte les autres sessions d'un utilisateur (il vient de changer son mot de passe). */
+    public void removeOtherSessions(Session current) {
+        sessions.values().removeIf(session -> session.userId() != null && session.userId().equals(current.userId()) && !session.id().equals(current.id()));
+    }
+
     /** Deconnecte toutes les sessions d'un utilisateur (compte desactive ou supprime, mot de passe reinitialise). */
     public void removeUser(long userId) {
         sessions.values().removeIf(session -> session.userId() != null && session.userId() == userId);

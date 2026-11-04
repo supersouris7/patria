@@ -130,10 +130,13 @@ class AccountsTest {
         assertEquals(303, post(paul, "/administration/virements", "from=1&to=3&amount=300&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(400, post(paul, "/administration/virements", "from=2&to=3&amount=300&frequency=MONTHLY&start=2026-01-01").statusCode());
 
-        // Mot de passe
+        // Mot de passe : le changer ferme les autres sessions de l'utilisateur
+        Visitor otherDevice = login("paul", "motdepasse1");
         assertEquals(400, post(paul, "/compte/mot-de-passe", "current=faux&password=nouveau123&confirm=nouveau123").statusCode());
         assertEquals(400, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=autre1234").statusCode());
         assertEquals(303, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=nouveau123").statusCode());
+        assertEquals(200, get(paul, "/").statusCode(), "la session qui a changé le mot de passe reste ouverte");
+        assertEquals(303, get(otherDevice, "/").statusCode(), "les autres sessions sont fermées");
         login("paul", "nouveau123");
 
         // Deconnexion d'un utilisateur
@@ -147,6 +150,18 @@ class AccountsTest {
         assertEquals(303, post(admin, "/administration/utilisateur/1", "name=Paul").statusCode());
         assertEquals(303, get(paul, "/").statusCode(), "compte désactivé : retour à la connexion");
         assertEquals("/connexion?erreur", post(null, "/connexion", "login=paul&password=nouveau123").headers().firstValue("Location").orElseThrow());
+    }
+
+    @Test
+    void aValidAccountDoesNotResetTheFailuresOfItsAddress() throws Exception {
+        Visitor admin = login("admin", "secret");
+        assertEquals(303, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1").statusCode());
+        assertEquals(303, post(admin, "/administration/utilisateur/1/foyer/1", "access=on&whole=on").statusCode());
+        for (int i = 0; i < 9; i++) post(null, "/connexion", "login=admin&password=essai" + i);
+        login("paul", "motdepasse1");
+        post(null, "/connexion", "login=admin&password=essai9");
+        assertEquals("/connexion?bloque", post(null, "/connexion", "login=admin&password=secret").headers().firstValue("Location").orElseThrow(),
+                "10 échecs depuis cette adresse : bloquée, même après une connexion réussie d'un autre compte");
     }
 
     @Test

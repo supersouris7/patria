@@ -135,6 +135,17 @@ public final class BudgetController {
         return BudgetPages.admin(visible, shares, people(), visibility.people(), readOnly, sources.properties().all(), values, notice, request.csrf());
     }
 
+    /**
+     * Depenses visibles par la personne connectee : base de la detection des doublons a l'import, pour qu'un
+     * utilisateur ne puisse pas deviner, en important un fichier, une depense qu'il ne voit pas.
+     */
+    private List<BudgetItem> visibleItems(Request request) {
+        Visibility visibility = visibility(request);
+        if (visibility.isAdmin()) return items.all();
+        Map<Shares.Key, Map<Long, Integer>> shares = sources.shares().all();
+        return items.all().stream().filter(item -> visibility.canSee(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()))).toList();
+    }
+
     /** Depense visible par la personne connectee (404 sinon). */
     private BudgetItem visible(Request request) {
         BudgetItem item = require(request.id());
@@ -193,7 +204,7 @@ public final class BudgetController {
     private Response preview(Request request) {
         try {
             String content = new String(request.form().requiredFile("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
-            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, visibleItems(request));
             boolean ok = rows.stream().allMatch(ExpenseCsv.Row::valid);
             return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, visibility(request).people(), Map.of(), request.csrf()));
         } catch (ValidationException exception) {
@@ -210,7 +221,7 @@ public final class BudgetController {
             return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible : contenu illisible, recommencez depuis le fichier.")));
         }
         try {
-            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, items.all());
+            List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, visibleItems(request));
             Visibility visibility = visibility(request);
             List<Person> people = visibility.people();
             if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people, Map.of(), request.csrf()));

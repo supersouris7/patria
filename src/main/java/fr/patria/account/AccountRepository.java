@@ -25,7 +25,8 @@ public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
     private static final int LATEST = 1;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
-    private static final String DUMMY_HASH = BCrypt.hashpw("patria", BCrypt.gensalt(10));
+    private static final int COST = 12;
+    private static final String DUMMY_HASH = BCrypt.hashpw("patria", BCrypt.gensalt(COST));
     private final Database database;
 
     public AccountRepository(Database database) {
@@ -187,11 +188,14 @@ public final class AccountRepository {
 
     private static void checkPassword(String password) {
         if (password == null || password.length() < MIN_PASSWORD) throw new ValidationException("Le mot de passe doit faire au moins " + MIN_PASSWORD + " caractères.");
-        if (password.length() > 72) throw new ValidationException("Le mot de passe doit faire au plus 72 caractères.");
+        // bcrypt ne lit que les 72 premiers octets : au-dela, la fin du mot de passe serait ignoree.
+        if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new ValidationException("Le mot de passe est trop long (72 octets au plus, environ 70 caractères sans accents).");
+        }
     }
 
     private static String hash(String password) {
-        return BCrypt.hashpw(password, BCrypt.gensalt(12));
+        return BCrypt.hashpw(password, BCrypt.gensalt(COST));
     }
 
     private static User user(ResultSet row) throws SQLException {

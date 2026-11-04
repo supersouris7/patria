@@ -201,6 +201,7 @@ public final class AccountController {
                 throw new ValidationException("La confirmation ne correspond pas au nouveau mot de passe.");
             }
             accounts.setPassword(id, form.getOrDefault("password", ""));
+            sessions.removeOtherSessions(request.session());
             return Response.redirect("/compte?ok=mot-de-passe");
         } catch (ValidationException exception) {
             return Response.invalid(accountPage(request, Notice.error(exception.getMessage())));
