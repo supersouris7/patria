@@ -61,7 +61,6 @@ nav .short-label { display: none; }
 .account-link:hover, .account-link.active { background: var(--surface-raised); color: var(--text); }
 .household-switch { align-items: center; display: flex; gap: 6px; }
 .household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
-.household-switch.auto button { display: none; }
 .visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
 .access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
 .access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
@@ -301,48 +300,6 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .admin-nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 8px 12px; text-decoration: none; }
 .admin-nav a:hover { background: var(--surface); color: var(--text); }
 .admin-nav a.active { background: var(--surface-raised); color: var(--text); }
-.account-bar { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
-.account-link { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .88rem; font-weight: 650; gap: 6px;
-    padding: 7px 10px; text-decoration: none; white-space: nowrap; }
-.account-link span { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
-.account-link:hover, .account-link.active { background: var(--surface-raised); color: var(--text); }
-.household-switch { align-items: center; display: flex; gap: 6px; }
-.household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
-.household-switch.auto button { display: none; }
-.visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
-.access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
-.access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
-.access-grid input, label.check input { min-height: 0; width: auto; }
-.admin-nav .nav-group { margin-top: 18px; }
-.admin-nav .nav-group:first-child { margin-top: 0; }
-.admin-nav .nav-group span { color: var(--text); letter-spacing: .06em; }
-.household-banner { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .86rem; margin: 0 0 14px; padding: 8px 12px; }
-.household-banner a { color: var(--blue); font-weight: 650; }
-.household-card { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
-.household-card:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
-.household-card .eyebrow { margin-top: 14px; }
-.household-card h3 { align-items: center; display: flex; flex-wrap: wrap; font-size: 1.05rem; gap: 8px 12px; margin: 0 0 8px; }
-.household-card .chips-line { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
-.household-card .steps { color: var(--text-soft); font-size: .88rem; margin: 6px 0 10px; padding-left: 20px; }
-.household-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.rename-form { align-items: center; display: flex; gap: 8px; }
-.rename-form input { max-width: 260px; }
-.access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
-.access-form h3 { font-size: 1rem; margin: 0; }
-.access-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.access-summary { border-radius: var(--radius-small); font-size: .84rem; margin: 0; padding: 4px 10px; }
-.access-summary.on { background: rgb(127 220 138 / 12%); color: var(--success); }
-.access-summary.off { background: var(--surface-raised); color: var(--muted); }
-.access-details { border: 0; display: grid; gap: 10px; margin: 0; padding: 0; }
-.access-details[disabled] { opacity: .45; }
-.access-details legend { float: left; margin: 6px 0 0; padding: 0; width: 100%; }
-.access-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-label.check.option { align-items: flex-start; }
-label.check.option input { margin-top: 3px; }
-label.check.option b { color: var(--text); display: block; }
-.muted.small { font-size: .8rem; margin: 0; }
-.readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
-
 /* ---- Messages ---- */
 .notice { border: 1px solid; border-radius: var(--radius-small); font-size: .9rem; font-weight: 650; margin: 0 0 16px; padding: 11px 14px; }
 .notice.error { background: #29161b; border-color: #67313a; color: #ffadb4; }

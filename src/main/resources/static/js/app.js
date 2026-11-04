@@ -266,7 +266,6 @@ document.querySelectorAll("button[data-copy]").forEach((button) => {
 
 // ---- Selecteur de foyer (en-tete) : changement immediat ----
 document.querySelectorAll("select[data-autosubmit]").forEach((select) => {
-  select.form.classList.add("auto");
   select.addEventListener("change", () => select.form.submit());
 });
 

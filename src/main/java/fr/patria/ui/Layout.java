@@ -88,14 +88,17 @@ public final class Layout {
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s</main>", content)));
     }
 
-    /** Selecteur du foyer affiche, a partir de deux foyers ; app.js l'envoie des qu'on change de foyer. */
+    /**
+     * Selecteur du foyer affiche, a partir de deux foyers ; app.js l'envoie des qu'on change de foyer. Le bouton
+     * « Afficher » n'existe que sans JavaScript ({@code noscript}) : rien ne clignote au chargement.
+     */
     private static Html householdSwitch(Chrome chrome, String csrf) {
         if (chrome == null || chrome.households().size() < 2) return Html.EMPTY;
         Html options = chrome.households().stream().map(choice -> Html.of("<option value=\"%s\"%s>%s</option>", choice.id(),
                 choice.id() == chrome.household() ? Html.raw(" selected") : Html.EMPTY, choice.name())).collect(Html.joining());
         return Html.of("""
                 <form method="post" action="/foyer/choisir" class="household-switch">%s<label><span class="visually-hidden">Foyer affiché</span>\
-                <select name="foyer" data-autosubmit>%s</select></label><button class="quiet" type="submit">Afficher</button></form>""",
+                <select name="foyer" data-autosubmit>%s</select></label><noscript><button class="quiet" type="submit">Afficher</button></noscript></form>""",
                 Components.csrfField(csrf), options);
     }
 
