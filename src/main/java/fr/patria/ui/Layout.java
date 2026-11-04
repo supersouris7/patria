@@ -5,7 +5,7 @@ import java.util.List;
 /** Squelette commun des pages : en-tete, navigation principale, contenu. */
 public final class Layout {
     /** Entree active de la navigation principale. */
-    public enum Section { HOME, BUDGET, REAL_ESTATE, ADMINISTRATION, ACCOUNT, NONE }
+    public enum Section { HOME, BUDGET, REAL_ESTATE, ASSISTANT, ADMINISTRATION, ACCOUNT, NONE }
 
     /** Foyer propose dans le selecteur de l'en-tete. */
     public record Choice(long id, String name) {
@@ -59,6 +59,9 @@ public final class Layout {
 
     private static final Html ACCOUNT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>");
 
+    private static final Html ASSISTANT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z\"/><path d=\"M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z\"/></svg>");
+    private static final Html SETTINGS_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/></svg>");
+
     private Layout() {
     }
 
@@ -81,9 +84,8 @@ public final class Layout {
                 brand(), Html.concat(shortNavLink("/" + scope, "Prévisionnel", "Prévision", section == Section.HOME),
                         shortNavLink("/budget" + scope, "Budget moyen", "Moyenne", section == Section.BUDGET),
                         realEstate ? shortNavLink("/immobilier", "Immobilier", "Immo", section == Section.REAL_ESTATE) : Html.EMPTY),
-                section == Section.ADMINISTRATION
-                        ? Html.raw("<a href=\"/administration\" class=\"active\" aria-current=\"page\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>")
-                        : Html.raw("<a href=\"/administration\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>"),
+                Html.concat(iconLink("/assistant", "Assistant", ASSISTANT_ICON, section == Section.ASSISTANT),
+                        iconLink("/administration", "Administration", SETTINGS_ICON, section == Section.ADMINISTRATION)),
                 householdSwitch(chrome, csrf), account(chrome, section == Section.ACCOUNT), Components.csrfField(csrf), LOGOUT_ICON);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s</main>", content)));
     }
@@ -188,6 +190,12 @@ public final class Layout {
     public static Html brand() {
         return Html.of("<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"%s\" width=\"30\" height=\"30\" alt=\"\"><span>Patria</span></a>",
                 Assets.url("/images/patria-logo.png"));
+    }
+
+    /** Lien de navigation sous forme d'icone, avec son nom en info-bulle et pour les lecteurs d'ecran. */
+    private static Html iconLink(String href, String label, Html icon, boolean active) {
+        return Html.of("<a href=\"%s\" class=\"nav-icon%s\"%s aria-label=\"%s\" title=\"%s\">%s</a>", href, active ? " active" : "",
+                Html.raw(active ? " aria-current=\"page\"" : ""), label, label, icon);
     }
 
     /** Lien de navigation dont le libelle est raccourci sur smartphone ({@code short}). */

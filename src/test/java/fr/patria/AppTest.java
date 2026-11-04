@@ -106,6 +106,10 @@ class AppTest {
             assertTrue(pdf.body().startsWith("%PDF"), report);
         }
         assertTrue(get("/").body().contains("href=\"/previsionnel.pdf\""), "bouton d'export");
+        String header = get("/").body();
+        assertTrue(header.contains("aria-label=\"Assistant\"") && header.contains("aria-label=\"Administration\""), "icônes Assistant et Administration");
+        assertTrue(header.indexOf("aria-label=\"Assistant\"") < header.indexOf("aria-label=\"Administration\""), "Assistant avant la roue crantée");
+        assertEquals(200, get("/assistant").statusCode());
         assertTrue(get("/administration/depenses").body().contains("data-copy=\"prompt-depenses\""), "prompt IA des dépenses");
         HttpResponse<String> sales = get(propertyPath + "/marche/ventes");
         assertEquals(200, sales.statusCode());

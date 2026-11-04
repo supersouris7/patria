@@ -163,6 +163,10 @@ public final class App implements AutoCloseable {
                 }
             }, config.clock()).register(router);
             new AccountController(accounts, sites, sessions, config.adminLogin(), config.clock()).register(router);
+            // Assistant : emplacement reserve dans l'en-tete, contenu a venir.
+            router.userGet("/assistant", request -> Response.page(fr.patria.ui.Layout.page("Assistant · Patria", fr.patria.ui.Layout.Section.ASSISTANT, request.csrf(),
+                    fr.patria.ui.Html.concat(fr.patria.ui.Components.heading("Patria", "Assistant", null, fr.patria.ui.Html.EMPTY),
+                            fr.patria.ui.Components.emptyState("Bientôt disponible", "Cet espace accueillera l'assistant de Patria.", fr.patria.ui.Html.EMPTY)))));
             router.post("/administration/bien/{id}/foyer", request -> {
                 long target;
                 try {
