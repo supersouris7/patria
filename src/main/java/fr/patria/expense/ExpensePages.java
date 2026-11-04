@@ -55,7 +55,8 @@ final class ExpensePages {
                         new Option("ONCE", "En une fois, en octobre"),
                         new Option("MONTHLY", "Mensualisée, de janvier à octobre")), monthlyTax ? "MONTHLY" : "ONCE")),
                 Html.raw("<p class=\"muted\">Change seulement les mois du budget où la taxe est payée ; le montant annuel reste celui saisi ci-dessus. "
-                        + "Mensualisée : 10 prélèvements, chacun un dixième du montant de l'année (échéancier des impôts).</p>")), "Enregistrer");
+                        + "Mensualisée : 10 prélèvements, chacun un dixième du montant de l'année (échéancier des impôts). "
+                        + "Le compte prélevé (compte joint, une personne...) se choisit dans <a href=\"/administration/repartition\">Répartition</a>.</p>")), "Enregistrer");
 
         Html content = Html.concat(
                 Components.heading("Bien", "Charges", property.name(), Html.EMPTY), Components.notice(notice),

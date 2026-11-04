@@ -26,6 +26,24 @@ public final class ShareRepository {
         return result;
     }
 
+    /** Membre qui paie la taxe fonciere de chaque bien (compte joint, personne...) ; un bien absent suit sa repartition. */
+    public Map<Long, Long> propertyTaxPayers() {
+        List<long[]> rows = database.query(connection -> Sql.list(connection, "SELECT property_id, person_id FROM property_tax_payers",
+                row -> new long[] {row.getLong(1), row.getLong(2)}));
+        Map<Long, Long> result = new HashMap<>();
+        for (long[] row : rows) result.put(row[0], row[1]);
+        return result;
+    }
+
+    /** {@code personId} nul : la taxe fonciere suit de nouveau la repartition du bien. */
+    public void setPropertyTaxPayer(long propertyId, Long personId) {
+        database.query(connection -> personId == null
+                ? Sql.update(connection, "DELETE FROM property_tax_payers WHERE property_id = ?", propertyId)
+                : Sql.update(connection, """
+                        INSERT INTO property_tax_payers (property_id, person_id) VALUES (?, ?)
+                        ON CONFLICT (property_id) DO UPDATE SET person_id = excluded.person_id""", propertyId, personId));
+    }
+
     public Map<Long, Integer> of(Shares.Subject subject, long id) {
         return all().getOrDefault(new Shares.Key(subject, id), Map.of());
     }

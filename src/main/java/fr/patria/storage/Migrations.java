@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 10;
+    public static final int LATEST = 11;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -46,6 +46,7 @@ public final class Migrations {
             if (version < 8) toVersion8(connection);
             if (version < 9) toVersion9(connection);
             if (version < 10) toVersion10(connection);
+            if (version < 11) toVersion11(connection);
             return null;
         });
     }
@@ -287,6 +288,18 @@ public final class Migrations {
             statement.execute("CREATE TABLE property_tax_monthly (property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE)");
         }
         setUserVersion(connection, 10);
+    }
+
+    /** Version 11 : membre qui paie la taxe fonciere d'un bien (compte joint ou personne), au lieu de la repartition du bien. */
+    private static void toVersion11(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE property_tax_payers (
+                        property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+                        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE
+                    )""");
+        }
+        setUserVersion(connection, 11);
     }
 
     /** Version 3 : prix du marche (DVF) par bien. */

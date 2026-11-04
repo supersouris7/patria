@@ -133,6 +133,11 @@ class AppTest {
         String home = get("/").body();
         assertTrue(home.contains("href=\"#mois-"), "barres du graphique cliquables");
         assertTrue(home.contains("id=\"mois-"), "détail du mois ciblé");
+        assertTrue(home.contains("class=\"month-margin"), "reste à vivre dans le détail du mois");
+        assertTrue(get("/budget").body().contains("<ul class=\"rank-detail\">"), "détail de chaque catégorie");
+        String id = admin.replaceAll(".*/bien/", "");
+        assertEquals(400, post("/administration/repartition/bien/" + id + "/taxe-fonciere", "csrf=" + csrf + "&payer=999").statusCode());
+        assertEquals(303, post("/administration/repartition/bien/" + id + "/taxe-fonciere", "csrf=" + csrf + "&payer=").statusCode());
         String page = get(property).body();
         assertTrue(page.contains("Enrichissement réel"));
         assertTrue(page.contains("Loyers perçus"));

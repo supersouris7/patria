@@ -64,6 +64,7 @@ public final class BudgetController {
         router.get("/administration/repartition", request -> Response.page(sharesPage(request.confirmation(), request.csrf())));
         router.post("/administration/repartition/bien/{id}", request -> saveShares(request, Shares.Subject.PROPERTY,
                 sources.properties().find(request.id()).isPresent()));
+        router.post("/administration/repartition/bien/{id}/taxe-fonciere", this::saveTaxPayer);
         router.post("/administration/repartition/pret/{id}", request -> saveShares(request, Shares.Subject.LOAN,
                 sources.loans().find(request.id()).isPresent()));
     }
@@ -88,7 +89,7 @@ public final class BudgetController {
     }
 
     private fr.patria.ui.Html sharesPage(Notice notice, String csrf) {
-        return BudgetPages.shares(sources.properties().all(), sources.loans().all(), sources.shares().all(), people(), notice, csrf);
+        return BudgetPages.shares(sources.properties().all(), sources.loans().all(), sources.shares().all(), sources.shares().propertyTaxPayers(), people(), notice, csrf);
     }
 
     private Response saveShares(Request request, Shares.Subject subject, boolean exists) {
@@ -98,9 +99,27 @@ public final class BudgetController {
             return Response.redirect("/administration/repartition?ok=enregistre");
         } catch (ValidationException exception) {
             BudgetPages.Rejected rejected = new BudgetPages.Rejected(new Shares.Key(subject, request.id()), request.form().values(), exception.getMessage());
-            return Response.invalid(BudgetPages.shares(sources.properties().all(), sources.loans().all(), sources.shares().all(), people(), null, rejected,
+            return Response.invalid(BudgetPages.shares(sources.properties().all(), sources.loans().all(), sources.shares().all(), sources.shares().propertyTaxPayers(), people(), null, rejected,
                     request.csrf()));
         }
+    }
+
+    /** Membre qui paie la taxe fonciere d'un bien ; vide : comme le bien. */
+    private Response saveTaxPayer(Request request) {
+        if (sources.properties().find(request.id()).isEmpty()) throw new NotFoundException("Bien introuvable", "Ce bien n'existe pas.");
+        String raw = request.form().raw("payer").trim();
+        Long payer = null;
+        if (!raw.isEmpty()) {
+            try {
+                payer = Long.parseLong(raw);
+            } catch (NumberFormatException exception) {
+                throw new ValidationException("Membre invalide.");
+            }
+            long id = payer;
+            if (people().stream().noneMatch(person -> person.id() == id)) throw new ValidationException("Membre invalide.");
+        }
+        sources.shares().setPropertyTaxPayer(request.id(), payer);
+        return Response.redirect("/administration/repartition?ok=enregistre");
     }
 
     private Map<String, String> defaults() {

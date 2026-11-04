@@ -173,6 +173,38 @@ class ForecastTest {
     }
 
     @Test
+    void propertyTaxCanBePaidByAJointAccount() {
+        TestData.Stores stores = TestData.stores(directory);
+        long alice = stores.household().addPerson("Alice");
+        long bob = stores.household().addPerson("Bob");
+        long joint = stores.household().addMember("Compte joint", fr.patria.household.Person.Kind.ACCOUNT);
+        long property = stores.properties().insert(TestData.property("Maison", "200000", null, null));
+        stores.expenses().save(new Expense(0, property, ExpenseKind.PROPERTY_TAX, 2026, new BigDecimal("1760")));
+        stores.expenses().save(new Expense(0, property, ExpenseKind.INSURANCE, 2026, new BigDecimal("1200")));
+        stores.expenses().setPropertyTaxMonthly(property, true);
+        java.util.function.Function<Forecast.Month, BigDecimal> tax = month -> month.expenses().stream()
+                .filter(line -> line.label().startsWith("Taxe foncière")).map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertAmount("88", tax.apply(forecast(stores, alice).current()));        // comme le bien : parts égales entre personnes
+        assertAmount("0", tax.apply(forecast(stores, joint).current()));
+
+        stores.shares().setPropertyTaxPayer(property, joint);
+        assertAmount("0", tax.apply(forecast(stores, alice).current()));
+        assertAmount("0", tax.apply(forecast(stores, bob).current()));
+        Forecast.Month account = forecast(stores, joint).current();
+        assertAmount("176", tax.apply(account));                                 // toute sur le compte joint
+        assertAmount("176", account.spending());                                 // l'assurance reste comme le bien
+        Forecast.Month household = forecast(stores).current();
+        assertAmount("176", tax.apply(household));
+        assertTrue(household.expenses().stream().anyMatch(line -> line.label().equals("Taxe foncière · Maison · Compte joint")));
+        assertAmount("50", forecast(stores, alice).current().spending());       // assurance 100 / 2
+
+        stores.shares().setPropertyTaxPayer(property, null);
+        assertAmount("88", tax.apply(forecast(stores, alice).current()));
+        stores.database().close();
+    }
+
+    @Test
     void monthlyPropertyTaxIsSpreadFromJanuaryToOctober() {
         TestData.Stores stores = TestData.stores(directory);
         long property = stores.properties().insert(TestData.property("Maison", "200000", null, null));

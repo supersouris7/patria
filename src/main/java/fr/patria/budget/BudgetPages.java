@@ -195,11 +195,22 @@ final class BudgetPages {
             String tone = month.balance().signum() < 0 ? "negative" : "";
             return Html.of("""
                     <details class="month" id="%s"%s><summary><span class="month-name">%s</span><span>%s</span><span>%s</span><span class="%s">%s</span></summary>
-                    <div class="month-detail"><div><h3>Revenus</h3><ul>%s</ul></div><div><h3>Dépenses</h3><ul>%s</ul></div></div></details>""",
+                    <div class="month-detail"><div><h3>Revenus</h3><ul>%s</ul></div><div><h3>Dépenses</h3><ul>%s</ul></div>                    <p class="month-margin %s"><span>Revenus %s − dépenses %s</span><span>%s <b>%s</b></span></p></div></details>""",
                     BudgetChart.anchor(month.month()), Html.raw(month == months.getFirst() ? " open" : ""), Format.month(month.month()), euroWhole(month.income()), euroWhole(month.spending()),
-                    tone, Format.signedEuroWhole(month.balance()), incomes, expenses);
+                    tone, Format.signedEuroWhole(month.balance()), incomes, expenses,
+                    tone, euro(month.income()), euro(month.spending()), month.balance().signum() < 0 ? "Il manque" : "Reste à vivre",
+                    Format.signedEuroWhole(month.balance()));
         }).collect(Html.joining());
         return Html.of("<div class=\"months\"><div class=\"months-head\"><span>Mois</span><span>Revenus</span><span>Dépenses</span><span>Reste à vivre</span></div>%s</div>", items);
+    }
+
+    /** Detail d'une categorie du budget moyen : ses depenses, de la plus lourde a la plus legere. */
+    private static Html categoryDetail(Category category, List<Forecast.Average> expenses, Forecast.View view) {
+        Html items = expenses.stream().filter(line -> line.category() == category).sorted(Comparator.comparing(Forecast.Average::monthly).reversed())
+                .map(line -> Html.of("<li><span>%s <small>%s · %s</small></span><b>%s</b></li>", lineLink(line.link(), line.label(), "/budget" + scope(view)),
+                        line.frequency().label(), euro(line.perPayment()), euro(line.monthly()) + "/mois"))
+                .collect(Html.joining());
+        return Html.of("<ul class=\"rank-detail\">%s</ul>", items);
     }
 
     /** Libelle cliquable : la saisie de la ligne (depense, revenu, virement, charges du bien), avec retour ici. */
@@ -221,11 +232,12 @@ final class BudgetPages {
         for (Forecast.Average line : expenses) byCategory.merge(line.category(), line.monthly(), BigDecimal::add);
         BigDecimal largest = byCategory.values().stream().max(Comparator.naturalOrder()).orElse(BigDecimal.ONE);
         Html bars = byCategory.entrySet().stream().sorted(Map.Entry.<Category, BigDecimal>comparingByValue().reversed())
-                .map(entry -> Html.of("<div class=\"rank\"><span class=\"rank-label\">%s</span><span class=\"rank-bar\"><i style=\"width:%s%%\"></i></span><b>%s</b><small>%s</small></div>"
-                                .replace("%%", "%"), entry.getKey().label(),
+                .map(entry -> Html.of(("<details class=\"rank-group\"><summary class=\"rank\"><span class=\"rank-label\">%s</span><span class=\"rank-bar\"><i style=\"width:%s%%\"></i></span>"
+                                + "<b>%s</b><small>%s</small></summary>%s</details>").replace("%%", "%"), entry.getKey().label(),
                         entry.getValue().multiply(BigDecimal.valueOf(100)).divide(largest, 1, RoundingMode.HALF_UP).toPlainString(),
                         euroWhole(entry.getValue()) + "/mois",
-                        spending.signum() == 0 ? "" : Format.percent(entry.getValue().multiply(BigDecimal.valueOf(100)).divide(spending, 0, RoundingMode.HALF_UP))))
+                        spending.signum() == 0 ? "" : Format.percent(entry.getValue().multiply(BigDecimal.valueOf(100)).divide(spending, 0, RoundingMode.HALF_UP)),
+                        categoryDetail(entry.getKey(), expenses, view)))
                 .collect(Html.joining());
 
         Html incomeRows = incomes.stream().map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(Components.link(fromBudget(line.link(), view), line.label())), cell(line.detail()),
@@ -420,13 +432,13 @@ final class BudgetPages {
     record Rejected(Shares.Key key, Map<String, String> values, String message) {
     }
 
-    static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people,
-                       Notice notice, String csrf) {
-        return shares(properties, loans, shares, people, notice, null, csrf);
+    static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, Map<Long, Long> taxPayers,
+                       List<Person> people, Notice notice, String csrf) {
+        return shares(properties, loans, shares, taxPayers, people, notice, null, csrf);
     }
 
-    static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, List<Person> people,
-                       Notice notice, Rejected rejected, String csrf) {
+    static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, Map<Long, Long> taxPayers,
+                       List<Person> people, Notice notice, Rejected rejected, String csrf) {
         Html heading = Components.heading("Administration", "Répartition", "Part de chaque personne dans les biens et les prêts : "
                 + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
         if (people.size() < 2) {
@@ -448,18 +460,32 @@ final class BudgetPages {
                 return shareRow("/administration/repartition/pret/" + loan.id(), loan.name(), description, Shares.values(loanShare, people), people, own, true,
                         rejected(rejected, Shares.Subject.LOAN, loan.id()), csrf);
             }).collect(Html.joining());
-            return Html.of("<div class=\"share-group\">%s%s</div>", propertyRow, loanRows);
+            return Html.of("<div class=\"share-group\">%s%s%s</div>", propertyRow, loanRows, taxPayerRow(property, taxPayers.get(property.id()), people, csrf));
         }).collect(Html.joining());
         Html content = Html.concat(heading, Components.notice(notice),
                 Components.card("Biens et prêts", null, Html.EMPTY, Html.concat(Html.of("<div class=\"share-list\">%s</div>", rows),
                         Html.raw("<p class=\"source\">Champs vides : parts égales pour un bien, même répartition que le bien pour un prêt. "
-                                + "Sinon, des parts qui font 100 % au total. Les dépenses saisies à la main se répartissent dans leur propre formulaire.</p>"))));
+                                + "Sinon, des parts qui font 100 % au total. La taxe foncière peut être prélevée en entier sur un membre (compte joint...). "
+                                + "Les dépenses saisies à la main se répartissent dans leur propre formulaire.</p>"))));
         return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, content);
     }
 
     /** Une ligne : nom, repartition en vigueur, une part par personne (le texte grise montre la valeur par defaut). */
     private static Rejected rejected(Rejected rejected, Shares.Subject subject, long id) {
         return rejected != null && rejected.key().equals(new Shares.Key(subject, id)) ? rejected : null;
+    }
+
+    /** Taxe fonciere : prelevee sur un membre choisi (compte joint...), ou repartie comme le bien. */
+    private static Html taxPayerRow(Property property, Long payer, List<Person> people, String csrf) {
+        List<Option> options = new java.util.ArrayList<>();
+        options.add(new Option("", "Comme le bien"));
+        for (Person person : people) options.add(new Option(String.valueOf(person.id()), person.name()));
+        String description = payer == null ? "Répartie comme le bien"
+                : "Toute sur " + people.stream().filter(person -> person.id() == payer).map(Person::name).findFirst().orElse("");
+        return Html.of("""
+                <form method="post" action="/administration/repartition/bien/%s/taxe-fonciere" class="share-row loan">%s<div class="share-name"><b>Taxe foncière · prélevée sur</b>                <small>%s</small></div><div class="share-inputs">%s</div><button type="submit" class="secondary">Enregistrer</button></form>""",
+                property.id(), Components.csrfField(csrf), description,
+                Components.select("Prélevée sur", "payer", options, payer == null ? "" : String.valueOf(payer)));
     }
 
     private static Html shareRow(String action, String name, String description, Map<String, String> saved, List<Person> people,
