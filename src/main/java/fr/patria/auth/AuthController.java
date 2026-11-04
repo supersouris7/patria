@@ -46,7 +46,7 @@ public final class AuthController {
     public void register(Router router) {
         router.publicGet("/connexion", this::loginPage);
         router.publicPost("/connexion", this::login);
-        router.post("/deconnexion", this::logout);
+        router.userPost("/deconnexion", this::logout);
     }
 
     private Response loginPage(Request request) {

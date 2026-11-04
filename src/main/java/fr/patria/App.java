@@ -141,6 +141,21 @@ public final class App implements AutoCloseable {
                 }
             }, config.clock()).register(router);
             new AccountController(accounts, sites, sessions, config.adminLogin(), config.clock()).register(router);
+            router.post("/administration/bien/{id}/foyer", request -> {
+                long target;
+                try {
+                    target = Long.parseLong(request.form().raw("foyer"));
+                } catch (NumberFormatException exception) {
+                    throw new fr.patria.common.ValidationException("Foyer invalide.");
+                }
+                long from = request.viewer().household().id();
+                if (target == from || accounts.household(target).isEmpty()) throw new fr.patria.common.ValidationException("Choisissez un autre foyer.");
+                HouseholdSite source = sites.site(from);
+                if (source.properties.find(request.id()).isEmpty()) throw new NotFoundException("Bien introuvable", "Ce bien n'existe pas.");
+                long moved = PropertyMove.move(source.database, sites.file(accounts.household(from).orElseThrow()), sites.site(target).database, request.id());
+                sessions.select(request.session(), target);
+                return Response.redirect("/administration/bien/" + moved + "?ok=deplace");
+            });
 
             HttpServer server = HttpServer.create(new InetSocketAddress(config.port()), 0);
             ExecutorService executor = Executors.newFixedThreadPool(4);

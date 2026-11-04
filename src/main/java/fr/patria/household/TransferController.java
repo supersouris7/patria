@@ -28,8 +28,10 @@ public final class TransferController {
         router.userGet("/administration/virements", request -> Response.page(page(request, defaults(request), request.confirmation())));
         router.userPost("/administration/virements", this::create);
         router.userGet("/virement/{id}", request -> {
-            Transfer transfer = require(request);
-            return Response.page(TransferPages.edit(transfer, household.people(), visibility(request).people(), TransferPages.values(transfer), null, back(request), request.csrf()));
+            Transfer transfer = visible(request);
+            boolean readOnly = !visibility(request).canEditAll(transfer.fromId(), transfer.toId());
+            return Response.page(TransferPages.edit(transfer, household.people(), visibility(request).people(), TransferPages.values(transfer), null, back(request),
+                    readOnly, request.csrf()));
         });
         router.userPost("/virement/{id}", this::update);
         router.userPost("/virement/{id}/supprimer", request -> {
@@ -73,7 +75,7 @@ public final class TransferController {
             return Response.redirect(back != null ? back : "/administration/virements?ok=enregistre");
         } catch (ValidationException exception) {
             return Response.invalid(TransferPages.edit(current, household.people(), visibility(request).people(), request.form().values(),
-                    Notice.error(exception.getMessage()), back(request), request.csrf()));
+                    Notice.error(exception.getMessage()), back(request), false, request.csrf()));
         }
     }
 
@@ -106,10 +108,15 @@ public final class TransferController {
 
     /** Virement que la personne connectee peut modifier : entre deux membres dont la vue est ouverte. */
     private Transfer require(Request request) {
+        Transfer transfer = visible(request);
+        visibility(request).requireEdit(visibility(request).canEditAll(transfer.fromId(), transfer.toId()));
+        return transfer;
+    }
+
+    /** Virement visible : qui concerne un membre ouvert, ou tous avec la vue « Foyer ». */
+    private Transfer visible(Request request) {
         Transfer transfer = household.transfer(request.id()).orElseThrow(() -> new NotFoundException("Virement introuvable", "Ce virement n'existe pas."));
-        Visibility visibility = visibility(request);
-        if (!visibility.canSeeAny(transfer.fromId(), transfer.toId())) throw new NotFoundException("Virement introuvable", "Ce virement n'existe pas.");
-        visibility.requireEdit(visibility.canEditAll(transfer.fromId(), transfer.toId()));
+        if (!visibility(request).canSeeAny(transfer.fromId(), transfer.toId())) throw new NotFoundException("Virement introuvable", "Ce virement n'existe pas.");
         return transfer;
     }
 }

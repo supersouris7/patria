@@ -79,10 +79,9 @@ final class AccountPages {
                 Components.heading("Utilisateur", user.name(), user.login(), Html.EMPTY), Components.notice(notice),
                 Components.card("Compte", null, Html.EMPTY, identity),
                 Html.of("""
-                        <section class="card section"><div class="section-title"><h2>Foyers et vues</h2></div>
-                        <p class="muted">Pour chaque foyer : les vues que l'utilisateur peut ouvrir. « Foyer » montre le total de tous les membres ;
-                        un membre montre sa part. Il peut ajouter et modifier les revenus, dépenses et virements qui ne concernent que ses vues ouvertes ;
-                        une ligne partagée avec un autre membre reste en lecture seule.</p>%s</section>""", accesses),
+                        <section class="card section"><div class="section-title"><h2>Foyers et droits</h2></div>
+                        <p class="muted">Un foyer par bloc. Chaque case dit ce qu'elle ouvre ; le résumé en haut du bloc dit ce que l'utilisateur
+                        peut faire aujourd'hui. Pensez à « Enregistrer les droits » pour chaque foyer.</p>%s</section>""", accesses),
                 Components.card("Mot de passe", null, Html.EMPTY, reset),
                 Components.dangerZone("Supprimer cet utilisateur", "Supprime le compte et ses droits. Les données des foyers ne changent pas.",
                         "/administration/utilisateur/" + user.id() + "/supprimer", "Supprimer l'utilisateur « " + user.name() + " » ?", "Supprimer l'utilisateur", csrf));
@@ -91,17 +90,46 @@ final class AccountPages {
 
     private static Html accessForm(User user, HouseholdAccess entry, String csrf) {
         Access access = entry.access().orElse(null);
-        Html members = entry.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre dans ce foyer pour l'instant.</p>")
-                : entry.members().stream().map(member -> checkbox("member_" + member.id(), member.name() + (member.account() ? " (compte)" : ""),
+        Html members = entry.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre dans ce foyer pour l'instant : ajoutez-les dans Foyer et revenus.</p>")
+                : entry.members().stream().map(member -> option("member_" + member.id(), member.name() + (member.account() ? " · compte joint" : ""),
+                "Onglet « " + member.name() + " » dans Accueil et Budget (sa part de chaque dépense). Saisie et modification de "
+                        + (member.account() ? "ses dépenses et virements." : "ses revenus, dépenses et virements."),
                 access != null && access.members().contains(member.id()))).collect(Html.joining());
         return Html.of("""
-                        <form method="post" action="/administration/utilisateur/%s/foyer/%s" class="access-form stack">%s<h3>%s</h3>
-                        %s<div class="access-grid">%s%s</div><p class="eyebrow">Membres</p><div class="access-grid">%s</div>
+                        <form method="post" action="/administration/utilisateur/%s/foyer/%s" class="access-form stack" data-access-form>%s
+                        <div class="access-head"><h3>%s</h3><p class="access-summary %s">%s</p></div>
+                        %s
+                        <fieldset class="access-details" data-access-details><legend class="eyebrow">Ce qu'il voit</legend>%s%s
+                        <p class="eyebrow">Membres : ce qu'il voit et modifie</p><div class="access-options">%s</div>
+                        <p class="muted small">Une ligne qui concerne seulement ses membres cochés est modifiable. Une ligne partagée avec un membre non coché
+                        (ex. « parts égales » avec une autre personne) reste visible en lecture seule. Il ne gère jamais les membres, les biens, la répartition,
+                        les foyers ni les utilisateurs.</p></fieldset>
                         <div class="form-actions"><button type="submit">Enregistrer les droits</button></div></form>""",
-                user.id(), entry.household().id(), Components.csrfField(csrf), entry.household().name(),
-                checkbox("access", "Accès à ce foyer", access != null),
-                checkbox("whole", "Vue « Foyer » (total)", access != null && access.wholeHousehold()),
-                checkbox("estate", "Consulter l'immobilier", access != null && access.realEstate()), members);
+                user.id(), entry.household().id(), Components.csrfField(csrf), entry.household().name(), access == null ? "off" : "on", summary(access, entry.members()),
+                option("access", "Accès à ce foyer", "Le foyer apparaît pour lui (sélecteur de l'en-tête s'il en a plusieurs). Décoché : il ne le voit pas, les autres cases sont ignorées.",
+                        access != null),
+                option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Accueil et Budget, avec les revenus et dépenses de tous les membres, et toutes les lignes "
+                        + "en lecture seule dans Administration. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
+                option("estate", "Immobilier, en lecture seule", "Menu Immobilier : biens, prêts, mensualités, prix du marché. Sans cette case, les mensualités et "
+                        + "charges des biens restent comptées dans son budget, mais il n'ouvre pas les fiches.", access != null && access.realEstate()),
+                members);
+    }
+
+    /** Ce que l'utilisateur peut faire dans ce foyer, en une phrase. */
+    private static String summary(Access access, List<HouseholdDirectory.Member> members) {
+        if (access == null) return "Pas d'accès à ce foyer.";
+        List<String> names = members.stream().filter(member -> access.members().contains(member.id())).map(HouseholdDirectory.Member::name).toList();
+        StringBuilder text = new StringBuilder("Accès ouvert. ");
+        if (access.wholeHousehold()) text.append("Voit les totaux du foyer. ");
+        if (names.isEmpty()) text.append("Ne modifie rien (aucun membre coché). ");
+        else text.append("Voit et modifie les lignes de ").append(String.join(", ", names)).append(". ");
+        text.append(access.realEstate() ? "Consulte l'immobilier." : "Pas d'immobilier.");
+        return text.toString();
+    }
+
+    private static Html option(String name, String label, String help, boolean checked) {
+        return Html.of("<label class=\"check option\"><input type=\"checkbox\" name=\"%s\" value=\"on\"%s><span><b>%s</b><span class=\"help\">%s</span></span></label>",
+                name, checked ? Html.raw(" checked") : Html.EMPTY, label, help);
     }
 
     // ---- Mon compte ----

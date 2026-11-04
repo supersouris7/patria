@@ -52,7 +52,7 @@ final class TransferPages {
                 cell(name(people, transfer.fromId()) + " → " + name(people, transfer.toId())), cell(transfer.label().isBlank() ? Format.DASH : transfer.label()),
                 number(transfer.amount(), Format.euro(transfer.amount())), cell(transfer.frequency().label()), cell(period(transfer)),
                 visibility.canEditAll(transfer.fromId(), transfer.toId()) ? Html.of("<a href=\"/virement/%s\">Modifier</a>", transfer.id())
-                        : Html.raw("<span class=\"readonly-note\">Lecture seule</span>"))).collect(Html.joining());
+                        : Html.of("<a href=\"/virement/%s\">Voir</a>", transfer.id()))).collect(Html.joining());
         Html list = transfers.isEmpty() ? Html.raw("<p class=\"empty\">Aucun virement.</p>")
                 : Components.table(List.of("Virement", "Libellé", "#Montant", "Fréquence", "Période", ""), rows, true, false);
         Html content = Html.concat(heading, Components.notice(notice),
@@ -62,14 +62,16 @@ final class TransferPages {
         return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }
 
-    static Html edit(Transfer transfer, List<Person> people, List<Person> formPeople, Map<String, String> values, Notice notice, String back, String csrf) {
+    static Html edit(Transfer transfer, List<Person> people, List<Person> formPeople, Map<String, String> values, Notice notice, String back, boolean readOnly,
+                     String csrf) {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         String title = name(people, transfer.fromId()) + " → " + name(people, transfer.toId());
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/virements", "Virements") : Components.backLink(back, "Budget"),
                 Components.heading("Virement", title, transfer.label().isBlank() ? null : transfer.label(), Html.EMPTY), Components.notice(notice),
-                Components.card("Virement", null, Html.EMPTY, Components.form("/virement/" + transfer.id() + suffix, csrf, false, fields(formPeople, values), "Enregistrer")),
-                Components.dangerZone("Supprimer ce virement", "Il disparaîtra du budget des deux membres.", "/virement/" + transfer.id() + "/supprimer" + suffix,
+                Components.card("Virement", null, Html.EMPTY, Components.formOrView(readOnly, "/virement/" + transfer.id() + suffix, csrf,
+                        fields(readOnly ? people : formPeople, values), "Enregistrer")),
+                readOnly ? Html.EMPTY : Components.dangerZone("Supprimer ce virement", "Il disparaîtra du budget des deux membres.", "/virement/" + transfer.id() + "/supprimer" + suffix,
                         "Supprimer le virement « " + title + " » ?", "Supprimer le virement", csrf));
         return Layout.adminSection("Virement · " + title + " · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }

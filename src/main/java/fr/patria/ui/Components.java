@@ -236,6 +236,17 @@ public final class Components {
         return Html.of("<div class=\"form-grid%s\">%s</div>", columns == 3 ? " cols-3" : "", Html.concat(inputs));
     }
 
+    /**
+     * Formulaire d'une ligne, ou sa consultation seule ({@code readOnly}) : memes champs, desactives, sans bouton.
+     * Sert aux lignes partagees avec un membre dont la vue n'est pas ouverte a l'utilisateur.
+     */
+    public static Html formOrView(boolean readOnly, String action, String csrf, Html body, String submitLabel) {
+        if (!readOnly) return form(action, csrf, false, body, submitLabel);
+        return Html.of("""
+                <div class="stack"><p class="notice" role="status">Lecture seule : cette ligne concerne aussi un membre dont la vue ne vous est pas ouverte.
+                Seul l'administrateur, ou un utilisateur qui a toutes ses vues, peut la modifier.</p><fieldset class="readonly-view" disabled>%s</fieldset></div>""", body);
+    }
+
     /** Formulaire POST protege par le jeton CSRF. */
     public static Html form(String action, String csrf, boolean multipart, Html body, String submitLabel) {
         return Html.of("<form method=\"post\" action=\"%s\"%s class=\"stack\">%s%s<div class=\"form-actions\"><button type=\"submit\">%s</button></div></form>",

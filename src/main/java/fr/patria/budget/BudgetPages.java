@@ -86,12 +86,7 @@ final class BudgetPages {
         return "Budget " + (name.matches("(?i)^[aeiouyhéèêàâîôû].*") ? "d'" : "de ") + name;
     }
 
-    /** Selecteur Foyer | Alice | Bob, affiche a partir de deux personnes. */
     /** Une depense ou un revenu ouvert depuis le budget y ramene (lien de retour, puis apres enregistrement). */
-    private static String fromBudget(String link, Forecast.View view) {
-        return withReturn(link, "/budget" + scope(view));
-    }
-
     private static String withReturn(String link, String back) {
         if (link == null || !(link.startsWith("/depense/") || link.startsWith("/revenu/") || link.startsWith("/virement/"))) return link;
         return link + "?retour=" + encode(back);
@@ -215,7 +210,7 @@ final class BudgetPages {
 
     /** Libelle cliquable : la saisie de la ligne (depense, revenu, virement, charges du bien), avec retour ici. */
     private static Html lineLink(String link, String label, String back) {
-        if (link == null) return Html.of("%s", label);
+        if (link == null || !Layout.canOpen(link)) return Html.of("%s", label);
         return Components.link(withReturn(link, back), label);
     }
 
@@ -240,10 +235,10 @@ final class BudgetPages {
                         categoryDetail(entry.getKey(), expenses, view)))
                 .collect(Html.joining());
 
-        Html incomeRows = incomes.stream().map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(Components.link(fromBudget(line.link(), view), line.label())), cell(line.detail()),
+        Html incomeRows = incomes.stream().map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(lineLink(line.link(), line.label(), "/budget" + scope(view))), cell(line.detail()),
                 cell(line.frequency().label()), number(line.perPayment(), euro(line.perPayment())), number(line.monthly(), euro(line.monthly())))).collect(Html.joining());
         Html expenseRows = expenses.stream().sorted(Comparator.comparing(Forecast.Average::category).thenComparing(Forecast.Average::monthly, Comparator.reverseOrder()))
-                .map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(Html.concat(Components.link(fromBudget(line.link(), view), line.label()),
+                .map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(Html.concat(lineLink(line.link(), line.label(), "/budget" + scope(view)),
                                 line.origin() == Forecast.Origin.REAL_ESTATE ? Html.raw(" <small class=\"badge\">Immobilier</small>") : Html.EMPTY)),
                         cell(line.detail()), cell(line.frequency().label()), number(line.perPayment(), euro(line.perPayment())), number(line.monthly(), euro(line.monthly()))))
                 .collect(Html.joining());
@@ -323,7 +318,7 @@ final class BudgetPages {
                 cell(item.category().label()), number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
                 number(item.frequency().monthly(item.amount()), item.frequency().isRecurring() ? euro(item.frequency().monthly(item.amount())) : Format.DASH),
                 cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())),
-                readOnly.contains(item.id()) ? Html.raw("<span class=\"readonly-note\" title=\"Partagée avec un membre dont la vue ne vous est pas ouverte\">Lecture seule</span>")
+                readOnly.contains(item.id()) ? Html.of("<a href=\"/depense/%s\" title=\"Partagée avec un membre dont la vue ne vous est pas ouverte\">Voir</a>", item.id())
                         : Html.of("<a href=\"/depense/%s\">Modifier</a>", item.id()))).collect(Html.joining());
         Html table = items.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense saisie.</p>")
                 : Components.table(shared ? List.of("Dépense", "Répartition", "Catégorie", "#Montant", "Fréquence", "#Par mois", "Période", "")
@@ -421,13 +416,13 @@ final class BudgetPages {
     }
 
     /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a la liste des depenses. */
-    static Html edit(BudgetItem item, List<Person> people, Map<String, String> values, Notice notice, String back, String csrf) {
+    static Html edit(BudgetItem item, List<Person> people, Map<String, String> values, Notice notice, String back, boolean readOnly, String csrf) {
         String suffix = back == null ? "" : "?retour=" + encode(back);
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Budget"),
                 Components.heading("Dépense", item.label(), item.category().label(), Html.EMPTY), Components.notice(notice),
-                Components.card("Dépense", null, Html.EMPTY, Components.form("/depense/" + item.id() + suffix, csrf, false, fields(values, people), "Enregistrer")),
-                Components.dangerZone("Supprimer cette dépense", "Elle ne sera plus comptée dans le budget.", "/depense/" + item.id() + "/supprimer" + suffix,
+                Components.card("Dépense", null, Html.EMPTY, Components.formOrView(readOnly, "/depense/" + item.id() + suffix, csrf, fields(values, people), "Enregistrer")),
+                readOnly ? Html.EMPTY : Components.dangerZone("Supprimer cette dépense", "Elle ne sera plus comptée dans le budget.", "/depense/" + item.id() + "/supprimer" + suffix,
                         "Supprimer la dépense « " + item.label() + " » ?", "Supprimer la dépense", csrf));
         return Layout.adminSection("Dépense · " + item.label() + " · Patria", csrf, Layout.AdminSection.EXPENSES, content);
     }

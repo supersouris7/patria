@@ -19,7 +19,8 @@ public record Notice(boolean error, String text) {
             Map.entry("foyer", "Foyer créé."),
             Map.entry("utilisateur", "Utilisateur créé. Choisissez maintenant ses foyers et ses vues."),
             Map.entry("acces", "Droits enregistrés."),
-            Map.entry("mot-de-passe", "Mot de passe modifié."));
+            Map.entry("mot-de-passe", "Mot de passe modifié."),
+            Map.entry("deplace", "Bien déplacé : il est maintenant dans ce foyer, avec ses prêts et ses charges."));
 
     public static Notice error(String text) {
         return new Notice(true, text);

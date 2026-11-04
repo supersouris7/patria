@@ -269,3 +269,13 @@ document.querySelectorAll("select[data-autosubmit]").forEach((select) => {
   select.form.classList.add("auto");
   select.addEventListener("change", () => select.form.submit());
 });
+
+// ---- Droits d'un utilisateur : sans « Acces a ce foyer », les autres cases sont grisees ----
+document.querySelectorAll("form[data-access-form]").forEach((form) => {
+  const access = form.elements.access;
+  const details = form.querySelector("[data-access-details]");
+  if (!access || !details) return;
+  const update = () => { details.disabled = !access.checked; };
+  access.addEventListener("change", update);
+  update();
+});

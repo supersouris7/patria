@@ -12,6 +12,7 @@ import fr.patria.ui.Html;
 import fr.patria.ui.Layout;
 import fr.patria.ui.Notice;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /** Formulaire de creation et de modification d'un bien. */
@@ -50,10 +51,28 @@ final class PropertyPages {
         Html content = Html.concat(
                 Components.heading("Bien", "Modifier", property.name(), Html.EMPTY), Components.notice(notice),
                 Components.form("/administration/bien/" + property.id(), csrf, false, fields, "Enregistrer"),
+                moveCard(property, csrf),
                 Components.dangerZone("Supprimer ce bien", "Supprime définitivement le bien, ses prêts, leurs échéanciers et ses apports.",
                         "/administration/bien/" + property.id() + "/supprimer", "Supprimer définitivement « " + property.name() + " » et toutes ses données ?",
                         "Supprimer le bien", csrf));
         return Layout.adminPage("Modifier · " + property.name() + " · Patria", csrf, PropertyNav.of(property, PropertyNav.Tab.INFORMATION), content);
+    }
+
+    /** Deplacer le bien dans un autre foyer (a partir de deux foyers). */
+    private static Html moveCard(Property property, String csrf) {
+        Layout.Chrome chrome = Layout.CHROME.get();
+        if (chrome == null || !chrome.admin()) return Html.EMPTY;
+        List<Components.Option> others = chrome.households().stream().filter(choice -> choice.id() != chrome.household())
+                .map(choice -> new Components.Option(String.valueOf(choice.id()), choice.name())).toList();
+        if (others.isEmpty()) return Html.EMPTY;
+        String current = chrome.households().stream().filter(choice -> choice.id() == chrome.household()).map(Layout.Choice::name).findFirst().orElse("");
+        return Components.card("Foyer du bien", null, Html.EMPTY, Html.concat(Html.of("""
+                        <p class="muted">Ce bien est dans le foyer « %s ». Le déplacer l'emporte avec ses prêts, échéanciers, apports, charges, périodes
+                        d'occupation et prix du marché : il disparaît de ce foyer. Sa répartition entre les membres repart à « parts égales » et le payeur de
+                        la taxe foncière à « comme le bien », car les membres ne sont pas les mêmes.</p>""", current),
+                Html.of("<form method=\"post\" action=\"/administration/bien/%s/foyer\" class=\"inline-form row-form\" data-confirm=\"%s\">%s%s<button type=\"submit\">Déplacer</button></form>",
+                        property.id(), "Déplacer « " + property.name() + " » dans l'autre foyer ?", Components.csrfField(csrf),
+                        Components.select("Déplacer vers", "foyer", others, others.getFirst().value()))));
     }
 
     private static Html section(String title, Html body) {

@@ -50,11 +50,14 @@ public final class BudgetController {
         router.userPost("/administration/depenses/import", this::preview);
         router.userPost("/administration/depenses/import/valider", this::confirmImport);
         router.userGet("/depense/{id}", request -> {
-            BudgetItem item = editable(request);
+            BudgetItem item = visible(request);
             Visibility visibility = visibility(request);
+            Map<Long, Integer> own = sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id());
+            boolean readOnly = !visibility.canEdit(own);
+            List<Person> people = readOnly ? visibility.everyone() : visibility.people();
             Map<String, String> values = new HashMap<>(BudgetPages.values(item));
-            values.putAll(Shares.values(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id()), visibility.people()));
-            return Response.page(BudgetPages.edit(item, visibility.people(), values, null, back(request), request.csrf()));
+            values.putAll(Shares.values(own, people));
+            return Response.page(BudgetPages.edit(item, people, values, null, back(request), readOnly, request.csrf()));
         });
         router.userPost("/depense/{id}", this::update);
         router.userPost("/depense/{id}/supprimer", request -> {
@@ -123,13 +126,20 @@ public final class BudgetController {
         return BudgetPages.admin(visible, shares, people(), visibility.people(), readOnly, sources.properties().all(), values, notice, request.csrf());
     }
 
+    /** Depense visible par la personne connectee (404 sinon). */
+    private BudgetItem visible(Request request) {
+        BudgetItem item = require(request.id());
+        if (!visibility(request).canSee(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id()))) {
+            throw new NotFoundException("Dépense introuvable", "Cette dépense n'existe pas.");
+        }
+        return item;
+    }
+
     /** Depense que la personne connectee peut modifier (403 si elle concerne un membre non ouvert, 404 si invisible). */
     private BudgetItem editable(Request request) {
-        BudgetItem item = require(request.id());
+        BudgetItem item = visible(request);
         Visibility visibility = visibility(request);
-        Map<Long, Integer> own = sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id());
-        if (!visibility.canSee(own)) throw new NotFoundException("Dépense introuvable", "Cette dépense n'existe pas.");
-        visibility.requireEdit(visibility.canEdit(own));
+        visibility.requireEdit(visibility.canEdit(sources.shares().of(Shares.Subject.BUDGET_ITEM, item.id())));
         return item;
     }
 
@@ -240,7 +250,7 @@ public final class BudgetController {
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/depenses?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(BudgetPages.edit(current, visibility.people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
+            return Response.invalid(BudgetPages.edit(current, visibility.people(), request.form().values(), Notice.error(exception.getMessage()), back(request), false, request.csrf()));
         }
     }
 

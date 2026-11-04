@@ -28,7 +28,8 @@ public final class Layout {
         PROPERTIES("/administration/biens", "Biens et prêts", null),
         SHARES("/administration/repartition", "Répartition", null),
         HOUSEHOLDS("/administration/foyers", "Foyers", null),
-        USERS("/administration/utilisateurs", "Utilisateurs", null);
+        USERS("/administration/utilisateurs", "Utilisateurs", null),
+        ACCOUNT("/compte", "Mon compte", "Mon compte");
 
         private final String href;
         private final String label;
@@ -108,6 +109,20 @@ public final class Layout {
     public static boolean isAdmin() {
         Chrome chrome = CHROME.get();
         return chrome == null || chrome.admin();
+    }
+
+    /**
+     * Vrai si la personne connectee peut ouvrir cette page : sert a ne pas afficher un lien qui menerait a
+     * « Acces reserve ». Les pages d'administration de l'immobilier sont reservees a l'administrateur ; les fiches
+     * des biens et des prets a ceux qui consultent l'immobilier.
+     */
+    public static boolean canOpen(String href) {
+        Chrome chrome = CHROME.get();
+        if (chrome == null || chrome.admin() || href == null) return true;
+        if (href.startsWith("/administration/bien") || href.startsWith("/administration/repartition") || href.startsWith("/administration/foyers")
+                || href.startsWith("/administration/utilisateur") || href.startsWith("/apport/") || href.startsWith("/loyer/") || href.startsWith("/charge/")) return false;
+        if (href.startsWith("/bien/") || href.startsWith("/pret/") || href.startsWith("/immobilier")) return chrome.realEstate();
+        return true;
     }
 
     /** Page d'administration d'un bien : navigation laterale + contenu. */

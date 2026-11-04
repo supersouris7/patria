@@ -31,11 +31,12 @@ import java.time.Clock;
 final class HouseholdSite implements AutoCloseable {
     final Database database;
     final HouseholdRepository household;
+    final PropertyRepository properties;
     final Router router = new Router();
 
     private HouseholdSite(Database database, Clock clock) {
         this.database = database;
-        PropertyRepository properties = new PropertyRepository(database);
+        properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
         ContributionRepository contributions = new ContributionRepository(database);
         ExpenseRepository expenses = new ExpenseRepository(database);

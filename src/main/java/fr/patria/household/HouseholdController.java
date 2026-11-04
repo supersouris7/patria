@@ -70,8 +70,11 @@ public final class HouseholdController {
     }
 
     private Response editForm(Request request) {
-        Income income = require(request);
-        return Response.page(HouseholdPages.edit(income, visibility(request).people(), HouseholdPages.values(income), null, back(request), request.csrf()));
+        Income income = visible(request);
+        Visibility visibility = visibility(request);
+        boolean readOnly = !visibility.sees(income.personId());
+        return Response.page(HouseholdPages.edit(income, readOnly ? visibility.everyone() : visibility.people(), HouseholdPages.values(income), null, back(request),
+                readOnly, request.csrf()));
     }
 
     private Response update(Request request) {
@@ -81,7 +84,7 @@ public final class HouseholdController {
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/foyer?ok=enregistre");
         } catch (ValidationException exception) {
-            return Response.invalid(HouseholdPages.edit(current, visibility(request).people(), request.form().values(), Notice.error(exception.getMessage()), back(request), request.csrf()));
+            return Response.invalid(HouseholdPages.edit(current, visibility(request).people(), request.form().values(), Notice.error(exception.getMessage()), back(request), false, request.csrf()));
         }
     }
 
@@ -110,10 +113,15 @@ public final class HouseholdController {
 
     /** Revenu que la personne connectee peut modifier : celui d'un membre dont la vue est ouverte. */
     private Income require(Request request) {
+        Income income = visible(request);
+        visibility(request).requireEdit(visibility(request).sees(income.personId()));
+        return income;
+    }
+
+    /** Revenu visible : d'un membre ouvert, ou tous avec la vue « Foyer ». */
+    private Income visible(Request request) {
         Income income = household.income(request.id()).orElseThrow(() -> new NotFoundException("Revenu introuvable", "Ce revenu n'existe pas."));
-        Visibility visibility = visibility(request);
-        if (!visibility.canSeeAny(income.personId())) throw new NotFoundException("Revenu introuvable", "Ce revenu n'existe pas.");
-        visibility.requireEdit(visibility.sees(income.personId()));
+        if (!visibility(request).canSeeAny(income.personId())) throw new NotFoundException("Revenu introuvable", "Ce revenu n'existe pas.");
         return income;
     }
 }

@@ -106,10 +106,13 @@ class AccountsTest {
 
         String expenses = get(paul, "/administration/depenses").body();
         assertTrue(expenses.contains("Club de Paul") && expenses.contains("href=\"/depense/1\""), "sa dépense, modifiable");
-        assertTrue(expenses.contains("Courses communes") && !expenses.contains("href=\"/depense/2\""), "dépense partagée en lecture seule");
+        assertTrue(expenses.contains("Courses communes") && !expenses.contains("href=\"/depense/2\">Modifier"), "dépense partagée en lecture seule");
         assertFalse(expenses.contains("Yoga de Camille"), "dépense de Camille invisible");
         assertFalse(expenses.contains("share_2"), "pas de part de Camille dans le formulaire");
-        assertEquals(403, get(paul, "/depense/2").statusCode());
+        HttpResponse<String> shared = get(paul, "/depense/2");
+        assertEquals(200, shared.statusCode(), "dépense partagée consultable");
+        assertTrue(shared.body().contains("Lecture seule") && !shared.body().contains("Supprimer la dépense"));
+        assertTrue(expenses.contains("<a href=\"/depense/2\" title="), "lien « Voir »");
         assertEquals(403, post(paul, "/depense/2", "label=Pirate" + expense).statusCode());
         assertEquals(404, get(paul, "/depense/3").statusCode());
         assertEquals(303, post(paul, "/depense/1", "label=Club+de+tennis" + expense).statusCode());
@@ -130,6 +133,13 @@ class AccountsTest {
         assertEquals(400, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=autre1234").statusCode());
         assertEquals(303, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=nouveau123").statusCode());
         login("paul", "nouveau123");
+
+        // Deconnexion d'un utilisateur
+        Visitor again = login("paul", "nouveau123");
+        assertEquals("/connexion?deconnecte", post(again, "/deconnexion", "").headers().firstValue("Location").orElseThrow());
+        assertEquals(303, get(again, "/").statusCode(), "session fermée");
+        assertEquals("/connexion?deconnecte", post(admin, "/deconnexion", "").headers().firstValue("Location").orElseThrow(), "l'administrateur aussi");
+        admin = login("admin", "secret");
 
         // Desactivation : la session tombe aussitot
         assertEquals(303, post(admin, "/administration/utilisateur/1", "name=Paul").statusCode());
@@ -159,6 +169,19 @@ class AccountsTest {
         assertFalse(get(martine, "/").body().contains("name=\"foyer\""), "un seul foyer : pas de sélecteur");
         assertEquals(200, get(martine, "/immobilier").statusCode(), "immobilier ouvert");
         assertEquals(403, post(martine, "/foyer/choisir", "foyer=1").statusCode(), "foyer non ouvert");
+
+        // Deplacement d'un bien vers le foyer Martin, avec son apport
+        assertEquals(303, post(admin, "/bien", "name=Studio&kind=APARTMENT&purchase=100000&purchase_date=2020-01-01&estimate=120000&estimate_date=2025-01-01&sale_fees_pct=8")
+                .statusCode());
+        assertEquals(303, post(admin, "/bien/1/apports", "name=Apport+initial&amount=20000&date=2020-01-01").statusCode());
+        assertTrue(get(admin, "/administration/bien/1").body().contains("Foyer du bien"));
+        HttpResponse<String> moved = post(admin, "/administration/bien/1/foyer", "foyer=2");
+        assertEquals("/administration/bien/1?ok=deplace", moved.headers().firstValue("Location").orElseThrow());
+        assertTrue(get(admin, "/immobilier").body().contains("Studio"), "affiché dans le foyer d'arrivée");
+        assertTrue(get(admin, "/bien/1").body().contains("Apport initial"), "avec son apport");
+        assertEquals(303, post(admin, "/foyer/choisir", "foyer=1").statusCode());
+        assertFalse(get(admin, "/immobilier").body().contains("Studio"), "plus dans le foyer de départ");
+        assertEquals(403, post(martine, "/administration/bien/1/foyer", "foyer=1").statusCode(), "réservé à l'administrateur");
 
         assertEquals(400, post(admin, "/administration/foyers/1/supprimer", "").statusCode(), "le foyer principal reste");
         assertEquals(303, post(admin, "/administration/foyers/2/supprimer", "").statusCode());

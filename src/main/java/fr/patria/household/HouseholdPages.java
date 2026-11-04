@@ -80,7 +80,7 @@ final class HouseholdPages {
                 cell(income.label()), cell(income.kind().label()), number(income.amount(), Format.euro(income.amount())),
                 cell(income.frequency().label()), cell(period(income)),
                 visibility.sees(income.personId()) ? Html.of("<a href=\"/revenu/%s\">Modifier</a>", income.id())
-                        : Html.raw("<span class=\"readonly-note\">Lecture seule</span>"))).collect(Html.joining());
+                        : Html.of("<a href=\"/revenu/%s\">Voir</a>", income.id()))).collect(Html.joining());
         Html incomesCard = Components.card("Revenus", incomes.size(), Html.EMPTY, incomes.isEmpty()
                 ? Html.raw("<p class=\"empty\">Aucun revenu saisi.</p>")
                 : Components.table(List.of("Personne", "Libellé", "Type", "#Montant", "Fréquence", "Période", ""), incomeRows, true, false));
@@ -94,13 +94,13 @@ final class HouseholdPages {
     }
 
     /** {@code back} : page d'ou l'on vient (le budget), {@code null} pour revenir a Foyer et revenus. */
-    static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String back, String csrf) {
+    static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String back, boolean readOnly, String csrf) {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/foyer", Layout.isAdmin() ? "Foyer et revenus" : "Revenus") : Components.backLink(back, "Budget"),
                 Components.heading("Revenu", income.label(), null, Html.EMPTY), Components.notice(notice),
-                Components.card("Revenu", null, Html.EMPTY, Components.form("/revenu/" + income.id() + suffix, csrf, false, incomeFields(people, values), "Enregistrer")),
-                Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,
+                Components.card("Revenu", null, Html.EMPTY, Components.formOrView(readOnly, "/revenu/" + income.id() + suffix, csrf, incomeFields(people, values), "Enregistrer")),
+                readOnly ? Html.EMPTY : Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,
                         "Supprimer le revenu « " + income.label() + " » ?", "Supprimer le revenu", csrf));
         return Layout.adminSection("Revenu · " + income.label() + " · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
     }

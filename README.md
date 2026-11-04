@@ -96,17 +96,18 @@ Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelP
 
 **Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout, et gere dans Administration :
 
-- **Foyers** : creer, renommer, supprimer. Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`. Le foyer affiche se choisit dans l'en-tete.
+- **Foyers** : creer, renommer, supprimer. Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un bien se deplace d'un foyer a l'autre depuis sa fiche d'administration (« Foyer du bien ») : il part avec ses prets, echeanciers, apports, charges, occupation et prix du marche ; sa repartition entre membres repart a « parts egales ». Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`. Le foyer affiche se choisit dans l'en-tete.
 - **Utilisateurs** : identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression. Pour chaque foyer : acces, vue « Foyer » (total de tous les membres), vues des membres ouvertes (une personne, le compte joint...), consultation de l'immobilier.
 
 **Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Accueil et Budget. Dans Administration, il a Revenus, Depenses et Virements :
 
 - il voit les lignes qui concernent au moins une de ses vues (toutes avec la vue « Foyer ») ;
-- il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre reste en lecture seule ;
+- il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre s'ouvre en lecture seule (« Voir ») ;
+- les liens du budget ne menent qu'aux pages qu'il peut ouvrir ;
 - « parts egales » se repartit entre ses membres seulement ;
 - pas de gestion des membres, des biens, de la repartition, des foyers ni des utilisateurs ; l'immobilier en lecture seule, s'il est ouvert.
 
-Il change son mot de passe dans « Mon compte » (icone de l'en-tete). Desactiver un compte, le supprimer ou reinitialiser son mot de passe le deconnecte aussitot.
+Il change son mot de passe dans « Mon compte » (icone de l'en-tete, ou Administration → Mon compte sur smartphone). Desactiver un compte, le supprimer ou reinitialiser son mot de passe le deconnecte aussitot.
 
 Les foyers, utilisateurs et droits sont dans `comptes.sqlite3`, a cote de DATABASE_PATH (mots de passe chiffres avec bcrypt). Pour une sauvegarde, copier tout le volume de donnees.
 

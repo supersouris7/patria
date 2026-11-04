@@ -69,7 +69,18 @@ nav a.active { background: var(--surface-raised); color: var(--text); }
 .rename-form input { max-width: 260px; }
 .access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
 .access-form h3 { font-size: 1rem; margin: 0; }
-.access-form label.check input[name="access"] + * { font-weight: 750; }
+.access-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.access-summary { border-radius: var(--radius-small); font-size: .84rem; margin: 0; padding: 4px 10px; }
+.access-summary.on { background: rgb(127 220 138 / 12%); color: var(--success); }
+.access-summary.off { background: var(--surface-raised); color: var(--muted); }
+.access-details { border: 0; display: grid; gap: 10px; margin: 0; padding: 0; }
+.access-details[disabled] { opacity: .45; }
+.access-details legend { float: left; margin: 6px 0 0; padding: 0; width: 100%; }
+.access-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+label.check.option { align-items: flex-start; }
+label.check.option input { margin-top: 3px; }
+label.check.option b { color: var(--text); display: block; }
+.muted.small { font-size: .8rem; margin: 0; }
 .readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
 
 /* ---- Titres de page ---- */
@@ -278,7 +289,18 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .rename-form input { max-width: 260px; }
 .access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
 .access-form h3 { font-size: 1rem; margin: 0; }
-.access-form label.check input[name="access"] + * { font-weight: 750; }
+.access-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.access-summary { border-radius: var(--radius-small); font-size: .84rem; margin: 0; padding: 4px 10px; }
+.access-summary.on { background: rgb(127 220 138 / 12%); color: var(--success); }
+.access-summary.off { background: var(--surface-raised); color: var(--muted); }
+.access-details { border: 0; display: grid; gap: 10px; margin: 0; padding: 0; }
+.access-details[disabled] { opacity: .45; }
+.access-details legend { float: left; margin: 6px 0 0; padding: 0; width: 100%; }
+.access-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+label.check.option { align-items: flex-start; }
+label.check.option input { margin-top: 3px; }
+label.check.option b { color: var(--text); display: block; }
+.muted.small { font-size: .8rem; margin: 0; }
 .readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
 
 /* ---- Messages ---- */
@@ -317,8 +339,8 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
     .navigation { flex-wrap: wrap; }
     .navigation > nav { flex: 1 1 0; }
     .account-bar { display: contents; }
-    .account-link { padding: 6px 7px; }
-    .account-link span { display: none; }
+    /* Mon compte reste accessible par Administration : l'en-tete garde la place pour la navigation. */
+    .account-link { display: none; }
     .household-switch { flex: 1 0 100%; order: 10; padding-bottom: 8px; }
     .household-switch label { flex: 1; }
     .household-switch select { font-size: .85rem; max-width: none; width: 100%; }
