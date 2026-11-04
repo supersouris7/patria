@@ -30,6 +30,13 @@ public final class LoanController {
         router.get("/bien/{id}/prets/nouveau", this::newForm);
         router.post("/bien/{id}/prets", this::create);
         router.estateGet("/pret/{id}", this::detail);
+        router.estateGet("/pret/{id}/synthese.pdf", request -> {
+            Loan loan = require(request.id());
+            List<ScheduleLine> lines = loans.schedule(loan.id());
+            LocalDate today = LocalDate.now(clock);
+            return new Response.Download(fr.patria.ui.Format.slug(loan.name()) + "-" + today + ".pdf", "application/pdf",
+                    LoanReports.loan(loan, propertyOf(loan), lines, LoanMath.status(lines, today), today));
+        });
         router.get("/pret/{id}/gerer", this::manage);
         router.get("/pret/{id}/echeancier", request -> Response.redirect("/pret/" + request.id() + "/gerer"));
         router.post("/pret/{id}/echeancier", this::replaceSchedule);

@@ -67,7 +67,7 @@ final class TransferPages {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         String title = name(people, transfer.fromId()) + " → " + name(people, transfer.toId());
         Html content = Html.concat(
-                back == null ? Components.backLink("/administration/virements", "Virements") : Components.backLink(back, "Budget"),
+                back == null ? Components.backLink("/administration/virements", "Virements") : Components.backLink(back, "Budget moyen"),
                 Components.heading("Virement", title, transfer.label().isBlank() ? null : transfer.label(), Html.EMPTY), Components.notice(notice),
                 Components.card("Virement", null, Html.EMPTY, Components.formOrView(readOnly, "/virement/" + transfer.id() + suffix, csrf,
                         fields(readOnly ? people : formPeople, values), "Enregistrer")),

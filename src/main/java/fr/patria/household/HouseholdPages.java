@@ -97,7 +97,7 @@ final class HouseholdPages {
     static Html edit(Income income, List<Person> people, Map<String, String> values, Notice notice, String back, boolean readOnly, String csrf) {
         String suffix = back == null ? "" : "?retour=" + java.net.URLEncoder.encode(back, java.nio.charset.StandardCharsets.UTF_8);
         Html content = Html.concat(
-                back == null ? Components.backLink("/administration/foyer", Layout.isAdmin() ? "Foyer et revenus" : "Revenus") : Components.backLink(back, "Budget"),
+                back == null ? Components.backLink("/administration/foyer", Layout.isAdmin() ? "Foyer et revenus" : "Revenus") : Components.backLink(back, "Budget moyen"),
                 Components.heading("Revenu", income.label(), null, Html.EMPTY), Components.notice(notice),
                 Components.card("Revenu", null, Html.EMPTY, Components.formOrView(readOnly, "/revenu/" + income.id() + suffix, csrf, incomeFields(people, values), "Enregistrer")),
                 readOnly ? Html.EMPTY : Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,

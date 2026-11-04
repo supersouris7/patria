@@ -42,6 +42,11 @@ public final class BudgetController {
             Forecast.View view = view(request);
             return Response.page(BudgetPages.budget(view, forecast.averageIncomes(view), forecast.averageExpenses(view), request.csrf()));
         });
+        router.userGet("/previsionnel.pdf", request -> pdf("previsionnel", BudgetReports.forecast(view(request), LocalDate.now(clock))));
+        router.userGet("/budget-moyen.pdf", request -> {
+            Forecast.View view = view(request);
+            return pdf("budget-moyen", BudgetReports.average(view, forecast.averageIncomes(view), forecast.averageExpenses(view), LocalDate.now(clock)));
+        });
         router.userGet("/administration", request -> Response.redirect("/administration/foyer"));
         router.userGet("/administration/depenses", request -> Response.page(adminPage(request, defaults(), request.confirmation())));
         router.userPost("/administration/depenses", this::create);
@@ -84,6 +89,10 @@ public final class BudgetController {
         } catch (NumberFormatException exception) {
             return null;
         }
+    }
+
+    private Response pdf(String name, byte[] content) {
+        return new Response.Download(name + "-" + LocalDate.now(clock) + ".pdf", "application/pdf", content);
     }
 
     private List<Person> people() {

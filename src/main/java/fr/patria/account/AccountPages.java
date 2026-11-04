@@ -92,7 +92,7 @@ final class AccountPages {
         Access access = entry.access().orElse(null);
         Html members = entry.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre dans ce foyer pour l'instant : ajoutez-les dans Foyer et revenus.</p>")
                 : entry.members().stream().map(member -> option("member_" + member.id(), member.name() + (member.account() ? " · compte joint" : ""),
-                "Onglet « " + member.name() + " » dans Accueil et Budget (sa part de chaque dépense). Saisie et modification de "
+                "Onglet « " + member.name() + " » dans Prévisionnel et Budget moyen (sa part de chaque dépense). Saisie et modification de "
                         + (member.account() ? "ses dépenses et virements." : "ses revenus, dépenses et virements."),
                 access != null && access.members().contains(member.id()))).collect(Html.joining());
         return Html.of("""
@@ -108,7 +108,7 @@ final class AccountPages {
                 user.id(), entry.household().id(), Components.csrfField(csrf), entry.household().name(), access == null ? "off" : "on", summary(access, entry.members()),
                 option("access", "Accès à ce foyer", "Le foyer apparaît pour lui (sélecteur de l'en-tête s'il en a plusieurs). Décoché : il ne le voit pas, les autres cases sont ignorées.",
                         access != null),
-                option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Accueil et Budget, avec les revenus et dépenses de tous les membres, et toutes les lignes "
+                option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Prévisionnel et Budget moyen, avec les revenus et dépenses de tous les membres, et toutes les lignes "
                         + "en lecture seule dans Administration. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
                 option("estate", "Immobilier, en lecture seule", "Menu Immobilier : biens, prêts, mensualités, prix du marché. Sans cette case, les mensualités et "
                         + "charges des biens restent comptées dans son budget, mais il n'ouvre pas les fiches.", access != null && access.realEstate()),

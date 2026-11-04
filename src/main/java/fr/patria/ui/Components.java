@@ -42,6 +42,11 @@ public final class Components {
         return Html.of("<a class=\"button\" href=\"%s\">%s</a>", href, label);
     }
 
+    /** Bouton de telechargement de la synthese PDF d'une page de consultation. */
+    public static Html pdfButton(String href) {
+        return Html.of("<a class=\"button secondary\" href=\"%s\" download title=\"Synthèse au format PDF\">Exporter en PDF</a>", href);
+    }
+
     public static Html secondaryButton(String href, String label) {
         return Html.of("<a class=\"button secondary\" href=\"%s\">%s</a>", href, label);
     }

@@ -21,6 +21,13 @@ public final class PortfolioController {
         router.estateGet("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), request.csrf())));
         router.estateGet("/bien/{id}", request -> Response.page(PortfolioPages.property(portfolio.property(request.id()), request.confirmation(), request.csrf())));
         router.estateGet("/bien/{id}/mensualites", this::months);
+        router.estateGet("/immobilier.pdf", request -> new Response.Download("patrimoine-" + portfolio.today() + ".pdf", "application/pdf",
+                PortfolioReports.overview(portfolio.overview(), portfolio.today())));
+        router.estateGet("/bien/{id}/synthese.pdf", request -> {
+            Portfolio.PropertySummary summary = portfolio.property(request.id());
+            return new Response.Download(fr.patria.ui.Format.slug(summary.property().name()) + "-" + portfolio.today() + ".pdf", "application/pdf",
+                    PortfolioReports.property(summary, portfolio.today()));
+        });
         router.get("/administration/biens", request -> Response.page(PortfolioPages.administration(portfolio.overview(), request.confirmation(), request.csrf())));
         router.get("/administration/bien/{id}/financements", request -> Response.page(PortfolioPages.financing(portfolio.property(request.id()), request.confirmation(), request.csrf())));
     }

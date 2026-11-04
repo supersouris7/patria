@@ -34,18 +34,19 @@ final class BudgetPages {
     private BudgetPages() {
     }
 
-    // ---- Accueil ----
+    // ---- Previsionnel (accueil) ----
 
     static Html home(Forecast.View view, String csrf) {
         Forecast.Month current = view.current();
-        Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), null, Html.EMPTY), scopeTabs(view, "/"));
+        Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), "Prévisionnel : ce mois-ci et les 12 prochains mois, mois par mois.",
+                Components.pdfButton("/previsionnel.pdf" + scope(view))), scopeTabs(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
-            return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Rien pour " + view.person().name(),
+            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Rien pour " + view.person().name(),
                     "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Foyer et revenus, la répartition des dépenses dans chaque dépense.",
                     Components.button("/administration/foyer", "Foyer et revenus"))));
         }
         if (!view.hasIncome() && !view.hasExpenses()) {
-            return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Votre budget est vide",
+            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Votre budget est vide",
                     "Commencez par le foyer : les personnes et leurs revenus, puis les dépenses (une seule saisie par dépense, l'application prévoit les mois suivants). "
                             + "Les prêts, charges et loyers de l'immobilier sont repris automatiquement.",
                     Components.button("/administration/foyer", "Renseigner le foyer"))));
@@ -71,7 +72,7 @@ final class BudgetPages {
                                 euroWhole(view.provision())),
                         BudgetChart.render(view.months()),
                         monthList(view.months(), "/" + scope(view)))));
-        return Layout.page("Accueil · Patria", Layout.Section.HOME, csrf, scope(view), content);
+        return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), content);
     }
 
     private static boolean isAccount(Forecast.View view) {
@@ -79,7 +80,7 @@ final class BudgetPages {
     }
 
     /** « Budget du foyer » ou « Budget d'Alice ». */
-    private static String owner(Forecast.View view) {
+    static String owner(Forecast.View view) {
         if (view.person() == null) return "Budget du foyer";
         String name = view.person().name();
         if (view.person().isAccount()) return name.toLowerCase(java.util.Locale.FRENCH).startsWith("compte") ? name : "Compte · " + name;
@@ -96,7 +97,7 @@ final class BudgetPages {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    /** Parametre de la personne affichee, repris par les liens Accueil et Budget. */
+    /** Parametre de la personne affichee, repris par les liens Previsionnel et Budget moyen. */
     private static String scope(Forecast.View view) {
         return view.person() == null ? "" : "?personne=" + view.person().id();
     }
@@ -119,7 +120,7 @@ final class BudgetPages {
                 Components.label("Reste à vivre", hint), tone, Format.signedEuroWhole(balance), balance.signum() < 0 ? "dépenses supérieures aux revenus" : sub);
     }
 
-    private static final String DEBT_HINT = "Méthode bancaire (HCSF) : mensualités de crédit assurance comprise ÷ revenus nets avant impôt, "
+    static final String DEBT_HINT = "Méthode bancaire (HCSF) : mensualités de crédit assurance comprise ÷ revenus nets avant impôt, "
             + "loyers perçus comptés à 70 %. Vert sous 33 %, orange de 33 à 35 %, rouge au-delà.";
 
     private static Html debtTile(Forecast.DebtRatio debt) {
@@ -219,9 +220,10 @@ final class BudgetPages {
     static Html budget(Forecast.View view, List<Forecast.Average> incomes, List<Forecast.Average> expenses, String csrf) {
         BigDecimal income = incomes.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal spending = expenses.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Html heading = Html.concat(Components.heading(owner(view), "Moyenne mensuelle", "Sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
+        Html heading = Html.concat(Components.heading(owner(view), "Budget moyen", "Moyenne par mois sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
                         + (view.person() == null ? "" : " Part de " + view.person().name() + " seulement."),
-                Components.secondaryButton("/administration/foyer", "Administrer")), scopeTabs(view, "/budget"));
+                Html.concat(Components.pdfButton("/budget-moyen.pdf" + scope(view)), Components.secondaryButton("/administration/foyer", "Administrer"))),
+                scopeTabs(view, "/budget"));
 
         Map<Category, BigDecimal> byCategory = new EnumMap<>(Category.class);
         for (Forecast.Average line : expenses) byCategory.merge(line.category(), line.monthly(), BigDecimal::add);
@@ -256,7 +258,7 @@ final class BudgetPages {
                         : Components.table(List.of("Revenu", "Personne", "Rythme", "#Montant", "#Par mois"), incomeRows, true, false)),
                 Components.card("Dépenses", expenses.size(), Html.EMPTY, expenses.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense.</p>")
                         : Components.table(List.of("Dépense", "Catégorie", "Rythme", "#Montant", "#Par mois"), expenseRows, true, false)));
-        return Layout.page("Budget · Patria", Layout.Section.BUDGET, csrf, scope(view), content);
+        return Layout.page("Budget moyen · Patria", Layout.Section.BUDGET, csrf, scope(view), content);
     }
 
     // ---- Saisie des depenses ----
@@ -419,7 +421,7 @@ final class BudgetPages {
     static Html edit(BudgetItem item, List<Person> people, Map<String, String> values, Notice notice, String back, boolean readOnly, String csrf) {
         String suffix = back == null ? "" : "?retour=" + encode(back);
         Html content = Html.concat(
-                back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Budget"),
+                back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Budget moyen"),
                 Components.heading("Dépense", item.label(), item.category().label(), Html.EMPTY), Components.notice(notice),
                 Components.card("Dépense", null, Html.EMPTY, Components.formOrView(readOnly, "/depense/" + item.id() + suffix, csrf, fields(values, people), "Enregistrer")),
                 readOnly ? Html.EMPTY : Components.dangerZone("Supprimer cette dépense", "Elle ne sera plus comptée dans le budget.", "/depense/" + item.id() + "/supprimer" + suffix,

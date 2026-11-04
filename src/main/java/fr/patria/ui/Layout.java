@@ -69,8 +69,9 @@ public final class Layout {
                 <header class="topbar"><div class="shell navigation">%s<nav>%s%s</nav><div class="account-bar">%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
                 </div></div></header>""",
-                brand(), Html.concat(navLink("/" + scope, "Accueil", section == Section.HOME), navLink("/budget" + scope, "Budget", section == Section.BUDGET),
-                        realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY),
+                brand(), Html.concat(shortNavLink("/" + scope, "Prévisionnel", "Prévision", section == Section.HOME),
+                        shortNavLink("/budget" + scope, "Budget moyen", "Moyenne", section == Section.BUDGET),
+                        realEstate ? shortNavLink("/immobilier", "Immobilier", "Immo", section == Section.REAL_ESTATE) : Html.EMPTY),
                 section == Section.ADMINISTRATION
                         ? Html.raw("<a href=\"/administration\" class=\"active\" aria-current=\"page\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>")
                         : Html.raw("<a href=\"/administration\" aria-label=\"Administration\">Admin<span class=\"long\">istration</span></a>"),
@@ -147,6 +148,12 @@ public final class Layout {
     public static Html brand() {
         return Html.of("<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"%s\" width=\"30\" height=\"30\" alt=\"\"><span>Patria</span></a>",
                 Assets.url("/images/patria-logo.png"));
+    }
+
+    /** Lien de navigation dont le libelle est raccourci sur smartphone ({@code short}). */
+    private static Html shortNavLink(String href, String label, String shortLabel, boolean active) {
+        return Html.of("<a href=\"%s\"%s aria-label=\"%s\"><span class=\"long-label\">%s</span><span class=\"short-label\" aria-hidden=\"true\">%s</span></a>",
+                href, Html.raw(active ? " class=\"active\" aria-current=\"page\"" : ""), label, label, shortLabel);
     }
 
     public static Html navLink(String href, String label, boolean active) {

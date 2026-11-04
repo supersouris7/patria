@@ -53,6 +53,7 @@ nav { display: flex; gap: 4px; margin-right: auto; }
 nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 7px 12px; text-decoration: none; }
 nav a:hover { background: var(--surface); color: var(--text); }
 nav a.active { background: var(--surface-raised); color: var(--text); }
+nav .short-label { display: none; }
 .account-bar { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
 .account-link { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .88rem; font-weight: 650; gap: 6px;
     padding: 7px 10px; text-decoration: none; white-space: nowrap; }
@@ -82,6 +83,21 @@ label.check.option input { margin-top: 3px; }
 label.check.option b { color: var(--text); display: block; }
 .muted.small { font-size: .8rem; margin: 0; }
 .readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
+
+/* En-tete sur tablette et petit portable : icones seules, puis libelles courts. */
+@media (max-width: 1180px) {
+    .navigation { gap: 16px; }
+    nav .long { display: none; }
+    .account-link span, button.logout span { display: none; }
+    .household-switch select { max-width: 14ch; }
+}
+@media (max-width: 900px) {
+    nav .long-label { display: none; }
+    nav .short-label { display: inline; }
+    nav a { white-space: nowrap; }
+    nav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .brand span { display: none; }
+}
 
 /* ---- Titres de page ---- */
 .back-link { color: var(--muted); display: inline-block; font-size: .88rem; font-weight: 650; margin-bottom: 14px; text-decoration: none; }
@@ -166,10 +182,10 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .breakdown dl { margin: 0; }
 .breakdown .line { align-items: baseline; border-top: 1px solid var(--line); display: flex; gap: 12px; justify-content: space-between; padding: 6px 0; }
 .breakdown .line:first-child { border-top: 0; }
-.breakdown dt { color: var(--text-soft); flex-shrink: 0; font-size: .86rem; }
+.breakdown dt { color: var(--text-soft); font-size: .86rem; min-width: 0; }
 .breakdown dt .hint { cursor: help; text-decoration: underline dotted var(--line-strong); text-underline-offset: 3px; }
 .breakdown dt .aside { color: var(--muted); font-size: .76rem; font-weight: 600; margin-left: 4px; }
-.breakdown dd { font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; text-align: right; }
+.breakdown dd { flex-shrink: 0; font-variant-numeric: tabular-nums; font-weight: 650; margin: 0; text-align: right; white-space: nowrap; }
 /* Point de depart : chiffre affirme */
 .breakdown .line.lead dt { color: var(--text); font-weight: 650; }
 .breakdown .line.lead dd { color: var(--text); font-size: 1.12rem; font-weight: 750; }
@@ -269,7 +285,7 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 /* ---- Administration d'un bien ---- */
 .admin-layout { display: grid; gap: 32px; grid-template-columns: 200px minmax(0, 1fr); }
 .admin-nav { align-content: start; display: grid; gap: 4px; position: sticky; top: 88px; }
-.admin-nav .eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-nav .eyebrow { overflow-wrap: anywhere; }
 .admin-nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 8px 12px; text-decoration: none; }
 .admin-nav a:hover { background: var(--surface); color: var(--text); }
 .admin-nav a.active { background: var(--surface-raised); color: var(--text); }
@@ -348,6 +364,8 @@ label.check.option b { color: var(--text); display: block; }
     nav a, button.quiet { font-size: .8rem; padding: 6px 7px; white-space: nowrap; }
     button.logout span { display: none; }
     nav .long { display: none; }
+    nav .long-label { display: none; }
+    nav .short-label { display: inline; }
     main.shell { padding-top: 22px; }
     .metrics.cols-3, .metrics.cols-4 { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .metric { min-height: 0; padding: 14px; }
@@ -380,6 +398,11 @@ label.check.option b { color: var(--text); display: block; }
 .series-5 { fill: var(--series-5); background: var(--series-5); }
 .series-6 { fill: var(--series-6); background: var(--series-6); }
 .chart { display: block; height: auto; margin: 4px 0 18px; width: 100%; }
+@media (max-width: 600px) {
+    .chart-scroll { margin: 0 -4px; overflow-x: auto; }
+    .chart-scroll .chart { min-width: 720px; }
+    .chart .axis { font-size: 15px; }
+}
 .chart .grid { stroke: var(--line); stroke-width: 1; }
 .chart .axis { fill: var(--muted); font-size: 11px; }
 .chart .axis.deficit { fill: var(--danger); font-weight: 700; }
@@ -483,7 +506,13 @@ tfoot small { font-weight: 400; }
 @media (max-width: 760px) {
     .months-head, .month summary { font-size: .82rem; gap: 6px; grid-template-columns: 1.2fr 1fr 1fr 1fr; }
     .month-detail { grid-template-columns: 1fr; padding-left: 12px; }
-    .rank { grid-template-columns: 1fr 90px; }
+}
+@media (max-width: 480px) {
+    .months-head, .month summary { grid-template-columns: minmax(0, 1fr) auto; }
+    .months-head span:nth-child(2), .months-head span:nth-child(3), .month summary span:nth-child(2), .month summary span:nth-child(3) { display: none; }
+    .month summary span:last-child { white-space: nowrap; }
+    .rank { grid-template-columns: minmax(0, 1fr) auto; }
+    .rank b { white-space: nowrap; }
     .rank-bar, .rank small { display: none; }
 }
 
@@ -530,3 +559,10 @@ tfoot small { font-weight: 400; }
 .share-name b { display: block; }
 .share-name small { color: var(--muted); font-size: .8rem; }
 @media (max-width: 640px) { .share-row { grid-template-columns: 1fr; } .share-row.loan { padding-left: 14px; } }
+@media (max-width: 400px) {
+    nav a { font-size: .76rem; padding: 6px 4px; }
+    .navigation { gap: 4px; }
+}
+@media (max-width: 360px) {
+    .brand { display: none; }
+}

@@ -99,6 +99,8 @@ class AccountsTest {
         assertTrue(get(paul, "/?personne=2").body().contains("Budget de Paul"), "vue de Camille refusée : retour à Paul");
         assertFalse(get(paul, "/budget?personne=2").body().contains("Yoga de Camille"));
 
+        assertEquals(200, get(paul, "/previsionnel.pdf?personne=2").statusCode(), "synthèse de sa vue (Paul, pas Camille)");
+        assertEquals(403, get(paul, "/immobilier.pdf").statusCode(), "synthèse immobilière réservée");
         for (String reserved : new String[]{"/immobilier", "/administration/biens", "/administration/repartition", "/administration/utilisateurs", "/administration/foyers"}) {
             assertEquals(403, get(paul, reserved).statusCode(), reserved);
         }

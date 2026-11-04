@@ -99,6 +99,13 @@ class AppTest {
         HttpResponse<String> loan = upload(propertyPath + "/prets", csrf, "Prêt principal", csv);
         assertEquals(303, loan.statusCode(), loan.body());
         assertTrue(get(propertyPath + "/prets/nouveau").body().contains("data-copy=\"prompt-echeancier\""), "prompt IA de l'échéancier");
+        for (String report : new String[]{"/previsionnel.pdf", "/budget-moyen.pdf", "/immobilier.pdf", propertyPath + "/synthese.pdf", "/pret/1/synthese.pdf"}) {
+            HttpResponse<String> pdf = get(report);
+            assertEquals(200, pdf.statusCode(), report);
+            assertEquals("application/pdf", pdf.headers().firstValue("Content-Type").orElseThrow(), report);
+            assertTrue(pdf.body().startsWith("%PDF"), report);
+        }
+        assertTrue(get("/").body().contains("href=\"/previsionnel.pdf\""), "bouton d'export");
         assertTrue(get("/administration/depenses").body().contains("data-copy=\"prompt-depenses\""), "prompt IA des dépenses");
         HttpResponse<String> sales = get(propertyPath + "/marche/ventes");
         assertEquals(200, sales.statusCode());

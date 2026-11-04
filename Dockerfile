@@ -9,7 +9,7 @@ RUN mvn --batch-mode package -DskipTests
 FROM eclipse-temurin:21-jdk-jammy AS runtime
 
 RUN $JAVA_HOME/bin/jlink \
-    --add-modules java.base,java.logging,java.net.http,java.sql,jdk.crypto.ec,jdk.httpserver,jdk.localedata,jdk.unsupported \
+    --add-modules java.base,java.desktop,java.logging,java.net.http,java.sql,java.xml,jdk.crypto.ec,jdk.httpserver,jdk.localedata,jdk.unsupported \
     --include-locales=fr,en \
     --strip-debug \
     --no-man-pages \
@@ -29,4 +29,4 @@ COPY --from=build --chown=patria:patria /build/target/patria.jar /app/patria.jar
 ENV PATH="/opt/java/bin:${PATH}"
 USER patria
 EXPOSE 8080
-ENTRYPOINT ["/opt/java/bin/java", "-Xms16m", "-Xmx96m", "-jar", "/app/patria.jar"]
+ENTRYPOINT ["/opt/java/bin/java", "-Djava.awt.headless=true", "-Xms16m", "-Xmx96m", "-jar", "/app/patria.jar"]

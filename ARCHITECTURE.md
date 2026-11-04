@@ -115,6 +115,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
 | Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée dans `App` |
 | Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite |
+| Comment sont produites les synthèses PDF ? | `ui/PdfReport` (mise en page A4 commune, OpenPDF, polices standard) ; contenu par `budget/BudgetReports`, `portfolio/PortfolioReports`, `loan/LoanReports` ; routes `*.pdf` dans les contrôleurs de chaque page |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
 | Comment l'estimation est-elle actualisée ? | coefficient calculé par `market/MarketService.compute` (indice DVF depuis la date d'estimation), appliqué par `property/Valuation.scenarios(property, facteur)` |
@@ -166,7 +167,8 @@ lit seulement le résultat en base. Une panne de data.gouv.fr n'efface pas un r�
 départemental (API lente) est facultatif : sans lui, le prix est affiché « non actualisé » et recalculé le lendemain.
 
 L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit figurer dans le `Dockerfile`
-(`java.net.http` et `jdk.crypto.ec` pour HTTPS, `jdk.localedata` pour les formats français).
+(`java.net.http` et `jdk.crypto.ec` pour HTTPS, `jdk.localedata` pour les formats français, `java.desktop` et
+`java.xml` pour OpenPDF, lancé en mode `java.awt.headless`).
 
 ## Tests
 

@@ -9,9 +9,9 @@ Patria est une application web francaise auto-hebergee de suivi du budget du foy
 - Foyer de plusieurs personnes ; revenus nets avant impot (salaire mensuel, primes et 13e mois annuels, revenus ponctuels).
 - Depenses saisies une seule fois avec leur frequence (mensuelle, trimestrielle, semestrielle, annuelle, ponctuelle) et leur premier paiement ; modeles en un clic (electricite, mutuelle, assurance auto...).
 - Reprise automatique de l'immobilier, sans ressaisie : mensualites de pret, taxe fonciere (octobre, ou de janvier a octobre si elle est mensualisee dans les charges du bien ; prelevee en entier sur un compte joint ou une personne si choisi dans Repartition), taxe d'habitation (novembre), copropriete (chaque trimestre), assurance et autres charges des biens (sur 12 mois), loyers percus.
-- Accueil : revenus, depenses et reste a vivre du mois, taux d'endettement (methode bancaire HCSF : credits ÷ revenus nets avant impot, loyers a 70 %, en vert sous 33 %, orange de 33 à 35 %, rouge au-delà ; détail, jauge et marge avant 33 % sur la page Budget), alertes (depenses non mensuelles des 3 prochains mois, mois en deficit), montant a mettre de cote chaque mois, graphique et detail des 12 prochains mois (un clic sur un mois du graphique ouvre son detail, avec le reste a vivre ou ce qui manque ; chaque ligne mene a sa saisie, la taxe fonciere aux charges du bien).
-- Page Budget : moyenne mensuelle sur 12 mois, depenses classees par categorie (un clic sur une categorie montre ses depenses, chacune menant a sa saisie).
-- Un budget par personne, identique a celui du foyer : selecteur « Foyer | Alice | Bob » sur l'Accueil et le Budget. Chaque personne voit ses revenus et sa part des depenses, biens (charges, loyers) et prets, avec son propre taux d'endettement.
+- Previsionnel (page d'accueil) : revenus, depenses et reste a vivre du mois, taux d'endettement (methode bancaire HCSF : credits ÷ revenus nets avant impot, loyers a 70 %, en vert sous 33 %, orange de 33 à 35 %, rouge au-delà ; détail, jauge et marge avant 33 % sur la page Budget moyen), alertes (depenses non mensuelles des 3 prochains mois, mois en deficit), montant a mettre de cote chaque mois, graphique et detail des 12 prochains mois (un clic sur un mois du graphique ouvre son detail, avec le reste a vivre ou ce qui manque ; chaque ligne mene a sa saisie, la taxe fonciere aux charges du bien).
+- Budget moyen : moyenne mensuelle sur 12 mois, depenses classees par categorie (un clic sur une categorie montre ses depenses, chacune menant a sa saisie).
+- Un budget par personne, identique a celui du foyer : selecteur « Foyer | Alice | Bob » sur le Previsionnel et le Budget moyen. Chaque personne voit ses revenus et sa part des depenses, biens (charges, loyers) et prets, avec son propre taux d'endettement.
 - Repartition en pourcentages, a parts egales par defaut (y compris pour les personnes ajoutees ensuite) : dans le formulaire de chaque depense, et dans Administration → Repartition pour les biens et les prets. Un pret suit la repartition de son bien, sauf repartition propre.
 - Compte joint : un membre du foyer de type « Compte joint », avec son propre budget (onglet a cote des personnes). Il recoit des virements et paie les depenses qu'on lui attribue ; il ne prend part aux « parts egales » que si on lui donne un pourcentage.
 - Virements entre membres (Administration → Virements), recurrents ou ponctuels : depense pour qui envoie, recette pour qui recoit. Neutres pour le budget du foyer, sans effet sur le taux d'endettement. Les credits payes par un compte joint comptent a parts egales dans le taux d'endettement de chaque personne.
@@ -92,6 +92,18 @@ Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CON
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
 
+## Syntheses PDF
+
+Un bouton « Exporter en PDF » sur les pages de consultation telecharge une synthese au format A4 :
+
+- **Previsionnel** : chiffres du mois, alertes, les 12 prochains mois (avec total), detail du mois en cours ;
+- **Budget moyen** : moyennes mensuelles, taux d'endettement, depenses par categorie, revenus, depenses ;
+- **Immobilier** : valeur, valeur nette, enrichissement reel, bilan, biens, prets, taxes foncieres ;
+- **Fiche d'un bien** : scenarios de valeur, bilan, prets, apports, prix au m² face au marche ;
+- **Pret** : situation a date, bilan par annee, echeancier complet.
+
+La synthese reprend la vue affichee (foyer ou membre) et les droits de la personne connectee. Le PDF est produit par le serveur (bibliotheque OpenPDF), avec les polices standard.
+
 ## Foyers et utilisateurs
 
 **Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout, et gere dans Administration :
@@ -99,7 +111,7 @@ Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelP
 - **Foyers** : creer, renommer, supprimer. Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un bien se deplace d'un foyer a l'autre depuis sa fiche d'administration (« Foyer du bien ») : il part avec ses prets, echeanciers, apports, charges, occupation et prix du marche ; sa repartition entre membres repart a « parts egales ». Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`. Le foyer affiche se choisit dans l'en-tete.
 - **Utilisateurs** : identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression. Pour chaque foyer : acces, vue « Foyer » (total de tous les membres), vues des membres ouvertes (une personne, le compte joint...), consultation de l'immobilier.
 
-**Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Accueil et Budget. Dans Administration, il a Revenus, Depenses et Virements :
+**Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Previsionnel et Budget moyen. Dans Administration, il a Revenus, Depenses et Virements :
 
 - il voit les lignes qui concernent au moins une de ses vues (toutes avec la vue « Foyer ») ;
 - il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre s'ouvre en lecture seule (« Voir ») ;

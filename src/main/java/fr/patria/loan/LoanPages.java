@@ -38,7 +38,8 @@ final class LoanPages {
         ScheduleLine next = status.nextInstallment();
         Html content = Html.concat(
                 Components.backLink("/bien/" + property.id(), property.name()),
-                Components.heading("Prêt", loan.name(), "Finance « " + property.name() + " »", Layout.isAdmin() ? Components.secondaryButton("/pret/" + loan.id() + "/gerer", "Gérer le prêt") : Html.EMPTY),
+                Components.heading("Prêt", loan.name(), "Finance « " + property.name() + " »", Html.concat(Components.pdfButton("/pret/" + loan.id() + "/synthese.pdf"),
+                        Layout.isAdmin() ? Components.secondaryButton("/pret/" + loan.id() + "/gerer", "Gérer le prêt") : Html.EMPTY)),
                 Components.notice(notice),
                 Components.metrics(3,
                         tile("Capital emprunté", "Total des déblocages de l'échéancier.", euro(status.borrowed()), null),

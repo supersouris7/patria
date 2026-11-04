@@ -85,7 +85,8 @@ final class BudgetChart {
                     anchor(month.month()), "Voir le détail de " + Format.month(month.month()), fmt(LEFT + column * i), TOP, fmt(column), fmt(plotHeight + 6), tooltip(month)));
         }
         String summary = "Revenus et dépenses des 12 prochains mois ; un clic sur un mois ouvre son détail dans la liste ci-dessous.";
-        Html chart = Html.of("<svg class=\"chart\" viewBox=\"0 0 %s %s\" role=\"group\" aria-label=\"%s\" preserveAspectRatio=\"xMidYMid meet\">%s</svg>",
+        // Sur smartphone, le graphique garde une largeur lisible et defile dans son cadre.
+        Html chart = Html.of("<div class=\"chart-scroll\"><svg class=\"chart\" viewBox=\"0 0 %s %s\" role=\"group\" aria-label=\"%s\" preserveAspectRatio=\"xMidYMid meet\">%s</svg></div>",
                 WIDTH, HEIGHT, summary, Html.raw(svg.toString()));
         return Html.concat(legend(months), chart);
     }

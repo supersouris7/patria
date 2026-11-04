@@ -107,6 +107,13 @@ public final class Format {
     }
 
     /** Valeur brute pour un champ de formulaire ou un attribut data-* (« 320000 », « 0.08 »). */
+    /** Nom de fichier lisible : « Appartement Croix-Rousse » donne « appartement-croix-rousse ». */
+    public static String slug(String text) {
+        String ascii = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        String slug = ascii.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        return slug.isEmpty() ? "bien" : slug;
+    }
+
     public static String plain(BigDecimal value) {
         if (value == null) return "";
         return value.setScale(Math.max(0, Math.min(value.scale(), 6)), RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();

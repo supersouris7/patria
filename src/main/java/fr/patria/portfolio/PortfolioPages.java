@@ -42,7 +42,8 @@ final class PortfolioPages {
     // ---- Vue d'ensemble : sommes des biens, sans curseur ----
 
     static Html dashboard(Overview overview, String csrf) {
-        Html heading = Components.heading("Votre patrimoine immobilier", "Immobilier", null, Html.EMPTY);
+        Html heading = Components.heading("Votre patrimoine immobilier", "Immobilier", null,
+                overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
                     "Les biens, prêts et apports s'ajoutent depuis l'administration.", Layout.isAdmin() ? Components.button("/administration/biens", "Aller à l'administration") : Html.EMPTY)));
@@ -81,7 +82,8 @@ final class PortfolioPages {
                 + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate())
                 + (summary.returns().isPrincipalResidence() ? " · résidence principale" : "");
         boolean admin = Layout.isAdmin();
-        Html actions = admin ? Components.secondaryButton("/administration/bien/" + property.id(), "Administrer") : Html.EMPTY;
+        Html actions = Html.concat(Components.pdfButton("/bien/" + property.id() + "/synthese.pdf"),
+                admin ? Components.secondaryButton("/administration/bien/" + property.id(), "Administrer") : Html.EMPTY);
         Html hero = summary.scenarios().isEmpty()
                 ? Components.emptyState("Aucune valeur renseignée", "Indiquez le coût d'acquisition ou une estimation pour suivre la valeur de ce bien.",
                         admin ? Components.button("/administration/bien/" + property.id(), "Renseigner") : Html.EMPTY)
