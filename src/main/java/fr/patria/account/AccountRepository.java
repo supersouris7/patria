@@ -224,12 +224,7 @@ public final class AccountRepository {
     }
 
     public void deleteUser(long id) {
-        database.transaction(connection -> {
-            Sql.update(connection, "DELETE FROM users WHERE id = ?", id);
-            Sql.update(connection, "DELETE FROM two_factor WHERE account = ?", account(id));
-            Sql.update(connection, "DELETE FROM trusted_devices WHERE account = ?", account(id));
-            return null;
-        });
+        database.query(connection -> Sql.update(connection, "DELETE FROM users WHERE id = ?", id));
     }
 
     /** Utilisateur actif dont l'identifiant et le mot de passe correspondent. */
@@ -345,6 +340,21 @@ public final class AccountRepository {
     // ---- Qui voit quoi : derniere lecture ----
 
     /** Moment ou l'utilisateur a lu les changements d'acces ; a defaut, la creation de son compte. */
+    /**
+     * Ce qu'il faut savoir d'un compte a chaque page, lu en une requete : le compte, mot de passe provisoire, derniere
+     * lecture de « qui voit quoi » et date du retrait de sa double authentification par l'administrateur.
+     */
+    public record AccountState(User user, boolean mustChangePassword, java.time.LocalDateTime audienceSeen, LocalDate twoFactorRemovedOn) {
+    }
+
+    public Optional<AccountState> state(long userId) {
+        return database.query(connection -> Sql.list(connection, """
+                SELECT u.*, coalesce(u.audience_seen_at, u.created_on || 'T00:00') AS seen, t.removed_by_admin_on FROM users u
+                LEFT JOIN two_factor t ON t.account = 'user:' || u.id WHERE u.id = ?""",
+                row -> new AccountState(user(row), row.getInt("must_change_password") == 1, java.time.LocalDateTime.parse(row.getString("seen")),
+                        row.getString("removed_by_admin_on") == null ? null : LocalDate.parse(row.getString("removed_by_admin_on"))), userId)).stream().findFirst();
+    }
+
     public java.time.LocalDateTime audienceSeen(long userId) {
         return database.query(connection -> Sql.list(connection, "SELECT audience_seen_at, created_on FROM users WHERE id = ?",
                 row -> row.getString(1) != null ? java.time.LocalDateTime.parse(row.getString(1)) : LocalDate.parse(row.getString(2)).atStartOfDay(), userId))
@@ -353,175 +363,5 @@ public final class AccountRepository {
 
     public void setAudienceSeen(long userId, java.time.LocalDateTime at) {
         database.query(connection -> Sql.update(connection, "UPDATE users SET audience_seen_at = ? WHERE id = ?", at.toString(), userId));
-    }
-
-    // ---- Journaux ----
-
-    /** Connexion reussie ou echouee ; les evenements de plus de {@value #KEPT_DAYS} jours sont effaces. */
-    public void recordLogin(java.time.LocalDateTime at, String login, Long userId, boolean success, String ip) {
-        database.transaction(connection -> {
-            Sql.update(connection, "INSERT INTO login_events (at, login, user_id, success, ip) VALUES (?, ?, ?, ?, ?)",
-                    at.toString(), login.length() > 60 ? login.substring(0, 60) : login, userId, success ? 1 : 0, ip);
-            Sql.update(connection, "DELETE FROM login_events WHERE at < ?", at.minusDays(KEPT_DAYS).toString());
-            return null;
-        });
-    }
-
-    /** Duree de conservation du journal des connexions. */
-    public static final int KEPT_DAYS = 90;
-
-    /** Une connexion du journal. */
-    public record LoginEvent(java.time.LocalDateTime at, String login, Long userId, boolean success, String ip) {
-    }
-
-    /** Les {@code limit} dernieres connexions, reussies ({@code success}) ou echouees. */
-    public List<LoginEvent> loginEvents(boolean success, int limit) {
-        return database.query(connection -> Sql.list(connection, "SELECT at, login, user_id, success, ip FROM login_events WHERE success = ? ORDER BY at DESC, id DESC LIMIT ?",
-                row -> new LoginEvent(java.time.LocalDateTime.parse(row.getString(1)), row.getString(2), row.getObject(3) == null ? null : row.getLong(3),
-                        row.getInt(4) == 1, row.getString(5)), success ? 1 : 0, limit));
-    }
-
-    /** Nombre d'echecs depuis ce moment. */
-    public int failuresSince(java.time.LocalDateTime since) {
-        return database.query(connection -> Sql.list(connection, "SELECT count(*) FROM login_events WHERE success = 0 AND at >= ?", row -> row.getInt(1), since.toString()))
-                .getFirst();
-    }
-
-    /** Derniere connexion reussie de chaque compte ({@code null} : l'administrateur). */
-    public Map<Long, java.time.LocalDateTime> lastLogins() {
-        Map<Long, java.time.LocalDateTime> result = new java.util.HashMap<>();
-        database.query(connection -> Sql.list(connection, "SELECT coalesce(user_id, 0), max(at) FROM login_events WHERE success = 1 GROUP BY coalesce(user_id, 0)",
-                row -> result.put(row.getLong(1), java.time.LocalDateTime.parse(row.getString(2)))));
-        return result;
-    }
-
-    /** Une ligne du journal des droits. */
-    public record AuditEntry(java.time.LocalDateTime at, String actor, String action, Long householdId, Long userId, String detail) {
-    }
-
-    public void audit(java.time.LocalDateTime at, String actor, String action, Long householdId, Long userId, String detail) {
-        database.query(connection -> Sql.update(connection, "INSERT INTO audit_log (at, actor, action, household_id, user_id, detail) VALUES (?, ?, ?, ?, ?, ?)",
-                at.toString(), actor, action, householdId, userId, detail));
-    }
-
-    public List<AuditEntry> auditLog(int limit) {
-        return database.query(connection -> Sql.list(connection, "SELECT at, actor, action, household_id, user_id, detail FROM audit_log ORDER BY at DESC, id DESC LIMIT ?",
-                AccountRepository::auditEntry, limit));
-    }
-
-    /** Changements d'acces a un foyer apres ce moment, les plus recents d'abord. */
-    public List<AuditEntry> accessChanges(long householdId, java.time.LocalDateTime after) {
-        return database.query(connection -> Sql.list(connection, """
-                SELECT at, actor, action, household_id, user_id, detail FROM audit_log
-                WHERE household_id = ? AND action = 'ACCESS' AND at > ? ORDER BY at DESC, id DESC LIMIT 20""", AccountRepository::auditEntry, householdId, after.toString()));
-    }
-
-    private static AuditEntry auditEntry(ResultSet row) throws SQLException {
-        return new AuditEntry(java.time.LocalDateTime.parse(row.getString(1)), row.getString(2), row.getString(3), row.getObject(4) == null ? null : row.getLong(4),
-                row.getObject(5) == null ? null : row.getLong(5), row.getString(6));
-    }
-
-    // ---- Localisation des adresses IP (cache) ----
-
-    public Optional<String[]> ipLocation(String ip) {
-        return database.query(connection -> Sql.list(connection, "SELECT country, city FROM ip_locations WHERE ip = ?", row -> new String[]{row.getString(1), row.getString(2)}, ip))
-                .stream().findFirst();
-    }
-
-    public void saveIpLocation(String ip, String country, String city, LocalDate today) {
-        database.query(connection -> Sql.update(connection, """
-                INSERT INTO ip_locations (ip, country, city, looked_up_on) VALUES (?, ?, ?, ?)
-                ON CONFLICT (ip) DO UPDATE SET country = excluded.country, city = excluded.city, looked_up_on = excluded.looked_up_on""", ip, country, city, today));
-    }
-
-    // ---- Double authentification ----
-
-    /** Cle du compte dans les tables de la double authentification : « admin » ou « user:ID ». */
-    public static String account(Long userId) {
-        return userId == null ? "admin" : "user:" + userId;
-    }
-
-    /** Etat de la double authentification d'un compte. */
-    public record TwoFactor(String secret, String pending, LocalDate enabledOn, long lastStep, LocalDate removedByAdminOn) {
-        public boolean enabled() {
-            return secret != null;
-        }
-    }
-
-    public TwoFactor twoFactor(Long userId) {
-        return database.query(connection -> Sql.list(connection, "SELECT secret, pending, enabled_on, last_step, removed_by_admin_on FROM two_factor WHERE account = ?",
-                row -> new TwoFactor(row.getString(1), row.getString(2), row.getString(3) == null ? null : LocalDate.parse(row.getString(3)), row.getLong(4),
-                        row.getString(5) == null ? null : LocalDate.parse(row.getString(5))), account(userId)))
-                .stream().findFirst().orElse(new TwoFactor(null, null, null, -1, null));
-    }
-
-    /** Secret propose a l'activation, en attente du premier code. */
-    public void setTwoFactorPending(Long userId, String secret) {
-        database.query(connection -> Sql.update(connection, """
-                INSERT INTO two_factor (account, pending) VALUES (?, ?) ON CONFLICT (account) DO UPDATE SET pending = excluded.pending""", account(userId), secret));
-    }
-
-    /** Premier code juste : le secret en attente devient celui du compte. */
-    public void enableTwoFactor(Long userId, long step, LocalDate today) {
-        database.query(connection -> Sql.update(connection, """
-                UPDATE two_factor SET secret = pending, pending = NULL, enabled_on = ?, last_step = ?, removed_by_admin_on = NULL WHERE account = ?""",
-                today, step, account(userId)));
-    }
-
-    /** Code accepte : il ne pourra plus servir. */
-    public void useTwoFactorStep(Long userId, long step) {
-        database.query(connection -> Sql.update(connection, "UPDATE two_factor SET last_step = ? WHERE account = ?", step, account(userId)));
-    }
-
-    /**
-     * Desactivation (par le compte lui-meme, ou {@code byAdminOn} : par l'administrateur, date retenue pour en
-     * informer le compte) ; les appareils de confiance sont oublies.
-     */
-    public void disableTwoFactor(Long userId, LocalDate byAdminOn) {
-        database.transaction(connection -> {
-            Sql.update(connection, """
-                    INSERT INTO two_factor (account, removed_by_admin_on) VALUES (?, ?)
-                    ON CONFLICT (account) DO UPDATE SET secret = NULL, pending = NULL, enabled_on = NULL, last_step = -1, removed_by_admin_on = excluded.removed_by_admin_on""",
-                    account(userId), byAdminOn);
-            Sql.update(connection, "DELETE FROM trusted_devices WHERE account = ?", account(userId));
-            return null;
-        });
-    }
-
-    /** L'avis « l'administrateur a retire votre double authentification » a ete lu. */
-    public void clearTwoFactorNotice(Long userId) {
-        database.query(connection -> Sql.update(connection, "UPDATE two_factor SET removed_by_admin_on = NULL WHERE account = ?", account(userId)));
-    }
-
-    public void trustDevice(Long userId, String tokenHash, java.time.LocalDateTime now, java.time.LocalDateTime expires) {
-        database.transaction(connection -> {
-            Sql.update(connection, "DELETE FROM trusted_devices WHERE expires_at < ?", now.toString());
-            Sql.update(connection, "INSERT INTO trusted_devices (token_hash, account, expires_at) VALUES (?, ?, ?)", tokenHash, account(userId), expires.toString());
-            return null;
-        });
-    }
-
-    public boolean trustedDevice(Long userId, String tokenHash, java.time.LocalDateTime now) {
-        return !database.query(connection -> Sql.list(connection, "SELECT 1 FROM trusted_devices WHERE token_hash = ? AND account = ? AND expires_at > ?",
-                row -> row.getInt(1), tokenHash, account(userId), now.toString())).isEmpty();
-    }
-
-    /** Comptes ({@code null} : l'administrateur) qui ont la double authentification, avec sa date d'activation. */
-    public Map<String, LocalDate> twoFactorAccounts() {
-        Map<String, LocalDate> result = new java.util.HashMap<>();
-        database.query(connection -> Sql.list(connection, "SELECT account, enabled_on FROM two_factor WHERE secret IS NOT NULL",
-                row -> result.put(row.getString(1), row.getString(2) == null ? LocalDate.MIN : LocalDate.parse(row.getString(2)))));
-        return result;
-    }
-
-    // ---- Connexions d'un compte (en-tete, Mon compte) ----
-
-    /** Les {@code limit} dernieres connexions reussies ou echouees de cet identifiant, avant {@code before}. */
-    public List<LoginEvent> loginEventsOf(String login, java.time.LocalDateTime before, int limit) {
-        return database.query(connection -> Sql.list(connection, """
-                SELECT at, login, user_id, success, ip FROM login_events WHERE lower(login) IN (lower(?), lower(?) || ' (bloqué)', lower(?) || ' (code 2fa)') AND at < ?
-                ORDER BY at DESC, id DESC LIMIT ?""",
-                row -> new LoginEvent(java.time.LocalDateTime.parse(row.getString(1)), row.getString(2), row.getObject(3) == null ? null : row.getLong(3),
-                        row.getInt(4) == 1, row.getString(5)), login, login, login, before.toString(), limit));
     }
 }

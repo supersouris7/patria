@@ -19,13 +19,18 @@ public final class SecurityController {
     }
 
     private final AccountRepository accounts;
+    private final SecurityLog log;
+    private final TwoFactorStore twoFactors;
     private final Sessions sessions;
     private final IpLocator locator;
     private final Installation installation;
     private final Clock clock;
 
-    public SecurityController(AccountRepository accounts, Sessions sessions, IpLocator locator, Installation installation, Clock clock) {
+    public SecurityController(AccountRepository accounts, SecurityLog log, TwoFactorStore twoFactors, Sessions sessions, IpLocator locator, Installation installation,
+                              Clock clock) {
         this.accounts = accounts;
+        this.log = log;
+        this.twoFactors = twoFactors;
         this.sessions = sessions;
         this.locator = locator;
         this.installation = installation;
@@ -38,16 +43,16 @@ public final class SecurityController {
 
     private Response page(Request request) {
         LocalDateTime now = LocalDateTime.now(clock);
-        List<AccountRepository.LoginEvent> failures = accounts.loginEvents(false, 50);
-        List<AccountRepository.LoginEvent> successes = accounts.loginEvents(true, 30);
+        List<SecurityLog.LoginEvent> failures = log.loginEvents(false, 50);
+        List<SecurityLog.LoginEvent> successes = log.loginEvents(true, 30);
         java.util.Map<String, String> places = new java.util.HashMap<>();
-        for (AccountRepository.LoginEvent event : failures) places.computeIfAbsent(event.ip(), locator::describe);
-        for (AccountRepository.LoginEvent event : successes) places.computeIfAbsent(event.ip(), locator::describe);
+        for (SecurityLog.LoginEvent event : failures) places.computeIfAbsent(event.ip(), locator::describe);
+        for (SecurityLog.LoginEvent event : successes) places.computeIfAbsent(event.ip(), locator::describe);
         SecurityPages.State state = new SecurityPages.State(request.isHttps(), !request.isHttps() && !Router.insecure(request), installation.encrypted(), installation.offline(),
-                installation.backups().get(), Exposure.exposed(request, accounts), accounts.twoFactor(null).enabled());
-        return Response.page(SecurityPages.page(state, accounts.failuresSince(now.minusDays(1)), accounts.failuresSince(now.minusDays(7)), installation.blocked().get(),
-                failures, successes, places, accounts.users(), accounts.lastLogins(), sessions.openByUser(),
+                installation.backups().get(), Exposure.exposed(request, log), twoFactors.twoFactor(null).enabled());
+        return Response.page(SecurityPages.page(state, log.failuresSince(now.minusDays(1)), log.failuresSince(now.minusDays(7)), installation.blocked().get(),
+                failures, successes, places, accounts.users(), log.lastLogins(), sessions.openByUser(),
                 accounts.users().stream().filter(user -> accounts.passwordToChange(user.id()).isPresent()).map(User::id).collect(java.util.stream.Collectors.toSet()),
-                accounts.twoFactorAccounts(), accounts.auditLog(60), request.csrf()));
+                twoFactors.twoFactorAccounts(), log.auditLog(60), request.csrf()));
     }
 }

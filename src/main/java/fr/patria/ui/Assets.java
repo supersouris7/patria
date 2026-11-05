@@ -16,7 +16,6 @@ public final class Assets {
 
     /** Chemin public -> fichier. Le parametre {@code ?v=} change a chaque modification : cache navigateur illimite. */
     public static final Map<String, Asset> FILES = load(Map.of(
-            "/css/patria.css", "text/css; charset=utf-8",
             "/js/app.js", "text/javascript; charset=utf-8",
             "/js/redaction.mjs", "text/javascript; charset=utf-8",
             "/js/redaction-pdf.mjs", "text/javascript; charset=utf-8",
@@ -41,6 +40,7 @@ public final class Assets {
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
+        files.put("/css/patria.css", new Asset("text/css; charset=utf-8", stylesheet()));
         all.forEach((path, type) -> {
             try (InputStream input = Assets.class.getClassLoader().getResourceAsStream("static" + path)) {
                 if (input == null) throw new IllegalStateException("Ressource manquante : static" + path);
@@ -50,6 +50,26 @@ public final class Assets {
             }
         });
         return Map.copyOf(files);
+    }
+
+    /**
+     * Feuille de style unique, servie a {@code /css/patria.css} : les fichiers de {@code static/css/parts}, mis bout a
+     * bout dans l'ordre de {@code parts/files.txt} (la cascade CSS en depend). Une seule requete pour le navigateur.
+     */
+    static byte[] stylesheet() {
+        try (InputStream manifest = Assets.class.getResourceAsStream("/static/css/parts/files.txt")) {
+            if (manifest == null) throw new IllegalStateException("Liste des feuilles de style manquante : static/css/parts/files.txt");
+            StringBuilder css = new StringBuilder();
+            for (String name : new String(manifest.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).lines().map(String::trim).filter(line -> !line.isEmpty()).toList()) {
+                try (InputStream part = Assets.class.getResourceAsStream("/static/css/parts/" + name)) {
+                    if (part == null) throw new IllegalStateException("Feuille de style manquante : static/css/parts/" + name);
+                    css.append("/* ").append(name).append(" */\n").append(new String(part.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).append('\n');
+                }
+            }
+            return css.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     private static String version(Map<String, Asset> files) {

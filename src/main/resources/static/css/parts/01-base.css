@@ -1,0 +1,111 @@
+:root {
+    color-scheme: dark;
+    --bg: #0a0e13;
+    --surface: #111821;
+    --surface-raised: #17212c;
+    --input: #0c1219;
+    --line: #222e3b;
+    --line-strong: #33445a;
+    --text: #edf3f8;
+    --text-soft: #c4cfda;
+    --muted: #8593a4;
+    --blue: #3aa8ff;
+    --blue-deep: #1a78dc;
+    --blue-tint: rgb(58 168 255 / 12%);
+    --danger: #ff7b85;
+    --danger-deep: #c43b48;
+    --success: #7fdc8a;
+    --radius: 12px;
+    --radius-small: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--blue); }
+h1, h2, h3, strong, .brand { letter-spacing: -.02em; }
+h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.1; margin: 0 0 .35rem; }
+h2 { font-size: 1.1rem; margin: 0; }
+h3 { font-size: .95rem; margin: 0 0 .25rem; }
+p { margin: 0 0 .8rem; }
+.muted, .empty { color: var(--muted); }
+.empty { margin: 0; padding: 6px 0; }
+code { background: var(--input); border: 1px solid var(--line); border-radius: 5px; font-size: .82em; padding: 1px 5px; overflow-wrap: anywhere; }
+pre { background: var(--input); border: 1px solid var(--line); border-radius: var(--radius-small); margin: 0 0 .8rem; overflow-x: auto; padding: 12px 14px; }
+pre code { background: none; border: 0; padding: 0; }
+
+.shell { width: min(1160px, calc(100% - 32px)); margin: 0 auto; }
+main.shell { padding: 36px 0 72px; }
+
+/* ---- En-tete ---- */
+.topbar { background: rgb(10 14 19 / 92%); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+.navigation { align-items: center; display: flex; gap: 24px; min-height: 64px; }
+.brand { align-items: center; color: var(--text); display: inline-flex; font-size: 1.2rem; font-weight: 780; gap: 10px; text-decoration: none; }
+.brand-mark { border-radius: 7px; display: block; height: 30px; width: 30px; }
+nav { display: flex; gap: 4px; margin-right: auto; }
+nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 7px 12px; text-decoration: none; white-space: nowrap; }
+nav a:hover { background: var(--surface); color: var(--text); }
+nav a.active { background: var(--surface-raised); color: var(--text); }
+nav .short-label { display: none; }
+nav a.nav-icon { align-items: center; display: inline-flex; padding: 7px 9px; }
+nav a.nav-icon svg { display: block; }
+.account-bar { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
+.account-link { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .88rem; font-weight: 650; gap: 6px;
+    padding: 7px 10px; text-decoration: none; white-space: nowrap; }
+.account-link span { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
+.account-link:hover, .account-link.active { background: var(--surface-raised); color: var(--text); }
+.household-switch { align-items: center; display: flex; gap: 6px; }
+.household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
+.visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
+label.check input { min-height: 0; width: auto; }
+.admin-nav .nav-group { margin-top: 18px; }
+.admin-nav .nav-group:first-child { margin-top: 0; }
+.admin-nav .nav-group span { color: var(--text); letter-spacing: .06em; }
+.household-banner { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .86rem; margin: 0 0 14px; padding: 8px 12px; }
+.household-banner a { color: var(--blue); font-weight: 650; }
+.household-card { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.household-card:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.household-card .eyebrow { margin-top: 14px; }
+.household-card h3 { align-items: center; display: flex; flex-wrap: wrap; font-size: 1.05rem; gap: 8px 12px; margin: 0 0 8px; }
+.household-card .chips-line { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.household-card .steps { color: var(--text-soft); font-size: .88rem; margin: 6px 0 10px; padding-left: 20px; }
+.household-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rename-form { align-items: center; display: flex; gap: 8px; }
+.rename-form input { max-width: 260px; }
+.access-form { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px; }
+.access-form h3 { font-size: 1rem; margin: 0; }
+.access-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.access-summary { border-radius: var(--radius-small); font-size: .84rem; margin: 0; padding: 4px 10px; }
+.access-summary.on { background: rgb(127 220 138 / 12%); color: var(--success); }
+.access-summary.off { background: var(--surface-raised); color: var(--muted); }
+.access-details { border: 0; display: grid; gap: 10px; margin: 0; padding: 0; }
+.access-details[disabled] { opacity: .45; }
+.access-details legend { float: left; margin: 6px 0 0; padding: 0; width: 100%; }
+.access-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+label.check.option { align-items: flex-start; }
+label.check.option input { margin-top: 3px; }
+label.check.option b { color: var(--text); display: block; }
+.muted.small { font-size: .8rem; margin: 0; }
+
+/* En-tete sur tablette et petit portable : icones seules, puis libelles courts. */
+@media (max-width: 1180px) {
+    .navigation { gap: 16px; }
+    nav .long { display: none; }
+    .account-link span, button.logout span { display: none; }
+    .household-switch select { max-width: 14ch; }
+}
+@media (max-width: 900px) {
+    nav .long-label { display: none; }
+    nav .short-label { display: inline; }
+    nav a { white-space: nowrap; }
+    nav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .brand span { display: none; }
+}

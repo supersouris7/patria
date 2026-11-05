@@ -17,9 +17,9 @@ public final class LoginHistory {
      * {@code login} : identifiant du compte ; {@code sessionStart} : debut de la session en cours (sa propre connexion
      * n'est pas « la derniere »).
      */
-    public static Viewer.Recent recent(AccountRepository accounts, IpLocator locator, String login, LocalDateTime sessionStart) {
-        List<AccountRepository.LoginEvent> events = accounts.loginEventsOf(login, sessionStart.minusSeconds(1), 50);
-        AccountRepository.LoginEvent previous = events.stream().filter(AccountRepository.LoginEvent::success).findFirst().orElse(null);
+    public static Viewer.Recent recent(SecurityLog log, IpLocator locator, String login, LocalDateTime sessionStart) {
+        List<SecurityLog.LoginEvent> events = log.loginEventsOf(login, sessionStart.minusSeconds(1), 50);
+        SecurityLog.LoginEvent previous = events.stream().filter(SecurityLog.LoginEvent::success).findFirst().orElse(null);
         int failures = (int) events.stream().filter(event -> !event.success() && (previous == null || event.at().isAfter(previous.at()))).count();
         if (previous == null) return new Viewer.Recent("première connexion", failures);
         String place = locator.describe(previous.ip());

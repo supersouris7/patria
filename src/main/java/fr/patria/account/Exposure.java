@@ -17,10 +17,10 @@ public final class Exposure {
     private Exposure() {
     }
 
-    public static boolean exposed(Request request, AccountRepository accounts) {
+    public static boolean exposed(Request request, SecurityLog log) {
         String host = request.header("Host");
         String name = host == null ? "" : host.toLowerCase(Locale.ROOT).replaceFirst(":\\d+$", "");
         if (!name.isEmpty() && !PRIVATE_HOST.matcher(name).matches()) return true;
-        return accounts.loginEvents(true, 200).stream().anyMatch(event -> !IpLocator.isLocal(event.ip()));
+        return log.loginEvents(true, 200).stream().anyMatch(event -> !IpLocator.isLocal(event.ip()));
     }
 }

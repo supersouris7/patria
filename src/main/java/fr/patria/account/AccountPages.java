@@ -321,7 +321,7 @@ final class AccountPages {
     }
 
     /** Double authentification et dernieres connexions, pour « Mon compte ». */
-    record Security(AccountRepository.TwoFactor twoFactor, boolean exposed, List<AccountRepository.LoginEvent> events, Map<String, String> places) {
+    record Security(TwoFactorStore.TwoFactor twoFactor, boolean exposed, List<SecurityLog.LoginEvent> events, Map<String, String> places) {
     }
 
     static Html account(String name, String login, boolean admin, Security security, Notice notice, String csrf) {
@@ -343,7 +343,7 @@ final class AccountPages {
     }
 
     private static Html twoFactor(Security security, boolean admin, String csrf) {
-        AccountRepository.TwoFactor state = security.twoFactor();
+        TwoFactorStore.TwoFactor state = security.twoFactor();
         if (state.enabled()) {
             return Html.of("""
                     <p><span class="badge paid">Activée</span> depuis le %s : à la connexion, Patria demande aussi le code de votre application

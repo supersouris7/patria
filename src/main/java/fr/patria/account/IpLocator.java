@@ -26,7 +26,7 @@ public final class IpLocator implements AutoCloseable {
     private static final Pattern FIELD = Pattern.compile("\"(success|country|city)\"\\s*:\\s*(true|false|\"((?:[^\"\\\\]|\\\\.)*)\")");
     /** Adresse IPv4, ou IPv6 (avec « : ») : jamais un nom de machine, qui declencherait une requete DNS. */
     private static final Pattern ADDRESS = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3}|[0-9a-fA-F.]*:[0-9a-fA-F:.]{1,44}");
-    private final AccountRepository accounts;
+    private final SecurityLog log;
     private final boolean offline;
     private final Clock clock;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(4)).build();
@@ -37,8 +37,8 @@ public final class IpLocator implements AutoCloseable {
     });
     private final Set<String> pending = ConcurrentHashMap.newKeySet();
 
-    public IpLocator(AccountRepository accounts, boolean offline, Clock clock) {
-        this.accounts = accounts;
+    public IpLocator(SecurityLog log, boolean offline, Clock clock) {
+        this.log = log;
         this.offline = offline;
         this.clock = clock;
     }
@@ -46,7 +46,7 @@ public final class IpLocator implements AutoCloseable {
     /** « Lyon, France », « Réseau local », « Localisation en cours… » ou vide (hors ligne, inconnue). */
     public String describe(String ip) {
         if (isLocal(ip)) return "Réseau local";
-        java.util.Optional<String[]> known = accounts.ipLocation(ip);
+        java.util.Optional<String[]> known = log.ipLocation(ip);
         if (known.isPresent()) {
             String[] place = known.get();
             if (place[0].isEmpty()) return "Inconnue";
@@ -59,7 +59,7 @@ public final class IpLocator implements AutoCloseable {
 
     /** Demande la localisation en arriere-plan, si elle n'est pas deja connue. */
     public void lookUp(String ip) {
-        if (offline || isLocal(ip) || !ADDRESS.matcher(ip).matches() || accounts.ipLocation(ip).isPresent() || !pending.add(ip)) return;
+        if (offline || isLocal(ip) || !ADDRESS.matcher(ip).matches() || log.ipLocation(ip).isPresent() || !pending.add(ip)) return;
         worker.submit(() -> {
             try {
                 HttpRequest request = HttpRequest.newBuilder(URI.create("https://ipwho.is/" + ip + "?lang=fr&fields=success,country,city"))
@@ -76,7 +76,7 @@ public final class IpLocator implements AutoCloseable {
                         default -> city = clean(matcher.group(3));
                     }
                 }
-                accounts.saveIpLocation(ip, success ? country : "", success ? city : "", LocalDate.now(clock));
+                log.saveIpLocation(ip, success ? country : "", success ? city : "", LocalDate.now(clock));
             } catch (Exception exception) {
                 // Reseau indisponible : nouvel essai a la prochaine visite de la page.
                 LOG.fine("Localisation IP impossible : " + exception.getMessage());

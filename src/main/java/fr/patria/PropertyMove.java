@@ -21,6 +21,31 @@ final class PropertyMove {
     private PropertyMove() {
     }
 
+    /** Route du deplacement, sur le routeur principal (elle touche deux bases). */
+    static void register(fr.patria.web.Router router, HouseholdSites sites, fr.patria.account.AccountRepository accounts, fr.patria.web.Sessions sessions) {
+        // Deplacer un bien : un gestionnaire des deux foyers (l'administrateur ne voit pas les biens).
+        router.userPost("/administration/bien/{id}/foyer", request -> {
+            long target;
+            try {
+                target = Long.parseLong(request.form().raw("foyer"));
+            } catch (NumberFormatException exception) {
+                throw new fr.patria.common.ValidationException("Foyer invalide.");
+            }
+            long from = request.viewer().household().id();
+            if (!request.viewer().manages() || request.viewer().isAdministrator()) {
+                throw new fr.patria.common.ForbiddenException("Seul un gestionnaire des deux foyers peut déplacer un bien.");
+            }
+            if (target == from || request.viewer().households().stream().noneMatch(household -> household.id() == target && household.managed())) {
+                throw new fr.patria.common.ValidationException("Choisissez un autre foyer dont vous êtes gestionnaire.");
+            }
+            HouseholdSite source = sites.site(from);
+            if (source.properties.find(request.id()).isEmpty()) throw new fr.patria.common.NotFoundException("Bien introuvable", "Ce bien n'existe pas.");
+            long moved = PropertyMove.move(source.database, sites.file(accounts.household(from).orElseThrow()), sites.site(target).database, request.id());
+            sessions.select(request.session(), target);
+            return fr.patria.web.Response.redirect("/administration/bien/" + moved + "?ok=deplace");
+        });
+    }
+
     /** Renvoie l'identifiant du bien dans le foyer d'arrivee. */
     static long move(Database source, Path sourceFile, Database target, long propertyId) {
         // ATTACH est interdit dans une transaction : la base de depart est attachee avant, puis la copie se fait d'un bloc.

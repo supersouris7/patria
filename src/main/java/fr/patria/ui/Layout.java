@@ -234,7 +234,8 @@ public final class Layout {
         String title = "Dernière connexion : " + chrome.lastLogin() + (failures.isEmpty() ? "" : ". " + failures + " sur votre compte (mot de passe ou code faux).")
                 + " Détail dans Mon compte.";
         return Html.of("<a class=\"last-login%s\" href=\"/compte#connexions\" title=\"%s\">%s<span>%s</span>%s</a>", chrome.failures() > 0 ? " warn" : "", title,
-                CLOCK_ICON, chrome.lastLogin().equals("première connexion") ? "Première connexion" : "Dernière connexion : " + chrome.lastLogin(),
+                // Dans l'en-tete, la date seule (« hier 21:12 ») ; le lieu et le detail sont dans l'info-bulle et dans Mon compte.
+                CLOCK_ICON, chrome.lastLogin().equals("première connexion") ? "Première connexion" : chrome.lastLogin().split(" · ")[0],
                 failures.isEmpty() ? Html.EMPTY : Html.of("<b>%s</b>", failures));
     }
 

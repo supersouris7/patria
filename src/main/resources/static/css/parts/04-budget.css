@@ -1,0 +1,188 @@
+/* Budget : graphique, endettement, mois, categories, saisie, repartition. Ordre de chargement : parts/files.txt (la cascade en depend). */
+
+/* ---- Budget : graphique des 12 mois ----
+   Palette categorielle (fond sombre), validee : contraste >= 3:1, ecart daltonisme >= 8,4 entre voisines. */
+:root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --status-good: #7fdc8a;
+    --status-warning: #f2b544;
+    --status-serious: #ff6b6b;
+}
+.series-1 { fill: var(--series-1); background: var(--series-1); }
+.series-2 { fill: var(--series-2); background: var(--series-2); }
+.series-3 { fill: var(--series-3); background: var(--series-3); }
+.series-4 { fill: var(--series-4); background: var(--series-4); }
+.series-5 { fill: var(--series-5); background: var(--series-5); }
+.series-6 { fill: var(--series-6); background: var(--series-6); }
+.chart { display: block; height: auto; margin: 4px 0 18px; width: 100%; }
+@media (max-width: 600px) {
+    .chart-scroll { margin: 0 -4px; overflow-x: auto; }
+    .chart-scroll .chart { min-width: 720px; }
+    .chart .axis { font-size: 15px; }
+}
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .axis.deficit { fill: var(--danger); font-weight: 700; }
+.chart .income { stroke: var(--text); stroke-linecap: round; stroke-width: 2; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover { fill: rgb(255 255 255 / 4%); }
+.chart .month-link { cursor: pointer; }
+.chart .month-link:focus-visible { outline: none; }
+.chart .month-link:focus-visible .hit { fill: rgb(255 255 255 / 6%); stroke: var(--blue); stroke-width: 2; }
+.month.highlight > summary { background: rgb(255 255 255 / 5%); }
+.month-detail a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.month-detail a:hover { text-decoration-color: currentColor; }
+.tax-links { margin-top: 8px; }
+.month-margin { border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 16px; grid-column: 1 / -1; justify-content: space-between;
+    margin: 4px 0 0; padding-top: 12px; }
+.month-margin span:first-child { color: var(--muted); }
+.month-margin b { color: var(--success); font-size: 1.1rem; font-variant-numeric: tabular-nums; margin-left: 6px; }
+.month-margin.negative b { color: var(--danger); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0 4px; }
+.legend-item { align-items: center; color: var(--text-soft); display: inline-flex; font-size: .8rem; gap: 7px; }
+.swatch { border-radius: 3px; display: inline-block; height: 11px; width: 11px; }
+.income-swatch { background: var(--text); border-radius: 2px; height: 2px; width: 14px; }
+.provision { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .9rem; margin: 0 0 12px; padding: 10px 14px; }
+.provision strong { color: var(--text); }
+
+/* ---- Taux d'endettement : vert < 33 %, orange 33-35 %, rouge > 35 % ---- */
+.level-good { --level: var(--status-good); }
+.level-warning { --level: var(--status-warning); }
+.level-serious { --level: var(--status-serious); }
+.metric.debt { border-color: color-mix(in srgb, var(--level) 45%, var(--line)); }
+.metric.debt strong, .debt-figure strong { color: var(--level); }
+.metric.debt small, .debt-figure span { color: var(--level); font-weight: 650; }
+.gauge { background: var(--input); border-radius: 99px; display: block; height: 8px; margin-top: 10px; position: relative; }
+.gauge-fill { background: var(--level); border-radius: 99px; display: block; height: 100%; }
+.gauge-mark { background: var(--surface); bottom: -2px; position: absolute; top: -2px; transform: translateX(-50%); width: 3px; }
+.gauge-scale { color: var(--muted); display: block; font-size: .72rem; height: 1.1em; position: relative; }
+.gauge-scale span { padding: 0 4px; position: absolute; top: 0; }
+.gauge-scale .before { transform: translateX(-100%); }
+.debt-figure { align-items: baseline; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.debt-figure strong { font-size: 2.2rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.debt-detail .gauge { height: 12px; margin: 14px 0 6px; }
+.calc-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 0 10px; }
+.calc-grid dt { color: var(--muted); font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.calc-grid dd { font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 650; margin: 2px 0 0; }
+.debt-detail p { font-size: .84rem; margin: 0; }
+.calc-grid + .source { margin-top: 0; }
+tfoot th, tfoot td { border-top: 1px solid var(--line-strong); font-weight: 700; padding-top: 12px; }
+tfoot th { text-align: left; }
+tfoot small { font-weight: 400; }
+@media (max-width: 640px) { .calc-grid { grid-template-columns: 1fr; } }
+
+/* ---- Budget : liste des mois ---- */
+.months { border-top: 1px solid var(--line); }
+.months-head, .month summary { display: grid; gap: 12px; grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+.months-head { color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .08em; padding: 10px 12px 6px; text-transform: uppercase; }
+.months-head span:not(:first-child), .month summary span:not(:first-child) { font-variant-numeric: tabular-nums; text-align: right; }
+.month { border-top: 1px solid var(--line); }
+.month summary { cursor: pointer; list-style: none; padding: 11px 12px; }
+.month summary::-webkit-details-marker { display: none; }
+.month summary:hover { background: rgb(255 255 255 / 2%); }
+.month-name::before { color: var(--muted); content: "▸"; display: inline-block; margin-right: 8px; transition: transform .15s; }
+.month[open] .month-name::before { transform: rotate(90deg); }
+.month[open] summary { background: var(--surface-raised); }
+.month-detail { display: grid; gap: 28px; grid-template-columns: 1fr 1fr; padding: 14px 12px 18px 30px; }
+.month-detail h3 { color: var(--blue); font-size: .7rem; letter-spacing: .1em; margin-bottom: 6px; text-transform: uppercase; }
+.month-detail ul { list-style: none; margin: 0; padding: 0; }
+.month-detail li { align-items: baseline; display: flex; font-size: .88rem; gap: 12px; justify-content: space-between; padding: 4px 0; }
+.month-detail li b { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.month-detail li.group { border-top: 1px solid var(--line); color: var(--text); font-weight: 700; margin-top: 4px; padding-top: 8px; }
+.month-detail li.group:first-child { border-top: 0; margin-top: 0; }
+.month-detail li.item { color: var(--text-soft); padding-left: 12px; }
+.month-detail li small { color: var(--muted); }
+
+/* ---- Budget : depenses par categorie (barres classees, une seule teinte) ---- */
+.ranking { display: grid; gap: 2px; }
+.rank { align-items: center; display: grid; gap: 12px; grid-template-columns: 200px 1fr 110px 44px; }
+.rank-label { color: var(--text-soft); font-size: .88rem; }
+.rank-bar { background: var(--input); border-radius: 4px; height: 12px; overflow: hidden; }
+.rank-bar i { background: var(--series-1); border-radius: 0 4px 4px 0; display: block; height: 100%; }
+.rank b { font-variant-numeric: tabular-nums; text-align: right; }
+.rank small { color: var(--muted); text-align: right; }
+.rank-group > summary { border-radius: var(--radius-small); cursor: pointer; list-style: none; margin: 0 -8px; padding: 6px 8px; }
+.rank-group > summary::-webkit-details-marker { display: none; }
+.rank-group > summary:hover { background: rgb(255 255 255 / 3%); }
+.rank-group .rank-label::before { color: var(--muted); content: "▸"; display: inline-block; margin-right: 8px; transition: transform .15s; }
+.rank-group[open] .rank-label::before { transform: rotate(90deg); }
+.rank-detail { border-left: 2px solid var(--line); list-style: none; margin: 4px 0 10px 6px; padding: 0 0 0 16px; }
+.rank-detail li { align-items: baseline; display: flex; font-size: .88rem; gap: 12px; justify-content: space-between; padding: 4px 0; }
+.rank-detail li b { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.rank-detail li small { color: var(--muted); }
+.rank-detail a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+
+/* ---- Saisie : modeles en un clic ---- */
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip.preset { color: var(--text-soft); font-size: .82rem; padding: 6px 10px; }
+.row-form { align-items: flex-end; display: flex; gap: 12px; }
+.row-form label { flex: 1; max-width: 320px; }
+
+@media (max-width: 760px) {
+    .months-head, .month summary { font-size: .82rem; gap: 6px; grid-template-columns: 1.2fr 1fr 1fr 1fr; }
+    .month-detail { grid-template-columns: 1fr; padding-left: 12px; }
+}
+@media (max-width: 480px) {
+    .months-head, .month summary { grid-template-columns: minmax(0, 1fr) auto; }
+    .months-head span:nth-child(2), .months-head span:nth-child(3), .month summary span:nth-child(2), .month summary span:nth-child(3) { display: none; }
+    .month summary span:last-child { white-space: nowrap; }
+    .rank { grid-template-columns: minmax(0, 1fr) auto; }
+    .rank b { white-space: nowrap; }
+    .rank-bar, .rank small { display: none; }
+}
+
+/* ---- Accueil : alertes regroupees ---- */
+.watch { background: var(--surface); border: 1px solid #6b5520; border-radius: var(--radius); margin-bottom: 16px; padding: 14px 20px; }
+.watch h2 { color: #f3d38a; font-size: .78rem; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+.watch ul { list-style: none; margin: 0; padding: 0; }
+.watch li { color: var(--text-soft); font-size: .9rem; padding: 5px 0 5px 22px; position: relative; }
+.watch li::before { font-weight: 800; left: 0; position: absolute; }
+.watch li.warning::before { color: #f3d38a; content: "!"; left: 5px; }
+.watch li.serious { color: #ffadb4; font-weight: 650; }
+.watch li.serious::before { color: var(--danger); content: "▲"; font-size: .75rem; top: 7px; }
+
+/* ---- Budget : foyer ou personne ---- */
+.scope-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 99px; display: inline-flex; flex-wrap: wrap; gap: 4px; margin: -6px 0 18px; padding: 4px; }
+.scope-tabs a { border-radius: 99px; color: var(--muted); font-size: .88rem; font-weight: 700; padding: 6px 16px; text-decoration: none; }
+.scope-tabs a:hover { color: var(--text); }
+.scope-tabs a.active { background: var(--blue-deep); color: #fff; }
+/* Smartphone : les noms passent sur deux lignes, un cadre rectangulaire reste net */
+@media (max-width: 560px) {
+    .scope-tabs { border-radius: var(--radius-small); display: flex; }
+    .scope-tabs a { flex: 1 1 auto; text-align: center; }
+}
+
+/* ---- Repartition entre les personnes ---- */
+.shares { border: 1px solid var(--line); border-radius: var(--radius-small); margin: 4px 0 0; padding: 12px 14px 10px; }
+.shares legend { color: var(--text-soft); font-size: .85rem; font-weight: 700; padding: 0 6px; }
+.share-inputs { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.share-input { display: grid; font-size: .82rem; gap: 4px; }
+.share-input span:first-child { color: var(--muted); }
+.share-input .suffix { align-items: center; color: var(--muted); display: inline-flex; gap: 6px; }
+.share-input input { text-align: right; width: 72px; }
+.share-list { display: grid; gap: 10px; }
+.share-group { border: 1px solid var(--line); border-radius: var(--radius-small); }
+.share-row { align-items: end; display: grid; gap: 12px 18px; grid-template-columns: minmax(180px, 1fr) auto auto; padding: 12px 14px; }
+.share-row + .share-row { border-top: 1px solid var(--line); }
+.share-row.loan { padding-left: 32px; }
+.share-row.invalid { background: rgb(255 123 133 / 8%); border-radius: var(--radius-small); }
+.share-row.invalid input { border-color: var(--danger); }
+.import-owner { display: grid; gap: 6px; margin-bottom: 16px; max-width: 420px; }
+.row-owner { min-width: 11.5rem; }
+.import-owner p { font-size: .85rem; margin: 0; }
+.share-error { color: var(--danger); font-size: .88rem; font-weight: 650; grid-column: 1 / -1; margin: 0; }
+.share-name b { display: block; }
+.share-name small { color: var(--muted); font-size: .8rem; }
+@media (max-width: 640px) { .share-row { grid-template-columns: 1fr; } .share-row.loan { padding-left: 14px; } }
+@media (max-width: 400px) {
+    nav a { font-size: .76rem; padding: 6px 4px; }
+    .navigation { gap: 4px; }
+}
+@media (max-width: 360px) {
+    .brand { display: none; }
+}

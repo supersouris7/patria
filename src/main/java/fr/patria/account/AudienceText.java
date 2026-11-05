@@ -22,7 +22,7 @@ public final class AudienceText {
      * {@code accesses} : comptes actifs du foyer et leurs droits ; {@code members} : membres du foyer ; {@code me} :
      * compte connecte ; {@code changes} : changements d'acces depuis sa derniere lecture.
      */
-    public static Viewer.Audience of(Map<User, Access> accesses, List<HouseholdDirectory.Member> members, long me, List<AccountRepository.AuditEntry> changes) {
+    public static Viewer.Audience of(Map<User, Access> accesses, List<HouseholdDirectory.Member> members, long me, List<SecurityLog.AuditEntry> changes) {
         List<String> lines = new ArrayList<>();
         Access mine = accesses.entrySet().stream().filter(entry -> entry.getKey().id() == me).map(Map.Entry::getValue).findFirst().orElse(null);
         List<User> managers = users(accesses, access -> access.manager());

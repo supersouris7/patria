@@ -23,9 +23,9 @@ final class SecurityPages {
     private SecurityPages() {
     }
 
-    static Html page(State state, int failures24h, int failures7d, List<String> blocked, List<AccountRepository.LoginEvent> failures,
-                     List<AccountRepository.LoginEvent> successes, Map<String, String> places, List<User> users, Map<Long, LocalDateTime> lastLogins,
-                     Map<Long, Integer> open, java.util.Set<Long> provisional, Map<String, java.time.LocalDate> twoFactor, List<AccountRepository.AuditEntry> audit,
+    static Html page(State state, int failures24h, int failures7d, List<String> blocked, List<SecurityLog.LoginEvent> failures,
+                     List<SecurityLog.LoginEvent> successes, Map<String, String> places, List<User> users, Map<Long, LocalDateTime> lastLogins,
+                     Map<Long, Integer> open, java.util.Set<Long> provisional, Map<String, java.time.LocalDate> twoFactor, List<SecurityLog.AuditEntry> audit,
                      String csrf) {
         Html tiles = Components.metrics(4,
                 Components.tile("Échecs sur 24 h", null, failures24h, "mots de passe faux ou comptes inconnus"),
@@ -56,9 +56,9 @@ final class SecurityPages {
         Html successRows = successes.stream().map(event -> Html.of("<tr><td>%s</td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>",
                 event.at().format(WHEN), account(event, users), event.ip(), places.getOrDefault(event.ip(), ""))).collect(Html.joining());
         Html accountRows = Html.concat(accountRow("Administrateur", lastLogins.get(0L), open.getOrDefault(0L, 0), "défini dans la configuration",
-                        twoFactor.get(AccountRepository.account(null))),
+                        twoFactor.get(TwoFactorStore.account(null))),
                 users.stream().map(user -> accountRow(user.name() + (user.active() ? "" : " (désactivé)"), lastLogins.get(user.id()), open.getOrDefault(user.id(), 0),
-                        provisional.contains(user.id()) ? "provisoire, à changer à la connexion" : "choisi par l'utilisateur", twoFactor.get(AccountRepository.account(user.id()))))
+                        provisional.contains(user.id()) ? "provisoire, à changer à la connexion" : "choisi par l'utilisateur", twoFactor.get(TwoFactorStore.account(user.id()))))
                         .collect(Html.joining()));
         Html auditRows = audit.stream().map(entry -> Html.of("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", entry.at().format(WHEN), entry.actor(), entry.detail()))
                 .collect(Html.joining());
@@ -66,7 +66,7 @@ final class SecurityPages {
                 : "<p class=\"muted small\">Pays et ville : demandés à ipwho.is (seule l'adresse IP est envoyée, une fois par adresse), approximatifs.</p>");
         Html content = Html.concat(Components.heading("Administration", "Sécurité",
                         "Connexions, blocages, journal des droits et état de l'installation. Aucune donnée des foyers ici. Journal des connexions gardé "
-                                + AccountRepository.KEPT_DAYS + " jours.", Html.EMPTY),
+                                + SecurityLog.KEPT_DAYS + " jours.", Html.EMPTY),
                 tiles, recommended,
                 Components.card("État de l'installation", null, Html.EMPTY, installation),
                 Components.card("Bloqués en ce moment", blocked.size(), Html.EMPTY, blockedList),
@@ -88,7 +88,7 @@ final class SecurityPages {
                         : link.endsWith("double-authentification") ? "Activer" : "Passer en HTTPS"));
     }
 
-    private static String account(AccountRepository.LoginEvent event, List<User> users) {
+    private static String account(SecurityLog.LoginEvent event, List<User> users) {
         if (event.userId() == null) return "Administrateur";
         return users.stream().filter(user -> user.id() == event.userId()).map(User::name).findFirst().orElse(event.login() + " (supprimé)");
     }

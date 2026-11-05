@@ -62,6 +62,20 @@ class DockerPublishTest(unittest.TestCase):
             publish.promote("1.0.0")
         run.assert_not_called()
 
+    def test_prune_keeps_latest_unstable_and_newest_version_only(self):
+        tags = [tag("latest"), tag("unstable"), tag("0.5.0"), tag("0.4.2"), tag("0.10.0"), tag("a" * 40), tag("62c1912"), tag("ma-version-perso")]
+        self.assertEqual(sorted(["0.4.2", "0.5.0", "a" * 40, "62c1912"]), publish.to_delete(tags))
+
+    def test_prune_without_version_keeps_channels(self):
+        self.assertEqual(["b" * 40], publish.to_delete([tag("unstable"), tag("b" * 40)]))
+        self.assertEqual([], publish.to_delete([tag("latest"), tag("unstable")]))
+
+    @patch.object(publish, "hub_token")
+    @patch.object(publish, "hub_tags", return_value=[tag("unstable"), tag("c" * 40)])
+    def test_dry_run_deletes_nothing(self, hub, login):
+        publish.prune(True)
+        login.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

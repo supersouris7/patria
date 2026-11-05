@@ -9,6 +9,9 @@ Le code est découpé en **modules** (packages Java) qui ne dépendent les uns d
 fr.patria
 │
 ├─ App, Config ............ assemble tous les modules et démarre le serveur (seul endroit où l'on fait « new »)
+├─ HouseholdSites .......... bases des foyers (une par foyer), ouvertes, créées, mises de côté
+├─ LoginAccounts ........... ce que la connexion demande aux comptes (mot de passe, 2FA, journal)
+├─ PropertyMove ............ déplacement d'un bien entre deux bases de foyer
 ├─ HouseholdSite ........... un foyer : sa base SQLite, ses dépôts, ses contrôleurs et son routeur
 │
 ├─ account ................. COMPTES : foyers, utilisateurs, droits (base comptes.sqlite3), Mon compte
@@ -98,7 +101,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
   un compte **gestionnaire** (`Access.manager`).
 - **Transparence** : comme il crée les comptes, l'administrateur pourrait s'en ouvrir un. Chaque changement de droits
   est donc inscrit dans `audit_log` (page Sécurité) et montré aux comptes du foyer : icône « qui voit quoi » de
-  l'en-tête (`account/AudienceText`, calculée par `App.viewer`), avec les changements depuis la dernière lecture.
+  l'en-tête (`account/AudienceText`, calculée par `account/SessionViewers`), avec les changements depuis la dernière lecture.
   Un mot de passe choisi par l'administrateur (création, réinitialisation) est marqué `must_change_password` : le
   routeur n'ouvre aucune autre page avant qu'il soit changé (`/compte/nouveau-mot-de-passe`), et la page dit qui
   l'a choisi et quand.
@@ -133,14 +136,17 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quelles valeurs une saisie accepte-t-elle ? | `common/InputRules` (nombres simples sans notation scientifique, montants ≤ 1 milliard, dates 1900–2100, textes sans caractères de contrôle), appliqué par `web/FormData` et les imports CSV (`budget/ExpenseCsv`, `loan/CsvScheduleParser`) |
 | Où mènent les retours (après connexion, après enregistrement depuis le budget) ? | `web/LocalPath.safe` : adresse interne uniquement, sinon page par défaut |
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyTax` et `otherCharges` (appelées par `Forecast.month`) ; taxe foncière mensualisée (10 prélèvements, janvier à octobre) : table `property_tax_monthly` (migration v10), choisie dans les charges du bien ; payeur de la taxe foncière (compte joint, personne) : table `property_tax_payers` (migration v11), choisi dans Administration → Répartition, appliqué par `Forecast.month` |
-| Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
-| Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée dans `App` |
-| Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite (toutes au démarrage avec DB_ENCRYPTION_KEY) |
-| Qui gère un foyer ? | `account/Access.manager` (case « Gestionnaire du foyer »), lu par `App.viewer` (`Viewer.manager`) ; reprise des foyers sans gestionnaire : `AccountController.takeOver` |
-| Où sont les connexions et le journal des droits ? | tables `login_events` (90 jours) et `audit_log` de `comptes.sqlite3`, écrites par `AuthController.Users.recorded` et `AccountController.audit` ; page `account/SecurityController` (`/administration/securite`) ; pays et ville : `account/IpLocator` (cache `ip_locations`) |
-| Comment marche la double authentification ? | codes TOTP : `common/Totp` (RFC 6238, un code ne sert qu'une fois : `two_factor.last_step`) ; QR code : `ui/QrCode` (bibliothèque qrcodegen) ; deuxième étape de la connexion : `AuthController` (`/connexion/code`, appareils retenus 30 jours : `trusted_devices`, empreinte SHA-256) ; activation dans `AccountController` (`/compte/double-authentification`), table `two_factor` (migration v3 de `comptes.sqlite3`) ; « fortement recommandé » : `account/Exposure` |
-| D'où vient la dernière connexion de l'en-tête ? | `account/LoginHistory.recent` (connexion réussie précédant la session, échecs depuis), calculée par `App.viewer`, affichée par `Layout.lastLogin` |
-| D'où vient « qui voit quoi » ? | `account/AudienceText` (phrases), changements : `AccountRepository.accessChanges` depuis `users.audience_seen_at` ; icône : `Layout.audience` |
+| Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu à chaque requête par `account/SessionViewers` (état du compte en une requête : `AccountRepository.state`) ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
+| Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée par `PropertyMove.register` |
+| Comment sont découpées les pages de comptes ? | `account/HouseholdsController` (Foyers, gestionnaire, reprise), `UsersController` (comptes, droits), `MyAccountController` (Mon compte, mots de passe, 2FA), socle commun `AccountSupport` ; dépôts `AccountRepository` (foyers, comptes, droits), `SecurityLog` (journaux), `TwoFactorStore` (2FA) |
+| Où sont les styles ? | `static/css/parts/*.css`, réunis dans l'ordre de `parts/files.txt` en une seule feuille `/css/patria.css` par `ui/Assets.stylesheet` (l'ordre compte : cascade) |
+| Où sont les pages du guide de saisie ? | `wizard/WizardPages` (accueil, étapes, documents, récapitulatif), `WizardBudgetPages` (budget), `WizardEstatePages` (immobilier), `AnnualReviewPages` (revue annuelle, rappels) |
+| Où est la base d'un foyer ? | `HouseholdSites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite (toutes au démarrage avec DB_ENCRYPTION_KEY) |
+| Qui gère un foyer ? | `account/Access.manager` (case « Gestionnaire du foyer »), lu par `account/SessionViewers` (`Viewer.Rights.MANAGER`) ; reprise des foyers sans gestionnaire : `HouseholdsController.takeOver` |
+| Où sont les connexions et le journal des droits ? | tables `login_events` (90 jours) et `audit_log` de `comptes.sqlite3`, écrites par `LoginAccounts.recorded` (connexion) et `AccountSupport.audit` (droits) dans `account/SecurityLog` ; page `account/SecurityController` (`/administration/securite`) ; pays et ville : `account/IpLocator` (cache `ip_locations`) |
+| Comment marche la double authentification ? | codes TOTP : `common/Totp` (RFC 6238, un code ne sert qu'une fois : `two_factor.last_step`) ; QR code : `ui/QrCode` (bibliothèque qrcodegen) ; deuxième étape de la connexion : `AuthController` (`/connexion/code`, appareils retenus 30 jours : `trusted_devices`, empreinte SHA-256) ; activation dans `MyAccountController` (`/compte/double-authentification`), dépôt `account/TwoFactorStore`, table `two_factor` (migration v3 de `comptes.sqlite3`) ; « fortement recommandé » : `account/Exposure` |
+| D'où vient la dernière connexion de l'en-tête ? | `account/LoginHistory.recent` (connexion réussie précédant la session, échecs depuis), calculée par `account/SessionViewers`, affichée par `Layout.lastLogin` |
+| D'où vient « qui voit quoi » ? | `account/AudienceText` (phrases), changements : `SecurityLog.accessChanges` depuis `users.audience_seen_at` ; icône : `Layout.audience` |
 | Comment sont chiffrées les bases ? | `storage/Encryption`, `storage/Database.open(path, key)` ; clé lue par `Config` (DB_ENCRYPTION_KEY ou DB_ENCRYPTION_KEY_FILE) |
 | D'où vient l'alerte HTTP ? | `web/Router.insecure` (ni X-Forwarded-Proto https, ni localhost), lue une fois par session (`Session.httpAcknowledged`) ; fenêtre et aide `/aide/https` : `ui/SecurityPages` |
 | Où est l'accueil de la première connexion ? | `account/WelcomeController`, `account/WelcomePages` ; vu ou non : `users.welcomed_on`, `settings` pour l'administrateur |
@@ -151,7 +157,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Comment le Prévisionnel affiche-t-il les rappels ? | `BudgetController.withHomeExtras`, branché dans `HouseholdSite` : progression du guide (`WizardController.progress`), revue annuelle (`WizardController.reminder`) et bilan (`HealthController.summary`) |
 | Où sont filtrées et triées les ventes du secteur ? | `market/SalesAnalysis` (filtres, « les plus comparables », médiane), graphiques `market/SalesChart`, carte de la fiche `market/SalesCard` |
 | Comment sont produites les synthèses PDF ? | `ui/PdfReport` (mise en page A4 commune, OpenPDF, polices standard) ; contenu par `budget/BudgetReports`, `portfolio/PortfolioReports`, `loan/LoanReports` ; routes `*.pdf` dans les contrôleurs de chaque page |
-| Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
+| Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `static/css/parts/04-budget.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
 | Comment l'estimation est-elle actualisée ? | coefficient calculé par `market/MarketService.compute` (indice DVF depuis la date d'estimation), appliqué par `property/Valuation.scenarios(property, facteur)` |
 | Comment sont estimées les charges non saisies ? | `expense/ExpenseMath`, coefficients dans `expense/PropertyTaxRevaluation` |

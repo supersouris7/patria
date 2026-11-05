@@ -115,7 +115,7 @@ public final class WizardController {
 
     private Html annualPage(Request request, Notice notice) {
         Context context = context(request);
-        return WizardPages.annual(context, stores.progress().reviewedOn(owner(request)), notice);
+        return AnnualReviewPages.annual(context, stores.progress().reviewedOn(owner(request)), notice);
     }
 
     /**
@@ -127,7 +127,7 @@ public final class WizardController {
         LocalDate oldest = java.util.stream.Stream.concat(context.snapshot().items().stream().map(BudgetItem::start),
                 context.snapshot().incomes().stream().map(Income::start)).min(java.util.Comparator.naturalOrder()).orElse(null);
         if (!AnnualReview.isDue(stores.progress().reviewedOn(owner(request)), stores.progress().firstActivity(owner(request)), oldest, context.today())) return Html.EMPTY;
-        return WizardPages.reminder(AnnualReview.thisMonth(context.today()));
+        return AnnualReviewPages.reminder(AnnualReview.thisMonth(context.today()));
     }
 
     /**
@@ -143,7 +143,7 @@ public final class WizardController {
         long finished = steps.stream().filter(progress::containsKey).count();
         if (finished == steps.size()) return Html.EMPTY;
         Step next = steps.stream().filter(step -> !progress.containsKey(step)).findFirst().orElse(Step.SUMMARY);
-        return WizardPages.progress((int) (finished * 100 / steps.size()), (int) finished, steps.size(), next, request.csrf());
+        return AnnualReviewPages.progress((int) (finished * 100 / steps.size()), (int) finished, steps.size(), next, request.csrf());
     }
 
     /** Nouveau montant a partir d'une date, ou arret de la depense (« Arrêtée »). Lignes modifiables seulement. */
