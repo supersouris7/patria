@@ -84,7 +84,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             supersouris7/patria:${{ needs.publication.outputs.tag }}
-            supersouris7/patria:${{ needs.publication.outputs.commit }}
           labels: |
             org.opencontainers.image.version=${{ needs.publication.outputs.tag }}
             org.opencontainers.image.revision=${{ needs.publication.outputs.commit }}
