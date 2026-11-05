@@ -66,6 +66,8 @@ jobs:
       - name: Vérifier le caviardage dans Chromium avant publication
         if: hashFiles('tests/redaction_browser.py') != ''
         run: |
+          # Les tests des tags anterieurs a 0.6.1 ecrivent dans /tmp/opencode : le dossier reste fourni.
+          mkdir -p /tmp/opencode
           data="$RUNNER_TEMP/patria-browser"
           APP_PASSWORD=test-only OFFLINE=true DATABASE_PATH="$data/data.sqlite3" HTTP_PORT=18101 java -jar target/patria.jar > "$RUNNER_TEMP/patria-browser.log" 2>&1 &
           app_pid=$!
