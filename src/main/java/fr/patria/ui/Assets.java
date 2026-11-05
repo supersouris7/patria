@@ -18,6 +18,8 @@ public final class Assets {
     public static final Map<String, Asset> FILES = load(Map.of(
             "/css/patria.css", "text/css; charset=utf-8",
             "/js/app.js", "text/javascript; charset=utf-8",
+            "/js/redaction.mjs", "text/javascript; charset=utf-8",
+            "/js/redaction-pdf.mjs", "text/javascript; charset=utf-8",
             "/images/patria-logo.png", "image/png"));
     public static final String VERSION = version(FILES);
 
@@ -30,7 +32,16 @@ public final class Assets {
 
     private static Map<String, Asset> load(Map<String, String> types) {
         Map<String, Asset> files = new LinkedHashMap<>();
-        types.forEach((path, type) -> {
+        Map<String, String> all = new LinkedHashMap<>(types);
+        try (InputStream manifest = Assets.class.getResourceAsStream("/static/vendor/pdfjs/files.txt")) {
+            if (manifest == null) throw new IllegalStateException("Manifest PDF.js manquant.");
+            new String(manifest.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).lines().forEach(name ->
+                    all.put("/vendor/pdfjs/" + name, name.endsWith(".mjs") ? "text/javascript; charset=utf-8"
+                            : name.endsWith(".wasm") ? "application/wasm" : "application/octet-stream"));
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+        all.forEach((path, type) -> {
             try (InputStream input = Assets.class.getClassLoader().getResourceAsStream("static" + path)) {
                 if (input == null) throw new IllegalStateException("Ressource manquante : static" + path);
                 files.put(path, new Asset(type, input.readAllBytes()));

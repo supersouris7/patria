@@ -85,6 +85,7 @@ class PrivacyTest {
                     + "&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
             assertEquals("/administration/bien/1?ok=deplace", location(post(admin, "/administration/bien/1/foyer", "foyer=2")), "déplacement entre bases chiffrées");
             assertTrue(get(admin, "/confidentialite").body().contains("sont <b>chiffrées</b>"));
+            assertTrue(get(null, "/aide/chiffrement").body().contains("Les bases de cette installation sont chiffrées"), "aide lisible sans connexion");
         }
         for (String file : new String[]{"patria.sqlite3", "foyer-2.sqlite3", App.ACCOUNTS_FILE, "patria.sqlite3.avant-migration-v12-20260101-000000"}) {
             assertFalse(Encryption.isPlain(directory.resolve(file)), file + " chiffré");
@@ -120,6 +121,7 @@ class PrivacyTest {
             assertFalse(rawGet("/aide/https", "patria.lan", admin.cookie()).contains("security-overlay"), "pas par-dessus la page d'aide");
             assertTrue(rawGet("/connexion", "patria.lan", "").contains("http-warning"), "alerte avant de taper le mot de passe");
             assertEquals(200, get(null, "/aide/https").statusCode(), "aide lisible sans connexion");
+            assertTrue(get(null, "/aide/chiffrement").body().contains("openssl rand -base64 32"), "pas à pas du chiffrement");
             assertEquals("/administration/foyers", location(post(admin, "/securite/http-compris", "suite=%2Fadministration%2Ffoyers")));
             assertFalse(rawGet("/administration/foyers", "patria.lan", admin.cookie()).contains("security-overlay"), "lue pour cette session");
             Visitor other = login("admin", "secret");
@@ -128,6 +130,32 @@ class PrivacyTest {
             HttpResponse<String> https = client.send(HttpRequest.newBuilder(URI.create(base + "/administration/foyers")).header("Cookie", other.cookie())
                     .header("X-Forwarded-Proto", "https").GET().build(), HttpResponse.BodyHandlers.ofString());
             assertFalse(https.body().contains("security-overlay"), "derrière un reverse proxy HTTPS");
+        }
+    }
+
+    @Test
+    void redactionIsLocalAndLinkedBeforeBothImports() throws Exception {
+        try (App ignored = start(null)) {
+            HttpResponse<String> help = get(null, "/aide/caviardage");
+            assertEquals(200, help.statusCode());
+            assertTrue(help.body().contains("Aucun document n'est envoyé"));
+            assertTrue(help.body().contains("redaction.mjs?v="));
+            assertFalse(help.body().contains("<form"), "aucun formulaire d'envoi du document sur la page publique");
+            assertTrue(help.headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
+            assertFalse(get(null, "/confidentialite").headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
+            for (String asset : new String[]{"/js/redaction.mjs", "/js/redaction-pdf.mjs", "/vendor/pdfjs/build/pdf.min.mjs", "/vendor/pdfjs/build/pdf.worker.min.mjs"}) {
+                HttpResponse<String> response = get(null, asset);
+                assertEquals(200, response.statusCode(), asset);
+                assertTrue(response.headers().firstValue("Content-Type").orElseThrow().contains("javascript"));
+            }
+            assertEquals(200, get(null, "/vendor/pdfjs/wasm/openjpeg.wasm").statusCode());
+            TestAccounts.Visitor admin = TestAccounts.admin(client, base);
+            TestAccounts.Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor visitor = new Visitor(manager.cookie(), manager.csrf());
+            assertTrue(get(visitor, "/administration/depenses").body().contains("href=\"/aide/caviardage\""));
+            assertEquals(303, post(visitor, "/bien", "name=Test&kind=APARTMENT&purchase=100000&purchase_date=2020-01-01&estimate=120000&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
+            assertTrue(get(visitor, "/bien/1/prets/nouveau").body().contains("href=\"/aide/caviardage\""));
+            assertTrue(get(null, "/aide/chiffrement").body().contains("Oubli au premier lancement"));
         }
     }
 

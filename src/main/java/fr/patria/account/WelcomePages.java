@@ -48,7 +48,7 @@ final class WelcomePages {
         return Html.of("""
                 <p class="eyebrow">Première connexion</p><h1 id="welcome-title">Bienvenue, %s</h1>
                 <p class="lead">Vous administrez cette installation de Patria. Vous n'avez pas de budget et ne voyez aucune donnée financière :
-                ce sont les comptes des foyers qui saisissent et consultent.</p>
+                dans l'interface avec votre compte administrateur : ce sont les comptes des foyers qui saisissent et consultent.</p>
                 <div class="welcome-grid">
                 <div><b>Foyers</b><span>Créez un foyer par budget, ajoutez ses membres, suivez l'avancement de sa configuration.</span></div>
                 <div><b>Utilisateurs</b><span>Vous seul créez les comptes et réglez ce que chacun voit. Le mot de passe provisoire est changé à la première connexion.</span></div>
@@ -80,8 +80,8 @@ final class WelcomePages {
                 <li><b>Des dépenses partagées</b> : chaque ligne se répartit entre les membres (parts égales, ou 60 / 40…).</li>
                 <li><b>Chacun ne voit que ce qui le concerne</b> : un compte par personne, avec ses propres lignes. Les totaux du foyer,
                 l'immobilier ou la gestion complète s'ouvrent seulement si on le décide.</li>
-                <li><b>L'administrateur ne voit aucune finance</b> : il crée les comptes et règle les droits. Chaque accès est visible par tous,
-                avec l'icône jaune « qui voit quoi » à côté du foyer.</li>
+                <li><b>Le compte administrateur n'ouvre aucune finance dans l'interface</b> : il crée les comptes et règle les droits. Les accès sont visibles
+                avec l'icône jaune « qui voit quoi ». L'exploitant du serveur peut techniquement lire les données : choisissez un hébergeur de confiance.</li>
                 </ul>""");
     }
 
@@ -89,16 +89,20 @@ final class WelcomePages {
         Html encryption = encrypted ? Html.raw("<li><b>Bases chiffrées</b> : sans la clé du serveur, les fichiers et leurs sauvegardes sont illisibles.</li>")
                 : administrator ? Html.raw("""
                 <li><b>Bases non chiffrées</b> : définissez <code>DB_ENCRYPTION_KEY</code> dans la configuration pour chiffrer les fichiers et leurs
-                sauvegardes (voir le README).</li>""") : Html.EMPTY;
+                sauvegardes <b>avant toute saisie</b> ; conservez la clé séparément, sa perte est irréversible
+                (<a href="/aide/chiffrement">pas à pas</a>).</li>""")
+                : Html.raw("<li><b>Bases non chiffrées</b> : demandez à l'hébergeur d'activer le chiffrement avant de saisir des données sensibles.</li>");
         return Html.of("""
-                <p class="eyebrow">Confidentialité</p><h1 id="welcome-title">Auto-hébergé, donc confidentiel</h1>
-                <p class="lead">Patria tourne sur votre serveur. Vos chiffres ne partent chez personne.</p>
+                <p class="eyebrow">Confidentialité</p><h1 id="welcome-title">Vos données hébergées chez vous</h1>
+                <p class="lead">Pas de synchronisation bancaire ni d'envoi de vos chiffres par Patria. La protection dépend aussi de l'hébergement,
+                du HTTPS, du chiffrement des bases et des droits accordés.</p>
                 <ul class="welcome-list">
                 <li><b>Aucun compte en ligne, aucune publicité, aucun traceur</b> : pas de service tiers qui lit vos données.</li>
                 %s
-                <li><b>Seuls les prix du marché et les taux</b> sont demandés à des services publics (data.gouv.fr, BCE), sans vos montants ;
-                le mode hors ligne les coupe.</li>
-                <li><b>Les imports préparés par une IA</b> se font avec des consignes d'anonymisation : retirez noms et numéros avant d'envoyer un document.</li>
+                <li><b>Appels extérieurs</b> : adresse ou commune d'un bien vers l'API Adresse, codes géographiques vers DVF, requête sans chiffres personnels
+                vers la BCE, et IP des connexions vers ipwho.is pour leur localisation. Le mode hors ligne coupe ces appels.</li>
+                <li><b>L'IA est facultative</b> : préparez vos CSV vous-même ou utilisez une IA. Avant tout envoi, créez une copie avec
+                l'<a href="/aide/caviardage">outil de caviardage local</a> et vérifiez chaque page. N'envoyez pas l'original.</li>
                 </ul><p><a href="/confidentialite">Tout savoir sur la confidentialité</a></p>""", encryption);
     }
 
@@ -112,7 +116,7 @@ final class WelcomePages {
                 : manages ? Html.raw("<p>Pour commencer, le <b>Guide de saisie</b> vous accompagne étape par étape, des documents à rassembler jusqu'au récapitulatif.</p>")
                 : Html.raw("<p>Pour commencer, ouvrez le <b>Prévisionnel</b> : vos revenus et dépenses y apparaissent dès qu'ils sont saisis.</p>");
         return Html.of("""
-                <p class="eyebrow">Soutenir</p><h1 id="welcome-title">Patria est gratuit et libre</h1>
+                <p class="eyebrow">Soutenir</p><h1 id="welcome-title">Patria est gratuit</h1>
                 <p class="lead">Pas d'abonnement, pas de publicité, pas de revente de données. Si Patria vous est utile, un don, même petit, finance le temps
                 passé à l'améliorer.</p>%s%s""",
                 button, start);

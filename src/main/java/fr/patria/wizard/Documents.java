@@ -33,7 +33,7 @@ final class Documents {
 
             // Banque
             new Document("statements", "Banque", "Les relevés de compte des 3 derniers mois (chaque compte, compte joint compris)",
-                    "Ils montrent tous les prélèvements réguliers : c'est la meilleure source pour ne rien oublier. Joignez-les au prompt IA pour un import en une fois.",
+                    "Ils montrent les prélèvements réguliers. Pour une aide IA facultative, caviardez et vérifiez une copie avant de la joindre au prompt d'import ; jamais l'original.",
                     false, data -> false),
             new Document("credits", "Banque", "Les tableaux d'amortissement des crédits à la consommation, auto, travaux",
                     "Montant et date de la dernière mensualité. Espace client de la banque ou de l'organisme de crédit.", false,
@@ -45,7 +45,7 @@ final class Documents {
             new Document("deed", "Logement", "L'acte d'achat ou l'attestation du notaire de chaque bien",
                     "Prix, frais de notaire et date d'acquisition.", true, data -> !data.properties().isEmpty()),
             new Document("amortization", "Logement", "Le tableau d'amortissement de chaque prêt immobilier",
-                    "Espace client de la banque (rubrique crédit) ou annexe de l'offre de prêt. Le fichier PDF suffit : le prompt IA le convertit.", true,
+                    "Espace client de la banque ou annexe de l'offre de prêt. Préparez le CSV vous-même, ou faites convertir une copie caviardée et vérifiée par une IA facultative.", true,
                     data -> !data.loans().isEmpty()),
             new Document("property-tax", "Logement", "Le dernier avis de taxe foncière de chaque bien",
                     "impots.gouv.fr → Gérer mes biens immobiliers, ou l'avis papier d'octobre. Un seul avis suffit : les années suivantes sont estimées.", true,

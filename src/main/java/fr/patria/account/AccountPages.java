@@ -21,7 +21,8 @@ final class AccountPages {
      * Un foyer pour la page Foyers : ses membres (noms seulement), ses gestionnaires actifs, les comptes qui y ont acces
      * et l'avancement de leur guide de saisie. Aucun montant.
      */
-    record HouseholdCard(Household household, List<HouseholdDirectory.Member> members, long managers, List<String> users, List<AccountProgress> progress) {
+    record HouseholdCard(Household household, List<HouseholdDirectory.Member> members, long managers, List<String> users, List<AccountProgress> progress,
+                         List<User> managerUsers) {
     }
 
     /** Avancement du guide d'un compte dans un foyer. */
@@ -32,41 +33,51 @@ final class AccountPages {
      * Page Foyers : la reprise des foyers sans gestionnaire, une carte par foyer (membres, comptes, avancement de la
      * configuration, renommer, supprimer), la creation d'un foyer et les foyers supprimes.
      */
-    static Html households(List<HouseholdCard> cards, List<Household> orphans, boolean noUser, List<HouseholdDirectory.Archive> archives, Map<String, String> values,
-                           Notice notice, String csrf) {
-        Html blocks = cards.stream().map(card -> householdCard(card, cards.size(), csrf)).collect(Html.joining());
+    static Html households(List<HouseholdCard> cards, List<Household> orphans, List<User> activeUsers, List<HouseholdDirectory.Archive> archives,
+                           Map<String, String> values, Notice notice, String csrf) {
+        Html blocks = cards.stream().map(card -> householdCard(card, cards.size(), activeUsers, csrf)).collect(Html.joining());
         Html form = Components.form("/administration/foyers", csrf, false, Components.fields(2,
                 Components.input(Input.of("Nom du foyer", "name", Field.TEXT).required().maxLength(60).placeholder("Foyer Martin"), values)), "Créer le foyer");
         Html content = Html.concat(Components.heading("Administration", "Foyers",
                         "Les foyers, leurs membres et l'avancement de leur configuration. Vous créez les comptes et réglez les droits ; "
                                 + "vous ne voyez aucune donnée financière : ce sont les gestionnaires de chaque foyer qui saisissent.", Html.EMPTY),
-                Components.notice(notice), takeOver(orphans, noUser, values, csrf),
+                Components.notice(notice), takeOver(orphans, activeUsers, values, csrf),
                 Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
                 Components.card("Nouveau foyer", null, Html.EMPTY, form), archives(archives, csrf));
         return Layout.adminSection("Foyers · Patria", csrf, Layout.AdminSection.HOUSEHOLDS, content);
     }
 
     /**
-     * Foyers sans gestionnaire : personne ne peut y saisir. Formulaire de reprise : un compte cree ici devient leur
-     * gestionnaire et reprend la progression du guide de l'administrateur.
+     * Foyers sans gestionnaire : personne ne peut y saisir. Deux facons de les confier : a un compte existant, ou a un
+     * compte cree ici. Ce compte en devient gestionnaire et reprend la progression du guide de l'administrateur.
      */
-    private static Html takeOver(List<Household> orphans, boolean noUser, Map<String, String> values, String csrf) {
+    private static Html takeOver(List<Household> orphans, List<User> activeUsers, Map<String, String> values, String csrf) {
         if (orphans.isEmpty()) return Html.EMPTY;
         Html boxes = orphans.stream().map(household -> Html.of("<label class=\"check\"><input type=\"checkbox\" name=\"foyer_%s\" value=\"on\" checked>%s</label>",
                 household.id(), household.name())).collect(Html.joining());
-        Html intro = noUser ? Html.raw("""
-                <p>L'administrateur ne voit plus les données des foyers. Créez le <b>compte personnel</b> qui reprend vos foyers : il en devient
-                gestionnaire (tout voir, tout saisir) et retrouve sa progression dans le Guide de saisie. Les données déjà saisies ne bougent pas.</p>""")
-                : Html.raw("<p>Personne ne peut y saisir : créez le compte qui les gérera, ou ouvrez « Gestionnaire du foyer » à un compte existant (Utilisateurs).</p>");
-        return Html.of("""
-                <section class="notice warning takeover"><b>%s sans gestionnaire</b>%s
-                <form method="post" action="/administration/foyers/reprise" class="stack">%s<div class="chips-line">%s</div>%s
-                <div class="form-actions"><button type="submit">Créer le compte et lui confier ces foyers</button></div></form></section>""",
-                orphans.size() > 1 ? orphans.size() + " foyers" : "Un foyer", intro, Components.csrfField(csrf), boxes,
+        Html intro = Html.raw("""
+                <p>Personne ne peut y saisir. L'administrateur ne voit pas les données des foyers : confiez-les à un compte, qui en devient
+                <b>gestionnaire</b> (tout voir, tout saisir) et retrouve la progression du Guide de saisie. Les données déjà saisies ne bougent pas.</p>""");
+        Html existing = activeUsers.isEmpty() ? Html.EMPTY : Html.of("""
+                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">À un compte existant</p>%s                <div class="chips-line">%s</div><div class="row-form">%s<button type="submit">Le nommer gestionnaire de ces foyers</button></div></form>""",
+                Components.csrfField(csrf), boxes, userSelect("Compte", "compte", activeUsers));
+        Html created = Html.of("""
+                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">%s</p>%s                <div class="chips-line">%s</div>%s
+                <div class="form-actions"><button type="submit" class="%s">Créer le compte et lui confier ces foyers</button></div></form>""",
+                activeUsers.isEmpty() ? "Créer le compte" : "Ou créer un nouveau compte", Components.csrfField(csrf), boxes,
                 Components.fields(3,
                         Components.input(Input.of("Nom affiché", "name", Field.TEXT).required().maxLength(60).placeholder("William"), values),
                         Components.input(Input.of("Identifiant", "login", Field.TEXT).required().maxLength(40).placeholder("william"), values),
-                        password("Mot de passe provisoire", "password", "new-password", "À changer à la première connexion.")));
+                        password("Mot de passe provisoire", "password", "new-password", "À changer à la première connexion.")),
+                activeUsers.isEmpty() ? "" : "secondary");
+        return Html.of("<section class=\"notice warning takeover\"><b>%s sans gestionnaire</b>%s%s%s</section>",
+                orphans.size() > 1 ? orphans.size() + " foyers" : "Un foyer", intro, existing, created);
+    }
+
+    /** Liste deroulante des comptes : « Paul (paul) ». */
+    private static Html userSelect(String label, String name, List<User> users) {
+        return Components.select(label, name, users.stream().map(user -> new Components.Option(String.valueOf(user.id()), user.name() + " (" + user.login() + ")")).toList(),
+                users.isEmpty() ? "" : String.valueOf(users.getFirst().id()));
     }
 
     /** Bases des foyers supprimes, gardees sur le disque tant qu'on ne les efface pas. */
@@ -81,14 +92,14 @@ final class AccountPages {
                 du serveur tant que vous ne l'effacez pas ici.</p>"""), Components.table(List.of("Base", "Supprimé le", "#Taille", ""), rows, false, false)));
     }
 
-    private static Html householdCard(HouseholdCard card, int count, String csrf) {
+    private static Html householdCard(HouseholdCard card, int count, List<User> activeUsers, String csrf) {
         Household household = card.household();
         Html members = card.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre pour l'instant.</p>")
                 : Html.of("<div class=\"chips-line\">%s</div>", card.members().stream()
                 .map(member -> Html.of("<span class=\"badge\">%s%s</span>", member.name(), member.account() ? " · compte joint" : "")).collect(Html.joining()));
         Html steps = card.users().isEmpty() ? Html.raw("""
                 <ol class="steps"><li>Ajoutez ses membres ci-dessous (les personnes, puis le compte joint s'il y en a un).</li>
-                <li>Créez le compte de chaque personne (Utilisateurs) ; cochez « Gestionnaire du foyer » pour celle qui saisit tout.</li>
+                <li>Créez le compte de chaque personne (Utilisateurs), puis choisissez ci-dessous le gestionnaire, celui qui saisit tout.</li>
                 <li>Le gestionnaire remplit le foyer avec le Guide de saisie ; son avancement s'affiche ici.</li></ol>""") : Html.EMPTY;
         Html addMember = Html.of("""
                 <form method="post" action="/administration/foyers/%s/membres" class="row-form">%s%s%s<button class="secondary" type="submit">Ajouter le membre</button></form>""",
@@ -101,16 +112,27 @@ final class AccountPages {
         Html delete = household.isPrimary() || count < 2 ? Html.EMPTY : Html.of("""
                 <form method="post" action="/administration/foyers/%s/supprimer" data-confirm="Supprimer le foyer « %s » ? Sa base est mise de côté,\
                  ses utilisateurs n'y ont plus accès.">%s<button class="danger" type="submit">Supprimer</button></form>""", household.id(), household.name(), Components.csrfField(csrf));
-        Html managers = card.managers() == 0 && !card.users().isEmpty()
-                ? Html.raw("<p class=\"notice warning\">Aucun gestionnaire actif : personne ne peut saisir les biens, les prêts ni la répartition.</p>") : Html.EMPTY;
+        // Un seul gestionnaire : une liste avec le gestionnaire actuel (ou « Aucun ») et « Enregistrer ».
+        String current = card.managerUsers().isEmpty() ? "" : String.valueOf(card.managerUsers().getFirst().id());
+        List<Components.Option> options = new java.util.ArrayList<>();
+        options.add(new Components.Option("", "Aucun gestionnaire"));
+        activeUsers.forEach(user -> options.add(new Components.Option(String.valueOf(user.id()), user.name() + " (" + user.login() + ")")));
+        Html manager = activeUsers.isEmpty() ? Html.raw("<p class=\"muted\">Aucun compte pour l'instant : créez-le dans Utilisateurs, puis choisissez-le ici.</p>")
+                : Html.of("""
+                <form method="post" action="/administration/foyers/%s/gestionnaire" class="row-form">%s%s<button class="secondary" type="submit">Enregistrer</button></form>
+                <p class="muted small">%s</p>""", household.id(), Components.csrfField(csrf),
+                Components.select("Gestionnaire", "compte", options, current),
+                current.isEmpty() ? "Personne ne peut saisir les biens, les prêts ni la répartition : choisissez le compte qui saisit tout."
+                        : "Il voit et saisit tout le foyer. En choisir un autre le remplace ; l'ancien garde ses autres vues.");
         return Html.of("""
                         <section class="household-card" id="foyer-%s"><h3>%s</h3>
                         <p class="eyebrow">Membres</p>%s%s%s
-                        <p class="eyebrow">Comptes qui y ont accès</p><p class="muted">%s</p>%s
+                        %s
+                        <p class="eyebrow">Comptes qui y ont accès</p><p class="muted">%s</p>
                         <p class="eyebrow">Avancement de la configuration</p>%s
                         <div class="household-actions">%s%s</div></section>""",
-                household.id(), household.name(), members, steps, addMember, card.users().isEmpty() ? "Aucun." : String.join(", ", card.users()), managers,
-                progress(card.progress()), rename, delete);
+                household.id(), household.name(), members, steps, addMember, manager,
+                card.users().isEmpty() ? "Aucun." : String.join(", ", card.users()), progress(card.progress()), rename, delete);
     }
 
     /** Guide de saisie de chaque compte : pourcentage, etapes faites, passees, restantes, derniere revue annuelle. */
@@ -231,7 +253,7 @@ final class AccountPages {
                 option("access", "Accès à ce foyer", "Le foyer apparaît pour lui (sélecteur de l'en-tête s'il en a plusieurs). Décoché : il ne le voit pas, les autres cases sont ignorées.",
                         access != null),
                 option("manager", "Gestionnaire du foyer : tout voir, tout saisir", "Dans ce foyer : membres, revenus, dépenses, biens, prêts, répartition, "
-                        + "Guide de saisie et imports. Les cases ci-dessous sont alors sans objet. Ne crée pas de compte et ne règle pas les droits.",
+                        + "Guide de saisie et imports. Un seul par foyer : le cocher remplace le gestionnaire actuel. Les cases ci-dessous sont alors sans objet.",
                         access != null && access.manager()),
                 option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Prévisionnel et Budget moyen, avec les revenus et dépenses de tous les membres, et toutes les lignes "
                         + "en lecture seule dans Administration. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),

@@ -190,7 +190,7 @@ public final class Router implements HttpHandler {
 
     /** Pages ouvertes tant que le mot de passe choisi par l'administrateur n'est pas change. */
     private static final java.util.Set<String> BEFORE_PASSWORD_CHANGE = java.util.Set.of("/compte/nouveau-mot-de-passe", "/compte/mot-de-passe", "/deconnexion",
-            "/aide/https", "/securite/http-compris", "/confidentialite", "/connexion", "/sante");
+            "/aide/https", "/aide/chiffrement", "/securite/http-compris", "/confidentialite", "/connexion", "/sante");
 
     private Response dispatch(HttpExchange exchange, String path, Session session, Viewer viewer) {
         String method = exchange.getRequestMethod().equals("HEAD") ? "GET" : exchange.getRequestMethod();
@@ -262,7 +262,9 @@ public final class Router implements HttpHandler {
         switch (response) {
             case Response.Page page -> {
                 headers.set("Content-Type", "text/html; charset=utf-8");
-                headers.set("Content-Security-Policy", SECURITY_POLICY);
+                headers.set("Content-Security-Policy", exchange.getRequestURI().getPath().equals("/aide/caviardage")
+                        ? SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'") + "; worker-src 'self'"
+                        : SECURITY_POLICY);
                 send(exchange, page.status(), page.html().toString().getBytes(StandardCharsets.UTF_8));
             }
             case Response.Text text -> {

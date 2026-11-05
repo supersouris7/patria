@@ -216,18 +216,20 @@ public final class Components {
      */
     public static Html llmPrompt(String id, String prompt) {
         return Html.of("""
-                <div class="llm-prompt"><p class="llm-why"><b>Il faut un assistant IA externe</b> (ChatGPT, Claude, Le Chat, Gemini, ou un modèle installé \
-                sur votre ordinateur) pour transformer vos documents en fichier. Patria n'envoie rien : vous copiez le prompt, vous l'y collez avec vos \
-                documents, puis vous importez ici le fichier qu'il renvoie.</p>\
+                <div class="llm-prompt"><p class="llm-why"><b>L'IA est facultative.</b> Vous pouvez préparer le CSV vous-même, ou demander à un assistant \
+                (ChatGPT, Claude, Le Chat, Gemini, ou un modèle local) de le faire. Patria ne lui envoie rien. Avant de joindre un document, créez et \
+                vérifiez une copie caviardée ; importez ensuite ici le CSV obtenu.</p>\
+                <p><a class="button secondary" href="/aide/caviardage" target="_blank" rel="noopener noreferrer">1. Caviarder les documents localement</a></p>\
                 <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
-                <span class="muted copy-status" role="status">À coller dans votre assistant IA, en y joignant vos documents.</span></div>\
+                <span class="muted copy-status" role="status">2. Collez le prompt dans votre IA avec uniquement les copies caviardées vérifiées.</span></div>\
                 <details class="llm-privacy"><summary>Protéger vos données avant d'envoyer</summary><ul>\
-                <li><b>Masquez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal et de sécurité sociale : un rectangle noir sur le PDF, ou une capture \
-                des seules lignes utiles.</li>\
+                <li><b>Supprimez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal, de contrat et de sécurité sociale avec l'outil de caviardage. \
+                Un simple rectangle ajouté au PDF peut laisser le texte récupérable. Vérifiez toutes les pages exportées, y compris les libellés.</li>\
                 <li><b>Désactivez</b> l'historique et l'utilisation de vos conversations pour l'entraînement dans les réglages de l'assistant, ou utilisez \
                 une conversation temporaire.</li>\
                 <li><b>Préférez</b> un modèle local si vous en avez un : rien ne quitte alors votre ordinateur.</li>\
-                <li>Le prompt interdit en plus à l'IA de recopier toute donnée identifiante. <a href="/confidentialite">En savoir plus sur la confidentialité</a>.</li>\
+                <li>Le prompt demande des libellés génériques ; il n'empêche pas l'IA de lire les documents que vous lui envoyez. \
+                <a href="/confidentialite">En savoir plus sur la confidentialité</a>.</li>\
                 </ul></details>\
                 <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
                 id, id, prompt);

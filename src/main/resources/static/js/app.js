@@ -259,7 +259,7 @@ document.querySelectorAll("button[data-copy]").forEach((button) => {
       source.select();
       try { copied = document.execCommand("copy"); } catch { copied = false; }
     }
-    status.textContent = copied ? "Prompt copié : collez-le dans votre assistant IA et joignez-y vos documents."
+    status.textContent = copied ? "Prompt copié : joignez uniquement les copies caviardées vérifiées, jamais les originaux."
       : "Copie automatique impossible : le prompt est sélectionné ci-dessous, copiez-le (Ctrl+C).";
   });
 });

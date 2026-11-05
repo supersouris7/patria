@@ -35,10 +35,12 @@ final class SecurityPages {
                 check(state.https() || state.local(), state.https() ? "Connexion chiffrée (HTTPS)."
                                 : state.local() ? "Connexion locale (localhost) : rien ne passe par le réseau. Vérifiez que l'adresse utilisée depuis l'extérieur est en HTTPS."
                                 : "Connexion en HTTP : mots de passe et données circulent en clair.", state.https() || state.local() ? null : "/aide/https"),
-                check(state.encrypted(), state.encrypted() ? "Bases chiffrées (DB_ENCRYPTION_KEY)." : "Bases non chiffrées : définissez DB_ENCRYPTION_KEY.", null),
+                check(state.encrypted(), state.encrypted() ? "Bases chiffrées (DB_ENCRYPTION_KEY)." : "Bases non chiffrées : définissez DB_ENCRYPTION_KEY.",
+                        state.encrypted() ? null : "/aide/chiffrement"),
                 check(true, state.offline() ? "Mode hors ligne : aucun appel extérieur." : "Appels extérieurs : prix du marché, taux, localisation des adresses IP.", null),
                 check(state.backups() > 0, state.backups() + " copie" + (state.backups() > 1 ? "s" : "") + " « avant-migration » à côté des bases (les 3 dernières par base).", null),
                 check(true, "Version " + BuildInfo.version() + " · commit " + BuildInfo.shortCommit() + ".", null));
+        installation = Html.concat(installation, Html.raw("<p class=\"muted small\">Les copies avant migration restent sur le même disque : elles ne remplacent pas une sauvegarde hors serveur ni un test de restauration. Conservez la clé séparément.</p>"));
         Html blockedList = blocked.isEmpty() ? Html.raw("<p class=\"empty\">Aucun blocage en cours.</p>")
                 : Html.of("<ul class=\"plain-list\">%s</ul><p class=\"muted small\">Blocage de 15 minutes après 10 échecs depuis une adresse, ou 30 sur un même identifiant.</p>",
                 blocked.stream().map(item -> Html.of("<li>%s</li>", item)).collect(Html.joining()));
@@ -73,7 +75,7 @@ final class SecurityPages {
 
     private static Html check(boolean ok, String text, String link) {
         return Html.of("<li class=\"%s\"><span aria-hidden=\"true\">%s</span> %s%s</li>", ok ? "ok" : "ko", ok ? "✓" : "!", text,
-                link == null ? Html.EMPTY : Html.of(" <a href=\"%s\">Passer en HTTPS</a>", link));
+                link == null ? Html.EMPTY : Html.of(" <a href=\"%s\">%s</a>", link, link.endsWith("chiffrement") ? "Comment faire" : "Passer en HTTPS"));
     }
 
     private static String account(AccountRepository.LoginEvent event, List<User> users) {

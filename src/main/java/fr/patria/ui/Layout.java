@@ -160,7 +160,7 @@ public final class Layout {
         return Html.of("""
                 <details class="audience"><summary aria-label="%s" title="%s">%s%s</summary><div class="audience-panel" role="dialog" aria-label="Qui voit quoi">\
                 <p class="eyebrow">Qui voit quoi · %s</p>%s<ul class="audience-lines">%s</ul>\
-                <p class="muted small">L'administrateur crée les comptes et règle ces accès ; il ne voit aucune donnée des foyers. S'il ouvrait un accès,
+                <p class="muted small">L'administrateur crée les comptes et règle ces accès ; son compte administrateur ne voit aucune donnée financière dans l'interface. S'il ouvrait un accès,
                 y compris à un compte à lui, il apparaîtrait ici.</p></div></details>""",
                 label, label, INFO_ICON, chrome.changes().isEmpty() ? Html.EMPTY : Html.raw("<span class=\"audience-dot\" aria-hidden=\"true\"></span>"),
                 householdName(chrome), changes, lines);

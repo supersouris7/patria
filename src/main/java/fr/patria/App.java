@@ -225,6 +225,8 @@ public final class App implements AutoCloseable {
             Router router = new Router(sessions, session -> viewer(session, accounts, sites), household -> sites.site(household).router);
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(accounts, config.offline(), config.clock());
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
+            router.publicGet("/aide/chiffrement", request -> Response.page(fr.patria.ui.SecurityPages.encryptionHelp(config.encryptionKey() != null, request.csrf())));
+            router.publicGet("/aide/caviardage", request -> Response.page(fr.patria.ui.RedactionPage.render(request.csrf())));
             router.publicGet("/confidentialite", request -> Response.page(fr.patria.ui.PrivacyPage.render(config.offline(), config.encryptionKey() != null, request.csrf())));
             AuthController auth = new AuthController(sessions, config.adminLogin(), config.password(), new AuthController.Users() {
                 @Override

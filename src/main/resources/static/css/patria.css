@@ -268,6 +268,11 @@ th[data-order="desc"]::after { content: "▼"; opacity: 1; }
 .help-block { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
 .help-block summary { color: var(--blue); cursor: pointer; font-size: .88rem; font-weight: 700; }
 .help-block[open] summary { margin-bottom: 10px; }
+.redaction-viewport { overflow: auto; margin: 16px 0; background: #ddd; border: 1px solid var(--line); }
+.redaction-viewport canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+#redaction-editor { border: 0; padding: 0; min-width: 0; }
+#redaction-editor[hidden] { display: none; }
+#redaction-editor:disabled { opacity: .6; }
 .llm-prompt { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-small); margin: 12px 0; padding: 12px; }
 .llm-prompt-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .llm-why { color: var(--text-soft); font-size: .88rem; line-height: 1.5; margin: 0 0 10px; }
@@ -777,9 +782,14 @@ tfoot small { font-weight: 400; }
 .progress-inline { background: var(--surface-raised); border-radius: 99px; display: inline-block; height: 6px; overflow: hidden; vertical-align: middle; width: 70px; }
 .progress-inline i { background: var(--blue); display: block; height: 100%; }
 .takeover { font-weight: 500; }
-.takeover b:first-child { display: block; margin-bottom: 6px; }
+.takeover > b:first-child { display: block; margin-bottom: 6px; }
 .takeover .chips-line { margin: 8px 0; }
 @media (max-width: 640px) {
     .audience-panel { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; }
 }
 .check-list li { color: var(--text-soft); font-weight: 500; }
+.inline-alert { display: block; margin: 8px 0 0; }
+.help-steps li { margin-bottom: 14px; }
+.help-steps pre { margin: 8px 0; }
+.takeover-form { border-top: 1px solid rgb(107 85 32 / 55%); margin-top: 12px; padding-top: 12px; }
+.takeover-form .row-form { align-items: end; }

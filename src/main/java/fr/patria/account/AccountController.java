@@ -58,6 +58,21 @@ public final class AccountController {
         });
         router.post("/administration/foyers", this::createHousehold);
         router.post("/administration/foyers/reprise", this::takeOver);
+        // Un seul gestionnaire par foyer : le choisir le remplace ; « Aucun » le retire.
+        router.post("/administration/foyers/{id}/gestionnaire", request -> {
+            Household household = household(request.id());
+            try {
+                String chosen = request.form().raw("compte").trim();
+                if (chosen.isEmpty()) {
+                    for (User manager : managers(household)) demote(manager, household);
+                } else {
+                    makeManager(chosenUser(chosen), household);
+                }
+                return Response.redirect("/administration/foyers?ok=" + (chosen.isEmpty() ? "acces" : "gestionnaire") + "#foyer-" + household.id());
+            } catch (ValidationException exception) {
+                return Response.invalid(householdsPage(request, Map.of(), Notice.error(exception.getMessage())));
+            }
+        });
         router.post("/administration/foyers/{id}/renommer", request -> {
             Household household = household(request.id());
             try {
@@ -156,11 +171,12 @@ public final class AccountController {
                     .filter(entry -> entry.getValue().manager() || !entry.getValue().members().isEmpty())
                     .map(entry -> new AccountPages.AccountProgress(entry.getKey(), entry.getValue().manager(),
                             directory.progress(household.id(), entry.getKey().id(), entry.getValue().manager()))).toList();
-            return new AccountPages.HouseholdCard(household, directory.members(household.id()), accounts.activeManagers(household.id()),
-                    shared.keySet().stream().map(user -> user.name() + (user.active() ? "" : " (désactivé)")).toList(), progress);
+            List<User> managers = shared.entrySet().stream().filter(entry -> entry.getKey().active() && entry.getValue().manager()).map(Map.Entry::getKey).toList();
+            return new AccountPages.HouseholdCard(household, directory.members(household.id()), managers.size(),
+                    shared.keySet().stream().map(user -> user.name() + (user.active() ? "" : " (désactivé)")).toList(), progress, managers);
         }).toList();
         List<Household> orphans = cards.stream().filter(card -> card.managers() == 0).map(AccountPages.HouseholdCard::household).toList();
-        return AccountPages.households(cards, orphans, users.isEmpty(), directory.archives(), values, notice, request.csrf());
+        return AccountPages.households(cards, orphans, users.stream().filter(User::active).toList(), directory.archives(), values, notice, request.csrf());
     }
 
     private Response createHousehold(Request request) {
@@ -194,6 +210,12 @@ public final class AccountController {
         try {
             List<Household> chosen = accounts.households().stream().filter(household -> "on".equals(form.get("foyer_" + household.id()))).toList();
             if (chosen.isEmpty()) throw new ValidationException("Cochez au moins un foyer à confier à ce compte.");
+            if (!form.getOrDefault("compte", "").isBlank()) {
+                // Compte existant : il devient gestionnaire des foyers coches.
+                User user = chosenUser(form.get("compte"));
+                for (Household household : chosen) makeManager(user, household);
+                return Response.redirect("/administration/foyers?ok=gestionnaire");
+            }
             String login = login(form.getOrDefault("login", ""));
             String name = request.form().requiredText("name", "Nom affiché", 60);
             long id = accounts.createUser(login, name, form.getOrDefault("password", ""), LocalDate.now(clock));
@@ -212,6 +234,52 @@ public final class AccountController {
             values.remove("password");
             return Response.invalid(householdsPage(request, values, Notice.error(exception.getMessage())));
         }
+    }
+
+    /** Compte actif choisi dans une liste ({@code compte} : son identifiant). */
+    private User chosenUser(String raw) {
+        try {
+            return accounts.user(Long.parseLong(raw.trim())).filter(User::active)
+                    .orElseThrow(() -> new ValidationException("Choisissez un compte actif."));
+        } catch (NumberFormatException exception) {
+            throw new ValidationException("Choisissez un compte.");
+        }
+    }
+
+    /** Comptes gestionnaires d'un foyer (un seul en principe). */
+    private List<User> managers(Household household) {
+        return accounts.accessesTo(household.id()).entrySet().stream().filter(entry -> entry.getValue().manager()).map(Map.Entry::getKey).toList();
+    }
+
+    /** Ce compte n'est plus gestionnaire : il garde ses autres vues ; sans aucune, il n'a plus acces au foyer. */
+    private void demote(User user, Household household) {
+        Access access = accounts.accesses(user.id()).stream().filter(candidate -> candidate.householdId() == household.id()).findFirst().orElse(null);
+        if (access == null || !access.manager()) return;
+        boolean keeps = access.wholeHousehold() || !access.members().isEmpty();
+        Access after = keeps ? new Access(user.id(), household.id(), household.name(), access.wholeHousehold(), access.members(), access.realEstate(), false) : null;
+        accounts.setAccess(user.id(), household.id(), after);
+        audit("ACCESS", household.id(), user.id(), user.name() + (after == null ? " : n'est plus gestionnaire, plus d'accès à ce foyer."
+                : " : n'est plus gestionnaire (" + AudienceText.summary(after, directory.members(household.id())) + ")."));
+    }
+
+    /**
+     * Ce compte devient le gestionnaire du foyer, a la place du precedent (qui garde ses autres vues). Ses autres vues
+     * sont gardees ; un nouveau venu est relie au membre qui porte son nom. S'il est le premier gestionnaire, il
+     * reprend la progression du guide de l'administrateur.
+     */
+    private void makeManager(User user, Household household) {
+        Access before = accounts.accesses(user.id()).stream().filter(access -> access.householdId() == household.id()).findFirst().orElse(null);
+        if (before != null && before.manager()) return;
+        for (User previous : managers(household)) demote(previous, household);
+        List<HouseholdDirectory.Member> members = directory.members(household.id());
+        boolean first = accounts.activeManagers(household.id()) == 0;
+        Set<Long> linked = before != null ? before.members() : members.stream().filter(member -> member.name().equalsIgnoreCase(user.name()))
+                .map(HouseholdDirectory.Member::id).collect(Collectors.toSet());
+        Access access = new Access(user.id(), household.id(), household.name(), before == null || before.wholeHousehold(), linked, true, true);
+        accounts.setAccess(user.id(), household.id(), access);
+        if (first) directory.transferFromAdministrator(household.id(), user.id());
+        audit("ACCESS", household.id(), user.id(), user.name() + " : " + (before == null ? "accès ouvert" : "accès modifié") + " ("
+                + AudienceText.summary(access, members) + ").");
     }
 
     private Household household(long id) {
@@ -291,6 +359,10 @@ public final class AccountController {
         Access before = accounts.accesses(user.id()).stream().filter(access -> access.householdId() == household.id()).findFirst().orElse(null);
         try {
             Access access = access(user, household, request.form().values());
+            // Un seul gestionnaire par foyer : cocher la case le remplace.
+            if (access != null && access.manager()) {
+                for (User previous : managers(household)) if (previous.id() != user.id()) demote(previous, household);
+            }
             accounts.setAccess(user.id(), household.id(), access);
             List<HouseholdDirectory.Member> members = directory.members(household.id());
             String now = AudienceText.summary(access, members);

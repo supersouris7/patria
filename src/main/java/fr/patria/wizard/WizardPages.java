@@ -371,8 +371,8 @@ final class WizardPages {
             return Html.of("<section class=\"card section\" id=\"bien-%s\"><div class=\"section-title\"><h2>%s</h2></div>%s%s%s</section>",
                     property.id(), property.name(), list, Components.llmPrompt("prompt-pret-" + property.id(), CsvScheduleParser.llmPrompt()), add);
         }).collect(Html.joining());
-        return Html.concat(explain("Un prêt = un fichier d'échéancier. Le plus simple : copiez le prompt IA, collez-le dans votre assistant IA (ChatGPT, Claude, "
-                + "Le Chat…) avec le tableau d'amortissement en PDF, enregistrez sa réponse en fichier .csv et importez-le ici. Un prêt à taux zéro ou un "
+        return Html.concat(explain("Un prêt = un fichier d'échéancier CSV, préparé à la main ou avec une IA facultative. Avant de lui joindre le tableau "
+                + "d'amortissement, caviardez et vérifiez une copie avec l'outil ci-dessous ; n'envoyez pas l'original. Vérifiez le CSV obtenu avant import. Un prêt à taux zéro ou un "
                 + "prêt complémentaire s'importe comme un prêt à part."), cards);
     }
 
@@ -413,7 +413,7 @@ final class WizardPages {
     private static Html fixed(WizardController.Context context, Map<String, String> values) {
         Html quick = Html.of("""
                 <details class="help-block"><summary>Plus rapide : tout importer avec vos relevés bancaires</summary>
-                <p class="muted">Copiez ce prompt, collez-le dans votre assistant IA avec vos relevés des 3 derniers mois et vos contrats : il renvoie un fichier
+                <p class="muted">L'IA est facultative. Si vous l'utilisez, caviardez et vérifiez d'abord les copies de vos relevés et contrats. Joignez uniquement ces copies avec le prompt : elle renvoie un fichier
                 à importer dans <a href="/administration/depenses">Administration → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
                 Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "

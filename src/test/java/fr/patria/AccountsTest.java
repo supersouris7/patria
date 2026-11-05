@@ -221,7 +221,7 @@ class AccountsTest {
         Visitor admin = admin();
         assertEquals(303, post(admin, "/administration/foyers/1/membres", "name=William&kind=PERSON").statusCode());
         String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("sans gestionnaire") && households.contains("compte personnel"), "reprise proposée");
+        assertTrue(households.contains("sans gestionnaire") && households.contains("Créer le compte et lui confier"), "reprise proposée");
         assertEquals(400, post(admin, "/administration/foyers/reprise", "name=William&login=william&password=provisoire1").statusCode(), "au moins un foyer");
         assertEquals("/administration/utilisateur/1?ok=reprise",
                 post(admin, "/administration/foyers/reprise", "foyer_1=on&name=William&login=william&password=provisoire1").headers().firstValue("Location").orElseThrow());
@@ -231,6 +231,34 @@ class AccountsTest {
         william = login("william", "williampasse1");
         assertEquals(200, get(william, "/administration/biens").statusCode(), "gestionnaire : il saisit tout");
         assertTrue(get(william, "/").body().contains("Vous gérez tout le foyer"));
+    }
+
+    @Test
+    void anExistingAccountCanBeNamedManager() throws Exception {
+        Visitor admin = admin();
+        assertEquals(303, post(admin, "/administration/foyers", "name=Foyer+Martin").statusCode());
+        Visitor paul = account(admin, "paul", "Paul", "", 1, "access=on&whole=on");
+        assertTrue(get(admin, "/administration/foyers").body().contains("Le nommer gestionnaire de ces foyers"), "reprise par un compte existant proposée");
+        assertEquals("/administration/foyers?ok=gestionnaire", post(admin, "/administration/foyers/reprise", "foyer_1=on&compte=" + paul.id())
+                .headers().firstValue("Location").orElseThrow());
+        assertEquals(200, get(paul, "/administration/biens").statusCode(), "gestionnaire du foyer principal");
+        assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=" + paul.id()).statusCode(), "déjà gestionnaire : rien ne change");
+
+        // Depuis la carte d'un foyer : un seul gestionnaire, que l'on change
+        assertTrue(get(admin, "/administration/foyers").body().contains("<option value=\"" + paul.id() + "\" selected>Paul (paul)</option>"), "gestionnaire actuel choisi");
+        assertEquals(303, post(admin, "/administration/foyers/2/gestionnaire", "compte=" + paul.id()).statusCode());
+        assertTrue(get(paul, "/").body().contains("name=\"foyer\""), "deux foyers : sélecteur");
+        assertEquals(400, post(admin, "/administration/foyers/2/gestionnaire", "compte=999").statusCode(), "compte inconnu");
+        Visitor camille = account(admin, "camille", "Camille", "", 1, "access=on&whole=on");
+        assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=" + camille.id()).statusCode());
+        assertEquals(200, get(camille, "/administration/biens").statusCode(), "nouvelle gestionnaire");
+        assertEquals(403, get(paul, "/administration/biens").statusCode(), "l'ancien est remplacé : ses autres vues restent");
+        assertEquals(200, get(paul, "/").statusCode());
+        assertEquals(303, post(admin, "/administration/utilisateur/" + paul.id() + "/foyer/1", "access=on&manager=on&whole=on").statusCode());
+        assertEquals(403, get(camille, "/administration/biens").statusCode(), "la case « Gestionnaire » remplace aussi");
+        assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=").statusCode());
+        assertEquals(403, get(paul, "/administration/biens").statusCode(), "« Aucun gestionnaire »");
+        assertTrue(get(admin, "/administration/securite").body().contains("plus gestionnaire"), "journal");
     }
 
     @Test

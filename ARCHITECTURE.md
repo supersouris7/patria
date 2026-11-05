@@ -124,6 +124,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Où sont les ventes affichées dans « Voir les N ventes en détail » ? | retenues par `market/MarketAnalysis.analyse`, enregistrées avec le prix par `MarketRepository.save` : table `market_sales` et position du bien (`market_prices.latitude/longitude`, migration v12) ; page `market/MarketPages.sales` |
 | D'où vient le prompt IA des imports ? | `budget/ExpenseCsv.llmPrompt`, `loan/CsvScheduleParser.llmPrompt` (construits depuis les catégories, fréquences et types), affichés par `ui/Components.llmPrompt`, copiés par `app.js` |
+| Comment caviarder les documents avant une IA ? | `/aide/caviardage`, `ui/RedactionPage`, `static/js/redaction.mjs`, moteur PDF.js embarqué ; PDF reconstruit d'images caviardées par `redaction-pdf.mjs`. Aucun téléversement ni stockage. |
 | Quelles API externes sont appelées ? | `market/DataGouvClient` (data.gouv.fr) et `market/HousingRates` (BCE), sans clé |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
