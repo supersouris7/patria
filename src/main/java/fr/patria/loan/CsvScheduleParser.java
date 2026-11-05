@@ -51,6 +51,11 @@ public final class CsvScheduleParser {
                 - recopie toutes les lignes du tableau, échéances futures comprises, jusqu'à la dernière ;
                 - n'invente et ne recalcule rien : une valeur absente du document reste vide ; signale après le fichier les lignes incertaines.
 
+                Confidentialité, à respecter strictement :
+                - le fichier ne contient que des dates, des types et des montants : ne recopie jamais le nom ou l'adresse de l'emprunteur, \
+                le numéro du prêt ou du contrat, l'IBAN, le nom du conseiller ;
+                - n'écris rien d'autre que le fichier et la liste des points à vérifier : pas de résumé du document.
+
                 Réponse : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis la liste courte des points à vérifier.
                 """.formatted(HEADER, types);
     }

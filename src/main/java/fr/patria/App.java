@@ -48,11 +48,23 @@ public final class App implements AutoCloseable {
     private final Database accountsDatabase;
     private final Sites sites;
 
-    private App(HttpServer server, ExecutorService executor, Database accountsDatabase, Sites sites) {
+    private final fr.patria.account.IpLocator locator;
+
+    private App(HttpServer server, ExecutorService executor, Database accountsDatabase, Sites sites, fr.patria.account.IpLocator locator) {
         this.server = server;
         this.executor = executor;
         this.accountsDatabase = accountsDatabase;
         this.sites = sites;
+        this.locator = locator;
+    }
+
+    /** Copies « avant-migration » presentes dans le dossier des bases. */
+    private static int backups(Path directory) {
+        try (java.util.stream.Stream<Path> files = Files.list(directory)) {
+            return (int) files.filter(file -> file.getFileName().toString().contains(".avant-migration-")).count();
+        } catch (IOException exception) {
+            return 0;
+        }
     }
 
     /** Bases des foyers ouvertes, par identifiant de foyer. */
@@ -66,13 +78,13 @@ public final class App implements AutoCloseable {
         Sites(Config config, AccountRepository accounts) {
             this.config = config;
             this.accounts = accounts;
-            this.rates = new fr.patria.market.HousingRates(config.clock());
+            this.rates = new fr.patria.market.HousingRates(config.clock(), config.offline());
         }
 
         HouseholdSite site(long householdId) {
             return open.computeIfAbsent(householdId, id -> {
                 Household household = accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe plus."));
-                return HouseholdSite.open(file(household), config.clock(), rates, this::logins);
+                return HouseholdSite.open(file(household), config.encryptionKey(), config.clock(), config.offline(), rates, this::logins);
             });
         }
 
@@ -103,6 +115,56 @@ public final class App implements AutoCloseable {
                 }
             }
             return result;
+        }
+
+        /** « foyer-2.sqlite3.supprime-20261104-101500 » : base d'un foyer supprime. */
+        private static final java.util.regex.Pattern ARCHIVE = java.util.regex.Pattern.compile("foyer-\\d+\\.sqlite3\\.supprime-(\\d{8}-\\d{6})");
+
+        @Override
+        public List<Archive> archives() {
+            Path directory = config.databasePath().toAbsolutePath().getParent();
+            try (java.util.stream.Stream<Path> files = Files.list(directory)) {
+                return files.map(file -> file.getFileName().toString()).map(ARCHIVE::matcher).filter(java.util.regex.Matcher::matches).map(matcher -> {
+                    Path file = directory.resolve(matcher.group());
+                    long bytes;
+                    try {
+                        bytes = Files.size(file);
+                    } catch (IOException exception) {
+                        bytes = 0;
+                    }
+                    return new Archive(matcher.group(), LocalDateTime.parse(matcher.group(1), DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), bytes);
+                }).sorted(java.util.Comparator.comparing(Archive::deletedOn).reversed()).toList();
+            } catch (IOException exception) {
+                return List.of();
+            }
+        }
+
+        @Override
+        public void purge(String name) {
+            java.util.regex.Matcher matcher = ARCHIVE.matcher(name);
+            if (!matcher.matches() || archives().stream().noneMatch(archive -> archive.name().equals(name))) {
+                throw new fr.patria.common.ValidationException("Base introuvable.");
+            }
+            Path directory = config.databasePath().toAbsolutePath().getParent();
+            String base = name.substring(0, name.indexOf(".supprime-"));
+            String suffix = name.substring(name.indexOf(".supprime-"));
+            try {
+                for (String extension : List.of("", "-wal", "-shm")) Files.deleteIfExists(directory.resolve(base + extension + suffix));
+            } catch (IOException exception) {
+                throw new java.io.UncheckedIOException(exception);
+            }
+            LOG.info("Base d'un foyer supprimé effacée définitivement : " + name);
+        }
+
+        @Override
+        public Progress progress(long householdId, long userId, boolean manager) {
+            fr.patria.wizard.WizardRepository.Summary summary = site(householdId).wizard.summary(userId, manager);
+            return new Progress(summary.done(), summary.skipped(), summary.total(), summary.next(), summary.reviewedOn());
+        }
+
+        @Override
+        public void transferFromAdministrator(long householdId, long userId) {
+            site(householdId).wizard.transferFromAdministrator(userId);
         }
 
         @Override
@@ -146,16 +208,25 @@ public final class App implements AutoCloseable {
     public static App start(Config config) {
         try {
             if (config.databasePath().toAbsolutePath().getParent() != null) Files.createDirectories(config.databasePath().toAbsolutePath().getParent());
-            Database accountsDatabase = Database.open(config.databasePath().toAbsolutePath().resolveSibling(ACCOUNTS_FILE));
+            if (config.encryptionKey() != null) {
+                int encrypted = fr.patria.storage.Encryption.encryptLeftovers(config.databasePath().toAbsolutePath().getParent(), config.encryptionKey());
+                if (encrypted > 0) LOG.info(encrypted + " sauvegarde(s) ou base(s) archivée(s) chiffrée(s).");
+            }
+            Database accountsDatabase = Database.open(config.databasePath().toAbsolutePath().resolveSibling(ACCOUNTS_FILE), config.encryptionKey());
             AccountRepository accounts = new AccountRepository(accountsDatabase);
             accounts.ensurePrimary("Mon foyer", LocalDate.now(config.clock()));
             Sites sites = new Sites(config, accounts);
-            sites.site(accounts.households().getFirst().id());
+            // Avec une cle, toutes les bases sont ouvertes (donc chiffrees) des le demarrage, pas a la premiere visite.
+            if (config.encryptionKey() != null) accounts.households().forEach(household -> sites.site(household.id()));
+            else sites.site(accounts.households().getFirst().id());
 
+            fr.patria.ui.BuildInfo.useSupportUrl(config.support());
             Sessions sessions = new Sessions(config.clock());
-            Router router = new Router(sessions, session -> viewer(session, accounts), household -> sites.site(household).router);
+            Router router = new Router(sessions, session -> viewer(session, accounts, sites), household -> sites.site(household).router);
+            fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(accounts, config.offline(), config.clock());
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
-            new AuthController(sessions, config.adminLogin(), config.password(), new AuthController.Users() {
+            router.publicGet("/confidentialite", request -> Response.page(fr.patria.ui.PrivacyPage.render(config.offline(), config.encryptionKey() != null, request.csrf())));
+            AuthController auth = new AuthController(sessions, config.adminLogin(), config.password(), new AuthController.Users() {
                 @Override
                 public Optional<Long> authenticate(String login, String password) {
                     return accounts.authenticate(login, password).map(User::id);
@@ -166,9 +237,31 @@ public final class App implements AutoCloseable {
                     if (userId == null) return OptionalLong.of(accounts.households().getFirst().id());
                     return accounts.accesses(userId).stream().mapToLong(fr.patria.account.Access::householdId).findFirst();
                 }
-            }, config.clock()).register(router);
+
+                @Override
+                public boolean welcomed(Long userId) {
+                    return accounts.welcomed(userId);
+                }
+
+                @Override
+                public boolean mustChangePassword(Long userId) {
+                    return userId != null && accounts.passwordToChange(userId).isPresent();
+                }
+
+                @Override
+                public void recorded(String login, Long userId, boolean success, String ip) {
+                    accounts.recordLogin(LocalDateTime.now(config.clock()), login, userId, success, ip);
+                    locator.lookUp(ip);
+                }
+            }, config.clock());
+            auth.register(router);
             new AccountController(accounts, sites, sessions, config.adminLogin(), config.clock()).register(router);
-            router.post("/administration/bien/{id}/foyer", request -> {
+            Path dataDirectory = config.databasePath().toAbsolutePath().getParent();
+            new fr.patria.account.SecurityController(accounts, sessions, locator, new fr.patria.account.SecurityController.Installation(
+                    config.encryptionKey() != null, config.offline(), auth::blocked, () -> backups(dataDirectory)), config.clock()).register(router);
+            new fr.patria.account.WelcomeController(accounts, config.encryptionKey() != null, config.clock()).register(router);
+            // Deplacer un bien : un gestionnaire des deux foyers (l'administrateur ne voit pas les biens).
+            router.userPost("/administration/bien/{id}/foyer", request -> {
                 long target;
                 try {
                     target = Long.parseLong(request.form().raw("foyer"));
@@ -176,7 +269,12 @@ public final class App implements AutoCloseable {
                     throw new fr.patria.common.ValidationException("Foyer invalide.");
                 }
                 long from = request.viewer().household().id();
-                if (target == from || accounts.household(target).isEmpty()) throw new fr.patria.common.ValidationException("Choisissez un autre foyer.");
+                if (!request.viewer().manages() || request.viewer().isAdministrator()) {
+                    throw new fr.patria.common.ForbiddenException("Seul un gestionnaire des deux foyers peut déplacer un bien.");
+                }
+                if (target == from || request.viewer().households().stream().noneMatch(household -> household.id() == target && household.managed())) {
+                    throw new fr.patria.common.ValidationException("Choisissez un autre foyer dont vous êtes gestionnaire.");
+                }
                 HouseholdSite source = sites.site(from);
                 if (source.properties.find(request.id()).isEmpty()) throw new NotFoundException("Bien introuvable", "Ce bien n'existe pas.");
                 long moved = PropertyMove.move(source.database, sites.file(accounts.household(from).orElseThrow()), sites.site(target).database, request.id());
@@ -189,31 +287,41 @@ public final class App implements AutoCloseable {
             server.createContext("/", router);
             server.setExecutor(executor);
             server.start();
-            return new App(server, executor, accountsDatabase, sites);
+            return new App(server, executor, accountsDatabase, sites, locator);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
     }
 
     /**
-     * Droits de la session : l'administrateur voit tout ; un utilisateur actif, les foyers et vues ouverts. Le foyer
-     * de la session est garde s'il est encore accessible, sinon le premier.
+     * Droits de la session : l'administrateur n'a aucune vue dans les foyers (le routeur ne lui en transmet aucune
+     * page) ; un utilisateur actif, les foyers et vues ouverts (tout le foyer s'il en est gestionnaire), avec « qui
+     * voit quoi » dans le foyer affiche. Le foyer de la session est garde s'il est encore accessible, sinon le premier.
      */
-    static Optional<Viewer> viewer(Session session, AccountRepository accounts) {
+    static Optional<Viewer> viewer(Session session, AccountRepository accounts, HouseholdDirectory directory) {
         if (session.isAdmin()) {
             List<Viewer.Household> households = accounts.households().stream().map(household -> new Viewer.Household(household.id(), household.name())).toList();
             if (households.isEmpty()) return Optional.empty();
-            Viewer.Household current = households.stream().filter(household -> household.id() == session.householdId()).findFirst().orElse(households.getFirst());
-            return Optional.of(Viewer.admin("Admin", current, households));
+            return Optional.of(Viewer.admin("Admin", households.getFirst(), households));
         }
         Optional<User> user = accounts.user(session.userId()).filter(User::active);
         if (user.isEmpty()) return Optional.empty();
         List<fr.patria.account.Access> accesses = accounts.accesses(session.userId());
         if (accesses.isEmpty()) return Optional.empty();
         fr.patria.account.Access access = accesses.stream().filter(candidate -> candidate.householdId() == session.householdId()).findFirst().orElse(accesses.getFirst());
-        List<Viewer.Household> households = accesses.stream().map(candidate -> new Viewer.Household(candidate.householdId(), candidate.householdName())).toList();
-        return Optional.of(new Viewer(session.userId(), user.get().name(), new Viewer.Household(access.householdId(), access.householdName()), households,
-                access.wholeHousehold(), access.members(), access.realEstate()));
+        List<Viewer.Household> households = accesses.stream()
+                .map(candidate -> new Viewer.Household(candidate.householdId(), candidate.householdName(), candidate.manager())).toList();
+        Viewer.Household current = new Viewer.Household(access.householdId(), access.householdName(), access.manager());
+        boolean mustChange = accounts.passwordToChange(session.userId()).isPresent();
+        Map<User, fr.patria.account.Access> shared = new java.util.LinkedHashMap<>();
+        accounts.accessesTo(access.householdId()).forEach((other, rights) -> {
+            if (other.active()) shared.put(other, rights);
+        });
+        Viewer.Audience audience = fr.patria.account.AudienceText.of(shared, directory.members(access.householdId()), session.userId(),
+                accounts.accessChanges(access.householdId(), accounts.audienceSeen(session.userId())));
+        if (access.manager()) return Optional.of(Viewer.manager(session.userId(), user.get().name(), current, households, mustChange, audience));
+        return Optional.of(new Viewer(session.userId(), user.get().name(), current, households,
+                access.wholeHousehold(), access.members(), access.realEstate(), false, mustChange, audience));
     }
 
     public int port() {
@@ -230,6 +338,7 @@ public final class App implements AutoCloseable {
             Thread.currentThread().interrupt();
             executor.shutdownNow();
         }
+        locator.close();
         sites.closeAll();
         accountsDatabase.close();
     }

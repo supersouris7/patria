@@ -50,7 +50,7 @@ Chaque bien affiche son prix au m² (valeur retenue ÷ surface, et cout d'acquis
 - zone : 500 m autour de l'adresse, elargie a 1 km, puis 2 km, puis a la commune tant qu'il y a moins de 30 ventes comparables ;
 - chaque vente est actualisee a aujourd'hui avec l'evolution des prix du departement ; les valeurs extremes sont ecartees ;
 - resultat : mediane et fourchette (1er et 3e quartiles), garde 30 jours, recalcule si l'adresse, le type ou la surface changent. Bouton « Actualiser » sur la fiche du bien ;
-- detail : « Voir les N ventes en detail » liste les ventes retenues pour la mediane (date, adresse, surface, prix, prix au m² actualise, distance), triables et filtrables, chacune avec un lien vers Google Maps (sur l'adresse) et vers la carte publique DVF (explore.data.gouv.fr), ainsi qu'un lien vers la carte centree sur le bien.
+- **Ventes du secteur** : sur la fiche du bien, une carte montre le nombre de ventes, leur repartition (graphique avec votre bien et la mediane) et les 5 ventes les plus comparables (surface proche, au plus pres, recentes). La page complete ajoute des filtres (periode, surface, distance), quatre ordres de tri, un plan des ventes autour du bien (dessine par Patria, sans service exterieur), un lien Google Maps et carte DVF par vente, et une synthese PDF.
 
 Le calcul se fait en arriere-plan (quelques secondes) a l'ouverture de la fiche du bien. Il necessite un acces internet sortant depuis le conteneur vers `api-adresse.data.gouv.fr`, `files.data.gouv.fr`, `tabular-api.data.gouv.fr` et, pour le taux du marche, `data-api.ecb.europa.eu`. Sans acces, le reste de l'application fonctionne normalement.
 
@@ -100,9 +100,9 @@ Les types autorises sont `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CON
 
 Les fichiers d'echeancier deja produits avec les en-tetes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres` et `capitalRestantDu` restent acceptes a l'import. Ces colonnes sont converties automatiquement vers le format canonique.
 
-## Assistant d'import
+## Guide de saisie
 
-L'icone Assistant de l'en-tete (etincelles) guide le remplissage d'un foyer, etape par etape, sans chercher dans les menus :
+L'icone Guide de saisie de l'en-tete (etincelles) guide le remplissage d'un foyer, etape par etape, sans chercher dans les menus :
 
 1. **Documents a rassembler** : bulletins de salaire, avis d'impot, releves bancaires, tableaux d'amortissement, avis de taxe fonciere, contrats et abonnements, garde d'enfants, transports... Chacun dit ou trouver le chiffre utile. Coche verte automatique quand l'information est deja dans Patria, sinon « J'ai ce document » ou « Pas concerne ».
 2. **Membres**, 3. **Revenus**, 4. **Logement** (locataire : loyer, charges, assurance habitation ; proprietaire : etapes suivantes).
@@ -110,7 +110,88 @@ L'icone Assistant de l'en-tete (etincelles) guide le remplissage d'un foyer, eta
 8. **Depenses fixes** : listes a cocher par theme (energie, telecom, medias et abonnements, enfants, deplacements recurrents, sante, assurances, credits, vie courante), avec montant, frequence, premier paiement et « pour qui ». Une ligne deja saisie apparait cochee et n'est pas reproposee. Raccourci : le prompt IA pour tout importer depuis les releves bancaires.
 9. **Impots** (prelevement a la source par personne, solde, acomptes), 10. **Virements** vers le compte joint, 11. **Repartition**, 12. **Recapitulatif**.
 
-Une ligne deja saisie n'est jamais recreee (meme en renvoyant une ancienne page), sauf les lignes qui se saisissent par personne (impot a la source, forfaits mobiles, mutuelle...), toujours proposees avec les saisies existantes. Deux periodes d'occupation d'un meme bien ne peuvent pas se chevaucher (le loyer compterait deux fois), dans l'assistant comme dans l'administration. Chaque etape explique ce qu'elle attend (depense fixe ou variable, ce que Patria reprend deja de l'immobilier pour eviter les doublons), peut etre **passee**, et se saisit sur place. « Reprendre » saute les etapes faites ou passees ; « Tout revoir » les repasse toutes avec ce qui est deja saisi (revue annuelle) ; « Recommencer a zero » efface la progression, pas les donnees. La progression est gardee par personne connectee (table `wizard_steps`, migration v13). Un utilisateur a sa propre version : documents, revenus, logement, depenses, impots et virements de ses membres, avec les memes droits que dans l'administration.
+Une ligne deja saisie n'est jamais recreee (meme en renvoyant une ancienne page), sauf les lignes qui se saisissent par personne (impot a la source, forfaits mobiles, mutuelle...), toujours proposees avec les saisies existantes. Deux periodes d'occupation d'un meme bien ne peuvent pas se chevaucher (le loyer compterait deux fois), dans l'assistant comme dans l'administration. Chaque etape explique ce qu'elle attend (depense fixe ou variable, ce que Patria reprend deja de l'immobilier pour eviter les doublons), peut etre **passee**, et se saisit sur place. « Reprendre » saute les etapes faites ou passees ; « Tout revoir » les repasse toutes avec ce qui est deja saisi (revue annuelle) ; « Recommencer a zero » efface la progression, pas les donnees. La progression est gardee par personne connectee (table `wizard_steps`, migration v13). Un assistant IA externe n'est utile que pour transformer des PDF en fichiers a importer (echeancier, releves) ; tout le reste se saisit a la main. Un utilisateur a sa propre version : documents, revenus, logement, depenses, impots et virements de ses membres, avec les memes droits que dans l'administration.
+
+## Revue annuelle
+
+Guide de saisie → « Revue annuelle » : ce qui change d'une annee sur l'autre, ligne par ligne. Pour chaque revenu et chaque depense recurrente : nouveau montant et date d'effet (l'ancien montant s'arrete la veille, la repartition est reprise) ou « Arretee » (abonnement resilie). Pour chaque bien (administrateur) : taxe fonciere de l'annee et nouvelle estimation si la derniere a plus d'un an. Un calendrier rappelle quoi mettre a jour chaque mois (salaires en janvier, taux du prelevement a la source en septembre, taxe fonciere en octobre...). Un bandeau sur le Previsionnel propose la revue quand la derniere a plus d'un an.
+
+## Bilan de sante
+
+L'icone coeur de l'en-tete ouvre un diagnostic automatique, avec un voyant (a corriger, a surveiller, bon a savoir, en bonne sante), une explication et un lien pour corriger :
+
+- **Finances** : reste a vivre, mois en deficit, taux d'endettement (HCSF), epargne de precaution (3 a 6 mois de depenses), part des depenses fixes, abonnements, salaires inchanges depuis plus d'un an ;
+- **Biens** : estimation ancienne, ecart au marche (plus ou moins 15 %), occupation non renseignee, rendement brut, part encore due, pret plus cher que le marche ;
+- **Impots** : prelevement a la source absent, taxe fonciere a saisir ou en forte hausse, loyers percus a declarer (seuil du micro-foncier), seuil de l'IFI.
+
+Un encart du Previsionnel resume les points a corriger ou a surveiller ; synthese PDF. Un utilisateur a le bilan de sa vue (et des biens s'il consulte l'immobilier). Reperes indicatifs : ils ne remplacent pas un conseiller.
+
+## Confidentialite
+
+La page « Confidentialite » (lien en pied de page et sur l'ecran de connexion) explique ce que Patria garde et ce qui sort du serveur :
+
+- toutes les donnees restent dans les bases SQLite du serveur ; aucun traceur, aucun service tiers dans les pages ; un seul cookie (session) ;
+- sortent seulement : l'adresse ou la commune d'un bien vers l'API Adresse de l'Etat et les codes de commune vers les fichiers DVF (prix du marche), une requete sans donnee personnelle vers la BCE (taux) ; Google Maps et la carte DVF seulement sur clic ;
+- `OFFLINE=true` coupe tous ces appels (plus de prix du marche ni de taux) ; les erreurs ne recopient pas l'adresse du bien dans les journaux.
+
+Assistants IA : pour importer un echeancier ou des releves, il faut un assistant IA externe ; Patria ne lui envoie rien, c'est l'utilisateur qui colle le prompt et joint ses documents. Chaque prompt interdit a l'IA de recopier les donnees identifiantes (nom, adresse, IBAN, numeros de compte, numero fiscal, de securite sociale, de contrat) et demande des libelles generiques ; l'encart a cote du bouton explique comment masquer les documents, couper l'historique, ou utiliser un modele local.
+
+Effacement : un foyer supprime est mis de cote sur le disque, puis efface definitivement depuis Administration → Foyers → Foyers supprimes ; seules les 3 dernieres copies « avant-migration » de chaque base sont gardees.
+
+Qui voit quoi : chaque utilisateur ne voit que ce qui le concerne (ses membres, et seulement si on les lui ouvre les totaux du foyer et l'immobilier). L'administrateur ne voit aucune donnee financiere ; chaque acces ouvert est visible par les comptes du foyer (voir « Foyers et utilisateurs »).
+
+### Chiffrement des bases
+
+Avec `DB_ENCRYPTION_KEY` (16 caracteres au moins) dans `.env`, toutes les bases sont chiffrees sur le disque (SQLite3 Multiple Ciphers, ChaCha20-Poly1305) : les foyers, `comptes.sqlite3`, les copies « avant-migration » et les foyers supprimes. Une installation existante est chiffree au premier demarrage avec la cle, sur place.
+
+```bash
+# Generer une cle et la mettre dans .env
+echo "DB_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> .env
+docker compose up -d
+```
+
+- **Gardez la cle en lieu sur, a part des sauvegardes** : sans elle, les bases sont illisibles et rien ne permet de les recuperer. Une cle fausse ou absente empeche Patria de demarrer (message explicite dans les journaux).
+- La cle peut aussi venir d'un fichier (`DB_ENCRYPTION_KEY_FILE=/run/secrets/patria_key`, secret Docker).
+- Le chiffrement protege un disque, un volume ou une sauvegarde voles. Il ne protege pas contre la personne qui administre le serveur : elle a la cle.
+- Changer de cle ou revenir en clair n'est pas prevu pour l'instant.
+
+## Passer en HTTPS
+
+En HTTP, le mot de passe, le cookie de session et toutes les donnees circulent en clair : toute personne sur le meme reseau (Wi-Fi public ou partage, box, reseau d'entreprise) peut les lire, ou ouvrir Patria a votre place pendant 12 heures avec le cookie. Patria le signale :
+
+- sur la page de connexion, un encadre rouge avant de taper le mot de passe ;
+- a l'ouverture de session, une fenetre rouge (« J'ai compris » la ferme pour la session ; elle revient a chaque connexion) ;
+- la page `/aide/https` (lisible sans connexion) reprend les explications et les liens.
+
+Pas d'alerte quand Patria est ouvert depuis le serveur lui-meme (`localhost`), ni derriere un reverse proxy qui envoie `X-Forwarded-Proto: https` (Caddy, Nginx Proxy Manager et Traefik le font).
+
+Avec Caddy (certificat Let's Encrypt automatique) : un nom de domaine qui pointe vers le serveur, ports 80 et 443 ouverts, puis dans `compose.yaml` :
+
+```yaml
+services:
+  patria:
+    # ... inchange : le port reste limite a 127.0.0.1
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+volumes:
+  patrimoine_data:
+  caddy-data:
+```
+
+et un fichier `Caddyfile` :
+
+```
+patria.example.fr {
+    reverse_proxy patria:8080
+}
+```
+
+Documentation : [Caddy, reverse proxy](https://caddyserver.com/docs/quick-starts/reverse-proxy), [Let's Encrypt](https://letsencrypt.org/fr/getting-started/), [Nginx Proxy Manager](https://nginxproxymanager.com/guide/), [Traefik et Let's Encrypt](https://doc.traefik.io/traefik/https/acme/), [Tailscale Serve](https://tailscale.com/kb/1312/serve) (acces a distance sans ouvrir de port).
 
 ## Syntheses PDF
 
@@ -126,20 +207,31 @@ La synthese reprend la vue affichee (foyer ou membre) et les droits de la person
 
 ## Foyers et utilisateurs
 
-**Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il voit et modifie tout. Le menu Administration a deux groupes :
+**Administrateur.** Il se connecte avec l'identifiant `admin` (ou `ADMIN_LOGIN`) et le mot de passe `APP_PASSWORD` de l'environnement. Il n'a pas de budget et **ne voit aucune donnee financiere** (ni revenus, ni depenses, ni biens) : son en-tete n'a que Foyers et Securite. Il est le seul a creer les comptes et a regler les droits. Ses pages :
 
-- **Comptes** : Foyers, Utilisateurs, Mon compte (valables pour tous les foyers) ;
-- **Foyer · nom du foyer affiche** : Membres, Revenus, Depenses, Virements, Biens et prets, Repartition (le contenu de ce foyer). Chaque page rappelle le foyer modifie.
+- **Securite** : connexions echouees (date, identifiant tente, adresse IP, pays et ville), adresses et identifiants bloques, derniere connexion et sessions ouvertes de chaque compte, mots de passe provisoires, journal des droits (comptes crees, acces ouverts ou retires, mots de passe reinitialises, foyers crees ou supprimes), etat de l'installation (HTTPS, chiffrement, mode hors ligne, sauvegardes, version). Journal des connexions garde 90 jours ; la localisation des IP est demandee a ipwho.is (seule l'adresse est envoyee), sauf en mode hors ligne.
+- **Foyers** : membres (noms seulement), comptes qui y ont acces, **avancement de la configuration** de chaque compte (pourcentage du Guide de saisie, etapes faites, passees, restantes, prochaine etape, derniere revue annuelle ; aucun montant), renommer, supprimer.
+- **Utilisateurs** et **Mon compte**.
 
-On cree d'abord un **foyer**, puis on le remplit :
+On cree d'abord un **foyer**, puis ses comptes :
 
-1. Administration → Foyers → « Nouveau foyer ». Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un foyer supprime n'est pas efface : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`.
-2. Dans la carte du foyer : « Ajouter le membre » (les personnes, puis le compte joint), puis « Gerer ce foyer » pour saisir revenus, depenses et biens.
-3. Pour qu'une personne se connecte : Utilisateurs → « Nouvel utilisateur », champ « Ce compte represente » (un membre existant, ou un nouveau membre a son nom). Le compte voit alors aussitot la vue de ce membre. Depuis Membres, le lien « Creer un compte » preremplit ce choix.
+1. Administration → Foyers → « Nouveau foyer ». Chaque foyer a sa propre base (`foyer-N.sqlite3`, a cote de DATABASE_PATH) : membres, revenus, depenses, virements, biens, prets, charges. La base existante est le foyer principal (il ne peut pas etre supprime). Un foyer supprime n'est pas efface tout de suite : sa base est renommee en `.supprime-AAAAMMJJ-HHMMSS`, puis peut etre effacee definitivement dans « Foyers supprimes ».
+2. Dans la carte du foyer : « Ajouter le membre » (les personnes, puis le compte joint).
+3. Utilisateurs → « Nouvel utilisateur », champ « Ce compte represente » (un membre existant, ou un nouveau membre a son nom). Pour la personne qui saisit tout, cocher ensuite **Gestionnaire du foyer** dans ses droits.
+
+**Passage a cette version.** Les donnees saisies jusqu'ici par l'administrateur ne bougent pas, mais il ne les voit plus. La page Foyers propose « foyers sans gestionnaire » : nom, identifiant et mot de passe provisoire du compte personnel (par exemple `william`), foyers a lui confier. Ce compte en devient gestionnaire, est relie au membre qui porte son nom, et reprend la progression du Guide de saisie de l'administrateur.
 
 Un **membre** est une personne du budget (ou un compte joint) ; un **utilisateur** est un compte de connexion. Un membre appartient a son foyer et n'en change pas. Un bien, lui, se deplace d'un foyer a l'autre depuis sa fiche d'administration (« Foyer du bien »), avec ses prets, echeanciers, apports, charges, occupation et prix du marche ; sa repartition entre membres repart a « parts egales ».
 
-Droits d'un utilisateur, pour chaque foyer (Utilisateurs → un utilisateur → Foyers et droits) : acces, vue « Foyer » (total de tous les membres), les membres qu'il represente ou suit (une personne, le compte joint...), consultation de l'immobilier. Identifiant, nom, mot de passe initial (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression.
+Droits d'un utilisateur, pour chaque foyer (Utilisateurs → un utilisateur → Foyers et droits) : acces, **gestionnaire du foyer**, vue « Foyer » (total de tous les membres), les membres qu'il represente ou suit (une personne, le compte joint...), consultation de l'immobilier. Identifiant, nom, mot de passe provisoire (8 caracteres au moins), compte actif ou non, reinitialisation du mot de passe, suppression.
+
+**Gestionnaire.** Un utilisateur gestionnaire d'un foyer y voit et saisit tout : membres, revenus, depenses, biens, prets, repartition, Guide de saisie, imports. Il ne cree pas de compte et ne regle pas les droits. Gestionnaire de deux foyers, il peut deplacer un bien de l'un a l'autre.
+
+**Transparence.** Comme il cree les comptes, l'administrateur pourrait s'en creer un et se l'ouvrir. Patria le rend donc visible :
+
+- une icone d'information jaune a cote du foyer, dans l'en-tete, dit qui voit quoi : « Paul et Camille ont acces aux informations du compte joint », « Seul vous pouvez voir les informations de Paul », « Gestion gere tout le foyer », « Immobilier : ... » ;
+- une pastille signale les acces ouverts, modifies ou retires depuis la derniere lecture (« 05/11/2026 · Jules : acces ouvert (totaux du foyer) »), jusqu'a « J'ai vu » ;
+- un mot de passe choisi par l'administrateur (creation du compte, reinitialisation) est provisoire : il faut le changer avant toute autre page, et Patria dit que l'administrateur l'a choisi, et quand. L'administrateur ne connait donc jamais le mot de passe en usage.
 
 **Utilisateur.** Il ne voit que les foyers ouverts (selecteur dans l'en-tete s'il en a plusieurs) et, dans chacun, les onglets ouverts dans Previsionnel et Budget moyen. Dans Administration, il a Revenus, Depenses, Virements et Mon compte :
 
@@ -147,9 +239,11 @@ Droits d'un utilisateur, pour chaque foyer (Utilisateurs → un utilisateur → 
 - il ajoute, modifie et supprime celles qui ne concernent que ses vues ; une ligne partagee avec un autre membre s'ouvre en lecture seule (« Voir ») ;
 - les liens du budget ne menent qu'aux pages qu'il peut ouvrir ;
 - « parts egales » se repartit entre ses membres seulement ;
-- pas de gestion des membres, des biens, de la repartition, des foyers ni des utilisateurs ; l'immobilier en lecture seule, s'il est ouvert.
+- pas de gestion des membres, des biens ni de la repartition (sauf gestionnaire), jamais des foyers ni des utilisateurs ; l'immobilier en lecture seule, s'il est ouvert.
 
 Il change son mot de passe dans « Mon compte » (icone de l'en-tete, ou Administration → Mon compte sur smartphone). Desactiver un compte, le supprimer ou reinitialiser son mot de passe le deconnecte aussitot.
+
+**Premiere connexion.** Chaque compte (administrateur compris) voit d'abord un accueil en quatre ecrans, avec « Suivant » : ce que fait Patria, pour qui (famille, proches, amis), la confidentialite (auto-heberge, chiffrement, appels exterieurs), et le soutien au developpement. Il ne revient pas ensuite, sauf depuis « Mon compte » → « Revoir l'accueil ». Ensuite, tant que le Guide de saisie n'est pas termine, un encadre jaune du Previsionnel indique « Configuration terminee a x % », avec « Terminer les imports » et « Ignorer ».
 
 Les foyers, utilisateurs et droits sont dans `comptes.sqlite3`, a cote de DATABASE_PATH (mots de passe chiffres avec bcrypt). Pour une sauvegarde, copier tout le volume de donnees.
 
@@ -159,7 +253,7 @@ Le code est organise en modules (biens, prets, apports, patrimoine) au-dessus d'
 
 ## Mise a jour et migrations
 
-Au demarrage, le schema de la base est mis a jour automatiquement. Avant toute migration, une copie complete est ecrite a cote de la base (`immobilier.sqlite3.avant-migration-vN-AAAAMMJJ-HHMMSS`, dans le volume `patrimoine_data`). Ces copies peuvent etre supprimees une fois la nouvelle version verifiee.
+Au demarrage, le schema de la base est mis a jour automatiquement. Avant toute migration, une copie complete est ecrite a cote de la base (`immobilier.sqlite3.avant-migration-vN-AAAAMMJJ-HHMMSS`, dans le volume `patrimoine_data`). Seules les 3 dernieres copies de chaque base sont gardees.
 
 Le service repond `ok` sur `/sante` (sans authentification) pour la supervision.
 
@@ -173,7 +267,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-L'application est disponible sur `http://127.0.0.1:8101` par defaut. Le service n'ecoute que localement : placer un reverse proxy HTTPS devant lui pour l'exposer sur le reseau. Les donnees restent dans le volume Docker `patrimoine_data` lorsque le conteneur est arrete. Ce nom est conserve afin de reutiliser la base des versions Python precedentes.
+L'application est disponible sur `http://127.0.0.1:8101` par defaut. Le service n'ecoute que localement : placer un reverse proxy HTTPS devant lui pour l'exposer sur le reseau (voir « Passer en HTTPS »). Les donnees restent dans le volume Docker `patrimoine_data` lorsque le conteneur est arrete. Ce nom est conserve afin de reutiliser la base des versions Python precedentes.
 
 Commandes utiles :
 
@@ -196,6 +290,12 @@ DATABASE_PATH=./patria.sqlite3 java -Xms16m -Xmx96m -jar target/patria.jar
 ```
 
 La base de developpement est definie par `DATABASE_PATH` ; sa valeur par defaut est `/data/immobilier.sqlite3`. Le port d'ecoute est `HTTP_PORT` (8080 par defaut). La variable `PORT` du fichier `.env` ne concerne que le port publie par Docker Compose.
+
+Le pied de page affiche la version et le commit de l'installation : `mvn package -Dgit.commit=$(git rev-parse HEAD)` en local ; l'image Docker recoit le commit par `--build-arg GIT_COMMIT=...` (la CI le fait).
+
+## Soutenir le developpement
+
+Patria est gratuit et sans publicite. Un lien « Soutenir Patria » (Ko-fi) est affiche en pied de page et a la fin de l'accueil. C'est un simple lien : aucune page ne charge de script ni d'image depuis ko-fi.com. `KOFI_URL=https://ko-fi.com/<nom>` choisit la page ; `KOFI_URL=` (vide) masque le lien.
 
 ## Publication Docker Hub
 

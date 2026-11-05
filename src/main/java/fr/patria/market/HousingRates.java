@@ -40,13 +40,16 @@ public final class HousingRates {
     private final AtomicBoolean fetching = new AtomicBoolean();
     private volatile HousingRate current;
     private volatile long nextAttempt;
+    private boolean offline;
 
-    public HousingRates(Clock clock) {
-        this(HousingRates::download, clock, Executors.newSingleThreadExecutor(runnable -> {
+    /** {@code offline} : aucun appel a la BCE (OFFLINE=true) ; la comparaison des taux n'est pas affichee. */
+    public HousingRates(Clock clock, boolean offline) {
+        this(offline ? () -> { throw new IOException("Mode hors ligne"); } : HousingRates::download, clock, Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "patria-taux");
             thread.setDaemon(true);
             return thread;
         }));
+        this.offline = offline;
     }
 
     HousingRates(Source source, Clock clock, Executor background) {
@@ -57,6 +60,7 @@ public final class HousingRates {
 
     /** Dernier taux connu ; vide tant qu'aucun n'a pu etre telecharge. */
     public Optional<HousingRate> current() {
+        if (offline) return Optional.empty();
         if (clock.millis() >= nextAttempt && fetching.compareAndSet(false, true)) {
             background.execute(this::refresh);
         }

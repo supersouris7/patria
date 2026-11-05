@@ -11,10 +11,12 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Commit affiche en pied de page : mvn package -Dgit.commit=$(git rev-parse HEAD) (l'image Docker le recoit en argument). -->
+        <git.commit>dev</git.commit>
     </properties>
 
     <dependencies>
-        <dependency><groupId>org.xerial</groupId><artifactId>sqlite-jdbc</artifactId><version>3.49.1.0</version></dependency>
+        <dependency><groupId>io.github.willena</groupId><artifactId>sqlite-jdbc</artifactId><version>3.51.3.0</version></dependency>
         <dependency><groupId>org.mindrot</groupId><artifactId>jbcrypt</artifactId><version>0.4</version></dependency>
         <dependency><groupId>com.github.librepdf</groupId><artifactId>openpdf</artifactId><version>2.0.3</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.11.4</version><scope>test</scope></dependency>
@@ -22,6 +24,11 @@
 
     <build>
         <finalName>patria</finalName>
+        <resources>
+            <resource><directory>src/main/resources</directory></resource>
+            <!-- Seul ce dossier est filtre (version, commit) : les images et polices ne doivent pas l'etre. -->
+            <resource><directory>src/main/build-info</directory><filtering>true</filtering></resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

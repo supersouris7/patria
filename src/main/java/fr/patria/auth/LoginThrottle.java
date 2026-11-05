@@ -42,6 +42,14 @@ final class LoginThrottle {
         failures.remove("login:" + normalize(login));
     }
 
+    /** Adresses et identifiants bloques en ce moment : « adresse 1.2.3.4 », « identifiant paul ». */
+    java.util.List<String> blocked() {
+        return failures.entrySet().stream().filter(entry -> !expired(entry.getValue()))
+                .filter(entry -> entry.getValue().count() >= (entry.getKey().startsWith("ip:") ? MAX_FAILURES : MAX_FAILURES_PER_LOGIN))
+                .map(entry -> entry.getKey().startsWith("ip:") ? "adresse " + entry.getKey().substring(3) : "identifiant " + entry.getKey().substring(6))
+                .sorted().toList();
+    }
+
     private static String normalize(String login) {
         return login == null ? "" : login.trim().toLowerCase(java.util.Locale.ROOT);
     }

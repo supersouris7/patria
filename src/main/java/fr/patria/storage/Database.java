@@ -19,30 +19,56 @@ public final class Database implements AutoCloseable {
 
     private final Path path;
     private final Connection connection;
+    /** Cle de chiffrement, pour attacher une autre base chiffree avec la meme cle ; {@code null} : bases en clair. */
+    private final String key;
     private final ReentrantLock lock = new ReentrantLock();
 
-    private Database(Path path, Connection connection) {
+    private Database(Path path, Connection connection, String key) {
         this.path = path;
         this.connection = connection;
+        this.key = key;
     }
 
+    /** Base en clair (tests, ou DB_ENCRYPTION_KEY absente). */
     public static Database open(Path path) {
+        return open(path, null);
+    }
+
+    /**
+     * Ouvre la base, chiffree avec {@code key} si elle n'est pas nulle ; une base existante encore en clair est
+     * alors chiffree d'abord. Une base chiffree ouverte sans la bonne cle est refusee avec un message clair.
+     */
+    public static Database open(Path path, String key) {
         try {
             Class.forName("org.sqlite.JDBC");
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath());
+            if (key != null && Encryption.isPlain(path)) Encryption.encrypt(path, key);
+            Connection connection = key == null ? DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath())
+                    : DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath(), Encryption.properties(key));
             try (Statement statement = connection.createStatement()) {
                 statement.execute("PRAGMA foreign_keys = ON");
                 statement.execute("PRAGMA busy_timeout = 5000");
                 statement.execute("PRAGMA journal_mode = WAL");
             }
-            return new Database(path, connection);
-        } catch (ClassNotFoundException | SQLException exception) {
+            return new Database(path, connection, key);
+        } catch (SQLException exception) {
+            if (exception.getMessage() != null && exception.getMessage().contains("SQLITE_NOTADB")) {
+                throw new IllegalStateException("La base " + path.getFileName() + " est chiffrée, ou n'est pas une base SQLite : DB_ENCRYPTION_KEY est "
+                        + (key == null ? "absente." : "différente de celle utilisée pour la chiffrer."), exception);
+            }
+            throw new IllegalStateException("Impossible d'ouvrir la base " + path + ".", exception);
+        } catch (ClassNotFoundException exception) {
             throw new IllegalStateException("Impossible d'ouvrir la base " + path + ".", exception);
         }
     }
 
     public Path path() {
         return path;
+    }
+
+    /** {@code ATTACH DATABASE} d'une autre base de l'installation, avec la cle si les bases sont chiffrees. */
+    public String attachStatement(Path file, String alias) {
+        String sql = "ATTACH DATABASE '" + file.toAbsolutePath().toString().replace("'", "''") + "' AS " + alias;
+        return key == null ? sql : sql + " KEY '" + key.replace("'", "''") + "'";
     }
 
     /** Lecture ou ecriture simple. */

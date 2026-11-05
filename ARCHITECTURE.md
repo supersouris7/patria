@@ -12,7 +12,8 @@ fr.patria
 ├─ HouseholdSite ........... un foyer : sa base SQLite, ses dépôts, ses contrôleurs et son routeur
 │
 ├─ account ................. COMPTES : foyers, utilisateurs, droits (base comptes.sqlite3), Mon compte
-├─ wizard .................. ASSISTANT : import guidé par étapes (documents, listes à cocher, progression)
+├─ wizard .................. GUIDE DE SAISIE : import guidé par étapes, revue annuelle
+├─ health .................. BILAN DE SANTÉ : diagnostic des finances, des biens et des impôts (lecture seule)
 │
 ├─ budget .................. BUDGET : accueil, prévisionnel des 12 mois (reprend l'immobilier), dépenses du foyer
 ├─ household ............... FOYER : personnes, revenus, répartition entre les personnes (Shares)
@@ -45,6 +46,7 @@ fr.patria
 | `portfolio` | modules immobiliers ci-dessus |
 | `budget` | modules immobiliers + `household` |
 | `wizard` | modules immobiliers + `household` + `budget` |
+| `health` | modules immobiliers + `household` + `budget` + `portfolio` |
 
 Ces règles sont **vérifiées par un test** (`ArchitectureTest`). Un import interdit fait échouer le build.
 Pour ajouter un module ou une dépendance, il faut le déclarer dans ce test : c'est un choix explicite.
@@ -85,12 +87,27 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 
 - **Isolation des foyers** : chaque foyer a sa base et son jeu complet de dépôts et de contrôleurs (`HouseholdSite`).
   Une requête ne peut donc lire que le foyer de la session ; aucune requête SQL n'a de filtre « foyer ».
-- **Niveau de la route** (`Router.Access`) : `get`/`post` sont réservées à l'administrateur **par défaut** ;
-  `userGet`/`userPost` ouvrent une page aux utilisateurs ; `estateGet` à ceux qui consultent l'immobilier.
+- **Niveau de la route** (`Router.Access`) : `get`/`post` sont réservées **par défaut** : sur le routeur
+  principal (foyers, utilisateurs, déplacement d'un bien) à l'administrateur de l'application
+  (`Viewer.isAdministrator()`), sur le routeur d'un foyer à qui le gère (`Viewer.manages()` : l'administrateur, ou
+  un utilisateur **gestionnaire** de ce foyer) ; `userGet`/`userPost` ouvrent une page aux utilisateurs ;
+  `estateGet` à ceux qui consultent l'immobilier.
+- **L'administrateur ne voit aucune donnée des foyers** : `Viewer.admin` n'a ni vue ni gestion ; le routeur
+  principal ne lui transmet aucune page d'un foyer (`/` et `/administration` le renvoient à Foyers, le reste en 403).
+  Il gère seul les comptes et les droits (routes `get`/`post` du routeur principal). Les données se saisissent avec
+  un compte **gestionnaire** (`Access.manager`).
+- **Transparence** : comme il crée les comptes, l'administrateur pourrait s'en ouvrir un. Chaque changement de droits
+  est donc inscrit dans `audit_log` (page Sécurité) et montré aux comptes du foyer : icône « qui voit quoi » de
+  l'en-tête (`account/AudienceText`, calculée par `App.viewer`), avec les changements depuis la dernière lecture.
+  Un mot de passe choisi par l'administrateur (création, réinitialisation) est marqué `must_change_password` : le
+  routeur n'ouvre aucune autre page avant qu'il soit changé (`/compte/nouveau-mot-de-passe`), et la page dit qui
+  l'a choisi et quand.
 - **Lignes** : sur une route ouverte, le contrôleur filtre avec `household/Visibility` (à partir de
   `Request.viewer()`) : ligne visible si un de ses membres a sa vue ouverte, modifiable si tous l'ont.
 - **En-tête** : `Layout.CHROME` (posé par le routeur le temps de la requête) donne le nom, les foyers et les
-  rubriques permises ; `Layout.isAdmin()` masque les actions réservées dans les pages partagées.
+  rubriques permises ; `Layout.manages()` masque les actions réservées dans les pages partagées,
+  `Layout.canOpen(href)` les liens qui mèneraient à « Accès réservé ». Il porte aussi l'alerte HTTP
+  (`insecure`, fenêtre de `ui/SecurityPages`).
 
 ## Où se trouve quoi
 
@@ -117,9 +134,19 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyCharges` ; taxe foncière mensualisée (10 prélèvements, janvier à octobre) : table `property_tax_monthly` (migration v10), choisie dans les charges du bien ; payeur de la taxe foncière (compte joint, personne) : table `property_tax_payers` (migration v11), choisi dans Administration → Répartition, appliqué par `Forecast.month` |
 | Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu par `App.viewer` ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
 | Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée dans `App` |
-| Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite |
+| Où est la base d'un foyer ? | `App.Sites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite (toutes au démarrage avec DB_ENCRYPTION_KEY) |
+| Qui gère un foyer ? | `account/Access.manager` (case « Gestionnaire du foyer »), lu par `App.viewer` (`Viewer.manager`) ; reprise des foyers sans gestionnaire : `AccountController.takeOver` |
+| Où sont les connexions et le journal des droits ? | tables `login_events` (90 jours) et `audit_log` de `comptes.sqlite3`, écrites par `AuthController.Users.recorded` et `AccountController.audit` ; page `account/SecurityController` (`/administration/securite`) ; pays et ville : `account/IpLocator` (cache `ip_locations`) |
+| D'où vient « qui voit quoi » ? | `account/AudienceText` (phrases), changements : `AccountRepository.accessChanges` depuis `users.audience_seen_at` ; icône : `Layout.audience` |
+| Comment sont chiffrées les bases ? | `storage/Encryption`, `storage/Database.open(path, key)` ; clé lue par `Config` (DB_ENCRYPTION_KEY ou DB_ENCRYPTION_KEY_FILE) |
+| D'où vient l'alerte HTTP ? | `web/Router.insecure` (ni X-Forwarded-Proto https, ni localhost), lue une fois par session (`Session.httpAcknowledged`) ; fenêtre et aide `/aide/https` : `ui/SecurityPages` |
+| Où est l'accueil de la première connexion ? | `account/WelcomeController`, `account/WelcomePages` ; vu ou non : `users.welcomed_on`, `settings` pour l'administrateur |
+| D'où viennent la version et le commit du pied de page ? | `ui/BuildInfo`, fichier filtré `src/main/build-info/patria-build.properties` (`-Dgit.commit=...`, argument Docker `GIT_COMMIT`) ; lien Ko-fi : `Config.supportUrl` (KOFI_URL) |
 | D'où vient le taux du marché affiché à côté des prêts ? | `market/HousingRates` (BCE, série MIR France, taux fixe plus de 10 ans) ; comparaison et repère de renégociation calculés par `loan/Renegotiation` (fonctions pures) |
 | Où sont les étapes et les listes de l'assistant ? | `wizard/Step` (ordre, étapes réservées), `wizard/Documents` (documents et coches automatiques), `wizard/Checklist` (dépenses par thème) ; progression dans `wizard/WizardRepository` (tables `wizard_steps`, `wizard_documents`, migration v13) |
+| Où sont les règles du bilan de santé ? | `health/HealthChecks` (fonctions pures, seuils dans les explications) ; vue de la personne par `budget/BudgetScope` |
+| Comment le Prévisionnel affiche-t-il les rappels ? | `BudgetController.withHomeExtras`, branché dans `HouseholdSite` : progression du guide (`WizardController.progress`), revue annuelle (`WizardController.reminder`) et bilan (`HealthController.summary`) |
+| Où sont filtrées et triées les ventes du secteur ? | `market/SalesAnalysis` (filtres, « les plus comparables », médiane), graphiques `market/SalesChart`, carte de la fiche `market/SalesCard` |
 | Comment sont produites les synthèses PDF ? | `ui/PdfReport` (mise en page A4 commune, OpenPDF, polices standard) ; contenu par `budget/BudgetReports`, `portfolio/PortfolioReports`, `loan/LoanReports` ; routes `*.pdf` dans les contrôleurs de chaque page |
 | Comment est dessiné le graphique ? | `budget/BudgetChart` (SVG côté serveur, palette validée dans `patria.css`) |
 | Comment est calculé l'enrichissement réel ? | `portfolio/Portfolio.returns` |
@@ -144,6 +171,19 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 Ne jamais modifier une migration déjà publiée. Avant toute migration d'une base existante, une copie complète
 est faite à côté du fichier : `immobilier.sqlite3.avant-migration-vN-AAAAMMJJ-HHMMSS`.
 
+La base des comptes (`comptes.sqlite3`) a ses propres versions, dans `AccountRepository.migrate` (v2 : foyer
+gestionnaires, accueil de la première connexion, mot de passe provisoire, journaux des connexions et des droits,
+localisation des adresses IP).
+
+### Chiffrement
+
+`storage/Encryption` (pilote `io.github.willena:sqlite-jdbc`, SQLite3 Multiple Ciphers, ChaCha20) : avec
+DB_ENCRYPTION_KEY, `Database.open(path, key)` chiffre sur place une base encore en clair, puis l'ouvre avec la
+clé ; au démarrage, `App` chiffre les copies « avant-migration » et les foyers supprimés, et ouvre toutes les bases.
+`VACUUM INTO` (copies avant migration) écrit une copie chiffrée avec la même clé ; `Database.attachStatement`
+ajoute la clé à un `ATTACH` (déplacement d'un bien). Une base chiffrée ouverte sans la bonne clé est refusée au
+démarrage avec un message explicite.
+
 ## Interface
 
 - `ui/Html` : tout texte inséré dans un gabarit est **échappé automatiquement**. Seul un objet `Html` est
@@ -165,13 +205,21 @@ Ajouter une page « Charges » à un bien :
 
 ## Appels réseau
 
-Seul le module `market` appelle l'extérieur : `MarketData` (implémentée par `DataGouvClient`, data.gouv.fr) et
+Le module `market` appelle l'extérieur : `MarketData` (implémentée par `DataGouvClient`, data.gouv.fr) et
 `HousingRates` (taux moyen des crédits immobiliers, API publique de la BCE, gardé en mémoire et rafraîchi chaque jour,
 partagé par tous les foyers).
 Ces appels ne bloquent jamais une page : le calcul est lancé en arrière-plan par `MarketService`, la fiche du bien
 affiche l'ancien résultat ou « calcul en cours » et se recharge quand il est terminé (`app.js`). La vue d'ensemble
 lit seulement le résultat en base. Une panne de data.gouv.fr n'efface pas un résultat valable ; l'indice
 départemental (API lente) est facultatif : sans lui, le prix est affiché « non actualisé » et recalculé le lendemain.
+
+Hors du module `market`, `account/IpLocator` demande à ipwho.is (HTTPS, sans clé) le pays et la ville des adresses
+IP du journal des connexions : seule l'adresse est envoyée, une fois, en arrière-plan ; le résultat est gardé dans
+`ip_locations`. Les adresses locales ne sont jamais envoyées.
+
+`OFFLINE=true` coupe tous ces appels (`MarketService` et `HousingRates` en mode hors ligne). Les messages d'erreur
+n'incluent jamais les paramètres d'URL (l'adresse d'un bien). La page publique `/confidentialite` (`ui/PrivacyPage`)
+décrit ces flux pour les utilisateurs.
 
 L'image Docker est construite avec `jlink` : tout module JDK nécessaire doit figurer dans le `Dockerfile`
 (`java.net.http` et `jdk.crypto.ec` pour HTTPS, `jdk.localedata` pour les formats français, `java.desktop` et

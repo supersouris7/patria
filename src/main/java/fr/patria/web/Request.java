@@ -97,6 +97,10 @@ public final class Request {
         return remote.getHostAddress();
     }
 
+    HttpExchange exchange() {
+        return exchange;
+    }
+
     public boolean isHttps() {
         return "https".equalsIgnoreCase(header("X-Forwarded-Proto"));
     }

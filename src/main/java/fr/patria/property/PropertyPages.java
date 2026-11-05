@@ -58,11 +58,11 @@ final class PropertyPages {
         return Layout.adminPage("Modifier · " + property.name() + " · Patria", csrf, PropertyNav.of(property, PropertyNav.Tab.INFORMATION), content);
     }
 
-    /** Deplacer le bien dans un autre foyer (a partir de deux foyers). */
+    /** Deplacer le bien dans un autre foyer dont la personne connectee est aussi gestionnaire. */
     private static Html moveCard(Property property, String csrf) {
         Layout.Chrome chrome = Layout.CHROME.get();
-        if (chrome == null || !chrome.admin()) return Html.EMPTY;
-        List<Components.Option> others = chrome.households().stream().filter(choice -> choice.id() != chrome.household())
+        if (chrome == null || !chrome.manages()) return Html.EMPTY;
+        List<Components.Option> others = chrome.households().stream().filter(choice -> choice.id() != chrome.household() && choice.managed())
                 .map(choice -> new Components.Option(String.valueOf(choice.id()), choice.name())).toList();
         if (others.isEmpty()) return Html.EMPTY;
         String current = chrome.households().stream().filter(choice -> choice.id() == chrome.household()).map(Layout.Choice::name).findFirst().orElse("");

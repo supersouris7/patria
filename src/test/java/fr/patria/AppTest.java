@@ -61,14 +61,19 @@ class AppTest {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Connexion avec un compte gestionnaire du foyer principal (l'administrateur ne voit pas les finances). */
     private String login() throws Exception {
-        HttpResponse<String> logged = post("/connexion", "password=secret");
-        assertEquals(303, logged.statusCode());
-        sessionCookie = logged.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
-        HttpResponse<String> home = get("/");
-        Matcher csrf = Pattern.compile("name=\"csrf\" value=\"([^\"]+)\"").matcher(home.body());
-        assertTrue(csrf.find(), () -> home.statusCode() + " " + home.headers().map() + " " + home.body());
-        return csrf.group(1);
+        TestAccounts.Visitor manager = TestAccounts.manager(client, base);
+        sessionCookie = manager.cookie();
+        return manager.csrf();
+    }
+
+    @Test
+    void privacyPageIsPublic() throws Exception {
+        HttpResponse<String> page = get("/confidentialite");
+        assertEquals(200, page.statusCode(), "lisible avant connexion");
+        assertTrue(page.body().contains("Ce qui sort du serveur") && page.body().contains("Masquez avant d'envoyer"));
+        assertTrue(get("/connexion").body().contains("href=\"/confidentialite\""), "lien depuis la connexion");
     }
 
     @Test
@@ -107,9 +112,17 @@ class AppTest {
         }
         assertTrue(get("/").body().contains("href=\"/previsionnel.pdf\""), "bouton d'export");
         String header = get("/").body();
-        assertTrue(header.contains("aria-label=\"Assistant\"") && header.contains("aria-label=\"Administration\""), "icônes Assistant et Administration");
-        assertTrue(header.indexOf("aria-label=\"Assistant\"") < header.indexOf("aria-label=\"Administration\""), "Assistant avant la roue crantée");
+        assertTrue(header.contains("aria-label=\"Guide de saisie\"") && header.contains("aria-label=\"Administration\""), "icônes Guide de saisie et Administration");
+        assertTrue(header.indexOf("aria-label=\"Guide de saisie\"") < header.indexOf("aria-label=\"Administration\""), "Guide avant la roue crantée");
+        assertTrue(header.contains("href=\"/confidentialite\""), "lien Confidentialité en pied de page");
         assertEquals(200, get("/assistant").statusCode());
+        assertTrue(header.contains("aria-label=\"Bilan de santé\""), "icône Bilan de santé");
+        String health = get("/bilan").body();
+        assertTrue(health.contains("Bilan de santé") && health.contains("health-item"), "bilan calculé");
+        assertTrue(get("/bilan.pdf").body().startsWith("%PDF"));
+        assertEquals(200, get("/assistant/revue-annuelle").statusCode());
+        assertEquals(404, get(propertyPath + "/marche/ventes.pdf").statusCode(), "pas de ventes calculées dans le test");
+        assertEquals(200, get(propertyPath + "/marche/ventes?periode=abc&surface_min=-3&tri=xx").statusCode(), "filtres illisibles ignorés");
         assertTrue(get("/administration/depenses").body().contains("data-copy=\"prompt-depenses\""), "prompt IA des dépenses");
         HttpResponse<String> sales = get(propertyPath + "/marche/ventes");
         assertEquals(200, sales.statusCode());
@@ -346,7 +359,8 @@ class AppTest {
         assertEquals("/connexion?erreur&suite=%2Fbudget%3Fpersonne%3D2",
                 post("/connexion", "password=faux&suite=%2Fbudget%3Fpersonne%3D2").headers().firstValue("Location").orElseThrow());
         assertEquals("/budget?personne=2", post("/connexion", "password=secret&suite=%2Fbudget%3Fpersonne%3D2").headers().firstValue("Location").orElseThrow());
-        assertEquals("/", post("/connexion", "password=secret&suite=%2F%2Fexemple.fr").headers().firstValue("Location").orElseThrow());
+        assertEquals("/bienvenue", post("/connexion", "password=secret&suite=%2F%2Fexemple.fr").headers().firstValue("Location").orElseThrow(),
+                "adresse extérieure ignorée : accueil de la première connexion");
     }
 
     @Test

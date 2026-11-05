@@ -65,9 +65,17 @@ public final class MarketService {
     private final Map<String, CachedIndex> indexes = new ConcurrentHashMap<>();
 
     public MarketService(Database database, Clock clock) {
+        this(database, clock, false);
+    }
+
+    /** {@code offline} : aucun appel a data.gouv.fr (OFFLINE=true) ; la fiche du bien l'indique, sans prix du marche. */
+    public MarketService(Database database, Clock clock, boolean offline) {
         this(new DataGouvClient(), new MarketRepository(database), clock, Executors.newSingleThreadExecutor(MarketService::daemon),
                 Executors.newVirtualThreadPerTaskExecutor());
+        this.offline = offline;
     }
+
+    private boolean offline;
 
     /** {@code background} execute les calculs ; en test, {@code Runnable::run} les rend synchrones. */
     MarketService(MarketData data, MarketRepository repository, Clock clock, Executor background, Executor downloads) {
@@ -95,6 +103,11 @@ public final class MarketService {
      */
     public Optional<MarketPrice> forProperty(Property property) {
         if (property.address().isBlank() && property.commune().isBlank()) return Optional.empty();
+        if (offline) {
+            return Optional.of(MarketPrice.failure(property.id(), fingerprint(property), today(), MarketPrice.Status.UNAVAILABLE,
+                    "Mode hors ligne (OFFLINE=true) : Patria n'appelle pas les services publics, l'adresse du bien ne quitte pas le serveur. "
+                            + "Pas de prix du marché ni d'actualisation de l'estimation."));
+        }
         Optional<MarketPrice> current = currentFor(property);
         if (current.isEmpty() || !isFresh(current.get())) {
             refreshInBackground(property);
@@ -120,7 +133,7 @@ public final class MarketService {
 
     /** Recalcul en arriere-plan (bouton « Actualiser » ou resultat perime). */
     public void refreshInBackground(Property property) {
-        if (!computing.add(property.id())) return;
+        if (offline || !computing.add(property.id())) return;
         background.execute(() -> {
             try {
                 MarketPrice previous = repository.find(property.id()).orElse(null);
@@ -240,7 +253,7 @@ public final class MarketService {
         return citycode.startsWith("97") ? citycode.substring(0, 3) : citycode.substring(0, 2);
     }
 
-    private LocalDate today() {
+    public LocalDate today() {
         return LocalDate.now(clock);
     }
 

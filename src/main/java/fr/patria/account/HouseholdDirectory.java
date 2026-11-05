@@ -19,6 +19,28 @@ public interface HouseholdDirectory {
      */
     void forgetUser(long userId);
 
+    /** Base d'un foyer supprime, mise de cote sur le disque ({@code name} : nom du fichier). */
+    record Archive(String name, java.time.LocalDateTime deletedOn, long bytes) {
+    }
+
+    /** Bases des foyers supprimes, les plus recentes d'abord. */
+    List<Archive> archives();
+
+    /** Efface definitivement une base mise de cote (et ses fichiers de journal). */
+    void purge(String name);
+
+    /** Avancement du guide de saisie d'un compte dans un foyer : etapes, jamais de donnee saisie. */
+    record Progress(int done, int skipped, int total, String next, java.time.LocalDate reviewedOn) {
+        public int percent() {
+            return total == 0 ? 100 : (done + skipped) * 100 / total;
+        }
+    }
+
+    Progress progress(long householdId, long userId, boolean manager);
+
+    /** La progression de l'administrateur dans ce foyer passe a ce compte (reprise du foyer). */
+    void transferFromAdministrator(long householdId, long userId);
+
     /** Cree et initialise la base d'un nouveau foyer. */
     void created(Household household);
 

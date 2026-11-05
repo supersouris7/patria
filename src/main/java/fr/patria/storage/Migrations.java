@@ -464,6 +464,32 @@ public final class Migrations {
             statement.execute();
         }
         LOG.info("Sauvegarde avant migration : " + target);
+        pruneBackups(database.path().toAbsolutePath(), KEPT_BACKUPS);
+    }
+
+    /** Copies « avant-migration » gardees par base : les plus recentes, les autres sont effacees. */
+    static final int KEPT_BACKUPS = 3;
+
+    /** Efface les copies « avant-migration » les plus anciennes de cette base, pour n'en garder que {@code keep}. */
+    static void pruneBackups(java.nio.file.Path database, int keep) {
+        java.nio.file.Path directory = database.getParent();
+        String prefix = database.getFileName() + ".avant-migration-v";
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(directory)) {
+            java.util.List<java.nio.file.Path> backups = files.filter(file -> file.getFileName().toString().startsWith(prefix))
+                    .sorted(java.util.Comparator.comparing((java.nio.file.Path file) -> {
+                        try {
+                            return java.nio.file.Files.getLastModifiedTime(file);
+                        } catch (java.io.IOException exception) {
+                            return java.nio.file.attribute.FileTime.fromMillis(0);
+                        }
+                    }).thenComparing(file -> file.getFileName().toString()).reversed()).toList();
+            for (java.nio.file.Path old : backups.subList(Math.min(keep, backups.size()), backups.size())) {
+                java.nio.file.Files.deleteIfExists(old);
+                LOG.info("Ancienne sauvegarde effacée : " + old.getFileName());
+            }
+        } catch (java.io.IOException exception) {
+            LOG.warning("Ménage des sauvegardes impossible : " + exception.getMessage());
+        }
     }
 
     private static boolean addColumn(Statement statement, String table, String definition) throws SQLException {

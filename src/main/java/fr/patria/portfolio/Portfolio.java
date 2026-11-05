@@ -135,6 +135,11 @@ public final class Portfolio {
         }
     }
 
+    /** Ventes retenues pour le prix du marche du bien (sans appel reseau). */
+    public java.util.Optional<fr.patria.market.MarketSales> sales(Property property) {
+        return market.sales(property);
+    }
+
     public LocalDate today() {
         return LocalDate.now(clock);
     }

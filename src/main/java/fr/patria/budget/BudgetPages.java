@@ -36,20 +36,20 @@ final class BudgetPages {
 
     // ---- Previsionnel (accueil) ----
 
-    static Html home(Forecast.View view, String csrf) {
+    static Html home(Forecast.View view, Html extras, String csrf) {
         Forecast.Month current = view.current();
         Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), "Prévisionnel : ce mois-ci et les 12 prochains mois, mois par mois.",
                 Components.pdfButton("/previsionnel.pdf" + scope(view))), scopeTabs(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
-            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Rien pour " + view.person().name(),
+            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Rien pour " + view.person().name(),
                     "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Administration → Revenus, la répartition des dépenses dans chaque dépense.",
                     Components.button("/administration/revenus", "Revenus"))));
         }
         if (!view.hasIncome() && !view.hasExpenses()) {
-            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, Components.emptyState("Votre budget est vide",
+            return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Votre budget est vide",
                     "Commencez par le foyer : les personnes et leurs revenus, puis les dépenses (une seule saisie par dépense, l'application prévoit les mois suivants). "
                             + "Les prêts, charges et loyers de l'immobilier sont repris automatiquement.",
-                    Components.button(Layout.isAdmin() ? "/administration/membres" : "/administration/revenus", "Renseigner le foyer"))));
+                    Components.button(Layout.manages() ? "/administration/membres" : "/administration/revenus", "Renseigner le foyer"))));
         }
         BigDecimal nonMonthly = current.expenses().stream().filter(line -> line.frequency() != Frequency.MONTHLY)
                 .map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -57,7 +57,7 @@ final class BudgetPages {
         Html alerts = view.alerts().isEmpty() ? Html.EMPTY : Html.of("<section class=\"watch\"><h2>À surveiller</h2><ul>%s</ul></section>",
                 view.alerts().stream().sorted(java.util.Comparator.comparing(Forecast.Alert::serious).reversed())
                         .map(alert -> Html.of("<li class=\"%s\">%s</li>", alert.serious() ? "serious" : "warning", alert.text())).collect(Html.joining()));
-        Html content = Html.concat(heading,
+        Html content = Html.concat(heading, extras,
                 Components.metrics(4,
                         tile("Revenus du mois", "Revenus nets avant impôt et loyers perçus attendus ce mois-ci.", euroWhole(current.income()),
                                 Format.plural(current.incomes().size(), "versement", "versements")),
@@ -329,7 +329,7 @@ final class BudgetPages {
                 <p class="muted">Repris automatiquement de l'immobilier, rien à ressaisir : mensualités des prêts, taxe foncière (octobre, ou de janvier
                 à octobre si mensualisée), taxe d'habitation (novembre), charges de copropriété (chaque trimestre), assurance et autres charges des biens
                 (réparties sur 12 mois), loyers perçus. Ne les ajoutez pas ici : elles compteraient deux fois.</p>""");
-        Html taxLinks = properties.isEmpty() || !Layout.isAdmin() ? Html.EMPTY : Html.of("<p class=\"tax-links\">Taxe foncière et charges : %s</p>",
+        Html taxLinks = properties.isEmpty() || !Layout.manages() ? Html.EMPTY : Html.of("<p class=\"tax-links\">Taxe foncière et charges : %s</p>",
                 java.util.stream.IntStream.range(0, properties.size()).mapToObj(index -> Html.concat(index == 0 ? Html.EMPTY : Html.raw(" · "),
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 

@@ -107,6 +107,13 @@ public final class ExpenseCsv {
                 - %d lignes au plus ;
                 - n'invente rien : si une information manque ou est incertaine, fais au mieux et signale la ligne après le fichier.
 
+                Confidentialité, à respecter strictement :
+                - ne recopie jamais une donnée qui identifie une personne ou un compte : nom, prénom, adresse, e-mail, téléphone, IBAN ou RIB, \
+                numéro de compte ou de carte, numéro fiscal, numéro de sécurité sociale, numéro de contrat ou de client, référence de prélèvement (RUM) ;
+                - libellés génériques : « Mutuelle », « Électricité », « Crédit auto » ; garde au plus la marque (« EDF », « Netflix »), jamais une référence ;
+                - ignore ce qui n'a pas de rapport avec les dépenses (santé, situation familiale, soldes, autres comptes) ;
+                - n'écris rien d'autre que le fichier et la liste des lignes à vérifier : pas de résumé des documents.
+
                 Réponse : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis la liste courte des lignes à vérifier.
                 """.formatted(categories, frequencies, MAX_LINES);
     }

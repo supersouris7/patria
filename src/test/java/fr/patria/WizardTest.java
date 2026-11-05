@@ -25,7 +25,26 @@ class WizardTest {
     private HttpClient client;
     private String base;
 
-    private record Visitor(String cookie, String csrf) {
+    private record Visitor(String cookie, String csrf, long id) {
+        Visitor(String cookie, String csrf) {
+            this(cookie, csrf, 0);
+        }
+    }
+
+    /** L'administrateur : il cree les comptes (il ne voit pas les finances). */
+    private TestAccounts.Visitor root;
+
+    /** Le gestionnaire du foyer principal, qui saisit (le premier compte cree). */
+    private Visitor manager() throws Exception {
+        root = TestAccounts.admin(client, base);
+        TestAccounts.Visitor manager = TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&manager=on");
+        return new Visitor(manager.cookie(), manager.csrf(), manager.id());
+    }
+
+    /** Un compte lie a un membre ({@code membre=1%3A1}), mot de passe provisoire deja change. */
+    private Visitor user(String login, String name, String member) throws Exception {
+        TestAccounts.Visitor user = TestAccounts.account(client, base, root, login, name, "membre=" + member, 1, null);
+        return new Visitor(user.cookie(), user.csrf(), user.id());
     }
 
     @BeforeEach
@@ -75,8 +94,8 @@ class WizardTest {
     }
 
     @Test
-    void adminFillsTheHouseholdStepByStep() throws Exception {
-        Visitor admin = login("admin", "secret");
+    void managerFillsTheHouseholdStepByStep() throws Exception {
+        Visitor admin = manager();
         String home = get(admin, "/assistant").body();
         assertTrue(home.contains("Commencer") && home.contains("Tout revoir"));
 
@@ -135,7 +154,7 @@ class WizardTest {
 
     @Test
     void possibleErrorsAreCaught() throws Exception {
-        Visitor admin = login("admin", "secret");
+        Visitor admin = manager();
         post(admin, "/assistant/membres/ajouter", "name=Paul&kind=PERSON");
         post(admin, "/assistant/membres/ajouter", "name=Camille&kind=PERSON");
 
@@ -169,21 +188,45 @@ class WizardTest {
         assertEquals(400, upload(admin, "/assistant/prets/1", "Prêt", "pas,un,echeancier\n").statusCode(), "échéancier illisible");
 
         // Utilisateur supprime : un nouveau compte avec le meme numero repart de zero
-        assertEquals(303, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1&membre=1%3A1").statusCode());
-        Visitor paul = login("paul", "motdepasse1");
+        Visitor paul = user("paul", "Paul", "1%3A1");
         post(paul, "/assistant/documents/terminer", "");
-        assertEquals(303, post(admin, "/administration/utilisateur/1/supprimer", "").statusCode());
-        assertEquals(303, post(admin, "/administration/utilisateurs", "login=jules&name=Jules&password=motdepasse1&membre=1%3A2").statusCode());
-        assertTrue(get(login("jules", "motdepasse1"), "/assistant").body().contains("Commencer"), "pas de progression héritée");
+        assertEquals(303, TestAccounts.post(client, base, root, "/administration/utilisateur/" + paul.id() + "/supprimer", "").statusCode());
+        assertTrue(get(user("jules", "Jules", "1%3A2"), "/assistant").body().contains("Commencer"), "pas de progression héritée");
+    }
+
+    @Test
+    void annualReviewChangesAmountsFromADate() throws Exception {
+        Visitor admin = manager();
+        post(admin, "/assistant/membres/ajouter", "name=Paul&kind=PERSON");
+        post(admin, "/assistant/membres/ajouter", "name=Camille&kind=PERSON");
+        post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2025-01-01");
+        post(admin, "/assistant/depenses/ajouter", "amount_netflix=13,49&frequency_netflix=MONTHLY&start_netflix=2025-01-01&who_netflix=2"
+                + "&amount_spotify=10,99&frequency_spotify=MONTHLY&start_spotify=2025-01-01");
+        String review = get(admin, "/assistant/revue-annuelle").body();
+        assertTrue(review.contains("Netflix") && review.contains("Salaire") && review.contains("Calendrier des mises à jour"));
+
+        assertEquals(303, post(admin, "/assistant/revue-annuelle/depense/1", "action=update&amount=15,99&from=2026-12-01").statusCode());
+        String expenses = get(admin, "/administration/depenses").body();
+        assertTrue(expenses.contains("13,49") && expenses.contains("15,99"), "l'ancien montant jusqu'à la veille, le nouveau ensuite");
+        assertTrue(expenses.lastIndexOf("Camille 100") > expenses.indexOf("Camille 100"), "même répartition pour le nouveau montant");
+        assertEquals(303, post(admin, "/assistant/revue-annuelle/depense/2", "action=stop&from=2026-12-01").statusCode());
+        assertTrue(get(admin, "/administration/depenses").body().contains("30/11/2026"), "abonnement arrêté la veille");
+        assertEquals(303, post(admin, "/assistant/revue-annuelle/revenu/1", "action=update&amount=2700&from=2027-01-01").statusCode());
+        assertTrue(get(admin, "/administration/revenus").body().contains("700,00"), "augmentation enregistrée");
+        assertEquals(400, post(admin, "/assistant/revue-annuelle/depense/3", "action=update&amount=abc&from=2026-12-01").statusCode());
+
+        assertTrue(get(admin, "/").body().contains("Revue annuelle conseillée"), "données de plus d'un an, jamais revues");
+        assertEquals(303, post(admin, "/assistant/revue-annuelle/terminer", "").statusCode());
+        assertFalse(get(admin, "/").body().contains("Revue annuelle conseillée"), "revue faite : plus de rappel");
+        assertTrue(get(admin, "/assistant/revue-annuelle").body().contains("Dernière revue terminée le"));
     }
 
     @Test
     void userHasOnlyTheStepsOfItsOwnLines() throws Exception {
-        Visitor admin = login("admin", "secret");
+        Visitor admin = manager();
         post(admin, "/administration/membres", "name=Paul&kind=PERSON");
         post(admin, "/administration/membres", "name=Camille&kind=PERSON");
-        assertEquals(303, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1&membre=1%3A1").statusCode());
-        Visitor paul = login("paul", "motdepasse1");
+        Visitor paul = user("paul", "Paul", "1%3A1");
 
         String home = get(paul, "/assistant").body();
         assertFalse(home.contains("/assistant/membres") || home.contains("/assistant/biens"), "pas d'étapes réservées");

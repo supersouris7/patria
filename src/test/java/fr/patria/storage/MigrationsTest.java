@@ -18,6 +18,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class MigrationsTest {
+    @org.junit.jupiter.api.Test
+    void onlyTheLastThreeBackupsAreKept(@org.junit.jupiter.api.io.TempDir java.nio.file.Path folder) throws Exception {
+        java.nio.file.Path database = folder.resolve("immobilier.sqlite3");
+        java.nio.file.Files.writeString(database, "");
+        for (int i = 1; i <= 5; i++) {
+            java.nio.file.Path backup = folder.resolve("immobilier.sqlite3.avant-migration-v" + i + "-2026010" + i + "-120000");
+            java.nio.file.Files.writeString(backup, "copie " + i);
+            java.nio.file.Files.setLastModifiedTime(backup, java.nio.file.attribute.FileTime.fromMillis(1_000_000L * i));
+        }
+        java.nio.file.Files.writeString(folder.resolve("autre.sqlite3.avant-migration-v1-20260101-120000"), "autre base");
+        Migrations.pruneBackups(database, 3);
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(folder)) {
+            java.util.List<String> names = files.map(path -> path.getFileName().toString()).sorted().toList();
+            org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("autre.sqlite3.avant-migration-v1-20260101-120000", "immobilier.sqlite3",
+                    "immobilier.sqlite3.avant-migration-v3-20260103-120000", "immobilier.sqlite3.avant-migration-v4-20260104-120000",
+                    "immobilier.sqlite3.avant-migration-v5-20260105-120000"), names, "les 3 plus récentes, et rien d'une autre base");
+        }
+    }
+
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T10:00:00Z"), ZoneId.of("Europe/Paris"));
 
     @TempDir

@@ -7,6 +7,7 @@ import fr.patria.contribution.ContributionController;
 import fr.patria.contribution.ContributionRepository;
 import fr.patria.expense.ExpenseController;
 import fr.patria.expense.ExpenseRepository;
+import fr.patria.health.HealthController;
 import fr.patria.household.HouseholdController;
 import fr.patria.household.HouseholdRepository;
 import fr.patria.household.ShareRepository;
@@ -39,7 +40,7 @@ final class HouseholdSite implements AutoCloseable {
     final WizardRepository wizard;
     final Router router = new Router();
 
-    private HouseholdSite(Database database, Clock clock, HousingRates rates, HouseholdController.Logins logins) {
+    private HouseholdSite(Database database, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
         this.database = database;
         properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
@@ -50,8 +51,9 @@ final class HouseholdSite implements AutoCloseable {
         BudgetRepository budgetItems = new BudgetRepository(database);
         ShareRepository shares = new ShareRepository(database);
 
-        MarketService market = new MarketService(database, clock);
-        new PortfolioController(new Portfolio(new Portfolio.Stores(properties, loans, contributions, expenses, rents), market, clock), properties, rates).register(router);
+        MarketService market = new MarketService(database, clock, offline);
+        Portfolio portfolio = new Portfolio(new Portfolio.Stores(properties, loans, contributions, expenses, rents), market, clock);
+        new PortfolioController(portfolio, properties, rates).register(router);
         new MarketController(market, properties).register(router);
         new PropertyController(properties, clock).register(router);
         new LoanController(loans, properties, clock, () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null))
@@ -61,19 +63,25 @@ final class HouseholdSite implements AutoCloseable {
         new HouseholdController(household, clock, logins).register(router);
         new TransferController(household, clock).register(router);
         Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
-        new BudgetController(new Forecast(budgetSources, clock), budgetSources, clock).register(router);
+        Forecast forecast = new Forecast(budgetSources, clock);
+        BudgetController budget = new BudgetController(forecast, budgetSources, clock);
         new RentController(rents, properties, clock).register(router);
         wizard = new WizardRepository(database);
-        new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard), clock)
-                .register(router);
+        WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard), clock);
+        guide.register(router);
+        // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
+        HealthController health = new HealthController(forecast, household, portfolio,
+                () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
+        health.register(router);
+        budget.withHomeExtras(request -> fr.patria.ui.Html.concat(guide.progress(request), guide.reminder(request), health.summary(request))).register(router);
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */
-    static HouseholdSite open(Path file, Clock clock, HousingRates rates, HouseholdController.Logins logins) {
-        Database database = Database.open(file);
+    static HouseholdSite open(Path file, String key, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
+        Database database = Database.open(file, key);
         try {
             Migrations.apply(database, clock);
-            return new HouseholdSite(database, clock, rates, logins);
+            return new HouseholdSite(database, clock, offline, rates, logins);
         } catch (RuntimeException exception) {
             database.close();
             throw exception;

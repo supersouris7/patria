@@ -94,6 +94,146 @@ public final class WizardController {
         router.post("/assistant/charges/{id}", this::addCharge);
         router.post("/assistant/occupation/{id}", this::addOccupancy);
         router.userPost("/assistant/virements/ajouter", this::addTransfer);
+
+        // Revue annuelle : ce qui change d'une annee sur l'autre, ligne par ligne.
+        router.userGet("/assistant/revue-annuelle", request -> Response.page(annualPage(request, request.confirmation())));
+        router.userPost("/assistant/revue-annuelle/depense/{id}", this::reviewExpense);
+        router.userPost("/assistant/revue-annuelle/revenu/{id}", this::reviewIncome);
+        router.post("/assistant/revue-annuelle/taxe/{id}", this::reviewPropertyTax);
+        router.post("/assistant/revue-annuelle/estimation/{id}", this::reviewEstimate);
+        router.userPost("/assistant/encadre/ignorer", request -> {
+            stores.progress().hideBanner(owner(request), LocalDate.now(clock));
+            return Response.redirect("/");
+        });
+        router.userPost("/assistant/revue-annuelle/terminer", request -> {
+            stores.progress().setReviewed(owner(request), LocalDate.now(clock));
+            return Response.redirect("/assistant/revue-annuelle?ok=enregistre");
+        });
+    }
+
+    // ---- Revue annuelle ----
+
+    private Html annualPage(Request request, Notice notice) {
+        Context context = context(request);
+        return WizardPages.annual(context, stores.progress().reviewedOn(owner(request)), notice);
+    }
+
+    /**
+     * Bandeau du Previsionnel quand la derniere revue a plus d'un an (ou, sans revue, le premier passage dans le guide
+     * ou la plus ancienne donnee saisie). Vide sinon.
+     */
+    public Html reminder(Request request) {
+        Context context = context(request);
+        LocalDate oldest = java.util.stream.Stream.concat(context.snapshot().items().stream().map(BudgetItem::start),
+                context.snapshot().incomes().stream().map(Income::start)).min(java.util.Comparator.naturalOrder()).orElse(null);
+        if (!AnnualReview.isDue(stores.progress().reviewedOn(owner(request)), stores.progress().firstActivity(owner(request)), oldest, context.today())) return Html.EMPTY;
+        return WizardPages.reminder(AnnualReview.thisMonth(context.today()));
+    }
+
+    /**
+     * Encadre du Previsionnel « configuration terminee a x % » : etapes du guide faites ou passees, avec la prochaine
+     * a faire. Vide quand tout est fait, quand il a ete ignore, ou pour un compte qui ne modifie rien (vues en lecture).
+     */
+    public Html progress(Request request) {
+        if (!request.viewer().manages() && request.viewer().members().isEmpty()) return Html.EMPTY;
+        String owner = owner(request);
+        if (stores.progress().bannerHidden(owner)) return Html.EMPTY;
+        List<Step> steps = Step.forViewer(request.viewer().manages()).stream().filter(step -> step != Step.SUMMARY).toList();
+        Map<Step, WizardRepository.Status> progress = stores.progress().steps(owner);
+        long finished = steps.stream().filter(progress::containsKey).count();
+        if (finished == steps.size()) return Html.EMPTY;
+        Step next = steps.stream().filter(step -> !progress.containsKey(step)).findFirst().orElse(Step.SUMMARY);
+        return WizardPages.progress((int) (finished * 100 / steps.size()), (int) finished, steps.size(), next, request.csrf());
+    }
+
+    /** Nouveau montant a partir d'une date, ou arret de la depense (« Arrêtée »). Lignes modifiables seulement. */
+    private Response reviewExpense(Request request) {
+        BudgetItem item = stores.items().find(request.id()).orElseThrow(() -> new NotFoundException("Dépense introuvable", "Cette dépense n'existe pas."));
+        Visibility visibility = Visibility.of(request.viewer(), stores.household().people());
+        Map<Long, Integer> shares = stores.shares().of(Shares.Subject.BUDGET_ITEM, item.id());
+        if (!visibility.canSee(shares)) throw new NotFoundException("Dépense introuvable", "Cette dépense n'existe pas.");
+        visibility.requireEdit(visibility.canEdit(shares));
+        try {
+            FormData form = request.form();
+            LocalDate from = form.date("from", "À partir du");
+            if (item.end() != null && from.isAfter(item.end())) throw new ValidationException("Cette dépense est déjà terminée avant cette date.");
+            if ("stop".equals(form.raw("action"))) {
+                if (!from.isAfter(item.start())) throw new ValidationException("La dépense commence après cette date : supprimez-la plutôt.");
+                stores.items().update(new BudgetItem(item.id(), item.label(), item.category(), item.amount(), item.frequency(), item.start(), from.minusDays(1)));
+            } else {
+                BigDecimal amount = form.positiveAmount("amount", "Nouveau montant");
+                if (!from.isAfter(item.start())) {
+                    stores.items().update(new BudgetItem(item.id(), item.label(), item.category(), amount, item.frequency(), item.start(), item.end()));
+                } else {
+                    // L'ancien montant s'arrete la veille, le nouveau prend le relais avec la meme repartition.
+                    stores.items().update(new BudgetItem(item.id(), item.label(), item.category(), item.amount(), item.frequency(), item.start(), from.minusDays(1)));
+                    long id = stores.items().insert(new BudgetItem(0, item.label(), item.category(), amount, item.frequency(), from, item.end()));
+                    stores.shares().set(Shares.Subject.BUDGET_ITEM, id, shares);
+                }
+            }
+            return annualBack("depenses");
+        } catch (ValidationException exception) {
+            return Response.invalid(annualPage(request, Notice.error(item.label() + " : " + exception.getMessage())));
+        }
+    }
+
+    private Response reviewIncome(Request request) {
+        Income income = stores.household().income(request.id()).orElseThrow(() -> new NotFoundException("Revenu introuvable", "Ce revenu n'existe pas."));
+        Visibility visibility = Visibility.of(request.viewer(), stores.household().people());
+        if (!visibility.canSeeAny(income.personId())) throw new NotFoundException("Revenu introuvable", "Ce revenu n'existe pas.");
+        visibility.requireEdit(visibility.sees(income.personId()));
+        try {
+            FormData form = request.form();
+            LocalDate from = form.date("from", "À partir du");
+            if (income.end() != null && from.isAfter(income.end())) throw new ValidationException("Ce revenu est déjà terminé avant cette date.");
+            if ("stop".equals(form.raw("action"))) {
+                if (!from.isAfter(income.start())) throw new ValidationException("Le revenu commence après cette date : supprimez-le plutôt.");
+                stores.household().updateIncome(new Income(income.id(), income.personId(), income.label(), income.kind(), income.amount(), income.frequency(), income.start(),
+                        from.minusDays(1)));
+            } else {
+                BigDecimal amount = form.positiveAmount("amount", "Nouveau montant");
+                if (!from.isAfter(income.start())) {
+                    stores.household().updateIncome(new Income(income.id(), income.personId(), income.label(), income.kind(), amount, income.frequency(), income.start(), income.end()));
+                } else {
+                    stores.household().updateIncome(new Income(income.id(), income.personId(), income.label(), income.kind(), income.amount(), income.frequency(), income.start(),
+                            from.minusDays(1)));
+                    stores.household().addIncome(new Income(0, income.personId(), income.label(), income.kind(), amount, income.frequency(), from, income.end()));
+                }
+            }
+            return annualBack("revenus");
+        } catch (ValidationException exception) {
+            return Response.invalid(annualPage(request, Notice.error(income.label() + " : " + exception.getMessage())));
+        }
+    }
+
+    private Response reviewPropertyTax(Request request) {
+        Property property = property(request);
+        try {
+            stores.charges().save(new Expense(0, property.id(), ExpenseKind.PROPERTY_TAX, LocalDate.now(clock).getYear(), request.form().positiveAmount("amount", "Taxe foncière")));
+            return annualBack("biens");
+        } catch (ValidationException exception) {
+            return Response.invalid(annualPage(request, Notice.error(property.name() + " : " + exception.getMessage())));
+        }
+    }
+
+    /** Nouvelle estimation datee d'aujourd'hui ; la valeur choisie au curseur repart du scenario prudent. */
+    private Response reviewEstimate(Request request) {
+        Property property = property(request);
+        try {
+            FormData form = request.form();
+            BigDecimal low = form.positiveAmount("estimate", "Estimation prudente");
+            BigDecimal high = form.optionalAmount("estimate_high", "Estimation optimiste");
+            if (high != null && high.signum() > 0 && high.compareTo(low) < 0) throw new ValidationException("L'estimation optimiste doit être supérieure ou égale à la prudente.");
+            stores.properties().update(new Property(property.id(), property.name(), property.kind(), property.commune(), property.address(), property.area(), property.purchase(),
+                    property.purchaseDate(), low, high == null || high.signum() == 0 ? null : high, LocalDate.now(clock), property.saleFeesRate(), null));
+            return annualBack("biens");
+        } catch (ValidationException exception) {
+            return Response.invalid(annualPage(request, Notice.error(property.name() + " : " + exception.getMessage())));
+        }
+    }
+
+    private static Response annualBack(String anchor) {
+        return Response.redirect("/assistant/revue-annuelle?ok=enregistre#" + anchor);
     }
 
     // ---- Contexte ----
@@ -127,7 +267,7 @@ public final class WizardController {
     }
 
     private Context context(Request request) {
-        boolean admin = request.viewer().isAdmin();
+        boolean admin = request.viewer().manages();
         List<Person> people = stores.household().people();
         Visibility visibility = Visibility.of(request.viewer(), people);
         Map<Shares.Key, Map<Long, Integer>> shares = stores.shares().all();
@@ -144,7 +284,7 @@ public final class WizardController {
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */
     private static String owner(Request request) {
-        return request.viewer().isAdmin() ? "admin" : "user:" + request.viewer().userId();
+        return request.viewer().isAdministrator() ? "admin" : "user:" + request.viewer().userId();
     }
 
     private Html render(Request request, Step step, Notice notice, Map<String, String> values) {

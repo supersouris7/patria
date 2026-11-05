@@ -4,6 +4,7 @@ import fr.patria.storage.Database;
 import fr.patria.storage.Sql;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,6 +41,42 @@ public final class WizardRepository {
                 ON CONFLICT (owner, step) DO UPDATE SET status = excluded.status, updated_on = excluded.updated_on""", owner, step.name(), status.name(), today));
     }
 
+    /** Ligne de la table des etapes qui garde la date de la derniere revue annuelle. */
+    private static final String ANNUAL_REVIEW = "ANNUAL_REVIEW";
+    /** Ligne qui note que l'encadre « configuration terminee a x % » a ete ignore. */
+    private static final String BANNER_HIDDEN = "PROGRESS_BANNER_HIDDEN";
+
+    /** Encadre de progression ignore (« Ignorer ») ; « Recommencer » le fait revenir. */
+    boolean bannerHidden(String owner) {
+        return !database.query(connection -> Sql.list(connection, "SELECT 1 FROM wizard_steps WHERE owner = ? AND step = ?", row -> row.getInt(1), owner, BANNER_HIDDEN)).isEmpty();
+    }
+
+    void hideBanner(String owner, LocalDate today) {
+        database.query(connection -> Sql.update(connection, """
+                INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)
+                ON CONFLICT (owner, step) DO UPDATE SET updated_on = excluded.updated_on""", owner, BANNER_HIDDEN, today));
+    }
+
+    /** Date de la derniere revue annuelle terminee, {@code null} si aucune. */
+    LocalDate reviewedOn(String owner) {
+        List<String> dates = database.query(connection -> Sql.list(connection, "SELECT updated_on FROM wizard_steps WHERE owner = ? AND step = ?",
+                row -> row.getString(1), owner, ANNUAL_REVIEW));
+        return dates.isEmpty() ? null : LocalDate.parse(dates.getFirst());
+    }
+
+    void setReviewed(String owner, LocalDate today) {
+        database.query(connection -> Sql.update(connection, """
+                INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)
+                ON CONFLICT (owner, step) DO UPDATE SET updated_on = excluded.updated_on""", owner, ANNUAL_REVIEW, today));
+    }
+
+    /** Premier passage dans le guide (plus ancienne etape faite ou passee), {@code null} si aucun. */
+    LocalDate firstActivity(String owner) {
+        List<String> dates = database.query(connection -> Sql.list(connection, "SELECT min(updated_on) FROM wizard_steps WHERE owner = ? AND step NOT IN (?, ?)",
+                row -> row.getString(1), owner, ANNUAL_REVIEW, BANNER_HIDDEN));
+        return dates.isEmpty() || dates.getFirst() == null ? null : LocalDate.parse(dates.getFirst());
+    }
+
     /** Utilisateur supprime : sa progression disparait. */
     public void forgetUser(long userId) {
         reset("user:" + userId);
@@ -70,5 +107,37 @@ public final class WizardRepository {
                 : Sql.update(connection, """
                         INSERT INTO wizard_documents (owner, document, status) VALUES (?, ?, ?)
                         ON CONFLICT (owner, document) DO UPDATE SET status = excluded.status""", owner, document, status.name()));
+    }
+
+    /** Avancement du guide d'une personne, sans aucune donnee saisie (page Foyers de l'administrateur). */
+    public record Summary(int done, int skipped, int total, String next, LocalDate reviewedOn) {
+        public int percent() {
+            return total == 0 ? 100 : (done + skipped) * 100 / total;
+        }
+    }
+
+    /** {@code userId} : le compte ; {@code manages} : gestionnaire (toutes les etapes) ou non (ses propres lignes). */
+    public Summary summary(long userId, boolean manages) {
+        String owner = "user:" + userId;
+        List<Step> steps = Step.forViewer(manages).stream().filter(step -> step != Step.SUMMARY).toList();
+        Map<Step, Status> progress = steps(owner);
+        int done = (int) steps.stream().filter(step -> progress.get(step) == Status.DONE).count();
+        int skipped = (int) steps.stream().filter(step -> progress.get(step) == Status.SKIPPED).count();
+        String next = steps.stream().filter(step -> !progress.containsKey(step)).map(Step::title).findFirst().orElse(null);
+        return new Summary(done, skipped, steps.size(), next, reviewedOn(owner));
+    }
+
+    /**
+     * Passage a la version ou l'administrateur ne voit plus les foyers : sa progression (« admin ») passe au compte qui
+     * reprend le foyer, sauf si ce compte en a deja une.
+     */
+    public void transferFromAdministrator(long userId) {
+        String owner = "user:" + userId;
+        database.transaction(connection -> {
+            if (!Sql.list(connection, "SELECT 1 FROM wizard_steps WHERE owner = ? LIMIT 1", row -> row.getInt(1), owner).isEmpty()) return null;
+            Sql.update(connection, "UPDATE wizard_steps SET owner = ? WHERE owner = 'admin'", owner);
+            Sql.update(connection, "UPDATE wizard_documents SET owner = ? WHERE owner = 'admin'", owner);
+            return null;
+        });
     }
 }

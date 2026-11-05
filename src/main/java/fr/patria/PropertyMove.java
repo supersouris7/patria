@@ -26,7 +26,7 @@ final class PropertyMove {
         // ATTACH est interdit dans une transaction : la base de depart est attachee avant, puis la copie se fait d'un bloc.
         long moved = target.query(connection -> {
             try (Statement statement = connection.createStatement()) {
-                statement.execute("ATTACH DATABASE '" + sourceFile.toAbsolutePath().toString().replace("'", "''") + "' AS src");
+                statement.execute(target.attachStatement(sourceFile, "src"));
             }
             try {
                 connection.setAutoCommit(false);

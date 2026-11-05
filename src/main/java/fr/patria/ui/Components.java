@@ -216,8 +216,19 @@ public final class Components {
      */
     public static Html llmPrompt(String id, String prompt) {
         return Html.of("""
-                <div class="llm-prompt"><div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
-                <span class="muted copy-status" role="status">À coller dans votre assistant IA (ChatGPT, Claude, Le Chat…), en y joignant vos documents.</span></div>\
+                <div class="llm-prompt"><p class="llm-why"><b>Il faut un assistant IA externe</b> (ChatGPT, Claude, Le Chat, Gemini, ou un modèle installé \
+                sur votre ordinateur) pour transformer vos documents en fichier. Patria n'envoie rien : vous copiez le prompt, vous l'y collez avec vos \
+                documents, puis vous importez ici le fichier qu'il renvoie.</p>\
+                <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
+                <span class="muted copy-status" role="status">À coller dans votre assistant IA, en y joignant vos documents.</span></div>\
+                <details class="llm-privacy"><summary>Protéger vos données avant d'envoyer</summary><ul>\
+                <li><b>Masquez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal et de sécurité sociale : un rectangle noir sur le PDF, ou une capture \
+                des seules lignes utiles.</li>\
+                <li><b>Désactivez</b> l'historique et l'utilisation de vos conversations pour l'entraînement dans les réglages de l'assistant, ou utilisez \
+                une conversation temporaire.</li>\
+                <li><b>Préférez</b> un modèle local si vous en avez un : rien ne quitte alors votre ordinateur.</li>\
+                <li>Le prompt interdit en plus à l'IA de recopier toute donnée identifiante. <a href="/confidentialite">En savoir plus sur la confidentialité</a>.</li>\
+                </ul></details>\
                 <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
                 id, id, prompt);
     }
@@ -249,7 +260,7 @@ public final class Components {
         if (!readOnly) return form(action, csrf, false, body, submitLabel);
         return Html.of("""
                 <div class="stack"><p class="notice" role="status">Lecture seule : cette ligne concerne aussi un membre dont la vue ne vous est pas ouverte.
-                Seul l'administrateur, ou un utilisateur qui a toutes ses vues, peut la modifier.</p><fieldset class="readonly-view" disabled>%s</fieldset></div>""", body);
+                Seul un gestionnaire du foyer, ou un compte qui a toutes ses vues, peut la modifier.</p><fieldset class="readonly-view" disabled>%s</fieldset></div>""", body);
     }
 
     /** Formulaire POST protege par le jeton CSRF. */

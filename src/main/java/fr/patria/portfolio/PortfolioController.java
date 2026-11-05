@@ -22,7 +22,7 @@ public final class PortfolioController {
 
     public void register(Router router) {
         router.estateGet("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf())));
-        router.estateGet("/bien/{id}", request -> Response.page(PortfolioPages.property(portfolio.property(request.id()), rates.current(), request.confirmation(), request.csrf())));
+        router.estateGet("/bien/{id}", request -> Response.page(propertyPage(request)));
         router.estateGet("/bien/{id}/mensualites", this::months);
         router.estateGet("/immobilier.pdf", request -> new Response.Download("patrimoine-" + portfolio.today() + ".pdf", "application/pdf",
                 PortfolioReports.overview(portfolio.overview(), rates.current(), portfolio.today())));
@@ -33,6 +33,11 @@ public final class PortfolioController {
         });
         router.get("/administration/biens", request -> Response.page(PortfolioPages.administration(portfolio.overview(), request.confirmation(), request.csrf())));
         router.get("/administration/bien/{id}/financements", request -> Response.page(PortfolioPages.financing(portfolio.property(request.id()), request.confirmation(), request.csrf())));
+    }
+
+    private fr.patria.ui.Html propertyPage(Request request) {
+        Portfolio.PropertySummary summary = portfolio.property(request.id());
+        return PortfolioPages.property(summary, rates.current(), portfolio.sales(summary.property()).orElse(null), portfolio.today(), request.confirmation(), request.csrf());
     }
 
     private Response months(Request request) {

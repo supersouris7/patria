@@ -24,7 +24,7 @@ public final class Sessions {
     public Session create(Long userId, long householdId) {
         long now = clock.millis();
         sessions.values().removeIf(session -> session.expiresAt() < now);
-        Session session = new Session(token(), token(), now + LIFETIME.toMillis(), userId, householdId);
+        Session session = new Session(token(), token(), now + LIFETIME.toMillis(), userId, householdId, false);
         sessions.put(session.id(), session);
         return session;
     }
@@ -50,6 +50,11 @@ public final class Sessions {
         return updated;
     }
 
+    /** L'alerte HTTP a ete lue : elle ne revient qu'a la prochaine connexion. */
+    public void acknowledgeHttp(Session session) {
+        sessions.replace(session.id(), session.acknowledgingHttp());
+    }
+
     /** Deconnecte les autres sessions d'un utilisateur (il vient de changer son mot de passe). */
     public void removeOtherSessions(Session current) {
         sessions.values().removeIf(session -> session.userId() != null && session.userId().equals(current.userId()) && !session.id().equals(current.id()));
@@ -58,6 +63,16 @@ public final class Sessions {
     /** Deconnecte toutes les sessions d'un utilisateur (compte desactive ou supprime, mot de passe reinitialise). */
     public void removeUser(long userId) {
         sessions.values().removeIf(session -> session.userId() != null && session.userId() == userId);
+    }
+
+    /** Sessions ouvertes par compte (cle 0 : l'administrateur), pour la page Securite. */
+    public Map<Long, Integer> openByUser() {
+        long now = clock.millis();
+        Map<Long, Integer> result = new java.util.HashMap<>();
+        for (Session session : sessions.values()) {
+            if (session.expiresAt() >= now) result.merge(session.userId() == null ? 0L : session.userId(), 1, Integer::sum);
+        }
+        return result;
     }
 
     private static String token() {

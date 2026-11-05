@@ -92,7 +92,8 @@ final class DataGouvClient implements MarketData {
         try {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() == 404) return Optional.empty();
-            if (response.statusCode() != 200) throw new IOException("HTTP " + response.statusCode() + " sur " + url);
+            // Sans les parametres : l'URL de l'API Adresse contient l'adresse du bien, qui n'a rien a faire dans les journaux.
+            if (response.statusCode() != 200) throw new IOException("HTTP " + response.statusCode() + " sur " + url.replaceFirst("\\?.*$", ""));
             return Optional.of(response.body());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

@@ -34,7 +34,7 @@ public final class HouseholdController {
 
     public void register(Router router) {
         // Ancienne page « Foyer et revenus », scindee en Membres et Revenus.
-        router.userGet("/administration/foyer", request -> Response.redirect(request.viewer().isAdmin() ? "/administration/membres" : "/administration/revenus"));
+        router.userGet("/administration/foyer", request -> Response.redirect(request.viewer().manages() ? "/administration/membres" : "/administration/revenus"));
         router.get("/administration/membres", request -> Response.page(membersPage(request, request.confirmation())));
         router.post("/administration/membres", this::addPerson);
         router.post("/personne/{id}/supprimer", request -> {

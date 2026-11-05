@@ -145,7 +145,8 @@ public final class Router implements HttpHandler {
                 sessions.remove(session);
                 session = null;
             }
-            Layout.CHROME.set(chrome(viewer));
+            String query = exchange.getRequestURI().getRawQuery();
+            Layout.CHROME.set(chrome(viewer, session != null && !session.httpAcknowledged() && insecure(exchange), path + (query == null ? "" : "?" + query)));
             write(exchange, dispatch(exchange, path, session, viewer));
         } catch (ValidationException exception) {
             write(exchange, new Response.Page(400, Layout.message("Demande invalide", exception.getMessage(), csrf(session))));
@@ -165,14 +166,37 @@ public final class Router implements HttpHandler {
     }
 
     /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
-    private static Layout.Chrome chrome(Viewer viewer) {
+    private static Layout.Chrome chrome(Viewer viewer, boolean insecure, String location) {
         if (viewer == null) return null;
-        return new Layout.Chrome(viewer.name(), viewer.isAdmin(), viewer.realEstate(),
-                viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name())).toList(), viewer.household().id());
+        return new Layout.Chrome(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate(),
+                viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
+                insecure, location, viewer.audience().lines(), viewer.audience().changes());
     }
+
+    /**
+     * Connexion non chiffree : ni HTTPS (en-tete X-Forwarded-Proto du reverse proxy), ni ouverte depuis le serveur
+     * lui-meme (localhost), ou rien ne circule sur le reseau.
+     */
+    public static boolean insecure(Request request) {
+        return insecure(request.exchange());
+    }
+
+    static boolean insecure(HttpExchange exchange) {
+        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) return false;
+        String host = exchange.getRequestHeaders().getFirst("Host");
+        String name = host == null ? "" : host.toLowerCase(java.util.Locale.ROOT).replaceFirst(":\\d+$", "");
+        return !(name.equals("localhost") || name.startsWith("127.") || name.equals("[::1]"));
+    }
+
+    /** Pages ouvertes tant que le mot de passe choisi par l'administrateur n'est pas change. */
+    private static final java.util.Set<String> BEFORE_PASSWORD_CHANGE = java.util.Set.of("/compte/nouveau-mot-de-passe", "/compte/mot-de-passe", "/deconnexion",
+            "/aide/https", "/securite/http-compris", "/confidentialite", "/connexion", "/sante");
 
     private Response dispatch(HttpExchange exchange, String path, Session session, Viewer viewer) {
         String method = exchange.getRequestMethod().equals("HEAD") ? "GET" : exchange.getRequestMethod();
+        if (households != null && viewer != null && viewer.mustChangePassword() && !BEFORE_PASSWORD_CHANGE.contains(path)) {
+            return Response.redirect("/compte/nouveau-mot-de-passe");
+        }
         boolean pathExists = false;
         for (Route route : routes) {
             Matcher matcher = route.pattern().matcher(path);
@@ -186,15 +210,21 @@ public final class Router implements HttpHandler {
             }
             Map<String, String> parameters = new HashMap<>();
             for (int i = 0; i < route.parameters().size(); i++) parameters.put(route.parameters().get(i), matcher.group(i + 1));
-            if (route.isPrivate() && !allowed(route.access(), viewer)) {
+            if (route.isPrivate() && !allowed(route.access(), viewer, households != null)) {
                 throw new ForbiddenException(route.access() == Access.REAL_ESTATE ? "L'immobilier n'est pas ouvert pour votre compte."
-                        : "Cette page est réservée à l'administrateur.");
+                        : households != null ? "Cette page est réservée à l'administrateur." : "Cette page est réservée aux gestionnaires du foyer.");
             }
             Request request = new Request(exchange, parameters, session, viewer);
             if (route.isPrivate() && method.equals("POST")) checkCsrf(request);
             return route.handler().handle(request);
         }
         if (!pathExists && households != null) {
+            if (viewer != null && viewer.isAdministrator()) {
+                // L'administrateur ne voit aucune donnee des foyers : son accueil est l'administration des comptes.
+                if (method.equals("GET") && (path.equals("/") || path.equals("/administration"))) return Response.redirect("/administration/foyers");
+                throw new ForbiddenException("L'administrateur gère les comptes, les foyers et les droits, mais ne voit pas les données des foyers. "
+                        + "Pour votre propre budget, créez-vous un compte utilisateur.");
+            }
             if (viewer != null) return households.router(viewer.household().id()).dispatch(exchange, path, session, viewer);
             String query = exchange.getRequestURI().getRawQuery();
             String target = path + (query == null ? "" : "?" + query);
@@ -204,10 +234,13 @@ public final class Router implements HttpHandler {
         throw new NotFoundException("Page introuvable", "Cette page n'existe pas.");
     }
 
-    private static boolean allowed(Access access, Viewer viewer) {
-        if (viewer.isAdmin()) return true;
+    /**
+     * {@link Access#ADMIN} : sur le routeur principal (foyers, utilisateurs), l'administrateur de l'application ; sur
+     * le routeur d'un foyer, qui le gere (l'administrateur, ou un utilisateur gestionnaire de ce foyer).
+     */
+    private static boolean allowed(Access access, Viewer viewer, boolean main) {
         return switch (access) {
-            case ADMIN -> false;
+            case ADMIN -> main ? viewer.isAdministrator() : viewer.manages();
             case USER -> true;
             case REAL_ESTATE -> viewer.realEstate();
         };

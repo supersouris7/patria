@@ -8,6 +8,9 @@ import java.util.Set;
  * @param wholeHousehold vue « Foyer » (total de tous les membres)
  * @param members        membres dont la vue est ouverte (personnes ou comptes joints)
  * @param realEstate     consultation des biens, prets et charges du foyer
+ * @param manager        gestionnaire : voit et modifie tout le foyer, comme l'administrateur, et le partage ; les
+ *                       autres droits sont alors sans objet
  */
-public record Access(long userId, long householdId, String householdName, boolean wholeHousehold, Set<Long> members, boolean realEstate) {
+public record Access(long userId, long householdId, String householdName, boolean wholeHousehold, Set<Long> members, boolean realEstate,
+                     boolean manager) {
 }

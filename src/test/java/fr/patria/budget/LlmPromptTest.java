@@ -13,6 +13,8 @@ class LlmPromptTest {
         assertTrue(prompt.contains("Impôts et taxes") && prompt.contains("Santé"), "catégories");
         assertTrue(!prompt.contains("Virements,"), "pas la catégorie interne des virements");
         assertTrue(prompt.contains("Mensuel") && prompt.contains("Ponctuel"), "fréquences");
+        assertTrue(prompt.contains("ne recopie jamais") && prompt.contains("IBAN") && prompt.contains("numéro fiscal") && prompt.contains("sécurité sociale"),
+                "consignes d'anonymisation");
     }
 
     @Test
@@ -20,5 +22,6 @@ class LlmPromptTest {
         String prompt = CsvScheduleParser.llmPrompt();
         assertTrue(prompt.contains("date,type,montant,capital_rembourse,interets,frais,capital_restant_du,taux_annuel_pct"));
         assertTrue(prompt.contains("REMBOURSEMENT_ANTICIPE"));
+        assertTrue(prompt.contains("ne recopie jamais le nom ou l'adresse de l'emprunteur"), "consignes d'anonymisation");
     }
 }

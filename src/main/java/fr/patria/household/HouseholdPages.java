@@ -60,9 +60,10 @@ final class HouseholdPages {
     static Html members(List<Person> people, List<Income> incomes, Map<Long, List<String>> logins, long householdId, Notice notice, String csrf) {
         Html rows = people.stream().map(person -> {
             List<String> linked = logins.getOrDefault(person.id(), List.of());
-            Html account = linked.isEmpty()
+            Html account = !linked.isEmpty() ? Html.text(String.join(", ", linked))
+                    : fr.patria.ui.Layout.canOpen("/administration/utilisateurs")
                     ? Html.of("<a href=\"/administration/utilisateurs?membre=%s:%s\">Créer un compte</a>", householdId, person.id())
-                    : Html.text(String.join(", ", linked));
+                    : Html.raw("<span class=\"muted\">Aucun</span>");
             return Html.of("<tr>%s%s%s<td>%s</td><td class=\"actions\"><form method=\"post\" action=\"/personne/%s/supprimer\" data-confirm=\"%s\">%s"
                             + "<button class=\"quiet\" type=\"submit\">Supprimer</button></form></td></tr>",
                     cell(person.name()), cell(person.isAccount() ? Html.raw("<small class=\"badge\">Compte joint</small>") : Html.text("Personne")),
@@ -77,7 +78,7 @@ final class HouseholdPages {
                 Components.select("Type", "kind", Arrays.stream(Person.Kind.values()).map(kind -> new Option(kind.name(), kind.label())).toList(), Person.Kind.PERSON.name()));
         Html help = Html.raw("""
                 <p class="muted">Un <b>membre</b> est une personne du budget (ou un compte joint) : il a des revenus et une part des dépenses. Ce n'est pas
-                un compte de connexion. Pour qu'une personne consulte Patria, créez-lui un <b>utilisateur</b> lié à son membre (lien « Créer un compte »).
+                un compte de connexion. Pour qu'une personne consulte Patria, l'administrateur lui crée un <b>utilisateur</b> lié à son membre.
                 Un compte joint a son propre budget : il reçoit des virements et paie les dépenses qu'on lui attribue ; il ne prend part aux
                 « parts égales » que si on lui donne un pourcentage.</p>""");
         Html content = Html.concat(Components.heading("Administration", "Membres", null, Html.EMPTY), Components.notice(notice),
@@ -100,7 +101,7 @@ final class HouseholdPages {
                 ? Html.raw("<p class=\"empty\">Aucun revenu saisi.</p>")
                 : Components.table(List.of("Personne", "Libellé", "Type", "#Montant", "Fréquence", "Période", ""), incomeRows, true, false));
         Html addIncome = formPeople.isEmpty()
-                ? (visibility.isAdmin() ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
+                ? (visibility.manages() ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
                         "<p class=\"empty\">Ajoutez d'abord les membres du foyer : <a href=\"/administration/membres\">Membres</a>.</p>")) : Html.EMPTY)
                 : Components.card("Ajouter un revenu", null, Html.EMPTY,
                         Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"));

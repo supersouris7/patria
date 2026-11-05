@@ -48,7 +48,7 @@ final class PortfolioPages {
                 overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
-                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Layout.isAdmin() ? Components.button("/administration/biens", "Aller à l'administration") : Html.EMPTY)));
+                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Layout.manages() ? Components.button("/administration/biens", "Aller à l'administration") : Html.EMPTY)));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
@@ -78,12 +78,12 @@ final class PortfolioPages {
 
     // ---- Fiche d'un bien : curseur enregistre en direct ----
 
-    static Html property(PropertySummary summary, Optional<HousingRate> rate, Notice notice, String csrf) {
+    static Html property(PropertySummary summary, Optional<HousingRate> rate, fr.patria.market.MarketSales sales, java.time.LocalDate today, Notice notice, String csrf) {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
                 + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate())
                 + (summary.returns().isPrincipalResidence() ? " · résidence principale" : "");
-        boolean admin = Layout.isAdmin();
+        boolean admin = Layout.manages();
         Html actions = Html.concat(Components.pdfButton("/bien/" + property.id() + "/synthese.pdf"),
                 admin ? Components.secondaryButton("/administration/bien/" + property.id(), "Administrer") : Html.EMPTY);
         Html hero = summary.scenarios().isEmpty()
@@ -102,6 +102,7 @@ final class PortfolioPages {
                 balance(revaluationLines(summary.revaluation()), summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(),
                         summary.contributed(), summary.returns()),
                 marketCard(summary, csrf),
+                fr.patria.market.SalesCard.render(summary.property(), sales, summary.squareMeter().value(), today),
                 Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
                         loansTable(summary.loans(), rate)),
                 Components.card("Apports", summary.contributions().size(), Html.EMPTY,
@@ -128,7 +129,7 @@ final class PortfolioPages {
                 <span class="scenario-badge" data-estimate-label>%s</span></div>
                 <input class="slider" type="range" min="%s" max="%s" step="1000" value="%s" aria-label="Valeur retenue">
                 <div class="chips">%s</div></section>""",
-                Layout.isAdmin() ? Html.of(" data-save=\"/bien/%s/valeur\"", property.id()) : Html.EMPTY, plain(property.saleFeesRate()), plain(summary.debt()), plain(property.purchase()),
+                Layout.manages() ? Html.of(" data-save=\"/bien/%s/valeur\"", property.id()) : Html.EMPTY, plain(property.saleFeesRate()), plain(summary.debt()), plain(property.purchase()),
                 plain(property.area()), summary.squareMeter().market() != null && summary.squareMeter().market().isAvailable() ? plain(summary.squareMeter().market().median()) : "",
                 plain(gainBase(summary)), plain(summary.returns().invested()),
                 euroWhole(summary.value()), caption, summary.scenario(),
@@ -231,7 +232,7 @@ final class PortfolioPages {
 
     private static Html contributionsTable(List<Contribution> contributions, BigDecimal total) {
         if (contributions.isEmpty()) return Html.raw("<p class=\"empty\">Aucun apport enregistré.</p>");
-        Html rows = contributions.stream().map(item -> Html.of("<tr>%s%s%s</tr>", cell(Layout.isAdmin() ? link("/apport/" + item.id(), item.name()) : Html.text(item.name())),
+        Html rows = contributions.stream().map(item -> Html.of("<tr>%s%s%s</tr>", cell(Layout.manages() ? link("/apport/" + item.id(), item.name()) : Html.text(item.name())),
                 sortedCell(item.date(), date(item.date())), number(item.amount(), euro(item.amount())))).collect(Html.joining());
         return Html.of("""
                 <div class="table-wrap"><table class="data sortable"><thead><tr><th>Apport</th><th>Date</th><th class="num">Montant</th></tr></thead>
@@ -309,7 +310,7 @@ final class PortfolioPages {
     /** Carte « Prix au m² » : le bien face aux ventes reelles du secteur (DVF). */
     private static Html marketCard(PropertySummary summary, String csrf) {
         Property property = summary.property();
-        boolean admin = Layout.isAdmin();
+        boolean admin = Layout.manages();
         SquareMeter sqm = summary.squareMeter();
         MarketPrice market = sqm.market();
         Html refresh = !admin ? Html.EMPTY : Html.of("<form method=\"post\" action=\"/bien/%s/marche\">%s<button class=\"secondary\" type=\"submit\">Actualiser</button></form>",
@@ -355,9 +356,9 @@ final class PortfolioPages {
                 : ", actualisées à " + Format.month(market.indexMonth()).toLowerCase() + " selon l'évolution des prix du département";
         return Html.of("<p class=\"source\">Médiane de %s ventes de surface comparable %s (%s), %s%s. Valeurs extrêmes écartées.<br>"
                         + "Source : ventes DVF (DGFiP, Etalab) sur data.gouv.fr · calculé le %s, mis à jour tous les 30 jours.</p>"
-                        + "<p class=\"market-sales-link\"><a href=\"/bien/%s/marche/ventes\">Voir les %s ventes en détail →</a></p>",
+                        + "<p class=\"market-sales-link\"><a href=\"#ventes\">Voir les %s ventes ci-dessous ↓</a></p>",
                 market.salesCount(), market.scope() == null ? "" : market.scope().label(), market.place(), market.period(), adjustment, date(market.computedOn()),
-                market.propertyId(), market.salesCount());
+                market.salesCount());
     }
 
     private static Html marketCell(SquareMeter sqm) {
@@ -476,7 +477,7 @@ final class PortfolioPages {
     /** Signalements sur la fiche du bien : estimation ancienne, occupation non renseignee. */
     private static Html alerts(PropertySummary summary) {
         Property property = summary.property();
-        if (!Layout.isAdmin()) return Html.EMPTY;
+        if (!Layout.manages()) return Html.EMPTY;
         Html outdated = Html.when(summary.estimateOutdated(), Html.of("""
                 <p class="notice warning">Estimation du %s, il y a plus de 3 ans : l'actualisation automatique a ses limites.                 <a href="/administration/bien/%s">Mettre à jour l'estimation</a></p>""", date(property.estimateDate()), property.id()));
         Html occupancy = Html.when(summary.occupancyMissing(), Html.of("""

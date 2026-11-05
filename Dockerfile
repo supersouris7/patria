@@ -4,7 +4,9 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn --batch-mode dependency:go-offline
 COPY src src
-RUN mvn --batch-mode package -DskipTests
+# Commit affiche en pied de page (docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) .)
+ARG GIT_COMMIT=dev
+RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT}
 
 FROM eclipse-temurin:21-jdk-jammy AS runtime
 

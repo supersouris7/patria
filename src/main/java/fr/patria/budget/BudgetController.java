@@ -29,6 +29,14 @@ public final class BudgetController {
     private final BudgetRepository items;
     private final Clock clock;
 
+    /** Encarts du Previsionnel fournis par d'autres modules (revue annuelle, bilan de sante), assembles par l'application. */
+    private java.util.function.Function<Request, fr.patria.ui.Html> homeExtras = request -> fr.patria.ui.Html.EMPTY;
+
+    public BudgetController withHomeExtras(java.util.function.Function<Request, fr.patria.ui.Html> extras) {
+        this.homeExtras = extras;
+        return this;
+    }
+
     public BudgetController(Forecast forecast, Forecast.Sources sources, Clock clock) {
         this.forecast = forecast;
         this.sources = sources;
@@ -37,7 +45,7 @@ public final class BudgetController {
     }
 
     public void register(Router router) {
-        router.userGet("/", request -> Response.page(BudgetPages.home(view(request), request.csrf())));
+        router.userGet("/", request -> Response.page(BudgetPages.home(view(request), homeExtras.apply(request), request.csrf())));
         router.userGet("/budget", request -> {
             Forecast.View view = view(request);
             return Response.page(BudgetPages.budget(view, forecast.averageIncomes(view), forecast.averageExpenses(view), request.csrf()));
@@ -47,7 +55,7 @@ public final class BudgetController {
             Forecast.View view = view(request);
             return pdf("budget-moyen", BudgetReports.average(view, forecast.averageIncomes(view), forecast.averageExpenses(view), LocalDate.now(clock)));
         });
-        router.userGet("/administration", request -> Response.redirect(request.viewer().isAdmin() ? "/administration/membres" : "/administration/revenus"));
+        router.userGet("/administration", request -> Response.redirect(request.viewer().manages() ? "/administration/membres" : "/administration/revenus"));
         router.userGet("/administration/depenses", request -> Response.page(adminPage(request, defaults(), request.confirmation())));
         router.userPost("/administration/depenses", this::create);
         router.userGet("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
@@ -108,16 +116,7 @@ public final class BudgetController {
      * vue ouverte. Le selecteur ne propose que les vues ouvertes.
      */
     private Forecast.View view(Request request) {
-        Visibility visibility = visibility(request);
-        Long asked = person(request);
-        if (visibility.isAdmin()) return forecast.next12Months(asked);
-        List<Person> open = visibility.people();
-        Long scope;
-        if (asked != null && open.stream().anyMatch(person -> person.id() == asked)) scope = asked;
-        else if (visibility.wholeHousehold()) scope = null;
-        else if (!open.isEmpty()) scope = open.getFirst().id();
-        else throw new ForbiddenException("Aucune vue ne vous est ouverte dans ce foyer.");
-        return forecast.next12Months(scope).withTabs(visibility.wholeHousehold(), open);
+        return BudgetScope.view(forecast, visibility(request), person(request));
     }
 
     /** Depenses visibles par la personne connectee, et celles qu'elle ne peut que consulter. */
@@ -141,7 +140,7 @@ public final class BudgetController {
      */
     private List<BudgetItem> visibleItems(Request request) {
         Visibility visibility = visibility(request);
-        if (visibility.isAdmin()) return items.all();
+        if (visibility.manages()) return items.all();
         Map<Shares.Key, Map<Long, Integer>> shares = sources.shares().all();
         return items.all().stream().filter(item -> visibility.canSee(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()))).toList();
     }
