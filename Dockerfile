@@ -6,7 +6,9 @@ RUN mvn --batch-mode dependency:go-offline
 COPY src src
 # Commit affiche en pied de page (docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) .)
 ARG GIT_COMMIT=dev
-RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT}
+# Version affichee : le numero du tag stable (X.Y.Z) ; vide pour unstable, qui garde celle du pom.xml.
+ARG APP_VERSION=
+RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT} ${APP_VERSION:+-Dapp.version=$APP_VERSION}
 
 FROM eclipse-temurin:21-jdk-jammy AS runtime
 

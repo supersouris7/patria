@@ -76,6 +76,13 @@ class DockerPublishTest(unittest.TestCase):
         publish.prune(True)
         login.assert_not_called()
 
+    @patch.dict(os.environ, {"DOCKERHUB_USERNAME": "u", "DOCKERHUB_TOKEN": "t"})
+    @patch.object(publish.urllib.request, "urlopen", side_effect=publish.urllib.error.HTTPError("u", 403, "Forbidden", {}, None))
+    @patch.object(publish, "hub_token", return_value="jwt")
+    @patch.object(publish, "hub_tags", return_value=[tag("unstable"), tag("d" * 40)])
+    def test_missing_delete_right_warns_without_failing(self, hub, login, opened):
+        publish.prune(False)
+
 
 if __name__ == "__main__":
     unittest.main()

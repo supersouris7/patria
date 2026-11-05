@@ -15,6 +15,9 @@ import pymupdf
 from PIL import Image
 from playwright.sync_api import sync_playwright, expect
 
+# PDF.js est lent a demarrer sur les machines de la CI : meme delai pour toutes les attentes du test.
+expect.set_options(timeout=30000)
+
 
 def check_pdf(path):
     with pymupdf.open(path) as document:
@@ -180,9 +183,15 @@ def main():
         # Touch selection on a small viewport follows the same coordinate system.
         touch_context = browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
         touch_page = touch_context.new_page()
+        touch_errors = []
+        touch_page.on("pageerror", lambda error: touch_errors.append(str(error)))
         touch_page.goto(base + "/aide/caviardage")
+        # Comme sur ordinateur : attendre que le module soit pret avant de deposer le fichier (sinon le depot passe
+        # inapercu), et laisser a PDF.js le meme delai sur les machines lentes de la CI.
+        expect(touch_page.locator("#redaction-status")).to_contain_text("Prêt.", timeout=30000)
         touch_page.locator("#redaction-file").set_input_files(source)
-        expect(touch_page.locator("#redaction-page")).to_contain_text("Page 1 / 2")
+        expect(touch_page.locator("#redaction-page")).to_contain_text("Page 1 / 2", timeout=30000)
+        assert not touch_errors, touch_errors
         touch_page.locator("#redaction-canvas").scroll_into_view_if_needed()
         box = touch_page.locator("#redaction-canvas").bounding_box()
         cdp = touch_context.new_cdp_session(touch_page)

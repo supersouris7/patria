@@ -44,26 +44,34 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn --batch-mode verify
+      # Dependances du test navigateur prises dans la revision du workflow : un ancien tag qui a le test mais pas encore
+      # son fichier de dependances reste testable.
+      - uses: actions/checkout@v5
+        if: hashFiles('tests/redaction_browser.py') != ''
+        with:
+          path: ci-tools
+          sparse-checkout: tests/requirements-browser.txt
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-python@v6
-        if: hashFiles('tests/requirements-browser.txt') != ''
+        if: hashFiles('tests/redaction_browser.py') != ''
         with:
           python-version: '3.13'
-      - run: pip install --requirement tests/requirements-browser.txt
-        if: hashFiles('tests/requirements-browser.txt') != ''
-      - run: python -m playwright install --with-deps chromium
-        if: hashFiles('tests/requirements-browser.txt') != ''
-      - run: python -c "import pymupdf; print(pymupdf.__version__)"
-        if: hashFiles('tests/requirements-browser.txt') != ''
+          cache: pip
+          cache-dependency-path: ci-tools/tests/requirements-browser.txt
+      - name: Installer Playwright, PyMuPDF et Chromium
+        if: hashFiles('tests/redaction_browser.py') != ''
+        run: |
+          pip install --requirement ci-tools/tests/requirements-browser.txt
+          python -m playwright install --with-deps chromium
       - name: Vérifier le caviardage dans Chromium avant publication
         if: hashFiles('tests/redaction_browser.py') != ''
         run: |
-          mkdir -p /tmp/opencode
-          APP_PASSWORD=test-only OFFLINE=true DATABASE_PATH=/tmp/opencode/patria-browser/data.sqlite3 HTTP_PORT=18101 java -jar target/patria.jar > /tmp/opencode/patria-browser.log 2>&1 &
+          data="$RUNNER_TEMP/patria-browser"
+          APP_PASSWORD=test-only OFFLINE=true DATABASE_PATH="$data/data.sqlite3" HTTP_PORT=18101 java -jar target/patria.jar > "$RUNNER_TEMP/patria-browser.log" 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid"' EXIT
           curl --fail --silent --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:18101/sante
-          python -m pip install PyMuPDF
-          python tests/redaction_browser.py http://127.0.0.1:18101
+          python tests/redaction_browser.py http://127.0.0.1:18101 || { tail -50 "$RUNNER_TEMP/patria-browser.log"; exit 1; }
 
   docker:
     needs: [publication, test]
@@ -84,6 +92,7 @@ jobs:
           push: true
           build-args: |
             GIT_COMMIT=${{ needs.publication.outputs.commit }}
+            APP_VERSION=${{ needs.publication.outputs.stable == 'true' && needs.publication.outputs.tag || '' }}
           platforms: linux/amd64,linux/arm64
           tags: |
             supersouris7/patria:${{ needs.publication.outputs.tag }}
@@ -111,3 +120,20 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.publication.outputs.tag }}
         run: python3 scripts/docker_publish.py promote "$RELEASE_VERSION"
+
+  prune:
+    # Docker Hub ne garde que latest, unstable et la derniere version X.Y.Z. Menage seulement : sans le droit Delete,
+    # le jeton laisse un avertissement au lieu de faire echouer la publication.
+    needs: [publication, docker, latest]
+    if: always() && needs.docker.result == 'success' && (needs.latest.result == 'success' || needs.latest.result == 'skipped')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: patria-docker-latest
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - name: Ne garder que latest, unstable et la dernière version
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: python3 scripts/docker_publish.py prune

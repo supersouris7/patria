@@ -5,7 +5,7 @@
 
     <groupId>fr.patria</groupId>
     <artifactId>patria</artifactId>
-    <version>0.1.0</version>
+    <version>0.6.0</version>
     <name>Patria</name>
     <description>Suivi immobilier personnel</description>
 
@@ -17,6 +17,8 @@
         <patria.test.bcrypt.cost>4</patria.test.bcrypt.cost>
         <!-- Commit affiche en pied de page : mvn package -Dgit.commit=$(git rev-parse HEAD) (l'image Docker le recoit en argument). -->
         <git.commit>dev</git.commit>
+        <!-- Version affichee en pied de page ; l'image d'un tag stable la remplace par son numero (APP_VERSION). -->
+        <app.version>${project.version}</app.version>
     </properties>
 
     <dependencies>

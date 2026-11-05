@@ -108,6 +108,9 @@ def prune(dry_run):
         for name in doomed:
             print(f"  (essai) {name}")
         return
+    if not os.environ.get("DOCKERHUB_USERNAME") or not os.environ.get("DOCKERHUB_TOKEN"):
+        print("::warning::Menage Docker Hub ignore : DOCKERHUB_USERNAME ou DOCKERHUB_TOKEN absent.")
+        return
     jwt = hub_token(os.environ["DOCKERHUB_USERNAME"], os.environ["DOCKERHUB_TOKEN"])
     for name in doomed:
         request = urllib.request.Request(f"https://hub.docker.com/v2/repositories/{IMAGE}/tags/{name}/", method="DELETE",
@@ -116,8 +119,13 @@ def prune(dry_run):
             with urllib.request.urlopen(request, timeout=30):
                 print(f"  efface {name}")
         except urllib.error.HTTPError as error:
+            if error.code in (401, 403):
+                # Menage seulement : la publication a reussi, on avertit sans faire echouer la CI.
+                print(f"::warning::Menage Docker Hub impossible ({error.code}) : le jeton DOCKERHUB_TOKEN doit avoir le droit Delete. "
+                      f"{len(doomed)} tag(s) a effacer restent en place.")
+                return
             if error.code != 404:
-                raise SystemExit(f"Effacement de {name} refuse ({error.code}) : le jeton DOCKERHUB_TOKEN doit avoir le droit Delete.")
+                raise SystemExit(f"Effacement de {name} refuse ({error.code}).")
             print(f"  deja absent {name}")
 
 
