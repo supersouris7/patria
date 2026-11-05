@@ -122,20 +122,3 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.publication.outputs.tag }}
         run: python3 scripts/docker_publish.py promote "$RELEASE_VERSION"
-
-  prune:
-    # Docker Hub ne garde que latest, unstable et la derniere version X.Y.Z. Menage seulement : sans le droit Delete,
-    # le jeton laisse un avertissement au lieu de faire echouer la publication.
-    needs: [publication, docker, latest]
-    if: always() && needs.docker.result == 'success' && (needs.latest.result == 'success' || needs.latest.result == 'skipped')
-    runs-on: ubuntu-latest
-    concurrency:
-      group: patria-docker-latest
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v5
-      - name: Ne garder que latest, unstable et la dernière version
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: python3 scripts/docker_publish.py prune

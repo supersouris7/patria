@@ -42,14 +42,14 @@ La CI exécute ce test avant de publier l'image Docker.
 
 ## Publication Docker Hub
 
-Un seul workflow : [`.github/workflows/docker.yml`](../.github/workflows/docker.yml), à modifier dans le dépôt (pas dans Portainer). Docker Hub est conservé ; aucun deuxième pipeline GHCR n'est nécessaire. Secrets GitHub requis : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (jeton d'accès Docker Hub avec les droits **Read, Write, Delete** : le ménage des tags efface).
+Un seul workflow : [`.github/workflows/docker.yml`](../.github/workflows/docker.yml), à modifier dans le dépôt (pas dans Portainer). Docker Hub est conservé ; aucun deuxième pipeline GHCR n'est nécessaire. Secrets GitHub requis : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (jeton d'accès Docker Hub en lecture et écriture).
 
 | Déclencheur | Images publiées après tests Java et navigateur |
 |---|---|
 | Push sur `main` | `supersouris7/patria:unstable` |
 | Tag Git stable `vX.Y.Z` | `supersouris7/patria:X.Y.Z`, puis promotion de `:latest` |
 
-**Trois tags seulement sur Docker Hub** : `latest`, `unstable` et la version `X.Y.Z` la plus récente. Après chaque publication réussie, le job `prune` (ménage seulement : sans le droit Delete, il laisse un avertissement au lieu de faire échouer la CI) efface les tags de hash de commit (anciennes publications) et les versions plus anciennes ; il ne touche à aucun tag d'une autre forme. Conséquence : une installation qui fixe une ancienne version (`PATRIA_IMAGE=supersouris7/patria:0.4.0`) ne peut plus la télécharger ; fixez la dernière, ou suivez `latest`. Essai sans rien effacer : `python3 scripts/docker_publish.py prune --dry-run` ; ménage à la main : `DOCKERHUB_USERNAME=… DOCKERHUB_TOKEN=… python3 scripts/docker_publish.py prune`.
+**Tags publiés** : `unstable` (chaque push sur `main`), `X.Y.Z` (chaque tag stable) et `latest`. Aucun ménage automatique : les anciennes versions restent sur Docker Hub. Ménage à la main (garde `latest`, `unstable` et la dernière `X.Y.Z`, efface les hashs de commit et les versions plus anciennes, ne touche à aucun autre nom) : `python3 scripts/docker_publish.py prune --dry-run` pour voir, puis `DOCKERHUB_USERNAME=… DOCKERHUB_TOKEN=… python3 scripts/docker_publish.py prune` avec un jeton qui a le droit Delete.
 
 `latest` est promu séparément, sans reconstruire l'image : son manifeste amd64/arm64 est repris par digest. Les promotions sont sérialisées et choisissent la plus grande version numérique **déjà publiée sur Docker Hub**, pas le dernier workflow terminé. Un ancien tag relancé ne fait donc pas reculer `latest`. La version réelle de l'actuel `latest` est aussi vérifiée ; en cas de panne réseau, de version attendue absente ou de métadonnée inconnue, la promotion échoue ou refuse de rétrograder au lieu d'écraser l'alias à l'aveugle. Une promotion en attente remplacée par GitHub reste couverte par la recherche de la plus grande version publiée.
 
