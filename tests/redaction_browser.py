@@ -40,7 +40,7 @@ def check_pdf(path):
 
 def main():
     base = sys.argv[1].rstrip("/")
-    with tempfile.TemporaryDirectory(prefix="patria-redaction-", dir="/tmp/opencode") as tmp, sync_playwright() as playwright:
+    with tempfile.TemporaryDirectory(prefix="patria-redaction-") as tmp, sync_playwright() as playwright:
         directory = Path(tmp)
         source = directory / "original-secret.pdf"
         with pymupdf.open() as fixture:
