@@ -170,7 +170,7 @@ public final class Router implements HttpHandler {
         if (viewer == null) return null;
         return new Layout.Chrome(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate(),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
-                insecure, location, viewer.audience().lines(), viewer.audience().changes());
+                insecure, location, viewer.audience().lines(), viewer.audience().changes(), viewer.recent().text(), viewer.recent().failures(), viewer.notice());
     }
 
     /**
@@ -262,7 +262,7 @@ public final class Router implements HttpHandler {
         switch (response) {
             case Response.Page page -> {
                 headers.set("Content-Type", "text/html; charset=utf-8");
-                headers.set("Content-Security-Policy", exchange.getRequestURI().getPath().equals("/aide/caviardage")
+                headers.set("Content-Security-Policy", java.util.Set.of("/aide/caviardage", "/assistant/documents").contains(exchange.getRequestURI().getPath())
                         ? SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'") + "; worker-src 'self'"
                         : SECURITY_POLICY);
                 send(exchange, page.status(), page.html().toString().getBytes(StandardCharsets.UTF_8));

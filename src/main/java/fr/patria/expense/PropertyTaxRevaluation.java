@@ -33,8 +33,4 @@ final class PropertyTaxRevaluation {
         if (COEFFICIENTS.containsKey(year)) return COEFFICIENTS.get(year);
         return year > COEFFICIENTS.lastKey() ? COEFFICIENTS.lastEntry().getValue() : COEFFICIENTS.firstEntry().getValue();
     }
-
-    static boolean isKnown(int year) {
-        return COEFFICIENTS.containsKey(year);
-    }
 }

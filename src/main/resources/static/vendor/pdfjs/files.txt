@@ -195,6 +195,9 @@ wasm/LICENSE_PDFJS_QUICKJS
 wasm/LICENSE_QCMS
 wasm/LICENSE_QUICKJS
 wasm/jbig2.wasm
+wasm/jbig2_nowasm_fallback.js
 wasm/openjpeg.wasm
+wasm/openjpeg_nowasm_fallback.js
 wasm/qcms_bg.wasm
+wasm/quickjs-eval.js
 wasm/quickjs-eval.wasm

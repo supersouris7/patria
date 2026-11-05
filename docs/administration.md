@@ -11,7 +11,7 @@ Ce guide concerne l'exploitant du serveur et le compte administrateur. Le **gest
 - Un gestionnaire de mots de passe pour conserver les secrets, et un support de sauvegarde **hors du serveur**.
 - Pour l'accès distant : HTTPS avec un reverse proxy ou un réseau privé adapté. N'exposez pas directement le port HTTP de Patria.
 
-L'image publiée est `supersouris7/patria:unstable`, pour amd64 et arm64. Ce canal évolue à chaque publication ; sauvegardez avant de mettre à jour.
+Les images sont publiées sur Docker Hub pour amd64 et arm64. Pour les utilisateurs : `supersouris7/patria:latest` (dernière version stable), ou `:X.Y.Z` pour fixer une version. `latest` devient disponible après le premier tag stable. Le canal `:unstable` suit chaque push sur `main` après les tests ; il est réservé à l'installation de développement. Sauvegardez avant de changer de version ou de mettre à jour.
 
 ## Première installation Docker
 
@@ -31,12 +31,15 @@ Ouvrez `.env` et renseignez :
 
 ```dotenv
 APP_PASSWORD=REMPLACER_PAR_UN_MOT_DE_PASSE_LONG_ET_UNIQUE
+PATRIA_IMAGE=supersouris7/patria:latest
 DB_ENCRYPTION_KEY=REMPLACER_PAR_LA_CLE_ALEATOIRE_GENEREE
 DATABASE_PATH=/data/immobilier.sqlite3
 PORT=8101
 ```
 
 Ne copiez pas les valeurs d'exemple comme secrets. Pour la clé générée en base64 : une seule ligne, sans espace ni guillemets. Ne commitez jamais `.env`, les bases, les sauvegardes ou les documents personnels.
+
+**Installation personnelle de développement :** laissez `PATRIA_IMAGE` absent (le Compose garde `unstable`) ou définissez explicitement `supersouris7/patria:unstable`. Modifier le canal ne change ni le volume ni la clé. Un push GitHub publie l'image, mais ne redéploie pas automatiquement votre conteneur ou votre stack Portainer.
 
 Puis :
 
@@ -131,7 +134,7 @@ Le compte administrateur ne voit aucune donnée financière **dans l'interface**
 1. Administration → Foyers → Nouveau foyer (le foyer principal existe déjà).
 2. Ajoutez ses membres (personnes, puis compte joint).
 3. Utilisateurs → Nouvel utilisateur : choisissez le membre représenté et un mot de passe provisoire d'au moins 8 caractères.
-4. Dans le foyer, nommez au moins un **gestionnaire**, qui renseigne le budget et l'immobilier sans pouvoir créer des comptes ni accorder des accès.
+4. Dans la carte du foyer, choisissez le **Gestionnaire** dans la liste puis Enregistrer. Il renseigne le budget et l'immobilier sans créer de comptes ni accorder des accès. Il n'y en a qu'un par foyer : en choisir un autre remplace le précédent, qui garde ses autres vues ; « Aucun gestionnaire » retire ce rôle.
 5. Ouvrez seulement les vues nécessaires aux autres comptes : leurs membres, les totaux du foyer et/ou l'immobilier.
 
 Les mots de passe provisoires doivent être changés à la connexion suivante. Désactivation, suppression de compte ou réinitialisation déconnectent les sessions concernées. Les changements de droits sont journalisés et visibles dans « qui voit quoi ».
@@ -139,6 +142,16 @@ Les mots de passe provisoires doivent être changés à la connexion suivante. D
 **Migration depuis une version où l'administrateur saisissait le budget :** les données restent présentes. Foyers propose les foyers sans gestionnaire : confiez-les à un compte existant ou créez votre compte personnel. Le compte gestionnaire reprend la progression du guide de saisie.
 
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
+
+## Double authentification
+
+Chaque compte, administrateur compris, l'active dans **Mon compte** : en plus du mot de passe, Patria demande le code à 6 chiffres d'une application d'authentification (Aegis, 2FAS, Google Authenticator, Microsoft Authenticator, Bitwarden…). Norme TOTP : ni SMS ni service extérieur ; le QR code est dessiné par Patria et la clé reste sur le serveur.
+
+- **Fortement recommandée pour l'administrateur dès que Patria est accessible depuis Internet.** Patria le détecte (ouverture par un nom de domaine, ou connexion déjà venue d'une adresse IP publique) et l'affiche dans Sécurité, Foyers et Mon compte tant qu'elle n'est pas activée.
+- À la connexion, « Se souvenir de cet appareil 30 jours » évite de retaper le code sur ce navigateur. Cinq codes faux annulent la connexion ; les codes faux comptent dans le blocage des 15 minutes.
+- La page Sécurité indique, pour chaque compte, si la double authentification est activée et depuis quand.
+- **Un utilisateur a perdu son téléphone** : Utilisateurs → son compte → « Retirer sa double authentification ». C'est journalisé, ses appareils retenus sont oubliés, et il voit un avis à sa connexion suivante.
+- **L'administrateur a perdu son téléphone** : ajoutez `ADMIN_2FA_RESET=true` dans `.env`, redémarrez (`docker compose up -d --force-recreate`), connectez-vous, puis **retirez la ligne** et redémarrez encore.
 
 ## Sauvegarder et restaurer
 
@@ -193,6 +206,7 @@ Le schéma est migré au démarrage, avec copie préalable. Vérifiez la version
 
 | Variable | Utilité |
 |---|---|
+| `PATRIA_IMAGE` | Image choisie par Compose : `supersouris7/patria:latest` pour le public, `:X.Y.Z` pour une version fixe ; absent : `:unstable` pour l'installation personnelle. |
 | `APP_PASSWORD` | Obligatoire : mot de passe administrateur ; empreinte `{bcrypt}…` acceptée. |
 | `ADMIN_LOGIN` | Identifiant administrateur, `admin` par défaut. |
 | `DB_ENCRYPTION_KEY` | Clé de chiffrement, au moins 16 caractères ; utilisez les 32 octets aléatoires générés plus haut. Absente : bases en clair. |
@@ -202,6 +216,7 @@ Le schéma est migré au démarrage, avec copie préalable. Vérifiez la version
 | `HTTP_PORT` | Port du serveur Java, `8080` par défaut ; ne pas changer sans adapter le Compose/proxy. |
 | `OFFLINE` | `true` coupe les appels automatiques sortants : marché, taux, localisation des IP. |
 | `KOFI_URL` | URL `https://ko-fi.com/<nom>` ; vide pour masquer le lien. |
+| `ADMIN_2FA_RESET` | `true` retire la double authentification de l'administrateur au démarrage (téléphone perdu) ; à retirer ensuite. |
 
 Les services utilisés hors mode hors ligne sont détaillés dans [Confidentialité](confidentialite.md). Sans réseau sortant, le budget reste utilisable, mais les données de marché ne sont plus actualisées.
 

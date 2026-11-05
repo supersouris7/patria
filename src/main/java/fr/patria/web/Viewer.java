@@ -20,9 +20,19 @@ import java.util.Set;
  * @param manages            gestion complete du foyer affiche (utilisateur gestionnaire de ce foyer)
  * @param mustChangePassword mot de passe choisi par l'administrateur, a changer avant toute autre page
  * @param audience           qui voit quoi dans ce foyer (icone d'information de l'en-tete)
+ * @param recent             connexion precedente du compte et echecs depuis (en-tete)
+ * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
  */
 public record Viewer(Long userId, String name, Household household, List<Household> households, boolean wholeHousehold, Set<Long> members,
-                     boolean realEstate, boolean manages, boolean mustChangePassword, Audience audience) {
+                     boolean realEstate, boolean manages, boolean mustChangePassword, Audience audience, Recent recent, String notice) {
+    /**
+     * Derniere connexion avant celle-ci : {@code text} (« hier 21:12 · Lyon, France », ou « première connexion »),
+     * {@code failures} : echecs sur ce compte depuis.
+     */
+    public record Recent(String text, int failures) {
+        public static final Recent NONE = new Recent(null, 0);
+    }
+
     /** Un foyer du selecteur ; {@code managed} : l'utilisateur en est gestionnaire. */
     public record Household(long id, String name, boolean managed) {
         public Household(long id, String name) {
@@ -39,13 +49,14 @@ public record Viewer(Long userId, String name, Household household, List<Househo
     }
 
     /** L'administrateur : aucune vue dans les foyers. */
-    public static Viewer admin(String name, Household household, List<Household> households) {
-        return new Viewer(null, name, household, households, false, Set.of(), false, false, false, Audience.NONE);
+    public static Viewer admin(String name, Household household, List<Household> households, Recent recent) {
+        return new Viewer(null, name, household, households, false, Set.of(), false, false, false, Audience.NONE, recent, null);
     }
 
     /** Utilisateur gestionnaire du foyer affiche : il y voit et modifie tout. */
-    public static Viewer manager(long userId, String name, Household household, List<Household> households, boolean mustChangePassword, Audience audience) {
-        return new Viewer(userId, name, household, households, true, null, true, true, mustChangePassword, audience);
+    public static Viewer manager(long userId, String name, Household household, List<Household> households, boolean mustChangePassword, Audience audience,
+                                 Recent recent, String notice) {
+        return new Viewer(userId, name, household, households, true, null, true, true, mustChangePassword, audience, recent, notice);
     }
 
     /** L'administrateur de l'application (compte de l'environnement) : foyers, utilisateurs, droits, securite. */

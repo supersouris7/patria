@@ -479,9 +479,11 @@ final class PortfolioPages {
         Property property = summary.property();
         if (!Layout.manages()) return Html.EMPTY;
         Html outdated = Html.when(summary.estimateOutdated(), Html.of("""
-                <p class="notice warning">Estimation du %s, il y a plus de 3 ans : l'actualisation automatique a ses limites.                 <a href="/administration/bien/%s">Mettre à jour l'estimation</a></p>""", date(property.estimateDate()), property.id()));
+                <p class="notice warning">Estimation du %s, il y a plus de 3 ans : l'actualisation automatique a ses limites. \
+                <a href="/administration/bien/%s">Mettre à jour l'estimation</a></p>""", date(property.estimateDate()), property.id()));
         Html occupancy = Html.when(summary.occupancyMissing(), Html.of("""
-                <p class="notice warning">Occupation non renseignée : l'enrichissement ne compte ni loyer perçu ni loyer économisé.                 <a href="/administration/bien/%s/loyers">Renseigner l'occupation</a></p>""", property.id()));
+                <p class="notice warning">Occupation non renseignée : l'enrichissement ne compte ni loyer perçu ni loyer économisé. \
+                <a href="/administration/bien/%s/loyers">Renseigner l'occupation</a></p>""", property.id()));
         return Html.concat(outdated, occupancy);
     }
 

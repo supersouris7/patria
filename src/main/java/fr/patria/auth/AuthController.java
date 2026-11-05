@@ -41,6 +41,26 @@ public final class AuthController {
         /** Journal des connexions : chaque essai, reussi ou non ({@code userId} nul : administrateur ou inconnu). */
         default void recorded(String login, Long userId, boolean success, String ip) {
         }
+
+        /** Double authentification activee pour ce compte. */
+        default boolean twoFactor(Long userId) {
+            return false;
+        }
+
+        /** Code de l'application d'authentification juste (et pas deja utilise). */
+        default boolean verifyCode(Long userId, String code) {
+            return false;
+        }
+
+        /** Appareil reconnu ({@code token} : cookie de l'appareil) : le code n'est pas redemande. */
+        default boolean trusted(Long userId, String token) {
+            return false;
+        }
+
+        /** Retient cet appareil 30 jours ; renvoie le jeton a mettre dans son cookie. */
+        default String trustDevice(Long userId) {
+            return null;
+        }
     }
 
     private final Sessions sessions;
@@ -48,6 +68,7 @@ public final class AuthController {
     private final Password password;
     private final Users users;
     private final LoginThrottle throttle;
+    private final Clock clock;
 
     public AuthController(Sessions sessions, String adminLogin, String password, Users users, Clock clock) {
         this.sessions = sessions;
@@ -55,11 +76,27 @@ public final class AuthController {
         this.password = new Password(password);
         this.users = users;
         this.throttle = new LoginThrottle(clock);
+        this.clock = clock;
     }
+
+    /** Cookie d'un appareil reconnu par la double authentification. */
+    public static final String DEVICE_COOKIE = "patria_appareil";
+    static final int DEVICE_DAYS = 30;
+    private static final int MAX_CODE_TRIES = 5;
+    private static final java.time.Duration CODE_DELAY = java.time.Duration.ofMinutes(5);
+
+    /** Mot de passe juste, code de double authentification attendu. */
+    private record Pending(Long userId, String accountKey, String client, String next, long expiresAt, int tries) {
+    }
+
+    private final java.util.Map<String, Pending> pending = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
     public void register(Router router) {
         router.publicGet("/connexion", this::loginPage);
         router.publicPost("/connexion", this::login);
+        router.publicGet("/connexion/code", this::codePage);
+        router.publicPost("/connexion/code", this::code);
         router.userPost("/deconnexion", this::logout);
         router.publicGet("/aide/https", request -> Response.page(fr.patria.ui.SecurityPages.help(request.csrf())));
         router.userPost("/securite/http-compris", request -> {
@@ -74,6 +111,7 @@ public final class AuthController {
         Notice notice = request.query("bloque") != null ? Notice.error("Trop de tentatives. Réessayez dans quelques minutes.")
                 : request.query("erreur") != null ? Notice.error("Identifiant ou mot de passe incorrect.")
                 : request.query("sans-foyer") != null ? Notice.error("Aucun foyer n'est ouvert pour ce compte. Demandez à l'administrateur.")
+                : request.query("expire") != null ? Notice.error("Délai dépassé : reconnectez-vous.")
                 : request.query("deconnecte") != null ? Notice.success("Vous êtes déconnecté.") : null;
         return Response.page(page(notice, LocalPath.safe(request.query("suite")), fr.patria.web.Router.insecure(request)));
     }
@@ -99,18 +137,95 @@ public final class AuthController {
             if (user.isEmpty()) return failure(client, accountKey, keep);
             userId = user.get();
         }
+        OptionalLong household = users.firstHousehold(userId);
+        if (household.isEmpty()) return Response.redirect("/connexion?sans-foyer");
+        if (users.twoFactor(userId) && !users.trusted(userId, request.cookie(DEVICE_COOKIE))) {
+            // Mot de passe juste : reste le code de l'application d'authentification.
+            String token = token();
+            long now = clock.millis();
+            pending.values().removeIf(entry -> entry.expiresAt() < now);
+            pending.put(token, new Pending(userId, accountKey, client, next, now + CODE_DELAY.toMillis(), 0));
+            return Response.redirect("/connexion/code?jeton=" + token);
+        }
+        return open(request, userId, accountKey, client, next, false);
+    }
+
+    /** Connexion reussie : session, cookie, page suivante ({@code remember} : retenir l'appareil 30 jours). */
+    private Response open(Request request, Long userId, String accountKey, String client, String next, boolean remember) {
         throttle.reset(accountKey);
         users.recorded(accountKey, userId, true, client);
         OptionalLong household = users.firstHousehold(userId);
         if (household.isEmpty()) return Response.redirect("/connexion?sans-foyer");
         Session session = sessions.create(userId, household.getAsLong());
-        String cookie = Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.LIFETIME.toSeconds() + "; HttpOnly; SameSite=Lax"
-                + (request.isHttps() ? "; Secure" : "");
+        String secure = request.isHttps() ? "; Secure" : "";
+        List<String> cookies = new java.util.ArrayList<>();
+        cookies.add(Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.LIFETIME.toSeconds() + "; HttpOnly; SameSite=Lax" + secure);
+        if (remember) {
+            String device = users.trustDevice(userId);
+            if (device != null) cookies.add(DEVICE_COOKIE + "=" + device + "; Path=/; Max-Age=" + java.time.Duration.ofDays(DEVICE_DAYS).toSeconds() + "; HttpOnly; SameSite=Lax" + secure);
+        }
         String target = next == null || next.startsWith("/connexion") ? "/" : next;
         // Premiere connexion : l'accueil, sauf si une page precise etait demandee (lien recu) ; il viendra a la suivante.
         if (next == null && !users.welcomed(userId)) target = "/bienvenue";
         if (users.mustChangePassword(userId)) target = "/compte/nouveau-mot-de-passe";
-        return new Response.Redirect(target, List.of(cookie));
+        return new Response.Redirect(target, cookies);
+    }
+
+    private Pending pending(String token) {
+        Pending entry = token == null ? null : pending.get(token);
+        if (entry == null) return null;
+        if (entry.expiresAt() < clock.millis()) {
+            pending.remove(token);
+            return null;
+        }
+        return entry;
+    }
+
+    private Response codePage(Request request) {
+        String token = request.query("jeton");
+        if (pending(token) == null) return Response.redirect("/connexion?expire");
+        Notice notice = request.query("erreur") != null ? Notice.error("Code incorrect. Vérifiez l'heure du téléphone, puis tapez le code affiché maintenant.") : null;
+        return Response.page(codeForm(token, notice));
+    }
+
+    private Response code(Request request) {
+        String token = request.form().raw("jeton");
+        Pending entry = pending(token);
+        if (entry == null) return Response.redirect("/connexion?expire");
+        if (throttle.isBlocked(entry.client(), entry.accountKey())) {
+            pending.remove(token);
+            return Response.redirect("/connexion?bloque");
+        }
+        if (users.verifyCode(entry.userId(), request.form().raw("code"))) {
+            pending.remove(token);
+            return open(request, entry.userId(), entry.accountKey(), entry.client(), entry.next(), "on".equals(request.form().raw("retenir")));
+        }
+        throttle.recordFailure(entry.client(), entry.accountKey());
+        users.recorded(entry.accountKey() + " (code 2FA)", null, false, entry.client());
+        if (entry.tries() + 1 >= MAX_CODE_TRIES) {
+            pending.remove(token);
+            return Response.redirect("/connexion?erreur");
+        }
+        pending.put(token, new Pending(entry.userId(), entry.accountKey(), entry.client(), entry.next(), entry.expiresAt(), entry.tries() + 1));
+        return Response.redirect("/connexion/code?jeton=" + token + "&erreur");
+    }
+
+    private static String token() {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** Deuxieme etape de la connexion : le code a 6 chiffres de l'application d'authentification. */
+    static Html codeForm(String token, Notice notice) {
+        return Layout.document("Code de connexion · Patria", "login-page", Html.of("""
+                <main class="login-card">%s<h1>Code de connexion</h1><p class="muted">Ouvrez votre application d'authentification et tapez le code
+                à 6 chiffres affiché pour Patria.</p>%s
+                <form method="post" action="/connexion/code" class="stack"><input type="hidden" name="jeton" value="%s"><label>Code
+                <input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus></label>
+                <label class="check"><input type="checkbox" name="retenir" value="on">Se souvenir de cet appareil 30 jours</label>
+                <button type="submit">Valider</button></form><p class="muted small"><a href="/connexion">Revenir à la connexion</a> · Téléphone perdu ?
+                Demandez à l'administrateur de retirer votre double authentification.</p></main>""", Layout.brand(), Components.notice(notice), token));
     }
 
     /** Adresses et identifiants bloques en ce moment (page Securite). */
@@ -135,7 +250,8 @@ public final class AuthController {
 
     static Html page(Notice notice, String next, boolean insecure) {
         return Layout.document("Connexion · Patria", "login-page", Html.of("""
-                <main class="login-card">%s<h1>Connexion</h1><p class="muted">Vos données restent sur votre serveur.</p>%s%s
+                <main class="login-card">%s<p class="login-slogan">Vos comptes restent chez vous.</p>\
+                <p class="muted">Budget et patrimoine, hébergés sur votre serveur.</p><h1 class="login-title">Connexion</h1>%s%s
                 <form method="post" action="/connexion" class="stack">%s<label>Identifiant
                 <input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label><label>Mot de passe
                 <input name="password" type="password" autocomplete="current-password" required></label>

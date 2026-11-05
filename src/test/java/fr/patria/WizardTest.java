@@ -4,14 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import fr.patria.TestAccounts.Visitor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,26 +21,18 @@ class WizardTest {
     private HttpClient client;
     private String base;
 
-    private record Visitor(String cookie, String csrf, long id) {
-        Visitor(String cookie, String csrf) {
-            this(cookie, csrf, 0);
-        }
-    }
-
     /** L'administrateur : il cree les comptes (il ne voit pas les finances). */
     private TestAccounts.Visitor root;
 
     /** Le gestionnaire du foyer principal, qui saisit (le premier compte cree). */
     private Visitor manager() throws Exception {
         root = TestAccounts.admin(client, base);
-        TestAccounts.Visitor manager = TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&manager=on");
-        return new Visitor(manager.cookie(), manager.csrf(), manager.id());
+        return TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&manager=on");
     }
 
     /** Un compte lie a un membre ({@code membre=1%3A1}), mot de passe provisoire deja change. */
     private Visitor user(String login, String name, String member) throws Exception {
-        TestAccounts.Visitor user = TestAccounts.account(client, base, root, login, name, "membre=" + member, 1, null);
-        return new Visitor(user.cookie(), user.csrf(), user.id());
+        return TestAccounts.account(client, base, root, login, name, "membre=" + member, 1, null);
     }
 
     @BeforeEach
@@ -60,37 +48,19 @@ class WizardTest {
     }
 
     private HttpResponse<String> get(Visitor visitor, String path) throws Exception {
-        return client.send(HttpRequest.newBuilder(URI.create(base + path)).header("Cookie", visitor.cookie()).GET().build(), HttpResponse.BodyHandlers.ofString());
+        return TestAccounts.get(client, base, visitor, path);
     }
 
     private HttpResponse<String> post(Visitor visitor, String path, String form) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(base + path)).header("Content-Type", "application/x-www-form-urlencoded");
-        if (visitor != null) builder.header("Cookie", visitor.cookie());
-        String body = visitor == null ? form : "csrf=" + visitor.csrf() + (form.isEmpty() ? "" : "&" + form);
-        return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+        return TestAccounts.post(client, base, visitor, path, form);
     }
 
     private HttpResponse<String> upload(Visitor visitor, String path, String name, String csv) throws Exception {
-        String boundary = "patriaWizardBoundary";
-        String body = "--" + boundary + "\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n" + visitor.csrf() + "\r\n"
-                + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\n" + name + "\r\n"
-                + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"csv\"; filename=\"pret.csv\"\r\nContent-Type: text/csv\r\n\r\n" + csv + "\r\n"
-                + "--" + boundary + "--\r\n";
-        return client.send(HttpRequest.newBuilder(URI.create(base + path)).header("Cookie", visitor.cookie())
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(), HttpResponse.BodyHandlers.ofString());
-    }
-
-    private Visitor login(String login, String password) throws Exception {
-        HttpResponse<String> logged = post(null, "/connexion", "login=" + login + "&password=" + password);
-        String cookie = logged.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
-        Matcher csrf = Pattern.compile("name=\"csrf\" value=\"([^\"]+)\"").matcher(get(new Visitor(cookie, ""), "/compte").body());
-        assertTrue(csrf.find());
-        return new Visitor(cookie, csrf.group(1));
+        return TestAccounts.upload(client, base, visitor, path, java.util.Map.of("name", name), "csv", "pret.csv", csv);
     }
 
     private static String location(HttpResponse<String> response) {
-        return response.headers().firstValue("Location").orElseThrow();
+        return TestAccounts.location(response);
     }
 
     @Test

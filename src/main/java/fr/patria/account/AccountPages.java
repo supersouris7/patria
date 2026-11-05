@@ -33,15 +33,18 @@ final class AccountPages {
      * Page Foyers : la reprise des foyers sans gestionnaire, une carte par foyer (membres, comptes, avancement de la
      * configuration, renommer, supprimer), la creation d'un foyer et les foyers supprimes.
      */
-    static Html households(List<HouseholdCard> cards, List<Household> orphans, List<User> activeUsers, List<HouseholdDirectory.Archive> archives,
-                           Map<String, String> values, Notice notice, String csrf) {
+    static Html households(List<HouseholdCard> cards, List<Household> orphans, List<User> activeUsers, boolean recommendTwoFactor,
+                           List<HouseholdDirectory.Archive> archives, Map<String, String> values, Notice notice, String csrf) {
         Html blocks = cards.stream().map(card -> householdCard(card, cards.size(), activeUsers, csrf)).collect(Html.joining());
         Html form = Components.form("/administration/foyers", csrf, false, Components.fields(2,
                 Components.input(Input.of("Nom du foyer", "name", Field.TEXT).required().maxLength(60).placeholder("Foyer Martin"), values)), "Créer le foyer");
         Html content = Html.concat(Components.heading("Administration", "Foyers",
                         "Les foyers, leurs membres et l'avancement de leur configuration. Vous créez les comptes et réglez les droits ; "
                                 + "vous ne voyez aucune donnée financière : ce sont les gestionnaires de chaque foyer qui saisissent.", Html.EMPTY),
-                Components.notice(notice), takeOver(orphans, activeUsers, values, csrf),
+                Components.notice(notice), recommendTwoFactor ? Html.raw("""
+                        <p class="notice error"><b>Double authentification fortement recommandée</b> : Patria est accessible depuis Internet.
+                        <a href="/compte/double-authentification">L'activer pour le compte administrateur</a></p>""") : Html.EMPTY,
+                takeOver(orphans, activeUsers, values, csrf),
                 Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
                 Components.card("Nouveau foyer", null, Html.EMPTY, form), archives(archives, csrf));
         return Layout.adminSection("Foyers · Patria", csrf, Layout.AdminSection.HOUSEHOLDS, content);
@@ -59,10 +62,12 @@ final class AccountPages {
                 <p>Personne ne peut y saisir. L'administrateur ne voit pas les données des foyers : confiez-les à un compte, qui en devient
                 <b>gestionnaire</b> (tout voir, tout saisir) et retrouve la progression du Guide de saisie. Les données déjà saisies ne bougent pas.</p>""");
         Html existing = activeUsers.isEmpty() ? Html.EMPTY : Html.of("""
-                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">À un compte existant</p>%s                <div class="chips-line">%s</div><div class="row-form">%s<button type="submit">Le nommer gestionnaire de ces foyers</button></div></form>""",
+                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">À un compte existant</p>%s\
+                <div class="chips-line">%s</div><div class="row-form">%s<button type="submit">Le nommer gestionnaire de ces foyers</button></div></form>""",
                 Components.csrfField(csrf), boxes, userSelect("Compte", "compte", activeUsers));
         Html created = Html.of("""
-                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">%s</p>%s                <div class="chips-line">%s</div>%s
+                <form method="post" action="/administration/foyers/reprise" class="stack takeover-form"><p class="eyebrow">%s</p>%s\
+                <div class="chips-line">%s</div>%s
                 <div class="form-actions"><button type="submit" class="%s">Créer le compte et lui confier ces foyers</button></div></form>""",
                 activeUsers.isEmpty() ? "Créer le compte" : "Ou créer un nouveau compte", Components.csrfField(csrf), boxes,
                 Components.fields(3,
@@ -84,7 +89,9 @@ final class AccountPages {
     private static Html archives(List<HouseholdDirectory.Archive> archives, String csrf) {
         if (archives.isEmpty()) return Html.EMPTY;
         Html rows = archives.stream().map(archive -> Html.of("""
-                        <tr><td><code>%s</code></td><td>%s</td><td class="num">%s Ko</td><td><form method="post" action="/administration/foyers/archives/effacer"                         data-confirm="Effacer définitivement cette base ? Ses données ne pourront plus être récupérées.">%s<input type="hidden" name="archive" value="%s">                        <button class="danger" type="submit">Effacer définitivement</button></form></td></tr>""",
+                        <tr><td><code>%s</code></td><td>%s</td><td class="num">%s Ko</td><td><form method="post" action="/administration/foyers/archives/effacer" \
+                        data-confirm="Effacer définitivement cette base ? Ses données ne pourront plus être récupérées.">%s<input type="hidden" name="archive" value="%s">\
+                        <button class="danger" type="submit">Effacer définitivement</button></form></td></tr>""",
                 archive.name(), archive.deletedOn().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), Math.max(1, archive.bytes() / 1024),
                 Components.csrfField(csrf), archive.name())).collect(Html.joining());
         return Components.card("Foyers supprimés", archives.size(), Html.EMPTY, Html.concat(Html.raw("""
@@ -202,7 +209,7 @@ final class AccountPages {
     record HouseholdAccess(Household household, List<HouseholdDirectory.Member> members, Optional<Access> access) {
     }
 
-    static Html user(User user, List<HouseholdAccess> households, boolean provisional, Notice notice, String csrf) {
+    static Html user(User user, List<HouseholdAccess> households, boolean provisional, java.time.LocalDate twoFactorOn, Notice notice, String csrf) {
         Html identity = Components.form("/administration/utilisateur/" + user.id(), csrf, false, Html.concat(Components.fields(2,
                         Components.input(Input.of("Nom affiché", "name", Field.TEXT).required().maxLength(60), Map.of("name", user.name())),
                         Html.of("<label>Identifiant<input value=\"%s\" disabled></label>", user.login())),
@@ -224,6 +231,16 @@ final class AccountPages {
                         <p class="muted">Un foyer par bloc. Chaque case dit ce qu'elle ouvre ; le résumé en haut du bloc dit ce que l'utilisateur
                         peut faire aujourd'hui. Pensez à « Enregistrer les droits » pour chaque foyer.</p>%s</section>""", accesses),
                 Components.card("Mot de passe", null, Html.EMPTY, reset),
+                Components.card("Double authentification", null, Html.EMPTY, twoFactorOn == null
+                        ? Html.raw("<p class=\"muted\">Non activée. L'utilisateur l'active lui-même dans Mon compte.</p>")
+                        : Html.of("""
+                        <p><span class="badge paid">Activée</span> depuis le %s.</p>
+                        <form method="post" action="/administration/utilisateur/%s/double-authentification/retirer" data-confirm="%s">%s\
+                        <button class="danger" type="submit">Retirer sa double authentification</button></form>
+                        <p class="muted small">Seulement s'il a perdu son téléphone. C'est inscrit au journal et Patria le lui signale à sa prochaine
+                        connexion.</p>""", twoFactorOn.equals(java.time.LocalDate.MIN) ? "?" : twoFactorOn.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        user.id(), "Retirer la double authentification de " + user.name() + " ? Il pourra se connecter avec son seul mot de passe.",
+                        Components.csrfField(csrf))),
                 Components.dangerZone("Supprimer cet utilisateur", "Supprime le compte et ses droits. Les données des foyers ne changent pas.",
                         "/administration/utilisateur/" + user.id() + "/supprimer", "Supprimer l'utilisateur « " + user.name() + " » ?", "Supprimer l'utilisateur", csrf));
         return Layout.adminSection(user.name() + " · Utilisateurs · Patria", csrf, Layout.AdminSection.USERS, content);
@@ -257,8 +274,10 @@ final class AccountPages {
                         access != null && access.manager()),
                 option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Prévisionnel et Budget moyen, avec les revenus et dépenses de tous les membres, et toutes les lignes "
                         + "en lecture seule dans Administration. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
-                option("estate", "Immobilier, en lecture seule", "Menu Immobilier : biens, prêts, mensualités, prix du marché. Sans cette case, les mensualités et "
-                        + "charges des biens restent comptées dans son budget, mais il n'ouvre pas les fiches.", access != null && access.realEstate()),
+                option("estate", "Tous les biens du foyer, en lecture seule", "Menu Immobilier : les biens de ce foyer (chaque bien appartient à un seul "
+                        + "foyer), leurs prêts, mensualités, charges et prix du marché. Tout ou rien : on n'ouvre pas bien par bien. La part de chacun se règle "
+                        + "dans Répartition. Sans cette case, les mensualités et charges restent comptées dans son budget, mais il n'ouvre pas les fiches.",
+                        access != null && access.realEstate()),
                 members);
     }
 
@@ -271,7 +290,7 @@ final class AccountPages {
         if (access.wholeHousehold()) text.append("Voit les totaux du foyer. ");
         if (names.isEmpty()) text.append("Ne modifie rien (aucun membre coché). ");
         else text.append("Voit et modifie les lignes de ").append(String.join(", ", names)).append(". ");
-        text.append(access.realEstate() ? "Consulte l'immobilier." : "Pas d'immobilier.");
+        text.append(access.realEstate() ? "Voit tous les biens du foyer (lecture seule)." : "Ne voit pas les biens du foyer.");
         return text.toString();
     }
 
@@ -301,7 +320,11 @@ final class AccountPages {
         return Layout.page("Mot de passe · Patria", Layout.Section.ACCOUNT, csrf, content);
     }
 
-    static Html account(String name, String login, boolean admin, Notice notice, String csrf) {
+    /** Double authentification et dernieres connexions, pour « Mon compte ». */
+    record Security(AccountRepository.TwoFactor twoFactor, boolean exposed, List<AccountRepository.LoginEvent> events, Map<String, String> places) {
+    }
+
+    static Html account(String name, String login, boolean admin, Security security, Notice notice, String csrf) {
         Html body = admin ? Html.raw("""
                 <p class="muted">Vous êtes connecté en administrateur. Ce mot de passe est défini dans l'environnement du serveur (APP_PASSWORD) :
                 il se change dans la configuration (compose.yaml), puis en redémarrant Patria.</p>""")
@@ -311,10 +334,67 @@ final class AccountPages {
                         password("Confirmation", "confirm", "new-password", null)), "Changer le mot de passe");
         Html content = Html.concat(Components.heading("Mon compte", name, login, Html.EMPTY), Components.notice(notice),
                 Components.card("Mot de passe", null, Html.EMPTY, body),
+                Components.card("Double authentification", null, Html.EMPTY, twoFactor(security, admin, csrf)),
+                connections(security),
                 Components.card("Accueil", null, Html.EMPTY, Html.raw("""
                         <p class="muted">Les quatre écrans de la première connexion : ce que fait Patria, pour qui, la confidentialité.</p>
                         <a class="button secondary" href="/bienvenue">Revoir l'accueil</a>""")));
         return Layout.page("Mon compte · Patria", Layout.Section.ACCOUNT, csrf, content);
+    }
+
+    private static Html twoFactor(Security security, boolean admin, String csrf) {
+        AccountRepository.TwoFactor state = security.twoFactor();
+        if (state.enabled()) {
+            return Html.of("""
+                    <p><span class="badge paid">Activée</span> depuis le %s : à la connexion, Patria demande aussi le code de votre application
+                    d'authentification (sauf sur un appareil retenu 30 jours).</p>
+                    <form method="post" action="/compte/double-authentification/desactiver" class="row-form" data-confirm="Désactiver la double authentification ?">%s\
+                    <label>Code actuel<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>\
+                    <button class="secondary" type="submit">Désactiver</button></form>""",
+                    state.enabledOn() == null || state.enabledOn().equals(java.time.LocalDate.MIN) ? "?" : state.enabledOn().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    Components.csrfField(csrf));
+        }
+        Html recommended = admin && security.exposed() ? Html.raw("""
+                <p class="notice error"><b>Fortement recommandé</b> : Patria est accessible depuis Internet. Avec le seul mot de passe, quiconque le
+                devine ou le vole ouvre l'administration.</p>""") : Html.EMPTY;
+        return Html.concat(recommended, Html.raw("""
+                <p>En plus du mot de passe, un code à 6 chiffres affiché par une application sur votre téléphone (Google Authenticator, Aegis,
+                Bitwarden, 2FAS…). Un mot de passe volé ne suffit plus pour entrer.</p>
+                <a class="button" href="/compte/double-authentification">Activer la double authentification</a>"""));
+    }
+
+    /** Dernieres connexions du compte, reussies ou non (lien « Derniere connexion » de l'en-tete). */
+    private static Html connections(Security security) {
+        java.time.format.DateTimeFormatter when = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        Html rows = security.events().stream().map(event -> Html.of("<tr><td>%s</td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>",
+                event.at().format(when), event.success() ? Html.raw("<span class=\"badge paid\">Réussie</span>")
+                        : Html.of("<span class=\"badge warn\">%s</span>", event.login().endsWith("(code 2FA)") ? "Code faux" : event.login().endsWith("(bloqué)") ? "Bloquée" : "Échec"),
+                event.ip(), security.places().getOrDefault(event.ip(), ""))).collect(Html.joining());
+        return Html.of("<section class=\"card section\" id=\"connexions\"><div class=\"section-title\"><h2>Vos dernières connexions</h2></div>%s%s</section>",
+                security.events().isEmpty() ? Html.raw("<p class=\"empty\">Aucune connexion enregistrée.</p>")
+                        : Components.table(List.of("Date", "Résultat", "Adresse IP", "Lieu"), rows, false, false),
+                Html.raw("<p class=\"muted small\">Une connexion que vous ne reconnaissez pas ? Changez votre mot de passe et activez la double authentification.</p>"));
+    }
+
+    /** Activation : QR code a scanner, cle a saisir a la main, puis le premier code. */
+    static Html twoFactorSetup(String uri, String secret, Notice notice, String csrf) {
+        Html content = Html.concat(Components.backLink("/compte", "Mon compte"),
+                Components.heading("Mon compte", "Activer la double authentification", "Trois étapes, une minute.", Html.EMPTY), Components.notice(notice),
+                Html.of("""
+                        <section class="card section two-factor-setup"><ol class="steps help-steps">
+                        <li><b>Installez une application d'authentification</b> sur votre téléphone si vous n'en avez pas : Aegis ou 2FAS (Android),
+                        Google Authenticator, Microsoft Authenticator, ou celle de Bitwarden.</li>
+                        <li><b>Scannez ce code</b> avec l'application (« + », puis « Scanner un QR code ») :<div class="qr-box">%s</div>
+                        <p class="muted">Ou tapez la clé à la main : <code class="secret">%s</code></p></li>
+                        <li><b>Tapez le code à 6 chiffres</b> que l'application affiche maintenant pour Patria :
+                        <form method="post" action="/compte/double-authentification/activer" class="row-form">%s\
+                        <label>Code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus></label>\
+                        <button type="submit">Activer</button></form></li></ol>
+                        <p class="muted small">Téléphone perdu ou changé : l'administrateur peut retirer votre double authentification (c'est inscrit au journal
+                        et Patria vous le signale). Le QR code est dessiné par Patria : la clé ne quitte pas votre serveur.</p></section>""",
+                        fr.patria.ui.QrCode.svg(uri, "QR code à scanner avec l'application d'authentification"), fr.patria.common.Totp.grouped(secret),
+                        Components.csrfField(csrf)));
+        return Layout.page("Double authentification · Patria", Layout.Section.ACCOUNT, csrf, content);
     }
 
     private static Html password(String label, String name, String autocomplete, String help) {

@@ -51,3 +51,38 @@ export function paintMasks(context, width, height, masks) {
     context.fillRect(x, y, Math.ceil(mask.right * width) + 2 - x, Math.ceil(mask.bottom * height) + 2 - y);
   });
 }
+
+export function sensitiveTypes(text, terms) {
+  const normalize = value => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const normalized = normalize(text);
+  const tests = [
+    ["adresse e-mail", /[\w.+-]+\s*@\s*[\w.-]+\s*\.\s*[a-z]{2,}/i],
+    ["IBAN", /\b[a-z]{2}\s*\d{2}(?:\s*[a-z0-9]){11,30}\b/i],
+    ["téléphone", /(?:\+33|\b0)[\s().-]*[1-9](?:[\s().-]*\d){8}\b/],
+    ["numéro long (compte, identifiant…)", /\b\d(?:[\s.-]*\d){9,}\b/],
+    ["libellé identifiant (nom, adresse, compte…)", /\b(nom|prenom|adresse|iban|titulaire|emprunteur|beneficiaire|telephone|courriel|numero fiscal|securite sociale|numero de contrat)\b/]
+  ];
+  const found = tests.filter(([, pattern]) => pattern.test(normalized)).map(([label]) => label);
+  if (terms.split("\n").map(term => term.trim()).filter(Boolean).some(term =>
+    normalized.includes(normalize(term)))) found.push("mot ou information que vous avez indiqué");
+  return found;
+}
+
+export function fullyMasked(box, masks) {
+  // Un seul masque doit couvrir toute la boite : une couverture incertaine reste a relire (faux positif prefere).
+  return masks.some(mask => mask.x <= box.x && mask.y <= box.y && mask.right >= box.right && mask.bottom >= box.bottom);
+}
+
+export function textBox(item, viewport) {
+  const [a, b, c, d, x, y] = item.transform;
+  const length = Math.hypot(a, b);
+  if (!item.transform.every(Number.isFinite) || !length || !Math.hypot(c, d) || !Number.isFinite(item.width) || item.width < 0) return null;
+  // Boite volontairement large au-dessus ET sous la ligne de base, y compris sur les pages tournees.
+  const points = [-1, 1].flatMap(sign => [0, 1].map(end => viewport.convertToViewportPoint(
+    x + end * item.width * a / length + sign * c,
+    y + end * item.width * b / length + sign * d)));
+  return {x: Math.min(...points.map(point => point[0])) / viewport.width,
+    y: Math.min(...points.map(point => point[1])) / viewport.height,
+    right: Math.max(...points.map(point => point[0])) / viewport.width,
+    bottom: Math.max(...points.map(point => point[1])) / viewport.height};
+}

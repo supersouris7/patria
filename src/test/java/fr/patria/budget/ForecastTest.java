@@ -221,8 +221,9 @@ class ForecastTest {
         assertAmount("180.10", tax.apply(view.months().get(7)));       // janvier 2027 : 1 801 / 10
         assertAmount("0", view.provision());                           // mensualisée : rien à mettre de côté
         BigDecimal year2027 = BigDecimal.ZERO;
-        for (int m = 1; m <= 10; m++) year2027 = year2027.add(Forecast.propertyCharges(TestData.property("Maison", "200000", null, null),
-                stores.expenses().forProperty(property), true, YearMonth.of(2027, m)).getFirst().amount());
+        // Fonction utilisee par le calcul du mois (Forecast.month)
+        for (int m = 1; m <= 10; m++) year2027 = year2027.add(Forecast.propertyTax(TestData.property("Maison", "200000", null, null),
+                stores.expenses().forProperty(property), true, YearMonth.of(2027, m)).amount());
         assertAmount("1801", year2027);                                // octobre absorbe l'arrondi
 
         stores.expenses().setPropertyTaxMonthly(property, false);

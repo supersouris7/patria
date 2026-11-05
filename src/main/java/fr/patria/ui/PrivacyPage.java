@@ -30,7 +30,10 @@ public final class PrivacyPage {
                         <li><b>Toutes vos données</b> (membres, revenus, dépenses, biens, prêts) sont dans des fichiers sur <b>votre</b> serveur : une base par
                         foyer, plus <code>comptes.sqlite3</code> pour les utilisateurs.</li>
                         <li><b>Aucun traceur</b>, aucune statistique d'usage, aucun service tiers dans les pages : tout est servi par Patria.</li>
-                        <li><b>Un seul cookie</b>, celui de la session, effacé à la déconnexion ou après 12 heures.</li>
+                        <li><b>Deux cookies au plus</b> : la session, effacée à la déconnexion ou après 12 heures ; et, si vous cochez « Se souvenir de cet
+                        appareil » à la double authentification, un jeton d'appareil gardé 30 jours (la base n'en garde que l'empreinte).</li>
+                        <li><b>Double authentification</b> (Mon compte) : un code à 6 chiffres d'une application sur votre téléphone, en plus du mot de passe.
+                        La clé reste sur votre serveur ; le QR code est dessiné par Patria.</li>
                         <li><b>Mots de passe hachés</b> (bcrypt). Chaque utilisateur ne voit que les foyers et les membres qu'on lui ouvre.</li>
                         <li>Les synthèses PDF sont fabriquées sur le serveur : rien n'est envoyé pour les produire.</li></ul>""")),
                 Components.card("Qui voit quoi", null, Html.EMPTY, Html.raw("""
@@ -56,7 +59,9 @@ public final class PrivacyPage {
                         <li><b>Masquez avant d'envoyer</b> : nom, adresse, IBAN et numéros de compte, numéro fiscal, numéro de sécurité sociale, numéro de
                         contrat. L'<a href="/aide/caviardage">outil de caviardage de Patria</a> travaille dans votre navigateur, sans envoyer l'original au
                         serveur : vous sélectionnez les zones, puis il reconstruit un PDF d'images sans le texte ni les métadonnées d'origine.
-                        Un rectangle simplement superposé dans un éditeur PDF ne suffit pas. Relisez chaque page exportée avant de la partager.</li>
+                        Un contrôle local recherche les identifiants courants et les mots que vous indiquez dans le texte PDF restant. Sans OCR, les images et scans
+                        sont signalés comme non analysables. Aucune absence d'alerte ne garantit l'anonymat. Un rectangle simplement superposé dans un éditeur PDF ne suffit pas.
+                        Relisez chaque page exportée avant de la partager.</li>
                         <li><b>Vérifiez les conditions du service</b> et désactivez l'entraînement si possible. Une conversation temporaire ne garantit pas
                         l'absence de conservation : les règles du fournisseur s'appliquent.</li>
                         <li><b>Préférez un modèle local</b> si vous en avez un (Ollama, LM Studio…) : rien ne quitte votre ordinateur.</li>

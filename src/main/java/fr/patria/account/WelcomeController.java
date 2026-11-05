@@ -1,7 +1,6 @@
 package fr.patria.account;
 
 import fr.patria.web.LocalPath;
-import fr.patria.web.Request;
 import fr.patria.web.Response;
 import fr.patria.web.Router;
 import java.time.Clock;

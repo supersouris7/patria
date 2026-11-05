@@ -140,7 +140,8 @@ final class BudgetPages {
         BigDecimal margin = debt.marginToComfort();
         return Components.card("Taux d'endettement", null, Html.EMPTY, Html.of("""
                 <div class="debt-detail %s"><div class="debt-figure"><strong>%s</strong><span>%s</span></div>%s
-                <dl class="calc-grid"><div><dt>Mensualités de crédit</dt><dd>%s</dd></div><div><dt>Revenus retenus</dt><dd>%s</dd></div>                <div><dt>Marge avant 33 %%</dt><dd>%s</dd></div></dl>
+                <dl class="calc-grid"><div><dt>Mensualités de crédit</dt><dd>%s</dd></div><div><dt>Revenus retenus</dt><dd>%s</dd></div>\
+                <div><dt>Marge avant 33 %%</dt><dd>%s</dd></div></dl>
                 <p class="muted">%s</p></div>""".replace("%%", "%"),
                 debtClass(debt), Format.percent(debt.percent()), debtState(debt), Html.concat(debtGauge(debt),
                         Html.raw("<span class=\"gauge-scale\" aria-hidden=\"true\"><span class=\"before\" style=\"left:66%\">33 %</span><span style=\"left:70%\">35 %</span></span>")),
@@ -191,7 +192,8 @@ final class BudgetPages {
             String tone = month.balance().signum() < 0 ? "negative" : "";
             return Html.of("""
                     <details class="month" id="%s"%s><summary><span class="month-name">%s</span><span>%s</span><span>%s</span><span class="%s">%s</span></summary>
-                    <div class="month-detail"><div><h3>Revenus</h3><ul>%s</ul></div><div><h3>Dépenses</h3><ul>%s</ul></div>                    <p class="month-margin %s"><span>Revenus %s − dépenses %s</span><span>%s <b>%s</b></span></p></div></details>""",
+                    <div class="month-detail"><div><h3>Revenus</h3><ul>%s</ul></div><div><h3>Dépenses</h3><ul>%s</ul></div>\
+                    <p class="month-margin %s"><span>Revenus %s − dépenses %s</span><span>%s <b>%s</b></span></p></div></details>""",
                     BudgetChart.anchor(month.month()), Html.raw(month == months.getFirst() ? " open" : ""), Format.month(month.month()), euroWhole(month.income()), euroWhole(month.spending()),
                     tone, Format.signedEuroWhole(month.balance()), incomes, expenses,
                     tone, euro(month.income()), euro(month.spending()), month.balance().signum() < 0 ? "Il manque" : "Reste à vivre",
@@ -486,7 +488,8 @@ final class BudgetPages {
         String description = payer == null ? "Répartie comme le bien"
                 : "Toute sur " + people.stream().filter(person -> person.id() == payer).map(Person::name).findFirst().orElse("");
         return Html.of("""
-                <form method="post" action="/administration/repartition/bien/%s/taxe-fonciere" class="share-row loan">%s<div class="share-name"><b>Taxe foncière · prélevée sur</b>                <small>%s</small></div><div class="share-inputs">%s</div><button type="submit" class="secondary">Enregistrer</button></form>""",
+                <form method="post" action="/administration/repartition/bien/%s/taxe-fonciere" class="share-row loan">%s<div class="share-name"><b>Taxe foncière · prélevée sur</b>\
+                <small>%s</small></div><div class="share-inputs">%s</div><button type="submit" class="secondary">Enregistrer</button></form>""",
                 property.id(), Components.csrfField(csrf), description,
                 Components.select("Prélevée sur", "payer", options, payer == null ? "" : String.valueOf(payer)));
     }

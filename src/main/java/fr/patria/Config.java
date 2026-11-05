@@ -18,9 +18,11 @@ import java.util.Map;
  * @param encryptionKey DB_ENCRYPTION_KEY (ou le contenu du fichier DB_ENCRYPTION_KEY_FILE) : cle de chiffrement des
  *                      bases, au moins 16 caracteres ; {@code null} : bases en clair
  * @param supportUrl    KOFI_URL : page Ko-fi pour soutenir le developpement, remplace celle du projet ; vide la masque
+ * @param resetAdminTwoFactor ADMIN_2FA_RESET=true : retire la double authentification de l'administrateur au
+ *                      demarrage (telephone perdu) ; a retirer ensuite de la configuration
  */
 public record Config(String password, String adminLogin, Path databasePath, int port, Clock clock, boolean offline, String encryptionKey,
-                     String supportUrl) {
+                     String supportUrl, boolean resetAdminTwoFactor) {
     /** Page Ko-fi du projet, affichee par defaut ; {@code null} tant qu'elle n'est pas renseignee. */
     static final String PROJECT_SUPPORT_URL = null;
 
@@ -42,6 +44,10 @@ public record Config(String password, String adminLogin, Path databasePath, int 
         this(password, adminLogin, databasePath, port, clock, offline, null, PROJECT_SUPPORT_URL);
     }
 
+    public Config(String password, String adminLogin, Path databasePath, int port, Clock clock, boolean offline, String encryptionKey, String supportUrl) {
+        this(password, adminLogin, databasePath, port, clock, offline, encryptionKey, supportUrl, false);
+    }
+
     /** Lien « Soutenir », ou {@code null} s'il est masque. */
     public String support() {
         return supportUrl == null || supportUrl.isEmpty() ? null : supportUrl;
@@ -54,7 +60,8 @@ public record Config(String password, String adminLogin, Path databasePath, int 
         String support = environment.containsKey("KOFI_URL") ? environment.get("KOFI_URL").trim() : PROJECT_SUPPORT_URL;
         return new Config(password, adminLogin.isEmpty() ? "admin" : adminLogin, Path.of(environment.getOrDefault("DATABASE_PATH", "/data/immobilier.sqlite3")),
                 Integer.parseInt(environment.getOrDefault("HTTP_PORT", "8080")), Clock.systemDefaultZone(),
-                "true".equalsIgnoreCase(environment.getOrDefault("OFFLINE", "").trim()), key(environment), support);
+                "true".equalsIgnoreCase(environment.getOrDefault("OFFLINE", "").trim()), key(environment), support,
+                "true".equalsIgnoreCase(environment.getOrDefault("ADMIN_2FA_RESET", "").trim()));
     }
 
     /** DB_ENCRYPTION_KEY, ou le fichier DB_ENCRYPTION_KEY_FILE (secret Docker) ; {@code null} si aucun. */

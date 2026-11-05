@@ -15,6 +15,10 @@ Patria est une application web française gratuite, auto-hébergée. Elle réuni
 
 Locataire ou propriétaire, seul, en couple ou en famille : le budget fonctionne sans bien immobilier. Une installation peut accueillir plusieurs foyers avec des bases séparées.
 
+![Prévisionnel Patria : revenus, dépenses, reste à vivre et graphique sur 12 mois, avec des données fictives.](docs/captures/previsionnel.png)
+
+*Exemple fictif : une dépense annuelle en décembre apparaît dans les prévisions et le montant mensuel à mettre de côté.*
+
 ## Choisir votre parcours
 
 | Vous souhaitez… | Guide |
@@ -42,7 +46,16 @@ Les prévisions dépendent de vos saisies. Les estimations DVF, taux, diagnostic
 
 ## Installer
 
-L'image `supersouris7/patria:unstable` est disponible pour `linux/amd64` et `linux/arm64`. **Avant le premier lancement**, préparez le mot de passe administrateur, la clé de chiffrement et sa conservation : [guide administrateur](docs/administration.md).
+Les images Docker Hub sont disponibles pour `linux/amd64` et `linux/arm64` :
+
+| Canal | Image | Publication |
+|---|---|---|
+| Stable, pour les utilisateurs | `supersouris7/patria:latest` ou `:X.Y.Z` | Après les tests d'un tag Git `vX.Y.Z` |
+| Développement | `supersouris7/patria:unstable` | Chaque push sur `main`, après les tests |
+
+`latest` ne suit jamais les pushs de développement : il désigne la plus grande version stable publiée. Il devient disponible après la première publication stable. Le Compose conserve `unstable` par défaut pour l'installation personnelle ; les utilisateurs choisissent `PATRIA_IMAGE=supersouris7/patria:latest` dans `.env`.
+
+**Avant le premier lancement**, préparez le mot de passe administrateur, la clé de chiffrement et sa conservation : [guide administrateur](docs/administration.md).
 
 ## Soutenir
 

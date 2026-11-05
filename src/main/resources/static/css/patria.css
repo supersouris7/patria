@@ -64,9 +64,8 @@ nav a.nav-icon svg { display: block; }
 .household-switch { align-items: center; display: flex; gap: 6px; }
 .household-switch select { font-size: .86rem; max-width: 16ch; min-height: 34px; padding: 4px 8px; width: auto; }
 .visually-hidden { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
-.access-grid { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 8px 0 14px; }
-.access-grid label, label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
-.access-grid input, label.check input { min-height: 0; width: auto; }
+label.check { align-items: center; display: flex; font-weight: 600; gap: 8px; }
+label.check input { min-height: 0; width: auto; }
 .admin-nav .nav-group { margin-top: 18px; }
 .admin-nav .nav-group:first-child { margin-top: 0; }
 .admin-nav .nav-group span { color: var(--text); letter-spacing: .06em; }
@@ -95,7 +94,6 @@ label.check.option { align-items: flex-start; }
 label.check.option input { margin-top: 3px; }
 label.check.option b { color: var(--text); display: block; }
 .muted.small { font-size: .8rem; margin: 0; }
-.readonly-note { color: var(--muted); font-size: .84rem; white-space: nowrap; }
 
 /* En-tete sur tablette et petit portable : icones seules, puis libelles courts. */
 @media (max-width: 1180px) {
@@ -272,6 +270,7 @@ th[data-order="desc"]::after { content: "▼"; opacity: 1; }
 .redaction-viewport canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; touch-action: none; }
 #redaction-editor { border: 0; padding: 0; min-width: 0; }
 #redaction-editor[hidden] { display: none; }
+#redaction-ack-label[hidden] { display: none; }
 #redaction-editor:disabled { opacity: .6; }
 .llm-prompt { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-small); margin: 12px 0; padding: 12px; }
 .llm-prompt-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; }
@@ -420,8 +419,6 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .income-swatch { background: var(--text); border-radius: 2px; height: 2px; width: 14px; }
 .provision { background: var(--blue-tint); border-radius: var(--radius-small); color: var(--text-soft); font-size: .9rem; margin: 0 0 12px; padding: 10px 14px; }
 .provision strong { color: var(--text); }
-.status-good { color: var(--status-good) !important; }
-.status-serious { color: var(--status-serious) !important; }
 
 /* ---- Taux d'endettement : vert < 33 %, orange 33-35 %, rouge > 35 % ---- */
 .level-good { --level: var(--status-good); }
@@ -793,3 +790,26 @@ tfoot small { font-weight: 400; }
 .help-steps pre { margin: 8px 0; }
 .takeover-form { border-top: 1px solid rgb(107 85 32 / 55%); margin-top: 12px; padding-top: 12px; }
 .takeover-form .row-form { align-items: end; }
+
+/* ---- Derniere connexion, avis, double authentification, slogan ---- */
+.last-login { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .76rem; gap: 6px; max-width: 460px;
+    padding: 6px 8px; text-decoration: none; white-space: nowrap; }
+.last-login span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.last-login b { flex-shrink: 0; }
+.last-login:hover { background: var(--surface); color: var(--text-soft); }
+.last-login b { color: #ffb07a; font-weight: 750; }
+.last-login.warn { color: #ffb07a; }
+.account-notice { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: space-between; }
+.account-notice form { margin: 0; }
+.qr-box { background: #fff; border-radius: var(--radius-small); display: block; margin: 10px 0; padding: 6px; width: fit-content; }
+.qr-box svg { display: block; height: 200px; width: 200px; }
+code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
+.badge.warn { background: rgb(255 176 122 / 16%); color: #ffb07a; }
+.login-card .login-slogan { color: var(--text); font-size: 1.45rem; font-weight: 780; letter-spacing: -.02em; line-height: 1.2; margin: 18px 0 4px; }
+.login-card h1.login-title { color: var(--text-soft); font-size: 1rem; margin: 18px 0 10px; }
+@media (max-width: 1100px) {
+    .last-login span { display: none; }
+}
+@media (max-width: 640px) {
+    .last-login b { display: none; }
+}

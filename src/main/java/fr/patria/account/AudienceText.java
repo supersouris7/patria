@@ -39,7 +39,7 @@ public final class AudienceText {
         }
         List<User> estate = users(accesses, access -> access.manager() || access.realEstate());
         if (!estate.isEmpty() && mine != null && (mine.manager() || mine.realEstate())) {
-            lines.add("Immobilier : " + lower(sentence(estate, me, "a", "avez", "ont")) + " accès.");
+            lines.add("Les biens de ce foyer (tous, avec leurs prêts et charges) : " + lower(sentence(estate, me, "les voit", "les voyez", "les voient")) + ".");
         }
         List<String> recent = changes.stream().map(change -> change.at().format(DAY) + " · " + change.detail()).toList();
         return new Viewer.Audience(lines, recent);
@@ -70,7 +70,7 @@ public final class AudienceText {
         List<String> parts = new ArrayList<>();
         if (access.wholeHousehold()) parts.add("totaux du foyer");
         members.stream().filter(member -> access.members().contains(member.id())).forEach(member -> parts.add(member.name()));
-        if (access.realEstate()) parts.add("immobilier");
+        if (access.realEstate()) parts.add("tous les biens du foyer");
         return parts.isEmpty() ? "accès" : String.join(", ", parts);
     }
 }

@@ -21,9 +21,12 @@ public final class Layout {
      * @param location      adresse de la page (chemin et requete), pour y revenir apres l'alerte
      * @param audience      qui voit quoi dans ce foyer (icone d'information) ; vide pour l'administrateur
      * @param changes       changements d'acces depuis la derniere lecture
+     * @param lastLogin     connexion precedente (« hier 21:12 · Lyon, France »), ou {@code null}
+     * @param failures      echecs de connexion sur ce compte depuis
+     * @param notice        avis a lire une fois, ou {@code null}
      */
     public record Chrome(String name, boolean administrator, boolean manages, boolean realEstate, List<Choice> households, long household,
-                         boolean insecure, String location, List<String> audience, List<String> changes) {
+                         boolean insecure, String location, List<String> audience, List<String> changes, String lastLogin, int failures, String notice) {
     }
 
     public static final ThreadLocal<Chrome> CHROME = new ThreadLocal<>();
@@ -81,6 +84,7 @@ public final class Layout {
 
     private static final Html ASSISTANT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z\"/><path d=\"M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z\"/></svg>");
     private static final Html HEALTH_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z\"/><path d=\"M3.5 12h4l2-3 3 6 2-3h6\"/></svg>");
+    private static final Html CLOCK_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>");
     private static final Html INFO_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg>");
     private static final Html SHIELD_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>");
     private static final Html SETTINGS_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/></svg>");
@@ -125,9 +129,10 @@ public final class Layout {
                 <header class="topbar"><div class="shell navigation">%s<nav>%s</nav><div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
                 </div></div></header>""",
-                brand(), links, audience(chrome, csrf), householdSwitch(chrome, csrf), account(chrome, section == Section.ACCOUNT), Components.csrfField(csrf), LOGOUT_ICON);
+                brand(), links, Html.concat(lastLogin(chrome), audience(chrome, csrf)), householdSwitch(chrome, csrf), account(chrome, section == Section.ACCOUNT),
+                Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
-        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s</main>", content), footer(), overlay));
+        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
     }
 
     /**
@@ -164,6 +169,28 @@ public final class Layout {
                 y compris à un compte à lui, il apparaîtrait ici.</p></div></details>""",
                 label, label, INFO_ICON, chrome.changes().isEmpty() ? Html.EMPTY : Html.raw("<span class=\"audience-dot\" aria-hidden=\"true\"></span>"),
                 householdName(chrome), changes, lines);
+    }
+
+    /**
+     * Connexion precedente, dans l'en-tete : « Dernière connexion : hier 21:12 · Lyon » ; en orange s'il y a eu des
+     * echecs sur ce compte depuis. Le detail est dans « Mon compte ».
+     */
+    private static Html lastLogin(Chrome chrome) {
+        if (chrome == null || chrome.lastLogin() == null) return Html.EMPTY;
+        String failures = chrome.failures() == 0 ? "" : chrome.failures() + (chrome.failures() > 1 ? " échecs" : " échec") + " depuis";
+        String title = "Dernière connexion : " + chrome.lastLogin() + (failures.isEmpty() ? "" : ". " + failures + " sur votre compte (mot de passe ou code faux).")
+                + " Détail dans Mon compte.";
+        return Html.of("<a class=\"last-login%s\" href=\"/compte#connexions\" title=\"%s\">%s<span>%s</span>%s</a>", chrome.failures() > 0 ? " warn" : "", title,
+                CLOCK_ICON, chrome.lastLogin().equals("première connexion") ? "Première connexion" : "Dernière connexion : " + chrome.lastLogin(),
+                failures.isEmpty() ? Html.EMPTY : Html.of("<b>%s</b>", failures));
+    }
+
+    /** Avis a lire une fois (double authentification retiree par l'administrateur), avec « J'ai compris ». */
+    private static Html accountNotice(Chrome chrome, String csrf) {
+        if (chrome == null || chrome.notice() == null || csrf == null) return Html.EMPTY;
+        return Html.of("""
+                <section class="notice warning account-notice" role="alert"><span>%s</span><form method="post" action="/compte/avis-lu">%s\
+                <button class="secondary" type="submit">J'ai compris</button></form></section>""", chrome.notice(), Components.csrfField(csrf));
     }
 
     /** Lien vers « Mon compte » (mot de passe), avec le nom de la personne connectee. */

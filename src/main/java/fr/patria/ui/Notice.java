@@ -12,7 +12,6 @@ public record Notice(boolean error, String text) {
             Map.entry("echeancier", "Échéancier importé."),
             Map.entry("apport", "Apport enregistré."),
             Map.entry("renomme", "Prêt renommé."),
-            Map.entry("marche", "Prix du marché actualisé."),
             Map.entry("charge", "Charge enregistrée."),
             Map.entry("loyer", "Période d'occupation enregistrée."),
             Map.entry("importe", "Dépenses importées."),
@@ -22,6 +21,9 @@ public record Notice(boolean error, String text) {
             Map.entry("mot-de-passe", "Mot de passe modifié."),
             Map.entry("mot-de-passe-provisoire", "Mot de passe réinitialisé : provisoire, l'utilisateur le changera à sa prochaine connexion."),
             Map.entry("gestionnaire", "Gestionnaire nommé : il voit et saisit tout le foyer. Les comptes du foyer le voient dans « qui voit quoi »."),
+            Map.entry("double-authentification", "Double authentification retirée. L'utilisateur en sera averti à sa prochaine connexion."),
+            Map.entry("double-authentification-active", "Double authentification activée : le code sera demandé à chaque connexion."),
+            Map.entry("double-authentification-inactive", "Double authentification désactivée."),
             Map.entry("reprise", "Compte créé : il gère maintenant ces foyers. Connectez-vous avec lui pour retrouver vos données."),
             Map.entry("deplace", "Bien déplacé : il est maintenant dans ce foyer, avec ses prêts et ses charges."));
 

@@ -17,6 +17,10 @@ Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** 
 
 Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
 
+**Dernière connexion.** L'en-tête rappelle votre connexion précédente (« Dernière connexion : hier 21:12 · Lyon, France »), en orange avec le nombre d'échecs sur votre compte depuis. Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification.
+
+**Double authentification.** Mon compte → « Activer la double authentification » : scannez le QR code avec une application d'authentification (Aegis, 2FAS, Google Authenticator…), puis tapez le code affiché. Ensuite, la connexion demande ce code après le mot de passe ; cochez « Se souvenir de cet appareil 30 jours » sur vos appareils personnels. Téléphone perdu : demandez à l'administrateur de la retirer ; Patria vous le signalera.
+
 ## Commencer avec le Guide de saisie
 
 L'icône étincelles ouvre un parcours guidé :
@@ -67,17 +71,23 @@ Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » pro
 
 ### Caviarder avant tout envoi
 
-Dans chaque bloc d'aide à l'import (dépenses et prêts, y compris le Guide de saisie), ouvrez **« 1. Caviarder les documents localement »**. L'outil `/aide/caviardage` s'ouvre dans un autre onglet.
+Dès l'étape **Documents** du Guide de saisie, le bloc « Préparer les documents avant un import » propose le parcours rassembler → caviarder → contrôler → relire. Il ne transmet aucun document. Les coches « J'ai ce document » suivent seulement le rassemblement, pas le caviardage.
+
+Dans ce bloc, dépliez **« Préparer, caviarder et contrôler les documents ici »** : l'outil fonctionne directement dans l'assistant. Un lien permet aussi de l'ouvrir dans un autre onglet (`/aide/caviardage`), comme depuis les aides à l'import des dépenses et prêts. Terminez le caviardage et téléchargez la copie avant de changer d'étape : le travail en mémoire n'est pas conservé en quittant la page.
 
 1. Choisissez un PDF ou une image PNG/JPEG. Il reste dans le navigateur ; ni téléversement au serveur Patria, ni stockage persistant par l'outil.
 2. Sur chaque page, encadrez les informations à supprimer à la souris ou au doigt. Au clavier, utilisez Gauche/Haut/Largeur/Hauteur en pourcentage, puis « Supprimer cette zone ». « Annuler » retire la dernière zone ; une page entière peut être supprimée visuellement.
 3. Retirez noms, adresses, IBAN, numéros de compte, fiscaux, de sécurité sociale, de contrat ; vérifiez aussi en-têtes, pieds de page, QR codes, signatures et libellés identifiants. Prévoyez une marge autour des éléments.
-4. Cochez la vérification de **chaque page**, puis téléchargez `document-caviarde.pdf`. Ouvrez cette copie et relisez-la avant de l'envoyer. Une modification des zones annule la validation de la page.
-5. Copiez le prompt et joignez **uniquement la copie caviardée**, jamais l'original. Vérifiez le CSV généré avant import.
+4. Cochez la vérification de **chaque page**, puis lancez **Contrôler avant partage**. Indiquez si besoin les noms, adresses ou autres informations à rechercher (un par ligne, uniquement en mémoire dans le navigateur). Le contrôle recherche les identifiants courants et ces mots dans le texte PDF non entièrement masqué.
+5. Corrigez les points signalés et relancez le contrôle. Si aucun point n'est trouvé et que toutes les pages sont analysables, Patria indique : **« Le document semble ne plus contenir de données sensibles, à relire de votre côté. »** Ce n'est pas une garantie d'anonymat. Sans OCR, les images et scans reçoivent un avertissement de contrôle incomplet, jamais ce message rassurant. En cas de contrôle incomplet ou d'alerte, une confirmation de relecture supplémentaire est nécessaire pour télécharger.
+6. Téléchargez `document-caviarde.pdf`, ouvrez cette copie et relisez-la avant de l'envoyer. Toute modification de zone annule le contrôle et la validation de la page ; modifier les mots recherchés annule le contrôle.
+7. Copiez le prompt et joignez **uniquement la copie caviardée**, jamais l'original. Vérifiez le CSV généré avant import.
 
 Le PDF est reconstruit à partir des pixels caviardés : le texte caché, les métadonnées d'origine, annotations, formulaires, liens et pièces jointes ne sont pas recopiés. Cela supprime aussi la recherche et l'accessibilité du texte ; l'IA doit pouvoir lire des images. Les annotations ne sont pas rendues : vérifiez qu'aucune information utile n'a disparu. L'original reste intact sur votre appareil.
 
-Limites : 15 Mio, 30 pages, 12 millions de pixels et 12 000 pixels par côté à la résolution de traitement (144 dpi pour un PDF). PDF protégés non acceptés. Un navigateur récent avec JavaScript est nécessaire. Pas de détection automatique ni garantie d'anonymat : dates, montants ou contexte laissés visibles peuvent vous identifier. Fermer le document ou l'onglet libère le travail de l'outil, mais n'efface pas les copies déjà téléchargées ni les traces éventuelles du système d'exploitation.
+![Outil de caviardage : en-tête supprimé en noir, mensualité fictive conservée, commandes de zones et validation des pages.](captures/caviardage.png)
+
+Limites : 15 Mio, 30 pages, 12 millions de pixels et 12 000 pixels par côté à la résolution de traitement (144 dpi pour un PDF). PDF protégés non acceptés. Un navigateur récent avec JavaScript est nécessaire. Le contrôle est heuristique : e-mails, téléphones, IBAN, numéros longs et libellés identifiants ; il peut manquer des noms, adresses ou identifiants inhabituels et signaler de simples nombres financiers. Une partie de texte seulement masquée reste analysée par prudence ; les pages entièrement masquées ne contiennent plus d'information visible. Pas d'OCR ni garantie d'anonymat : dates, montants ou contexte laissés visibles peuvent vous identifier. Fermer le document ou l'onglet libère le travail de l'outil, mais n'efface pas les copies déjà téléchargées ni les traces éventuelles du système d'exploitation.
 
 Le prompt demandant des libellés génériques ne protège pas l'original que vous auriez déjà envoyé. Une conversation temporaire ne garantit pas l'absence de conservation chez le fournisseur ; vérifiez ses conditions, ou utilisez un modèle réellement local sans service distant. [Détails](confidentialite.md).
 
@@ -120,7 +130,9 @@ Les anciens en-têtes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres`, `
 
 ## Immobilier
 
-Le gestionnaire crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports. Les utilisateurs autorisés consultent l'immobilier sans le modifier.
+Le gestionnaire crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
+
+**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Administration → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
 
 ### Valeur et situation des prêts
 

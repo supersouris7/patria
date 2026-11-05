@@ -49,6 +49,25 @@ final class TestAccounts {
         return new Visitor(cookie, csrf.group(1), 0);
     }
 
+    /** Envoi d'un fichier (formulaire multipart) : {@code fields} en plus du jeton CSRF, puis le fichier {@code file}. */
+    static HttpResponse<String> upload(HttpClient client, String base, Visitor visitor, String path, java.util.Map<String, String> fields, String file,
+                                       String filename, String content) throws Exception {
+        String boundary = "patriaTestBoundary";
+        StringBuilder body = new StringBuilder("--" + boundary + "\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n" + visitor.csrf() + "\r\n");
+        fields.forEach((name, value) -> body.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"").append(name).append("\"\r\n\r\n")
+                .append(value).append("\r\n"));
+        body.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"").append(file).append("\"; filename=\"").append(filename)
+                .append("\"\r\nContent-Type: text/csv\r\n\r\n").append(content).append("\r\n--").append(boundary).append("--\r\n");
+        return client.send(HttpRequest.newBuilder(URI.create(base + path)).header("Cookie", visitor.cookie())
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString(), java.nio.charset.StandardCharsets.UTF_8)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** En-tete Location d'une redirection, vide sinon. */
+    static String location(HttpResponse<String> response) {
+        return response.headers().firstValue("Location").orElse("");
+    }
+
     static Visitor admin(HttpClient client, String base) throws Exception {
         return login(client, base, "admin", "secret");
     }

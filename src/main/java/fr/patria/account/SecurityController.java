@@ -43,10 +43,11 @@ public final class SecurityController {
         java.util.Map<String, String> places = new java.util.HashMap<>();
         for (AccountRepository.LoginEvent event : failures) places.computeIfAbsent(event.ip(), locator::describe);
         for (AccountRepository.LoginEvent event : successes) places.computeIfAbsent(event.ip(), locator::describe);
-        SecurityPages.State state = new SecurityPages.State(request.isHttps(), !request.isHttps() && !Router.insecure(request), installation.encrypted(), installation.offline(), installation.backups().get());
+        SecurityPages.State state = new SecurityPages.State(request.isHttps(), !request.isHttps() && !Router.insecure(request), installation.encrypted(), installation.offline(),
+                installation.backups().get(), Exposure.exposed(request, accounts), accounts.twoFactor(null).enabled());
         return Response.page(SecurityPages.page(state, accounts.failuresSince(now.minusDays(1)), accounts.failuresSince(now.minusDays(7)), installation.blocked().get(),
                 failures, successes, places, accounts.users(), accounts.lastLogins(), sessions.openByUser(),
                 accounts.users().stream().filter(user -> accounts.passwordToChange(user.id()).isPresent()).map(User::id).collect(java.util.stream.Collectors.toSet()),
-                accounts.auditLog(60), request.csrf()));
+                accounts.twoFactorAccounts(), accounts.auditLog(60), request.csrf()));
     }
 }

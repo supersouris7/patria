@@ -332,15 +332,6 @@ public final class Forecast {
         if (line != null) lines.add(line);
     }
 
-    /** Charges d'un bien pour un mois, selon le calendrier de paiement retenu (voir la description de la classe). */
-    static List<Line> propertyCharges(Property property, List<Expense> charges, boolean monthlyTax, YearMonth month) {
-        List<Line> lines = new ArrayList<>();
-        Line tax = propertyTax(property, charges, monthlyTax, month);
-        if (tax != null) lines.add(tax);
-        lines.addAll(otherCharges(property, charges, month));
-        return lines;
-    }
-
     /** Taxe fonciere du mois : en octobre, ou un dixieme de janvier a octobre si mensualisee ; {@code null} sinon. */
     static Line propertyTax(Property property, List<Expense> charges, boolean monthly, YearMonth month) {
         BigDecimal propertyTax = ExpenseMath.amountFor(charges, ExpenseKind.PROPERTY_TAX, month.getYear());

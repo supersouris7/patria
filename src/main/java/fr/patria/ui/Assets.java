@@ -36,7 +36,7 @@ public final class Assets {
         try (InputStream manifest = Assets.class.getResourceAsStream("/static/vendor/pdfjs/files.txt")) {
             if (manifest == null) throw new IllegalStateException("Manifest PDF.js manquant.");
             new String(manifest.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).lines().forEach(name ->
-                    all.put("/vendor/pdfjs/" + name, name.endsWith(".mjs") ? "text/javascript; charset=utf-8"
+                    all.put("/vendor/pdfjs/" + name, name.endsWith(".mjs") || name.endsWith(".js") ? "text/javascript; charset=utf-8"
                             : name.endsWith(".wasm") ? "application/wasm" : "application/octet-stream"));
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);

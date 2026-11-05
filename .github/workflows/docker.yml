@@ -3,28 +3,72 @@ name: Build and publish Docker image
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      stable_tag:
+        description: 'Tag stable existant à publier (ex. v0.5.0). Vide : canal de la ref choisie.'
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  publication:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.channel.outputs.tag }}
+      stable: ${{ steps.channel.outputs.stable }}
+      commit: ${{ steps.channel.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: python3 -m unittest discover -s tests -p 'test_docker_publish.py'
+      - id: channel
+        env:
+          PATRIA_RELEASE_TAG: ${{ inputs.stable_tag }}
+        run: python3 scripts/docker_publish.py plan
+
   test:
+    needs: publication
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.publication.outputs.commit }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
       - run: mvn --batch-mode verify
+      - uses: actions/setup-python@v5
+        if: hashFiles('tests/requirements-browser.txt') != ''
+        with:
+          python-version: '3.13'
+      - run: pip install -r tests/requirements-browser.txt
+        if: hashFiles('tests/requirements-browser.txt') != ''
+      - run: python -m playwright install --with-deps chromium
+        if: hashFiles('tests/requirements-browser.txt') != ''
+      - name: Vérifier le caviardage dans Chromium avant publication
+        if: hashFiles('tests/redaction_browser.py') != ''
+        run: |
+          mkdir -p /tmp/opencode
+          APP_PASSWORD=test-only OFFLINE=true DATABASE_PATH=/tmp/opencode/patria-browser/data.sqlite3 HTTP_PORT=18101 java -jar target/patria.jar > /tmp/opencode/patria-browser.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid"' EXIT
+          curl --fail --silent --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:18101/sante
+          python tests/redaction_browser.py http://127.0.0.1:18101
 
   docker:
-    needs: test
+    needs: [publication, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.publication.outputs.commit }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -36,8 +80,32 @@ jobs:
           context: .
           push: true
           build-args: |
-            GIT_COMMIT=${{ github.sha }}
+            GIT_COMMIT=${{ needs.publication.outputs.commit }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            supersouris7/patria:unstable
-            supersouris7/patria:${{ github.sha }}
+            supersouris7/patria:${{ needs.publication.outputs.tag }}
+            supersouris7/patria:${{ needs.publication.outputs.commit }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.publication.outputs.tag }}
+            org.opencontainers.image.revision=${{ needs.publication.outputs.commit }}
+
+  latest:
+    needs: [publication, docker]
+    if: needs.publication.outputs.stable == 'true'
+    runs-on: ubuntu-latest
+    # Seul l'alias est serialise : aucune construction de version n'est annulee.
+    # Une promotion en attente remplacee sera couverte par la recherche de la plus grande version publiee.
+    concurrency:
+      group: patria-docker-latest
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Promouvoir la version stable la plus récente
+        env:
+          RELEASE_VERSION: ${{ needs.publication.outputs.tag }}
+        run: python3 scripts/docker_publish.py promote "$RELEASE_VERSION"

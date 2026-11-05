@@ -3,7 +3,6 @@ package fr.patria.budget;
 import fr.patria.common.Frequency;
 import fr.patria.common.NotFoundException;
 import fr.patria.common.ValidationException;
-import fr.patria.common.ForbiddenException;
 import fr.patria.household.Person;
 import fr.patria.household.Shares;
 import fr.patria.household.Visibility;

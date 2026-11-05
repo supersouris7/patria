@@ -32,8 +32,10 @@ public final class AccountController {
     private final Sessions sessions;
     private final String adminLogin;
     private final Clock clock;
+    private final IpLocator locator;
 
-    public AccountController(AccountRepository accounts, HouseholdDirectory directory, Sessions sessions, String adminLogin, Clock clock) {
+    public AccountController(AccountRepository accounts, HouseholdDirectory directory, Sessions sessions, String adminLogin, IpLocator locator, Clock clock) {
+        this.locator = locator;
         this.accounts = accounts;
         this.directory = directory;
         this.sessions = sessions;
@@ -135,6 +137,19 @@ public final class AccountController {
         router.userGet("/compte", request -> Response.page(accountPage(request, request.confirmation())));
         router.userPost("/compte/mot-de-passe", this::changePassword);
         router.userGet("/compte/nouveau-mot-de-passe", request -> Response.page(newPasswordPage(request, null)));
+        router.userGet("/compte/double-authentification", request -> Response.page(twoFactorSetup(request, null)));
+        router.userPost("/compte/double-authentification/activer", this::enableTwoFactor);
+        router.userPost("/compte/double-authentification/desactiver", this::disableTwoFactor);
+        router.userPost("/compte/avis-lu", request -> {
+            accounts.clearTwoFactorNotice(request.viewer().userId());
+            return Response.redirect("/");
+        });
+        router.post("/administration/utilisateur/{id}/double-authentification/retirer", request -> {
+            User user = user(request.id());
+            accounts.disableTwoFactor(user.id(), LocalDate.now(clock));
+            audit("TWO_FACTOR", null, user.id(), "Double authentification de « " + user.login() + " » retirée (l'utilisateur en est averti).");
+            return Response.redirect("/administration/utilisateur/" + user.id() + "?ok=double-authentification");
+        });
         router.userPost("/acces/vu", request -> {
             if (!request.viewer().isAdministrator()) accounts.setAudienceSeen(request.viewer().userId(), LocalDateTime.now(clock));
             String next = fr.patria.web.LocalPath.safe(request.form().raw("suite"));
@@ -176,7 +191,8 @@ public final class AccountController {
                     shared.keySet().stream().map(user -> user.name() + (user.active() ? "" : " (désactivé)")).toList(), progress, managers);
         }).toList();
         List<Household> orphans = cards.stream().filter(card -> card.managers() == 0).map(AccountPages.HouseholdCard::household).toList();
-        return AccountPages.households(cards, orphans, users.stream().filter(User::active).toList(), directory.archives(), values, notice, request.csrf());
+        boolean recommend = !accounts.twoFactor(null).enabled() && Exposure.exposed(request, accounts);
+        return AccountPages.households(cards, orphans, users.stream().filter(User::active).toList(), recommend, directory.archives(), values, notice, request.csrf());
     }
 
     private Response createHousehold(Request request) {
@@ -349,7 +365,7 @@ public final class AccountController {
         Map<Long, Access> accesses = accounts.accesses(user.id()).stream().collect(Collectors.toMap(Access::householdId, access -> access));
         List<AccountPages.HouseholdAccess> households = accounts.households().stream().map(household -> new AccountPages.HouseholdAccess(household,
                 directory.members(household.id()), java.util.Optional.ofNullable(accesses.get(household.id())))).toList();
-        return AccountPages.user(user, households, accounts.passwordToChange(user.id()).isPresent(), notice, csrf);
+        return AccountPages.user(user, households, accounts.passwordToChange(user.id()).isPresent(), accounts.twoFactor(user.id()).enabledOn(), notice, csrf);
     }
 
     /** Droits sur un foyer : sans « Accès », l'acces est retire ; sinon les vues cochees (au moins une). */
@@ -399,9 +415,54 @@ public final class AccountController {
     // ---- Mon compte ----
 
     private fr.patria.ui.Html accountPage(Request request, Notice notice) {
-        if (request.viewer().isAdministrator()) return AccountPages.account(request.viewer().name(), adminLogin, true, notice, request.csrf());
-        User user = user(request.viewer().userId());
-        return AccountPages.account(user.name(), user.login(), false, notice, request.csrf());
+        Long id = request.viewer().userId();
+        String login = id == null ? adminLogin : user(id).login();
+        List<AccountRepository.LoginEvent> events = accounts.loginEventsOf(login, LocalDateTime.now(clock).plusMinutes(1), 10);
+        Map<String, String> places = new java.util.HashMap<>();
+        events.forEach(event -> places.computeIfAbsent(event.ip(), locator::describe));
+        AccountPages.Security security = new AccountPages.Security(accounts.twoFactor(id), id == null && Exposure.exposed(request, accounts), events, places);
+        if (id == null) return AccountPages.account(request.viewer().name(), adminLogin, true, security, notice, request.csrf());
+        User user = user(id);
+        return AccountPages.account(user.name(), user.login(), false, security, notice, request.csrf());
+    }
+
+    // ---- Double authentification ----
+
+    private fr.patria.ui.Html twoFactorSetup(Request request, Notice notice) {
+        Long id = request.viewer().userId();
+        AccountRepository.TwoFactor state = accounts.twoFactor(id);
+        if (state.enabled()) throw new ValidationException("La double authentification est déjà activée.");
+        String secret = state.pending();
+        if (secret == null) {
+            secret = fr.patria.common.Totp.newSecret();
+            accounts.setTwoFactorPending(id, secret);
+        }
+        String login = id == null ? adminLogin : user(id).login();
+        return AccountPages.twoFactorSetup(fr.patria.common.Totp.uri("Patria", login, secret), secret, notice, request.csrf());
+    }
+
+    private Response enableTwoFactor(Request request) {
+        Long id = request.viewer().userId();
+        AccountRepository.TwoFactor state = accounts.twoFactor(id);
+        if (state.pending() == null) return Response.redirect("/compte/double-authentification");
+        long step = fr.patria.common.Totp.verify(state.pending(), request.form().raw("code"), clock.instant().getEpochSecond(), -1);
+        if (step < 0) {
+            return Response.invalid(twoFactorSetup(request, Notice.error("Code incorrect. Vérifiez l'heure du téléphone, puis tapez le code affiché maintenant.")));
+        }
+        accounts.enableTwoFactor(id, step, LocalDate.now(clock));
+        accounts.audit(LocalDateTime.now(clock), request.viewer().name(), "TWO_FACTOR", null, id, "Double authentification activée par « " + request.viewer().name() + " ».");
+        return Response.redirect("/compte?ok=double-authentification-active");
+    }
+
+    private Response disableTwoFactor(Request request) {
+        Long id = request.viewer().userId();
+        AccountRepository.TwoFactor state = accounts.twoFactor(id);
+        if (!state.enabled()) return Response.redirect("/compte");
+        long step = fr.patria.common.Totp.verify(state.secret(), request.form().raw("code"), clock.instant().getEpochSecond(), state.lastStep());
+        if (step < 0) return Response.invalid(accountPage(request, Notice.error("Code incorrect : la double authentification reste activée.")));
+        accounts.disableTwoFactor(id, null);
+        accounts.audit(LocalDateTime.now(clock), request.viewer().name(), "TWO_FACTOR", null, id, "Double authentification désactivée par « " + request.viewer().name() + " ».");
+        return Response.redirect("/compte?ok=double-authentification-inactive");
     }
 
     /** Mot de passe choisi par l'administrateur (creation ou reinitialisation) : a changer avant toute autre page. */

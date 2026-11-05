@@ -58,6 +58,15 @@ public final class App implements AutoCloseable {
         this.locator = locator;
     }
 
+    /** Empreinte d'un jeton d'appareil : la base ne garde jamais le jeton lui-meme. */
+    static String sha256(String text) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
     /** Copies « avant-migration » presentes dans le dossier des bases. */
     private static int backups(Path directory) {
         try (java.util.stream.Stream<Path> files = Files.list(directory)) {
@@ -215,6 +224,12 @@ public final class App implements AutoCloseable {
             Database accountsDatabase = Database.open(config.databasePath().toAbsolutePath().resolveSibling(ACCOUNTS_FILE), config.encryptionKey());
             AccountRepository accounts = new AccountRepository(accountsDatabase);
             accounts.ensurePrimary("Mon foyer", LocalDate.now(config.clock()));
+            if (config.resetAdminTwoFactor() && accounts.twoFactor(null).enabled()) {
+                accounts.disableTwoFactor(null, null);
+                accounts.audit(LocalDateTime.now(config.clock()), "Configuration", "TWO_FACTOR", null, null,
+                        "Double authentification de l'administrateur retirée par ADMIN_2FA_RESET.");
+                LOG.warning("Double authentification de l'administrateur retirée (ADMIN_2FA_RESET) : retirez cette variable de la configuration.");
+            }
             Sites sites = new Sites(config, accounts);
             // Avec une cle, toutes les bases sont ouvertes (donc chiffrees) des le demarrage, pas a la premiere visite.
             if (config.encryptionKey() != null) accounts.households().forEach(household -> sites.site(household.id()));
@@ -222,8 +237,8 @@ public final class App implements AutoCloseable {
 
             fr.patria.ui.BuildInfo.useSupportUrl(config.support());
             Sessions sessions = new Sessions(config.clock());
-            Router router = new Router(sessions, session -> viewer(session, accounts, sites), household -> sites.site(household).router);
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(accounts, config.offline(), config.clock());
+            Router router = new Router(sessions, session -> viewer(session, accounts, sites, locator, config), household -> sites.site(household).router);
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
             router.publicGet("/aide/chiffrement", request -> Response.page(fr.patria.ui.SecurityPages.encryptionHelp(config.encryptionKey() != null, request.csrf())));
             router.publicGet("/aide/caviardage", request -> Response.page(fr.patria.ui.RedactionPage.render(request.csrf())));
@@ -251,13 +266,43 @@ public final class App implements AutoCloseable {
                 }
 
                 @Override
+                public boolean twoFactor(Long userId) {
+                    return accounts.twoFactor(userId).enabled();
+                }
+
+                @Override
+                public boolean verifyCode(Long userId, String code) {
+                    AccountRepository.TwoFactor state = accounts.twoFactor(userId);
+                    if (!state.enabled()) return false;
+                    long step = fr.patria.common.Totp.verify(state.secret(), code, config.clock().instant().getEpochSecond(), state.lastStep());
+                    if (step < 0) return false;
+                    accounts.useTwoFactorStep(userId, step);
+                    return true;
+                }
+
+                @Override
+                public boolean trusted(Long userId, String token) {
+                    return token != null && !token.isBlank() && accounts.trustedDevice(userId, sha256(token), LocalDateTime.now(config.clock()));
+                }
+
+                @Override
+                public String trustDevice(Long userId) {
+                    byte[] bytes = new byte[32];
+                    new java.security.SecureRandom().nextBytes(bytes);
+                    String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+                    LocalDateTime now = LocalDateTime.now(config.clock());
+                    accounts.trustDevice(userId, sha256(token), now, now.plusDays(30));
+                    return token;
+                }
+
+                @Override
                 public void recorded(String login, Long userId, boolean success, String ip) {
                     accounts.recordLogin(LocalDateTime.now(config.clock()), login, userId, success, ip);
                     locator.lookUp(ip);
                 }
             }, config.clock());
             auth.register(router);
-            new AccountController(accounts, sites, sessions, config.adminLogin(), config.clock()).register(router);
+            new AccountController(accounts, sites, sessions, config.adminLogin(), locator, config.clock()).register(router);
             Path dataDirectory = config.databasePath().toAbsolutePath().getParent();
             new fr.patria.account.SecurityController(accounts, sessions, locator, new fr.patria.account.SecurityController.Installation(
                     config.encryptionKey() != null, config.offline(), auth::blocked, () -> backups(dataDirectory)), config.clock()).register(router);
@@ -300,14 +345,21 @@ public final class App implements AutoCloseable {
      * page) ; un utilisateur actif, les foyers et vues ouverts (tout le foyer s'il en est gestionnaire), avec « qui
      * voit quoi » dans le foyer affiche. Le foyer de la session est garde s'il est encore accessible, sinon le premier.
      */
-    static Optional<Viewer> viewer(Session session, AccountRepository accounts, HouseholdDirectory directory) {
+    static Optional<Viewer> viewer(Session session, AccountRepository accounts, HouseholdDirectory directory, fr.patria.account.IpLocator locator, Config config) {
+        LocalDateTime started = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(session.expiresAt() - Sessions.LIFETIME.toMillis()), config.clock().getZone());
         if (session.isAdmin()) {
             List<Viewer.Household> households = accounts.households().stream().map(household -> new Viewer.Household(household.id(), household.name())).toList();
             if (households.isEmpty()) return Optional.empty();
-            return Optional.of(Viewer.admin("Admin", households.getFirst(), households));
+            return Optional.of(Viewer.admin("Admin", households.getFirst(), households,
+                    fr.patria.account.LoginHistory.recent(accounts, locator, config.adminLogin(), started)));
         }
         Optional<User> user = accounts.user(session.userId()).filter(User::active);
         if (user.isEmpty()) return Optional.empty();
+        Viewer.Recent recent = fr.patria.account.LoginHistory.recent(accounts, locator, user.get().login(), started);
+        LocalDate removed = accounts.twoFactor(session.userId()).removedByAdminOn();
+        String notice = removed == null ? null : "L'administrateur a retiré votre double authentification le "
+                + removed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". Si ce n'est pas vous qui l'avez demandé, changez votre mot de passe "
+                + "et réactivez-la dans Mon compte.";
         List<fr.patria.account.Access> accesses = accounts.accesses(session.userId());
         if (accesses.isEmpty()) return Optional.empty();
         fr.patria.account.Access access = accesses.stream().filter(candidate -> candidate.householdId() == session.householdId()).findFirst().orElse(accesses.getFirst());
@@ -321,9 +373,9 @@ public final class App implements AutoCloseable {
         });
         Viewer.Audience audience = fr.patria.account.AudienceText.of(shared, directory.members(access.householdId()), session.userId(),
                 accounts.accessChanges(access.householdId(), accounts.audienceSeen(session.userId())));
-        if (access.manager()) return Optional.of(Viewer.manager(session.userId(), user.get().name(), current, households, mustChange, audience));
+        if (access.manager()) return Optional.of(Viewer.manager(session.userId(), user.get().name(), current, households, mustChange, audience, recent, notice));
         return Optional.of(new Viewer(session.userId(), user.get().name(), current, households,
-                access.wholeHousehold(), access.members(), access.realEstate(), false, mustChange, audience));
+                access.wholeHousehold(), access.members(), access.realEstate(), false, mustChange, audience, recent, notice));
     }
 
     public int port() {

@@ -17,8 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import fr.patria.TestAccounts.Visitor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,9 +29,6 @@ class PrivacyTest {
     private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
     private String base;
 
-    private record Visitor(String cookie, String csrf) {
-    }
-
     private App start(String key) {
         App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, false, key, null));
         base = "http://127.0.0.1:" + app.port();
@@ -40,29 +36,19 @@ class PrivacyTest {
     }
 
     private HttpResponse<String> get(Visitor visitor, String path) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(base + path));
-        if (visitor != null) builder.header("Cookie", visitor.cookie());
-        return client.send(builder.GET().build(), HttpResponse.BodyHandlers.ofString());
+        return TestAccounts.get(client, base, visitor, path);
     }
 
     private HttpResponse<String> post(Visitor visitor, String path, String form) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(base + path)).header("Content-Type", "application/x-www-form-urlencoded");
-        if (visitor != null) builder.header("Cookie", visitor.cookie());
-        String body = visitor == null ? form : "csrf=" + visitor.csrf() + (form.isEmpty() ? "" : "&" + form);
-        return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+        return TestAccounts.post(client, base, visitor, path, form);
     }
 
     private static String location(HttpResponse<String> response) {
-        return response.headers().firstValue("Location").orElse("");
+        return TestAccounts.location(response);
     }
 
     private Visitor login(String login, String password) throws Exception {
-        HttpResponse<String> logged = post(null, "/connexion", "login=" + login + "&password=" + password);
-        assertEquals(303, logged.statusCode());
-        String cookie = logged.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
-        Matcher csrf = Pattern.compile("name=\"csrf\" value=\"([^\"]+)\"").matcher(get(new Visitor(cookie, ""), "/compte").body());
-        assertTrue(csrf.find());
-        return new Visitor(cookie, csrf.group(1));
+        return TestAccounts.login(client, base, login, password);
     }
 
     @Test
@@ -70,9 +56,9 @@ class PrivacyTest {
         Path main = directory.resolve("patria.sqlite3");
         // Installation existante en clair, avec une copie avant migration : tout est chiffre au demarrage avec la cle.
         try (App ignored = start(null)) {
-            TestAccounts.Visitor admin = TestAccounts.admin(client, base);
+            Visitor admin = TestAccounts.admin(client, base);
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Foyer+Martin").statusCode());
-            TestAccounts.Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&manager=on").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
         }
@@ -149,10 +135,16 @@ class PrivacyTest {
                 assertTrue(response.headers().firstValue("Content-Type").orElseThrow().contains("javascript"));
             }
             assertEquals(200, get(null, "/vendor/pdfjs/wasm/openjpeg.wasm").statusCode());
-            TestAccounts.Visitor admin = TestAccounts.admin(client, base);
-            TestAccounts.Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
-            Visitor visitor = new Visitor(manager.cookie(), manager.csrf());
+            Visitor admin = TestAccounts.admin(client, base);
+            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor visitor = manager;
             assertTrue(get(visitor, "/administration/depenses").body().contains("href=\"/aide/caviardage\""));
+            HttpResponse<String> documentStep = get(visitor, "/assistant/documents");
+            String preparation = documentStep.body();
+            assertTrue(preparation.contains("Préparer les documents avant un import") && preparation.contains("href=\"/aide/caviardage\""));
+            assertTrue(preparation.contains("id=\"redaction-file\"") && preparation.contains("redaction.mjs?v="), "outil integre, pas seulement un lien");
+            assertTrue(documentStep.headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
+            assertTrue(help.body().contains("Contrôle Patria avant partage") && help.body().contains("Pas d'OCR"));
             assertEquals(303, post(visitor, "/bien", "name=Test&kind=APARTMENT&purchase=100000&purchase_date=2020-01-01&estimate=120000&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
             assertTrue(get(visitor, "/bien/1/prets/nouveau").body().contains("href=\"/aide/caviardage\""));
             assertTrue(get(null, "/aide/chiffrement").body().contains("Oubli au premier lancement"));
@@ -172,8 +164,8 @@ class PrivacyTest {
             assertEquals("/", location(post(null, "/connexion", "login=admin&password=secret")), "une seule fois");
             assertTrue(get(admin, "/administration/foyers").body().contains("class=\"version\""), "version en pied de page");
 
-            TestAccounts.Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&manager=on");
-            Visitor gestion = new Visitor(manager.cookie(), manager.csrf());
+            Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor gestion = manager;
             assertEquals("/assistant", location(post(gestion, "/bienvenue/terminer", "")), "le gestionnaire commence par le guide");
             String home = get(gestion, "/").body();
             assertTrue(home.contains("Configuration terminée à 0 %"), "encadré de progression");

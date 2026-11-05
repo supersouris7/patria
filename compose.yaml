@@ -1,6 +1,6 @@
 services:
   patria:
-    image: supersouris7/patria:unstable
+    image: ${PATRIA_IMAGE:-supersouris7/patria:unstable}
     container_name: patria
     env_file: .env
     ports:

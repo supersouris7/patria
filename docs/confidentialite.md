@@ -6,7 +6,7 @@
 
 Membres, revenus, dépenses, virements, biens, prêts et charges sont stockés en SQLite sur le serveur choisi : une base par foyer, plus `comptes.sqlite3` pour comptes, droits et journaux. Aucun traceur, statistique d'usage, publicité ni contenu tiers embarqué dans les pages. Les PDF sont produits localement sur le serveur.
 
-Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures. Mots de passe utilisateurs **hachés avec bcrypt**, pas chiffrés de manière réversible. Le secret administrateur vient de la configuration (clair ou empreinte `{bcrypt}…`).
+Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures ; et, si vous cochez « Se souvenir de cet appareil » à la double authentification, un jeton d'appareil gardé 30 jours (la base n'en garde que l'empreinte SHA-256). Les clés de double authentification (TOTP) restent dans `comptes.sqlite3`. Mots de passe utilisateurs **hachés avec bcrypt**, pas chiffrés de manière réversible. Le secret administrateur vient de la configuration (clair ou empreinte `{bcrypt}…`).
 
 ## Qui peut consulter
 
@@ -39,6 +39,8 @@ L'IA est facultative : les CSV peuvent être préparés manuellement. Patria ne 
 L'outil intégré `/aide/caviardage`, proposé avant les prompts d'import, traite PDF et images **uniquement en mémoire dans votre navigateur**. Le moteur PDF.js et ses ressources sont servis par Patria, pas par un CDN. Aucun original ni résultat n'est téléversé par l'outil, aucun document n'est enregistré par lui dans le stockage du navigateur.
 
 Vous sélectionnez manuellement les zones à supprimer sur toutes les pages. Le résultat est un **nouveau PDF contenant seulement des images caviardées**, sans objets, texte, annotations, pièces jointes ni métadonnées d'origine. L'original n'est pas modifié ; recherche et accessibilité du texte sont perdues. Joignez uniquement la copie exportée après relecture. [Mode d'emploi et limites](utilisation.md#caviarder-avant-tout-envoi).
+
+Avant téléchargement, un contrôle local recherche les identifiants courants et les mots que vous indiquez dans le texte PDF encore visible. Les mots recherchés et les résultats ne sont ni transmis ni conservés. Les images/scans ne sont pas lus par OCR : le contrôle se déclare incomplet et exige une confirmation de relecture, sans donner de feu vert. Même sans alerte, le message « semble ne plus contenir de données sensibles » reste une hypothèse limitée, pas une certification. Toute modification du caviardage invalide le contrôle précédent.
 
 Un rectangle superposé dans un PDF ordinaire peut laisser le texte dessous. Un prompt qui interdit de recopier les identifiants ne les retire pas du document transmis. Même après caviardage, les dates, montants et détails restants peuvent identifier une personne : **pas de garantie d'anonymat**. Le navigateur, ses extensions et l'appareil doivent être de confiance ; l'outil ne peut pas effacer leurs traces système ni vos téléchargements.
 

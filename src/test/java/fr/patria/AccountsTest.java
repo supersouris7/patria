@@ -4,14 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import fr.patria.TestAccounts.Visitor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,9 +24,6 @@ class AccountsTest {
     private HttpClient client;
     private String base;
 
-    private record Visitor(String cookie, String csrf, long id) {
-    }
-
     @BeforeEach
     void start() {
         app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK));
@@ -40,33 +36,25 @@ class AccountsTest {
         app.close();
     }
 
-    private static TestAccounts.Visitor of(Visitor visitor) {
-        return visitor == null ? null : new TestAccounts.Visitor(visitor.cookie(), visitor.csrf(), visitor.id());
-    }
-
-    private static Visitor of(TestAccounts.Visitor visitor) {
-        return new Visitor(visitor.cookie(), visitor.csrf(), visitor.id());
-    }
-
     private HttpResponse<String> get(Visitor visitor, String path) throws Exception {
-        return TestAccounts.get(client, base, of(visitor), path);
+        return TestAccounts.get(client, base, visitor, path);
     }
 
     private HttpResponse<String> post(Visitor visitor, String path, String form) throws Exception {
-        return TestAccounts.post(client, base, of(visitor), path, form);
+        return TestAccounts.post(client, base, visitor, path, form);
     }
 
     private Visitor admin() throws Exception {
-        return of(TestAccounts.admin(client, base));
+        return TestAccounts.admin(client, base);
     }
 
     /** Compte cree par l'administrateur, mot de passe provisoire change ({@code login-motdepasse}). */
     private Visitor account(Visitor admin, String login, String name, String extra, long household, String access) throws Exception {
-        return of(TestAccounts.account(client, base, of(admin), login, name, extra, household, access));
+        return TestAccounts.account(client, base, admin, login, name, extra, household, access);
     }
 
     private Visitor login(String login, String password) throws Exception {
-        return of(TestAccounts.login(client, base, login, password));
+        return TestAccounts.login(client, base, login, password);
     }
 
     @Test

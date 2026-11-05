@@ -219,7 +219,7 @@ public final class Components {
                 <div class="llm-prompt"><p class="llm-why"><b>L'IA est facultative.</b> Vous pouvez préparer le CSV vous-même, ou demander à un assistant \
                 (ChatGPT, Claude, Le Chat, Gemini, ou un modèle local) de le faire. Patria ne lui envoie rien. Avant de joindre un document, créez et \
                 vérifiez une copie caviardée ; importez ensuite ici le CSV obtenu.</p>\
-                <p><a class="button secondary" href="/aide/caviardage" target="_blank" rel="noopener noreferrer">1. Caviarder les documents localement</a></p>\
+                <p><a class="button secondary" href="/aide/caviardage" target="_blank" rel="noopener noreferrer">1. Caviarder et contrôler les documents localement</a></p>\
                 <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
                 <span class="muted copy-status" role="status">2. Collez le prompt dans votre IA avec uniquement les copies caviardées vérifiées.</span></div>\
                 <details class="llm-privacy"><summary>Protéger vos données avant d'envoyer</summary><ul>\
