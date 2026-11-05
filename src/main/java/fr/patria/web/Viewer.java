@@ -36,18 +36,9 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      *
      * @param mustChangePassword mot de passe choisi par l'administrateur, a changer avant toute autre page
      * @param audience           qui voit quoi dans ce foyer (icone d'information de l'en-tete)
-     * @param recent             connexion precedente du compte et echecs depuis (en-tete)
      * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
      */
-    public record Signals(boolean mustChangePassword, Audience audience, Recent recent, String notice) {
-    }
-
-    /**
-     * Derniere connexion avant celle-ci : {@code text} (« hier 21:12 · Lyon, France », ou « première connexion »),
-     * {@code failures} : echecs sur ce compte depuis.
-     */
-    public record Recent(String text, int failures) {
-        public static final Recent NONE = new Recent(null, 0);
+    public record Signals(boolean mustChangePassword, Audience audience, String notice) {
     }
 
     /** Un foyer du selecteur ; {@code managed} : l'utilisateur en est gestionnaire. */
@@ -66,8 +57,8 @@ public record Viewer(Long userId, String name, Household household, List<Househo
     }
 
     /** L'administrateur : aucune vue dans les foyers. */
-    public static Viewer admin(String name, Household household, List<Household> households, Recent recent) {
-        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, recent, null));
+    public static Viewer admin(String name, Household household, List<Household> households) {
+        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, null));
     }
 
     public boolean wholeHousehold() {
@@ -92,10 +83,6 @@ public record Viewer(Long userId, String name, Household household, List<Househo
 
     public Audience audience() {
         return signals.audience();
-    }
-
-    public Recent recent() {
-        return signals.recent();
     }
 
     public String notice() {

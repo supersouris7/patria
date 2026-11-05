@@ -76,7 +76,7 @@ public final class App implements AutoCloseable {
             fr.patria.ui.BuildInfo.useSupportUrl(config.support());
             Sessions sessions = new Sessions(config.clock());
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(log, config.offline(), config.clock());
-            fr.patria.account.SessionViewers viewers = new fr.patria.account.SessionViewers(accounts, log, sites, locator, config.adminLogin(), config.clock());
+            fr.patria.account.SessionViewers viewers = new fr.patria.account.SessionViewers(accounts, log, sites);
             Router router = new Router(sessions, viewers::of, household -> sites.site(household).router);
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
             router.publicGet("/aide/chiffrement", request -> Response.page(fr.patria.ui.SecurityPages.encryptionHelp(config.encryptionKey() != null, request.csrf())));

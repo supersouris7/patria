@@ -57,6 +57,8 @@
 .health-item b { color: var(--text); display: block; }
 .health-item p { color: var(--text-soft); font-size: .9rem; line-height: 1.5; margin: 4px 0 0; }
 .health-item a { display: inline-block; font-size: .86rem; font-weight: 700; margin-top: 6px; }
+.health-item form { margin-top: 8px; }
+#ignores summary { cursor: pointer; font-weight: 700; }
 .health-mark { align-items: center; border-radius: 50%; display: inline-flex; font-size: .85rem; font-weight: 900; height: 26px; justify-content: center; width: 26px; }
 .level-bad .health-mark { background: var(--status-serious); color: #0a0e13; }
 .level-warn .health-mark { background: var(--status-warning); color: #0a0e13; }

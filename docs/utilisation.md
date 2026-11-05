@@ -6,7 +6,7 @@ Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et su
 
 ## Première connexion
 
-L'administrateur de l'installation crée votre compte et les accès à votre foyer. Changez le mot de passe provisoire dès la première connexion. Quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement ; vous pouvez les revoir dans Mon compte.
+L'administrateur de l'installation crée votre compte et les accès à votre foyer. Changez le mot de passe provisoire dès la première connexion. Quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
 
 Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Un **gestionnaire** renseigne tout son foyer. L'**administrateur** gère l'installation, les comptes et les droits, pas les finances dans l'interface.
 
@@ -17,7 +17,7 @@ Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** 
 
 Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
 
-**Dernière connexion.** L'en-tête rappelle votre connexion précédente (« Dernière connexion : hier 21:12 · Lyon, France »), en orange avec le nombre d'échecs sur votre compte depuis. Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification.
+**Connexions.** Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification. Il n'y a plus de bouton horloge dans la barre de navigation.
 
 **Double authentification.** Mon compte → « Activer la double authentification » : scannez le QR code avec une application d'authentification (Aegis, 2FAS, Google Authenticator…), puis tapez le code affiché. Ensuite, la connexion demande ce code après le mot de passe ; cochez « Se souvenir de cet appareil 30 jours » sur vos appareils personnels. Téléphone perdu : demandez à l'administrateur de la retirer ; Patria vous le signalera.
 
@@ -173,6 +173,8 @@ Sur la fiche du prêt : mensualité recalculée au taux du marché à capital/du
 Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (précision d'environ 0,3 point), comparaison indicative s'il reste moins de 10 ans ; assurance, garantie et frais de dossier exclus. Ce n'est pas une offre bancaire.
 
 ## Revue annuelle et bilan de santé
+
+Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
 
 Guide de saisie → Revue annuelle : pour chaque revenu/dépense récurrente, nouveau montant et date d'effet, ou arrêt. L'ancien montant s'arrête la veille et la répartition est reprise. Pour les gestionnaires : taxe foncière de l'année et estimation ancienne des biens. Calendrier des mises à jour et rappel sur le Prévisionnel après un an.
 

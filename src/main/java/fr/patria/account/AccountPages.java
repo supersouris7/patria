@@ -335,10 +335,7 @@ final class AccountPages {
         Html content = Html.concat(Components.heading("Mon compte", name, login, Html.EMPTY), Components.notice(notice),
                 Components.card("Mot de passe", null, Html.EMPTY, body),
                 Components.card("Double authentification", null, Html.EMPTY, twoFactor(security, admin, csrf)),
-                connections(security),
-                Components.card("Accueil", null, Html.EMPTY, Html.raw("""
-                        <p class="muted">Les quatre écrans de la première connexion : ce que fait Patria, pour qui, la confidentialité.</p>
-                        <a class="button secondary" href="/bienvenue">Revoir l'accueil</a>""")));
+                connections(security));
         return Layout.page("Mon compte · Patria", Layout.Section.ACCOUNT, csrf, content);
     }
 

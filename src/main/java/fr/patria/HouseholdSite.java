@@ -8,6 +8,7 @@ import fr.patria.contribution.ContributionRepository;
 import fr.patria.expense.ExpenseController;
 import fr.patria.expense.ExpenseRepository;
 import fr.patria.health.HealthController;
+import fr.patria.health.HealthRepository;
 import fr.patria.household.HouseholdController;
 import fr.patria.household.HouseholdRepository;
 import fr.patria.household.ShareRepository;
@@ -38,6 +39,7 @@ final class HouseholdSite implements AutoCloseable {
     final HouseholdRepository household;
     final PropertyRepository properties;
     final WizardRepository wizard;
+    final HealthRepository healthPreferences;
     final Router router = new Router();
 
     private HouseholdSite(Database database, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
@@ -70,7 +72,8 @@ final class HouseholdSite implements AutoCloseable {
         WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard), clock);
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
-        HealthController health = new HealthController(forecast, household, portfolio,
+        healthPreferences = new HealthRepository(database);
+        HealthController health = new HealthController(forecast, household, portfolio, healthPreferences,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
         budget.withHomeExtras(request -> fr.patria.ui.Html.concat(guide.progress(request), guide.reminder(request), health.summary(request))).register(router);

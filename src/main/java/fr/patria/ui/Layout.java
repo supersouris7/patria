@@ -33,12 +33,10 @@ public final class Layout {
          * @param insecure  connexion en HTTP (hors poste local) et alerte pas encore lue dans cette session
          * @param audience  qui voit quoi dans ce foyer (icone d'information) ; vide pour l'administrateur
          * @param changes   changements d'acces depuis la derniere lecture
-         * @param lastLogin connexion precedente (« hier 21:12 · Lyon, France »), ou {@code null}
-         * @param failures  echecs de connexion sur ce compte depuis
          * @param notice    avis a lire une fois, ou {@code null}
          */
-        public record Alerts(boolean insecure, List<String> audience, List<String> changes, String lastLogin, int failures, String notice) {
-            public static final Alerts NONE = new Alerts(false, List.of(), List.of(), null, 0, null);
+        public record Alerts(boolean insecure, List<String> audience, List<String> changes, String notice) {
+            public static final Alerts NONE = new Alerts(false, List.of(), List.of(), null);
         }
 
         public String name() {
@@ -67,14 +65,6 @@ public final class Layout {
 
         public List<String> changes() {
             return alerts.changes();
-        }
-
-        public String lastLogin() {
-            return alerts.lastLogin();
-        }
-
-        public int failures() {
-            return alerts.failures();
         }
 
         public String notice() {
@@ -137,7 +127,6 @@ public final class Layout {
 
     private static final Html ASSISTANT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z\"/><path d=\"M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z\"/></svg>");
     private static final Html HEALTH_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z\"/><path d=\"M3.5 12h4l2-3 3 6 2-3h6\"/></svg>");
-    private static final Html CLOCK_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>");
     private static final Html INFO_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg>");
     private static final Html SHIELD_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>");
     private static final Html SETTINGS_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/></svg>");
@@ -170,20 +159,20 @@ public final class Layout {
         boolean administrator = chrome != null && chrome.administrator();
         Html links = administrator
                 // L'administrateur n'a pas de budget : ses seules pages sont celles des comptes.
-                ? Html.concat(shortNavLink("/administration/foyers", "Foyers", "Foyers", section == Section.ADMINISTRATION),
-                        iconLink("/administration/securite", "Sécurité", SHIELD_ICON, section == Section.SECURITY))
-                : Html.concat(shortNavLink("/" + scope, "Prévisionnel", "Prévision", section == Section.HOME),
-                        shortNavLink("/budget" + scope, "Budget moyen", "Moyenne", section == Section.BUDGET),
-                        realEstate ? shortNavLink("/immobilier", "Immobilier", "Immo", section == Section.REAL_ESTATE) : Html.EMPTY,
-                        iconLink("/bilan", "Bilan de santé", HEALTH_ICON, section == Section.HEALTH),
-                        iconLink("/assistant", "Guide de saisie", ASSISTANT_ICON, section == Section.ASSISTANT),
-                        iconLink("/administration", "Administration", SETTINGS_ICON, section == Section.ADMINISTRATION));
+                ? Html.concat(menu("Foyers", navLink("/administration/foyers", "Liste et création des foyers", false)),
+                        menu("Utilisateurs", navLink("/administration/utilisateurs", "Comptes et accès aux foyers", false)),
+                        menu("Sécurité", navLink("/administration/securite", "Sécurité de l'installation", section == Section.SECURITY)))
+                : Html.concat(menu("Budget", Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
+                        navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET))),
+                        realEstate ? menu("Immobilier", navLink("/immobilier", "Vue d'ensemble des biens", section == Section.REAL_ESTATE)) : Html.EMPTY,
+                        menu("Suivi", Html.concat(iconLink("/bilan", "Bilan de santé", HEALTH_ICON, section == Section.HEALTH),
+                                iconLink("/assistant", "Guide de saisie", ASSISTANT_ICON, section == Section.ASSISTANT))),
+                        menu("Gestion", group(AdminGroup.HOUSEHOLD, chrome, null)));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
-                <header class="topbar"><div class="shell navigation">%s<nav>%s</nav><div class="account-bar">%s%s%s
+                <header class="topbar"><div class="shell navigation">%s<div class="account-bar">%s%s%s</div><nav aria-label="Navigation principale">%s</nav></div></header>""",
+                brand(), audience(chrome, csrf), householdSwitch(chrome, csrf), menu("Mon compte", Html.concat(account(chrome, section == Section.ACCOUNT), Html.of("""
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
-                </div></div></header>""",
-                brand(), links, Html.concat(lastLogin(chrome), audience(chrome, csrf)), householdSwitch(chrome, csrf), account(chrome, section == Section.ACCOUNT),
-                Components.csrfField(csrf), LOGOUT_ICON);
+                """, Components.csrfField(csrf), LOGOUT_ICON))), links);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
     }
@@ -200,6 +189,10 @@ public final class Layout {
                 <form method="post" action="/foyer/choisir" class="household-switch">%s<label><span class="visually-hidden">Foyer affiché</span>\
                 <select name="foyer" data-autosubmit>%s</select></label><noscript><button class="quiet" type="submit">Afficher</button></noscript></form>""",
                 Components.csrfField(csrf), options);
+    }
+
+    private static Html menu(String label, Html entries) {
+        return Html.of("<details class=\"nav-menu\" name=\"navigation\"><summary>%s</summary><div class=\"nav-panel\">%s</div></details>", label, entries);
     }
 
     /**
@@ -222,21 +215,6 @@ public final class Layout {
                 y compris à un compte à lui, il apparaîtrait ici.</p></div></details>""",
                 label, label, INFO_ICON, chrome.changes().isEmpty() ? Html.EMPTY : Html.raw("<span class=\"audience-dot\" aria-hidden=\"true\"></span>"),
                 householdName(chrome), changes, lines);
-    }
-
-    /**
-     * Connexion precedente, dans l'en-tete : « Dernière connexion : hier 21:12 · Lyon » ; en orange s'il y a eu des
-     * echecs sur ce compte depuis. Le detail est dans « Mon compte ».
-     */
-    private static Html lastLogin(Chrome chrome) {
-        if (chrome == null || chrome.lastLogin() == null) return Html.EMPTY;
-        String failures = chrome.failures() == 0 ? "" : chrome.failures() + (chrome.failures() > 1 ? " échecs" : " échec") + " depuis";
-        String title = "Dernière connexion : " + chrome.lastLogin() + (failures.isEmpty() ? "" : ". " + failures + " sur votre compte (mot de passe ou code faux).")
-                + " Détail dans Mon compte.";
-        return Html.of("<a class=\"last-login%s\" href=\"/compte#connexions\" title=\"%s\">%s<span>%s</span>%s</a>", chrome.failures() > 0 ? " warn" : "", title,
-                // Dans l'en-tete, la date seule (« hier 21:12 ») ; le lieu et le detail sont dans l'info-bulle et dans Mon compte.
-                CLOCK_ICON, chrome.lastLogin().equals("première connexion") ? "Première connexion" : chrome.lastLogin().split(" · ")[0],
-                failures.isEmpty() ? Html.EMPTY : Html.of("<b>%s</b>", failures));
     }
 
     /** Avis a lire une fois (double authentification retiree par l'administrateur), avec « J'ai compris ». */
@@ -346,10 +324,10 @@ public final class Layout {
                 Assets.url("/images/patria-logo.png"));
     }
 
-    /** Lien de navigation sous forme d'icone, avec son nom en info-bulle et pour les lecteurs d'ecran. */
+    /** Icone accompagnee d'un libelle visible, aussi sur mobile. */
     private static Html iconLink(String href, String label, Html icon, boolean active) {
-        return Html.of("<a href=\"%s\" class=\"nav-icon%s\"%s aria-label=\"%s\" title=\"%s\">%s</a>", href, active ? " active" : "",
-                Html.raw(active ? " aria-current=\"page\"" : ""), label, label, icon);
+        return Html.of("<a href=\"%s\" class=\"nav-icon%s\"%s aria-label=\"%s\" title=\"%s\">%s<span>%s</span></a>", href, active ? " active" : "",
+                Html.raw(active ? " aria-current=\"page\"" : ""), label, label, icon, label);
     }
 
     /** Lien de navigation dont le libelle est raccourci sur smartphone ({@code short}). */

@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 13;
+    public static final int LATEST = 14;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -49,6 +49,7 @@ public final class Migrations {
             if (version < 11) toVersion11(connection);
             if (version < 12) toVersion12(connection);
             if (version < 13) toVersion13(connection);
+            if (version < 14) toVersion14(connection);
             return null;
         });
     }
@@ -337,6 +338,14 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 13);
+    }
+
+    /** Version 14 : avertissements du bilan ignores par compte, sans modifier les donnees financieres. */
+    private static void toVersion14(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE health_ignored (user_id INTEGER NOT NULL, check_token TEXT NOT NULL, PRIMARY KEY (user_id, check_token))");
+        }
+        setUserVersion(connection, 14);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

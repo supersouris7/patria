@@ -170,7 +170,7 @@ public final class Router implements HttpHandler {
         if (viewer == null) return null;
         return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
-                new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.recent().text(), viewer.recent().failures(), viewer.notice()),
+                new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.notice()),
                 location);
     }
 

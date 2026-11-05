@@ -6,7 +6,7 @@ package fr.patria.health;
  * @param link      page ou corriger ou approfondir, {@code null} si aucune
  * @param linkLabel texte du lien
  */
-public record Check(Domain domain, Level level, String title, String detail, String link, String linkLabel) {
+public record Check(String id, Domain domain, Level level, String title, String detail, String link, String linkLabel) {
     /** Domaine du bilan. */
     public enum Domain {
         FINANCES("Finances", "Budget, reste à vivre, endettement, épargne"),
@@ -54,11 +54,20 @@ public record Check(Domain domain, Level level, String title, String detail, Str
         }
     }
 
-    static Check of(Domain domain, Level level, String title, String detail) {
-        return new Check(domain, level, title, detail, null, null);
+    static Check of(String id, Domain domain, Level level, String title, String detail) {
+        return new Check(id, domain, level, title, detail, null, null);
     }
 
     Check link(String href, String label) {
-        return new Check(domain, level, title, detail, href, label);
+        return new Check(id, domain, level, title, detail, href, label);
+    }
+
+    /** Une aggravation change le jeton : une alerte devenue plus grave reapparait. */
+    String token() {
+        return id + ":" + level.name();
+    }
+
+    boolean canIgnore() {
+        return level != Level.GOOD;
     }
 }

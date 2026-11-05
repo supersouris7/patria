@@ -124,7 +124,11 @@ final class HouseholdSites implements HouseholdDirectory {
 
     @Override
     public void forgetUser(long userId) {
-        for (Household household : accounts.households()) site(household.id()).wizard.forgetUser(userId);
+        for (Household household : accounts.households()) {
+            HouseholdSite site = site(household.id());
+            site.wizard.forgetUser(userId);
+            site.healthPreferences.forgetUser(userId);
+        }
     }
 
     @Override

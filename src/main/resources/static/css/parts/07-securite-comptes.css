@@ -96,14 +96,7 @@
 .takeover-form { border-top: 1px solid rgb(107 85 32 / 55%); margin-top: 12px; padding-top: 12px; }
 .takeover-form .row-form { align-items: end; }
 
-/* ---- Derniere connexion, avis, double authentification, slogan ---- */
-.last-login { align-items: center; border-radius: var(--radius-small); color: var(--muted); display: inline-flex; font-size: .76rem; gap: 6px; max-width: 460px;
-    padding: 6px 8px; text-decoration: none; white-space: nowrap; }
-.last-login span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.last-login b { flex-shrink: 0; }
-.last-login:hover { background: var(--surface); color: var(--text-soft); }
-.last-login b { color: #ffb07a; font-weight: 750; }
-.last-login.warn { color: #ffb07a; }
+/* ---- Avis, double authentification, slogan ---- */
 .account-notice { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: space-between; }
 .account-notice form { margin: 0; }
 .qr-box { background: #fff; border-radius: var(--radius-small); display: block; margin: 10px 0; padding: 6px; width: fit-content; }
@@ -112,10 +105,3 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .badge.warn { background: rgb(255 176 122 / 16%); color: #ffb07a; }
 .login-card .login-slogan { color: var(--text); font-size: 1.45rem; font-weight: 780; letter-spacing: -.02em; line-height: 1.2; margin: 18px 0 4px; }
 .login-card h1.login-title { color: var(--text-soft); font-size: 1rem; margin: 18px 0 10px; }
-/* Sur tablette et smartphone : l'icone seule (detail au survol), et le nombre d'echecs s'il y en a. */
-@media (max-width: 1023px) {
-    .last-login span { display: none; }
-}
-@media (max-width: 640px) {
-    .last-login b { display: none; }
-}

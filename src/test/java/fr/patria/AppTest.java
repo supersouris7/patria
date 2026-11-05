@@ -112,8 +112,8 @@ class AppTest {
         }
         assertTrue(get("/").body().contains("href=\"/previsionnel.pdf\""), "bouton d'export");
         String header = get("/").body();
-        assertTrue(header.contains("aria-label=\"Guide de saisie\"") && header.contains("aria-label=\"Administration\""), "icônes Guide de saisie et Administration");
-        assertTrue(header.indexOf("aria-label=\"Guide de saisie\"") < header.indexOf("aria-label=\"Administration\""), "Guide avant la roue crantée");
+        assertTrue(header.contains("<summary>Budget</summary>") && header.contains("<summary>Gestion</summary>"), "navigation par catégories");
+        assertTrue(header.indexOf("<summary>Suivi</summary>") < header.indexOf("<summary>Gestion</summary>"), "Suivi avant Gestion");
         assertTrue(header.contains("href=\"/confidentialite\""), "lien Confidentialité en pied de page");
         assertEquals(200, get("/assistant").statusCode());
         assertTrue(header.contains("aria-label=\"Bilan de santé\""), "icône Bilan de santé");
@@ -369,6 +369,6 @@ class AppTest {
         HttpResponse<String> response = get("/bien/999");
         assertEquals(404, response.statusCode());
         assertTrue(response.body().contains("Bien introuvable"));
-        assertTrue(response.body().contains("<nav>"));
+        assertTrue(response.body().contains("<nav aria-label=\"Navigation principale\">"));
     }
 }

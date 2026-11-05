@@ -1,5 +1,23 @@
 "use strict";
 
+// Les menus natifs restent utilisables sans JavaScript.
+const navigationMenus = document.querySelectorAll(".nav-menu");
+navigationMenus.forEach((menu) => {
+  menu.addEventListener("toggle", () => {
+    if (menu.open) navigationMenus.forEach((other) => { if (other !== menu) other.open = false; });
+  });
+});
+document.addEventListener("click", (event) => {
+  navigationMenus.forEach((menu) => {
+    if (!menu.contains(event.target) || event.target.closest("a")) menu.open = false;
+  });
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") navigationMenus.forEach((menu) => {
+    if (menu.open) { menu.open = false; menu.querySelector("summary").focus(); }
+  });
+});
+
 const euroWhole = new Intl.NumberFormat("fr-FR", {style: "currency", currency: "EUR", maximumFractionDigits: 0, minimumFractionDigits: 0});
 const multipleFormat = new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const percentFormat = new Intl.NumberFormat("fr-FR", {maximumFractionDigits: 1});

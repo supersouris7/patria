@@ -62,7 +62,8 @@ class TwoFactorTest {
             TestAccounts.Visitor admin = TestAccounts.admin(client, base);
             assertTrue(TestAccounts.get(client, base, admin, "/compte").body().contains("Activer la double authentification"));
             TestAccounts.Visitor paul = TestAccounts.account(client, base, admin, "paul", "Paul", 1, "access=on&whole=on");
-            assertTrue(TestAccounts.get(client, base, paul, "/").body().contains("Première connexion"), "dernière connexion dans l'en-tête");
+            assertFalse(TestAccounts.get(client, base, paul, "/").body().contains("class=\"last-login"), "horloge retirée de l'en-tête");
+            assertTrue(TestAccounts.get(client, base, paul, "/compte").body().contains("id=\"connexions\""), "historique de sécurité conservé dans Mon compte");
             String key = enable(paul);
             assertTrue(TestAccounts.get(client, base, admin, "/administration/securite").body().contains("Activée le 15/06/2026"), "supervision : activée");
 

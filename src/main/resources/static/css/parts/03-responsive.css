@@ -21,16 +21,17 @@
     .brand, .navigation > form { flex-shrink: 0; }
     /* Le selecteur de foyer passe sur une deuxieme ligne, pleine largeur. */
     .navigation { flex-wrap: wrap; }
-    .navigation > nav { flex: 1 1 0; }
+    .navigation > nav { flex: 1 0 100%; }
     .account-bar { display: contents; }
-    /* Mon compte reste accessible par Administration : l'en-tete garde la place pour la navigation. */
-    .account-link { display: none; }
+    .account-link { display: inline-flex; margin-left: auto; }
     .household-switch { flex: 1 0 100%; order: 10; padding-bottom: 8px; }
     .household-switch label { flex: 1; }
     .household-switch select { font-size: .85rem; max-width: none; width: 100%; }
-    nav { gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .navigation > nav { gap: 0; justify-content: space-between; min-width: 0; overflow: visible; }
+    .nav-menu > summary { font-size: .8rem; padding-inline: 5px; }
+    .navigation .nav-panel { left: 0; right: 0; min-width: 0; }
+    .admin-layout > .admin-nav { display: none; }
     nav a, button.quiet { font-size: .8rem; padding: 6px 7px; white-space: nowrap; }
-    button.logout span { display: none; }
     nav .long { display: none; }
     nav .long-label { display: none; }
     nav .short-label { display: inline; }

@@ -42,6 +42,31 @@ class MigrationsTest {
     @TempDir
     Path directory;
 
+    @Test
+    void upgradesVersion13WithPersonalHealthPreferences() {
+        Path file = directory.resolve("version13.sqlite3");
+        try (Database database = Database.open(file)) {
+            Migrations.apply(database, CLOCK);
+            database.query(connection -> {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE health_ignored");
+                    statement.execute("PRAGMA user_version = 13");
+                }
+                return null;
+            });
+            Migrations.apply(database, CLOCK);
+            database.query(connection -> {
+                assertEquals(Migrations.LATEST, Migrations.userVersion(connection));
+                try (Statement statement = connection.createStatement(); ResultSet tables = statement.executeQuery(
+                        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('health_ignored', 'wizard_steps')")) {
+                    assertTrue(tables.next());
+                    assertEquals(2, tables.getInt(1));
+                }
+                return null;
+            });
+        }
+    }
+
     /** Base telle que la creaient les versions anterieures au versionnement (montants REAL, colonnes ajoutees au fil de l'eau). */
     private Path legacyDatabase() throws Exception {
         Path file = directory.resolve("legacy.sqlite3");
