@@ -52,6 +52,8 @@ jobs:
         if: hashFiles('tests/requirements-browser.txt') != ''
       - run: python -m playwright install --with-deps chromium
         if: hashFiles('tests/requirements-browser.txt') != ''
+      - run: python -c "import pymupdf; print(pymupdf.__doc__[:80])"
+        if: hashFiles('tests/requirements-browser.txt') != ''
       - name: Vérifier le caviardage dans Chromium avant publication
         if: hashFiles('tests/redaction_browser.py') != ''
         run: |
