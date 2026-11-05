@@ -62,6 +62,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid"' EXIT
           curl --fail --silent --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:18101/sante
+          python -m pip install PyMuPDF
           python tests/redaction_browser.py http://127.0.0.1:18101
 
   docker:
