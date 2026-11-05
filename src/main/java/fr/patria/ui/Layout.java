@@ -15,18 +15,71 @@ public final class Layout {
      * Ce que l'en-tete affiche pour la personne connectee : son nom, ses foyers (selecteur a partir de deux) et les
      * rubriques permises. Pose par le routeur pour la duree d'une requete.
      *
-     * @param administrator administrateur de l'application (foyers, utilisateurs)
-     * @param manages       gestion complete du foyer affiche (l'administrateur, ou un utilisateur gestionnaire)
-     * @param insecure      connexion en HTTP (hors poste local) et alerte pas encore lue dans cette session
-     * @param location      adresse de la page (chemin et requete), pour y revenir apres l'alerte
-     * @param audience      qui voit quoi dans ce foyer (icone d'information) ; vide pour l'administrateur
-     * @param changes       changements d'acces depuis la derniere lecture
-     * @param lastLogin     connexion precedente (« hier 21:12 · Lyon, France »), ou {@code null}
-     * @param failures      echecs de connexion sur ce compte depuis
-     * @param notice        avis a lire une fois, ou {@code null}
+     * @param person     qui est connecte et ce qu'il peut ouvrir
+     * @param households foyers du selecteur, {@code household} : celui qui est affiche
+     * @param alerts     ce que l'en-tete signale
+     * @param location   adresse de la page (chemin et requete), pour y revenir apres l'alerte HTTP
      */
-    public record Chrome(String name, boolean administrator, boolean manages, boolean realEstate, List<Choice> households, long household,
-                         boolean insecure, String location, List<String> audience, List<String> changes, String lastLogin, int failures, String notice) {
+    public record Chrome(Person person, List<Choice> households, long household, Alerts alerts, String location) {
+        /**
+         * @param administrator administrateur de l'application (foyers, utilisateurs)
+         * @param manages       gestion complete du foyer affiche (utilisateur gestionnaire)
+         * @param realEstate    consultation des biens du foyer
+         */
+        public record Person(String name, boolean administrator, boolean manages, boolean realEstate) {
+        }
+
+        /**
+         * @param insecure  connexion en HTTP (hors poste local) et alerte pas encore lue dans cette session
+         * @param audience  qui voit quoi dans ce foyer (icone d'information) ; vide pour l'administrateur
+         * @param changes   changements d'acces depuis la derniere lecture
+         * @param lastLogin connexion precedente (« hier 21:12 · Lyon, France »), ou {@code null}
+         * @param failures  echecs de connexion sur ce compte depuis
+         * @param notice    avis a lire une fois, ou {@code null}
+         */
+        public record Alerts(boolean insecure, List<String> audience, List<String> changes, String lastLogin, int failures, String notice) {
+            public static final Alerts NONE = new Alerts(false, List.of(), List.of(), null, 0, null);
+        }
+
+        public String name() {
+            return person.name();
+        }
+
+        public boolean administrator() {
+            return person.administrator();
+        }
+
+        public boolean manages() {
+            return person.manages();
+        }
+
+        public boolean realEstate() {
+            return person.realEstate();
+        }
+
+        public boolean insecure() {
+            return alerts.insecure();
+        }
+
+        public List<String> audience() {
+            return alerts.audience();
+        }
+
+        public List<String> changes() {
+            return alerts.changes();
+        }
+
+        public String lastLogin() {
+            return alerts.lastLogin();
+        }
+
+        public int failures() {
+            return alerts.failures();
+        }
+
+        public String notice() {
+            return alerts.notice();
+        }
     }
 
     public static final ThreadLocal<Chrome> CHROME = new ThreadLocal<>();

@@ -373,9 +373,8 @@ public final class App implements AutoCloseable {
         });
         Viewer.Audience audience = fr.patria.account.AudienceText.of(shared, directory.members(access.householdId()), session.userId(),
                 accounts.accessChanges(access.householdId(), accounts.audienceSeen(session.userId())));
-        if (access.manager()) return Optional.of(Viewer.manager(session.userId(), user.get().name(), current, households, mustChange, audience, recent, notice));
-        return Optional.of(new Viewer(session.userId(), user.get().name(), current, households,
-                access.wholeHousehold(), access.members(), access.realEstate(), false, mustChange, audience, recent, notice));
+        Viewer.Rights rights = access.manager() ? Viewer.Rights.MANAGER : new Viewer.Rights(access.wholeHousehold(), access.members(), access.realEstate(), false);
+        return Optional.of(new Viewer(session.userId(), user.get().name(), current, households, rights, new Viewer.Signals(mustChange, audience, recent, notice)));
     }
 
     public int port() {

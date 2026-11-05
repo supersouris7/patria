@@ -168,9 +168,10 @@ public final class Router implements HttpHandler {
     /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
     private static Layout.Chrome chrome(Viewer viewer, boolean insecure, String location) {
         if (viewer == null) return null;
-        return new Layout.Chrome(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate(),
+        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
-                insecure, location, viewer.audience().lines(), viewer.audience().changes(), viewer.recent().text(), viewer.recent().failures(), viewer.notice());
+                new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.recent().text(), viewer.recent().failures(), viewer.notice()),
+                location);
     }
 
     /**
