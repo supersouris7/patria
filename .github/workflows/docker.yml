@@ -50,9 +50,9 @@ jobs:
           python-version: '3.13'
       - run: pip install --requirement tests/requirements-browser.txt
         if: hashFiles('tests/requirements-browser.txt') != ''
-      - run: python -m playwright install --with-deps chromium
-        if: hashFiles('tests/requirements-browser.txt') != ''
       - run: python -c "import pymupdf; print(pymupdf.__version__)"
+        if: hashFiles('tests/requirements-browser.txt') != ''
+      - run: python -m playwright install --with-deps chromium
         if: hashFiles('tests/requirements-browser.txt') != ''
       - name: Vérifier le caviardage dans Chromium avant publication
         if: hashFiles('tests/redaction_browser.py') != ''
