@@ -129,6 +129,7 @@ public final class Layout {
     private static final Html HEALTH_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z\"/><path d=\"M3.5 12h4l2-3 3 6 2-3h6\"/></svg>");
     private static final Html INFO_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg>");
     private static final Html SHIELD_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>");
+    private static final Html BURGER_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>");
     private static final Html SETTINGS_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/></svg>");
 
     /** Pied de page : rappel de l'auto-hebergement, confidentialite, version et lien « Soutenir ». */
@@ -178,19 +179,26 @@ public final class Layout {
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
         Html allLinks = administrator ? manage : Html.concat(budget, estate, manage, follow);
-        Html links = Html.concat(allLinks,
-                Html.raw("<details class=\"nav-menu nav-hamburger\" name=\"navigation\" data-hamburger><summary aria-label=\"Menu principal\" title=\"Menu principal\"><svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></summary><div class=\"nav-panel\"><div class=\"nav-entries\"></div></div></details>"));
+        Html links = allLinks;
+        // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les
+        // libelles complets (utilisable sans JavaScript).
+        Html burgerLinks = administrator ? Html.concat(manage, navLink("/compte", "Mon compte", section == Section.ACCOUNT))
+                : Html.concat(budget, estate, navLink("/bilan", "Bilan de santé", section == Section.HEALTH),
+                navLink("/assistant", "Assistant — Guide de saisie", section == Section.ASSISTANT), manage, navLink("/compte", "Mon compte", section == Section.ACCOUNT));
+        Html burger = Html.of("""
+                <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="Menu principal" title="Menu principal">%s</summary>\
+                <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s</nav></div></details>""", BURGER_ICON, burgerLinks);
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
                         navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false),
                         realEstate ? Html.concat(navLink("/immobilier/prets", "Prêts", false), navLink("/immobilier/taxe-fonciere", "Taxe foncière", false),
                                 Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>")) : Html.EMPTY),
                 navLink("/administration", "Gérer", false), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active), navLink("/compte", "Mon compte", false));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
-                <header class="topbar"%s><div class="shell navigation">%s<nav class="primary-navigation" aria-label="Navigation principale">%s</nav>
+                <header class="topbar"%s><div class="shell navigation">%s%s<nav class="primary-navigation" aria-label="Navigation principale">%s</nav>
                 <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                Html.raw(administrator ? "" : " data-navigation-status"), brand(), links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), burger, links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
