@@ -23,8 +23,8 @@ import java.util.Map;
  */
 public record Config(String password, String adminLogin, Path databasePath, int port, Clock clock, boolean offline, String encryptionKey,
                      String supportUrl, boolean resetAdminTwoFactor) {
-    /** Page Ko-fi du projet, affichee par defaut ; {@code null} tant qu'elle n'est pas renseignee. */
-    static final String PROJECT_SUPPORT_URL = null;
+    /** Page Ko-fi du projet, affichee par defaut (KOFI_URL la remplace, KOFI_URL vide la masque). */
+    static final String PROJECT_SUPPORT_URL = "https://ko-fi.com/supersouris7";
 
     public Config {
         if (encryptionKey != null && encryptionKey.length() < Encryption.MIN_KEY) {

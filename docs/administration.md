@@ -215,7 +215,7 @@ Le schéma est migré au démarrage, avec copie préalable. Vérifiez la version
 | `PORT` | Port publié par Compose, `8101` par défaut, sur localhost. |
 | `HTTP_PORT` | Port du serveur Java, `8080` par défaut ; ne pas changer sans adapter le Compose/proxy. |
 | `OFFLINE` | `true` coupe les appels automatiques sortants : marché, taux, localisation des IP. |
-| `KOFI_URL` | URL `https://ko-fi.com/<nom>` ; vide pour masquer le lien. |
+| `KOFI_URL` | Lien « Soutenir Patria » : `https://ko-fi.com/supersouris7` par défaut ; une autre URL `https://ko-fi.com/<nom>` le remplace, vide le masque. |
 | `ADMIN_2FA_RESET` | `true` retire la double authentification de l'administrateur au démarrage (téléphone perdu) ; à retirer ensuite. |
 
 Les services utilisés hors mode hors ligne sont détaillés dans [Confidentialité](confidentialite.md). Sans réseau sortant, le budget reste utilisable, mais les données de marché ne sont plus actualisées.

@@ -52,13 +52,12 @@
 .button.kofi:hover { background: #e54b48; }
 
 .site-footer .version { font-variant-numeric: tabular-nums; }
-.site-footer .support-link { color: #ff8f8c; font-weight: 650; margin-left: auto; }
+.site-footer .support-link { color: #ff8f8c; font-weight: 650; }
 .access-form.private { opacity: .9; }
 @media (max-width: 640px) {
     .security-dialog { padding: 18px; }
     .notice.welcome { padding: 20px 18px; }
     .welcome-count { margin-left: 0; order: 3; width: 100%; }
-    .site-footer .support-link { margin-left: 0; }
 }
 .notice.warning a.button { color: #fff; margin-left: 0; }
 .notice.warning a.button.secondary { color: var(--text-soft); }
