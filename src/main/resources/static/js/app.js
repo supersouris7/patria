@@ -1,5 +1,10 @@
 "use strict";
 
+const siteHeader = document.querySelector('.topbar');
+if (siteHeader && 'ResizeObserver' in window) new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--header-height', `${siteHeader.getBoundingClientRect().height}px`);
+}).observe(siteHeader);
+
 // Les menus natifs restent utilisables sans JavaScript.
 const navigationMenus = document.querySelectorAll(".nav-menu, .audience");
 const navText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
@@ -7,17 +12,8 @@ const filterNavigation = (menu) => {
   const input = menu.querySelector('.nav-search input');
   if (!input) return;
   const query = navText(input.value.trim());
-  menu.querySelectorAll('.nav-group-label').forEach((label) => { label.hidden = !!query; });
   const links = menu.querySelectorAll('.nav-entries a[href]');
   links.forEach((link) => { link.hidden = !navText(link.textContent).includes(query); });
-  menu.querySelectorAll('.nav-properties').forEach((group) => {
-    if (query) group.open = true;
-    group.hidden = !!query && !navText(group.querySelector('summary').textContent).includes(query)
-      && !Array.from(group.querySelectorAll('a')).some((link) => !link.hidden);
-    if (query && navText(group.querySelector('summary').textContent).includes(query)) {
-      group.querySelectorAll('a').forEach((link) => { link.hidden = false; });
-    }
-  });
   menu.querySelector('.nav-empty').hidden = Array.from(links).some((link) => !link.hidden);
 };
 const loadNavigationProperties = async (menu) => {
@@ -39,7 +35,7 @@ const loadNavigationProperties = async (menu) => {
     });
     filterNavigation(menu);
   } catch {
-    status.textContent = 'Liste indisponible. Utilisez « Voir tous les biens », ou refermez puis rouvrez le menu pour réessayer.';
+    status.textContent = 'Liste indisponible. Utilisez « Mes biens », ou refermez puis rouvrez la recherche pour réessayer.';
   } finally {
     delete target.dataset.loading;
   }
@@ -54,6 +50,29 @@ navigationMenus.forEach((menu) => {
   });
   menu.querySelector('.nav-search input')?.addEventListener('input', () => filterNavigation(menu));
 });
+
+const navigationStatus = document.querySelector('[data-navigation-status]');
+if (navigationStatus) {
+  (async () => {
+    try {
+      const response = await fetch('/navigation/etat');
+      if (!response.ok || response.redirected) throw new Error('navigation');
+      const state = await response.json();
+      if (!Number.isInteger(state.warnings) || state.warnings < 0 || !Number.isInteger(state.progress) || state.progress < 0 || state.progress > 100) throw new Error('navigation');
+      const warnings = navigationStatus.querySelector('[data-warning-count]');
+      warnings.textContent = state.warnings;
+      warnings.hidden = state.warnings === 0;
+      warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
+      const progress = navigationStatus.querySelector('[data-guide-progress]');
+      progress.textContent = `${state.progress} %`;
+      progress.hidden = false;
+      progress.closest('a').setAttribute('aria-label', `Assistant, guide complété à ${state.progress} %`);
+    } catch {
+      navigationStatus.querySelector('[data-warning-count]').closest('a').title = 'Indicateur indisponible — ouvrir le bilan de santé';
+      navigationStatus.querySelector('[data-guide-progress]').closest('a').title = 'Indicateur indisponible — ouvrir le guide de saisie';
+    }
+  })();
+}
 document.addEventListener("click", (event) => {
   navigationMenus.forEach((menu) => {
     if (!menu.contains(event.target) || event.target.closest("a")) menu.open = false;

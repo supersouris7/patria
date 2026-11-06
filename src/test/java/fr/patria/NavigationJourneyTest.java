@@ -29,6 +29,14 @@ class NavigationJourneyTest {
             assertEquals(403, TestAccounts.get(client, base, admin, "/navigation/biens").statusCode());
             String overview = TestAccounts.get(client, base, reader, "/immobilier").body();
             for (String anchor : new String[]{"biens", "prets", "taxe-fonciere"}) assertTrue(overview.contains("id=\"" + anchor + "\""));
+            assertTrue(overview.indexOf("id=\"taxe-fonciere\"") < overview.indexOf("<h2>Bilan</h2>"), "bilan patrimonial en dernier");
+            for (String tab : new String[]{"biens", "prets", "taxe-fonciere"}) {
+                var page = TestAccounts.get(client, base, reader, "/immobilier/" + tab);
+                assertEquals(200, page.statusCode());
+                assertTrue(page.body().contains("aria-label=\"Navigation immobilière\""));
+                assertEquals(403, TestAccounts.get(client, base, restricted, "/immobilier/" + tab).statusCode());
+            }
+            assertTrue(TestAccounts.get(client, base, reader, "/immobilier/biens").body().contains("data-filter"));
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Second").statusCode());
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&manager=on").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/foyer/choisir", "foyer=2").statusCode());

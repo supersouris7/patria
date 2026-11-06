@@ -235,7 +235,7 @@ class AccountsTest {
         // Depuis la carte d'un foyer : un seul gestionnaire, que l'on change
         assertTrue(get(admin, "/administration/foyers").body().contains("<option value=\"" + paul.id() + "\" selected>Paul (paul)</option>"), "gestionnaire actuel choisi");
         assertEquals(303, post(admin, "/administration/foyers/2/gestionnaire", "compte=" + paul.id()).statusCode());
-        assertTrue(get(paul, "/").body().contains("name=\"foyer\""), "deux foyers : sélecteur");
+        assertTrue(get(paul, "/administration/revenus").body().contains("name=\"foyer\""), "deux foyers : sélecteur dans Gérer");
         assertEquals(400, post(admin, "/administration/foyers/2/gestionnaire", "compte=999").statusCode(), "compte inconnu");
         Visitor camille = account(admin, "camille", "Camille", "", 1, "access=on&whole=on");
         assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=" + camille.id()).statusCode());
@@ -271,7 +271,7 @@ class AccountsTest {
         assertEquals(303, post(admin, "/administration/utilisateur/1/foyer/2", "access=on&manager=on").statusCode());
 
         assertEquals(303, post(manager, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
-        assertTrue(get(manager, "/").body().contains("name=\"foyer\""), "sélecteur de foyer à partir de deux foyers");
+        assertTrue(get(manager, "/administration/revenus").body().contains("name=\"foyer\""), "sélecteur de foyer dans Gérer à partir de deux foyers");
         assertEquals(303, post(manager, "/foyer/choisir", "foyer=2").statusCode());
         assertFalse(get(manager, "/administration/membres").body().contains("Paul"), "foyer Martin : ses propres membres");
         assertEquals(303, post(manager, "/administration/membres", "name=Martine&kind=PERSON").statusCode());

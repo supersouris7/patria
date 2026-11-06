@@ -96,4 +96,8 @@ public final class HealthController {
         if (bad == 0 && warn == 0) return Html.EMPTY;
         return HealthPages.summary(bad, warn);
     }
+
+    public long warningCount(Request request) {
+        return report(request).checks().stream().filter(check -> check.level() == Check.Level.BAD || check.level() == Check.Level.WARN).count();
+    }
 }

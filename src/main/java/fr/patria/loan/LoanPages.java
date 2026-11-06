@@ -56,7 +56,7 @@ final class LoanPages {
                 interestCard(status),
                 renegotiation.map(LoanPages::marketCard).orElse(Html.EMPTY),
                 Components.card("Échéancier", lines.size(), Html.EMPTY, table));
-        return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+        return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(Layout.estateNavigation("prets"), content));
     }
 
     /** Comparaison avec le taux moyen actuel du marche, et repere de renegociation. */

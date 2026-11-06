@@ -15,8 +15,8 @@
     .metrics.strip .metric { border-left: 0; padding: 6px 0; }
     .metrics.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
-    .admin-layout { gap: 16px; grid-template-columns: minmax(0, 1fr); }
-    .admin-nav { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; padding-bottom: 12px; position: static; }
+    main .admin-layout { gap: 16px; grid-template-columns: minmax(0, 1fr); }
+    main .admin-nav { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; padding-bottom: 12px; position: static; }
     .admin-nav .eyebrow { display: none; }
 }
 @media (max-width: 560px) {
@@ -25,7 +25,6 @@
     .household-switch { min-width: 0; }
     .household-switch label { flex: 1; }
     .household-switch select { font-size: .85rem; max-width: none; width: 100%; }
-    .admin-layout > .admin-nav { display: none; }
     nav a, button.quiet { font-size: .8rem; padding: 6px 7px; white-space: nowrap; }
     nav .long { display: none; }
     nav .long-label { display: none; }

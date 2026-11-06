@@ -28,7 +28,7 @@ final class MarketPages {
                     Components.card("Ventes retenues", null, Html.EMPTY, Html.of(
                             "<p class=\"empty\">Le détail des ventes n'est pas encore disponible : il est enregistré au prochain calcul du prix du marché. "
                                     + "<a href=\"/bien/%s#marche\">Retour à la fiche du bien</a></p>", property.id())));
-            return Layout.page("Ventes du secteur · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+            return Layout.page("Ventes du secteur · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(Layout.estateNavigation("biens"), content));
         }
         MarketSales data = result.get();
         MarketPrice price = data.price();
@@ -73,7 +73,7 @@ final class MarketPages {
                 data.latitude() == null ? Html.EMPTY : Components.card("Plan des ventes", null, Html.EMPTY, Html.concat(SalesChart.plan(shown, data.latitude(), data.longitude(), median),
                         Html.raw("<p class=\"source\">Position de chaque vente autour de votre bien, nord en haut. Survolez un point pour le détail ; la carte DVF montre le quartier.</p>"))),
                 Components.card("Ventes", shown.size(), Html.EMPTY, Html.concat(table, source)));
-        return Layout.page("Ventes du secteur · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+        return Layout.page("Ventes du secteur · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(Layout.estateNavigation("biens"), content));
     }
 
     private static String gap(BigDecimal yours, BigDecimal median) {

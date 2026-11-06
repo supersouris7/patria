@@ -71,9 +71,8 @@
 .check-list li.ko span { color: #f3d38a; }
 
 /* ---- Qui voit quoi (icone de l'en-tete), avancement des foyers ---- */
-.audience summary { align-items: center; background: #2a2312; border: 1px solid #6b5520; border-radius: var(--radius-small); color: #f3d38a; cursor: pointer; display: inline-flex; justify-content: center; list-style: none; min-height: 44px; padding: 7px 8px; position: relative; }
+.audience summary { align-items: center; color: #f3d38a; cursor: pointer; display: inline-flex; justify-content: center; list-style: none; min-height: 44px; padding: 7px 8px; position: relative; }
 .audience summary::-webkit-details-marker { display: none; }
-.audience summary:hover, .audience[open] summary { background: #2a2312; }
 .audience-dot { background: #ff8f4d; border: 2px solid var(--bg); border-radius: 50%; height: 10px; position: absolute; right: 4px; top: 4px; width: 10px; }
 .audience-panel { background: #221c0f; border-bottom: 1px solid #6b5520; box-shadow: 0 12px 24px #0004; color: var(--text-soft);
     font-size: .88rem; left: 0; right: 0; top: 100%; max-height: 70vh; overflow-y: auto; padding: 20px max(20px, calc((100vw - 1160px) / 2)); position: absolute; z-index: 30; }

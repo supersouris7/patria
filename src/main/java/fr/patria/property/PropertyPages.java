@@ -46,7 +46,7 @@ final class PropertyPages {
             Html content = Html.concat(Components.backLink("/administration/biens", "Biens et prêts"),
                     Components.heading("Gestion", "Nouveau bien", null, Html.EMPTY), Components.notice(notice),
                     Components.form("/bien", csrf, false, fields, "Créer le bien"));
-            return Layout.page("Nouveau bien · Patria", Layout.Section.ADMINISTRATION, csrf, content);
+            return Layout.adminSection("Nouveau bien · Patria", csrf, Layout.AdminSection.PROPERTIES, content);
         }
         Html content = Html.concat(
                 Components.heading("Bien", "Modifier", property.name(), Html.EMPTY), Components.notice(notice),

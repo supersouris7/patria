@@ -76,6 +76,9 @@ final class HouseholdSite implements AutoCloseable {
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
+        router.userGet("/navigation/etat", request -> new fr.patria.web.Response.Text(200,
+                "{\"warnings\":" + health.warningCount(request) + ",\"progress\":"
+                        + wizard.summary(request.viewer().userId(), request.viewer().manages()).percent() + "}"));
         budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
     }
 

@@ -22,9 +22,12 @@ public final class PortfolioController {
 
     public void register(Router router) {
         router.estateGet("/navigation/biens", request -> Response.page(fr.patria.ui.Html.concat(
-                fr.patria.ui.Html.raw("<a href=\"/immobilier#biens\">Voir tous les biens</a>"),
+                fr.patria.ui.Html.raw("<a href=\"/immobilier/biens\">Mes biens</a>"),
                 properties.all().stream().map(property -> fr.patria.ui.Html.of("<a href=\"/bien/%s\">%s</a>", property.id(), property.name())).collect(fr.patria.ui.Html.joining()))));
-        router.estateGet("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf())));
+        router.estateGet("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf(), "patrimoine")));
+        router.estateGet("/immobilier/biens", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf(), "biens")));
+        router.estateGet("/immobilier/prets", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf(), "prets")));
+        router.estateGet("/immobilier/taxe-fonciere", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf(), "taxe-fonciere")));
         router.estateGet("/bien/{id}", request -> Response.page(propertyPage(request)));
         router.estateGet("/bien/{id}/mensualites", this::months);
         router.estateGet("/immobilier.pdf", request -> new Response.Download("patrimoine-" + portfolio.today() + ".pdf", "application/pdf",

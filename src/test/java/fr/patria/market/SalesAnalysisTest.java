@@ -33,5 +33,9 @@ class SalesAnalysisTest {
         assertEquals(0, new BigDecimal("4250").compareTo(SalesAnalysis.median(shown)));
         assertTrue(SalesChart.histogram(shown, BigDecimal.valueOf(4200), BigDecimal.valueOf(4250)).toString().contains("Votre bien"));
         assertTrue(SalesChart.plan(shown, 45.0, 5.0, BigDecimal.valueOf(4250)).toString().contains("class=\"sale below\""));
+        String plan = SalesChart.plan(shown, 45.0, 5.0, BigDecimal.valueOf(4250)).toString();
+        assertTrue(plan.contains("class=\"home-marker\" transform=\"translate(210.0 210.0)\""), "maison au centre du bien, coordonnees inchangees");
+        assertTrue(plan.contains("M-9 0 0-9 9 0"), "toit de la maison et non une croix");
+        assertTrue(!plan.contains("✕ Votre bien"));
     }
 }

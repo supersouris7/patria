@@ -203,9 +203,11 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 
 /* ---- Administration d'un bien ---- */
 .admin-layout { display: grid; gap: 32px; grid-template-columns: 200px minmax(0, 1fr); }
-.admin-nav { align-content: start; display: grid; gap: 4px; position: sticky; top: 88px; }
+.admin-nav { align-content: start; align-self: start; display: grid; gap: 4px; position: sticky; top: calc(var(--header-height, 64px) + 16px); }
 .admin-nav .eyebrow { overflow-wrap: anywhere; }
-.admin-nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; padding: 8px 12px; text-decoration: none; }
+.admin-nav a { border-radius: var(--radius-small); color: var(--muted); font-size: .9rem; font-weight: 650; min-height: 44px; overflow-wrap: anywhere; padding: 8px 12px; text-decoration: none; }
+.estate-navigation { border-bottom: 1px solid var(--line); margin: 0 0 24px; padding-bottom: 8px; }
+.estate-navigation a { font-size: .9rem; min-height: 44px; padding: 8px; }
 .admin-nav a:hover { background: var(--surface); color: var(--text); }
 .admin-nav a.active { background: var(--surface-raised); color: var(--text); }
 /* ---- Messages ---- */

@@ -13,7 +13,8 @@
 .plan .sale.below, .swatch.sale-below { fill: var(--series-1); background: var(--series-1); }
 .plan .sale.above, .swatch.sale-above { fill: var(--series-2); background: var(--series-2); }
 .plan .sale:hover { stroke: var(--text); }
-.plan .home-ring { fill: none; stroke: var(--series-2); stroke-width: 1.5; }
+.plan .home-ring { fill: var(--surface); stroke: var(--series-2); stroke-width: 1.5; }
+.plan .home { fill: none; }
 .swatch.sale-below, .swatch.sale-above { border-radius: 50%; }
 .sales-plan .legend { justify-content: center; }
 .sales-filters { padding-bottom: 14px; padding-top: 14px; }

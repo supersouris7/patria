@@ -170,27 +170,25 @@ public final class Layout {
         }
         Html budget = Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
                 navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET));
-        Html estate = Html.concat(navLink("/immobilier", "Patrimoine", section == Section.REAL_ESTATE
-                        && (chrome == null || chrome.location() == null || chrome.location().startsWith("/immobilier"))),
-                Html.raw("""
-                        <details class="nav-properties"><summary>Mes biens</summary><div data-property-links>
-                        <a href="/immobilier#biens">Voir tous les biens</a></div></details>"""),
-                navLink("/immobilier#prets", "Prêts", false), navLink("/immobilier#taxe-fonciere", "Taxe foncière", false));
-        Html follow = Html.concat(iconLink("/bilan", "Bilan de santé", Html.EMPTY, section == Section.HEALTH),
-                iconLink("/assistant", "Assistant", Html.EMPTY, section == Section.ASSISTANT));
-        // L'administrateur ne recoit aucun lien ni nom de bien des foyers.
-        Html links = administrator ? Html.EMPTY : Html.concat(menu("Budget", budget, section == Section.HOME || section == Section.BUDGET),
-                realEstate ? menu("Immobilier", estate, section == Section.REAL_ESTATE) : Html.EMPTY, follow);
-        Html mobile = administrator ? Html.EMPTY : menu("Menu", Html.concat(
-                Html.raw("<p class=\"nav-group-label\">Budget</p>"), budget,
-                realEstate ? Html.concat(Html.raw("<p class=\"nav-group-label\">Immobilier</p>"), estate) : Html.EMPTY, follow), section != Section.ACCOUNT && section != Section.NONE);
-        Html management = Html.concat(householdSwitch(chrome, csrf), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active));
+        Html manage = navLink("/administration", "Gérer", section == Section.ADMINISTRATION || section == Section.SECURITY);
+        Html estate = realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY;
+        Html follow = Html.of("""
+                <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>
+                <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="nav-count" data-guide-progress hidden></span></a>""",
+                Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
+                Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
+        Html links = administrator ? manage : Html.concat(budget, estate, manage, follow);
+        Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
+                        navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false),
+                        realEstate ? Html.concat(navLink("/immobilier/prets", "Prêts", false), navLink("/immobilier/taxe-fonciere", "Taxe foncière", false),
+                                Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>")) : Html.EMPTY),
+                navLink("/administration", "Gérer", false), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active), navLink("/compte", "Mon compte", false));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
-                <header class="topbar"><div class="shell navigation">%s<nav class="desktop-navigation" aria-label="Navigation principale">%s</nav>
-                <div class="mobile-navigation">%s</div><div class="account-bar">%s%s%s
+                <header class="topbar"%s><div class="shell navigation">%s<nav class="primary-navigation" aria-label="Navigation principale">%s</nav>
+                <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                brand(), links, mobile, audience(chrome, csrf), menu("Gérer", management, active != null && active != AdminSection.ACCOUNT), account(chrome, section == Section.ACCOUNT),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
@@ -210,13 +208,12 @@ public final class Layout {
                 Components.csrfField(csrf), options);
     }
 
-    private static Html menu(String label, Html entries, boolean active) {
+    private static Html search(Html entries) {
         return Html.of("""
-                <details class="nav-menu%s" name="navigation"><summary>%s</summary><div class="nav-panel">
-                <label class="nav-search"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
-                <span class="visually-hidden">Rechercher dans %s</span><input type="search" placeholder="Rechercher…" autocomplete="off"></label>
+                <details class="nav-menu" name="navigation"><summary aria-label="Recherche globale" title="Recherche globale"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg></summary><div class="nav-panel">
+                <label class="nav-search"><span class="visually-hidden">Rechercher dans les pages et les biens accessibles</span><input type="search" placeholder="Rechercher partout…" autocomplete="off"></label>
                 <div class="nav-entries">%s</div><p class="nav-empty muted" role="status" hidden>Aucun résultat.</p></div></details>""",
-                active ? " active" : "", label, label, entries);
+                entries);
     }
 
     /**
@@ -260,7 +257,9 @@ public final class Layout {
     public static Html adminSection(String title, String csrf, AdminSection active, Html content) {
         Chrome chrome = CHROME.get();
         Html body = active.group == AdminGroup.HOUSEHOLD ? Html.concat(householdBanner(chrome), content) : content;
-        return page(title, active == AdminSection.SECURITY ? Section.SECURITY : Section.ADMINISTRATION, csrf, "", body, active);
+        Html navigation = Html.concat(householdSwitch(chrome, csrf), group(chrome != null && chrome.administrator() ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active));
+        return page(title, active == AdminSection.SECURITY ? Section.SECURITY : Section.ADMINISTRATION, csrf, "",
+                Html.of("<div class=\"admin-layout\"><aside class=\"admin-nav\" aria-label=\"Navigation de gestion\">%s</aside><div>%s</div></div>", navigation, body), active);
     }
 
     private static Html group(AdminGroup group, Chrome chrome, AdminSection active) {
@@ -271,6 +270,14 @@ public final class Layout {
     private static String householdName(Chrome chrome) {
         if (chrome == null) return "";
         return chrome.households().stream().filter(choice -> choice.id() == chrome.household()).map(Choice::name).findFirst().orElse("");
+    }
+
+    public static Html estateNavigation(String active) {
+        return Html.of("<nav class=\"estate-navigation\" aria-label=\"Navigation immobilière\">%s%s%s%s</nav>",
+                navLink("/immobilier", "Patrimoine", active.equals("patrimoine")),
+                navLink("/immobilier/biens", "Mes biens", active.equals("biens")),
+                navLink("/immobilier/prets", "Prêts", active.equals("prets")),
+                navLink("/immobilier/taxe-fonciere", "Taxe foncière", active.equals("taxe-fonciere")));
     }
 
     /** Rappel du foyer modifie, en tete des pages qui en dependent (utile sur smartphone, ou le menu est replie). */
@@ -331,7 +338,7 @@ public final class Layout {
     }
 
     public static Html brand() {
-        return Html.of("<a class=\"brand\" href=\"/\"><img class=\"brand-mark\" src=\"%s\" width=\"30\" height=\"30\" alt=\"\"><span>Patria</span></a>",
+        return Html.of("<a class=\"brand\" href=\"/\" aria-label=\"Patria — Prévisionnel\"><img class=\"brand-mark\" src=\"%s\" width=\"30\" height=\"30\" alt=\"\"><span>Patria</span></a>",
                 Assets.url("/images/patria-logo.png"));
     }
 

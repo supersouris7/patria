@@ -28,11 +28,17 @@ class HealthPreferencesTest {
                     "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
             var reader = TestAccounts.account(client, base, admin, "lecture", "Lecture", 1, "access=on&whole=on");
             assertTrue(TestAccounts.get(client, base, manager, "/").body().contains("health-summary"));
+            assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"warnings\":1"));
+            assertEquals(403, TestAccounts.get(client, base, admin, "/navigation/etat").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/bilan/ignorer", "check=withholding%3AWARN").statusCode());
             String ignored = TestAccounts.get(client, base, manager, "/bilan").body();
             assertFalse(ignored.substring(0, ignored.indexOf("id=\"ignores\"")).contains("Prélèvement à la source absent"));
             assertTrue(ignored.contains("Points ignorés (1)") && ignored.contains("Rétablir"));
             assertFalse(TestAccounts.get(client, base, manager, "/").body().contains("health-summary"));
+            assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"warnings\":0"));
+            assertTrue(TestAccounts.get(client, base, reader, "/navigation/etat").body().contains("\"warnings\":1"));
+            assertEquals(303, TestAccounts.post(client, base, manager, "/assistant/documents/passer", "").statusCode());
+            assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"progress\":9"), "une etape sur onze");
             assertTrue(TestAccounts.get(client, base, reader, "/").body().contains("health-summary"), "autre compte non affecté");
             assertEquals(400, TestAccounts.post(client, base, reader, "/bilan/retablir", "check=withholding%3AWARN").statusCode());
             assertEquals(400, TestAccounts.post(client, base, manager, "/bilan/ignorer", "check=property-999-occupancy%3AWARN").statusCode());
@@ -52,7 +58,7 @@ class HealthPreferencesTest {
             String account = TestAccounts.get(client, base, manager, "/compte").body();
             assertFalse(account.contains("Revoir l'accueil") || account.contains("class=\"last-login"));
             assertTrue(account.contains("id=\"connexions\""), "les connexions de sécurité restent consultables");
-            assertTrue(account.contains("<span>Bilan de santé</span>") && account.contains("<span>Assistant</span>"));
+            assertTrue(account.contains("aria-label=\"Bilan de santé\"") && account.contains("aria-label=\"Assistant\""));
         }
     }
 }

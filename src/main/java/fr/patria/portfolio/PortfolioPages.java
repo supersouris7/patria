@@ -43,9 +43,15 @@ final class PortfolioPages {
 
     // ---- Vue d'ensemble : sommes des biens, sans curseur ----
 
-    static Html dashboard(Overview overview, Optional<HousingRate> rate, String csrf) {
-        Html heading = Components.heading("Votre patrimoine immobilier", "Immobilier", null,
-                overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
+    static Html dashboard(Overview overview, Optional<HousingRate> rate, String csrf, String tab) {
+        String title = switch (tab) {
+            case "biens" -> "Mes biens";
+            case "prets" -> "Prêts";
+            case "taxe-fonciere" -> "Taxe foncière";
+            default -> "Patrimoine";
+        };
+        Html heading = Html.concat(Layout.estateNavigation(tab), Components.heading("Votre patrimoine immobilier", title, null,
+                overview.properties().isEmpty() || !tab.equals("patrimoine") ? Html.EMPTY : Components.pdfButton("/immobilier.pdf")));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
                     "Les biens, prêts et apports s'ajoutent dans Gérer → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
@@ -58,6 +64,12 @@ final class PortfolioPages {
                 number(summary.squareMeter().value(), Format.perSquareMeter(summary.squareMeter().value())),
                 marketCell(summary.squareMeter()),
                 number(summary.debt(), euroWhole(summary.debt())))).collect(Html.joining());
+        Html propertyTable = Html.of("<div id=\"biens\">%s</div>", Components.card("Biens", overview.properties().size(), Html.EMPTY,
+                Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, tab.equals("biens"))));
+        Html loans = Html.of("<div id=\"prets\">%s</div>", Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))));
+        Html taxes = Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
+        if (!tab.equals("patrimoine")) return Layout.page(title + " · Patria", Layout.Section.REAL_ESTATE, csrf,
+                Html.concat(heading, switch (tab) { case "biens" -> propertyTable; case "prets" -> loans; default -> taxes; }));
         Html content = Html.concat(heading,
                 Components.metrics(4,
                         tile("Valeur estimée", "Somme des valeurs retenues sur chaque bien. Ajustez-les depuis la fiche de chaque bien.",
@@ -66,13 +78,10 @@ final class PortfolioPages {
                                 "après " + euroWhole(overview.debt()) + " de capital restant dû"),
                         realGainTile(overview.returns()),
                         nextMonthTile(overview.nextMonth(), null)),
+                propertyTable, loans, taxes,
                 balance(overview.revaluationPercent() == null ? List.of() : List.of(Line.note("Actualisation des estimations",
                                 "Évolution des prix du département (indice DVF) depuis la date d'estimation de chaque bien.", Html.text(Format.signedPercent(overview.revaluationPercent())))),
-                        overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
-                Html.of("<div id=\"biens\">%s</div>", Components.card("Biens", overview.properties().size(), Html.EMPTY,
-                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false))),
-                Html.of("<div id=\"prets\">%s</div>", Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate)))),
-                Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes()))));
+                         overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()));
         return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
@@ -91,7 +100,7 @@ final class PortfolioPages {
                         admin ? Components.button("/administration/bien/" + property.id(), "Renseigner") : Html.EMPTY)
                 : estimateSlider(summary);
         Html content = Html.concat(
-                Components.backLink("/immobilier", "Immobilier"),
+                Layout.estateNavigation("biens"), Components.backLink("/immobilier/biens", "Mes biens"),
                 Components.heading("Bien", property.name(), subtitle, actions), Components.notice(notice), alerts(summary), hero,
                 Components.metrics(4,
                         netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
@@ -254,7 +263,7 @@ final class PortfolioPages {
         Html content = Html.concat(Components.backLink("/bien/" + property.id(), property.name()),
                 Components.heading("Mensualités", property.name(), "Total des échéances par mois, tous prêts confondus.", Html.EMPTY),
                 Components.card("Échéances", months.size(), Html.EMPTY, table));
-        return Layout.page("Mensualités · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
+        return Layout.page("Mensualités · " + property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(Layout.estateNavigation("prets"), content));
     }
 
     // ---- Administration ----
