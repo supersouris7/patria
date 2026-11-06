@@ -50,6 +50,16 @@ main.shell { padding: 36px 0 72px; }
 .navigation > * { flex: 0 0 auto; }
 .navigation .account-bar { flex: 1 0 auto; justify-content: flex-end; }
 .navigation .brand span { display: none; }
+.nav-hamburger { display: inline-block !important; }
+.nav-hamburger[hidden] { display: none !important; }
+.nav-hamburger .nav-panel { display: grid; }
+.nav-hamburger summary { min-height: 44px; padding: 8px; }
+@media (max-width: 1000px) {
+    .nav-hamburger { display: inline-block !important; }
+}
+@media (min-width: 1001px) {
+    .nav-hamburger { display: none !important; }
+}
 .primary-navigation { align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
 .primary-navigation a { align-items: center; display: inline-flex; font-size: .9rem; gap: 6px; min-height: 44px; padding: 8px; }
 .primary-navigation .nav-overflow { display: none; }
@@ -124,8 +134,8 @@ label.check.option b { color: var(--text); display: block; }
 
 @media (max-width: 1000px) {
     .navigation { gap: 8px; }
-    .primary-navigation { flex: 1 1 auto; min-width: 0; }
-    .primary-navigation a { font-size: .82rem; padding-inline: 6px; }
+    .primary-navigation { display: none; }
+    .nav-hamburger { display: inline-block; }
     .account-bar { gap: 2px; }
 }
 @media (max-width: 600px) {

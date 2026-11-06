@@ -9,9 +9,17 @@ if (siteHeader && 'ResizeObserver' in window) new ResizeObserver(() => {
   Array.from(navigation.children).forEach((item) => { if (item !== overflow) item.dataset.compact = 'false'; });
   overflow.hidden = true;
   overflow.open = false;
+  const hamburger = navigation.parentElement.querySelector('.nav-hamburger');
+  if (hamburger && !hamburger.dataset.ready) {
+    const panel = hamburger.querySelector('.nav-panel .nav-entries');
+    if (panel) {
+      panel.append(...Array.from(navigation.children).filter((item) => item !== overflow && item !== hamburger).map((item) => item.cloneNode(true)));
+      hamburger.dataset.ready = 'true';
+    }
+  }
   const fit = () => {
     const available = navigation.clientWidth;
-    const items = Array.from(navigation.children).filter((item) => item !== overflow);
+    const items = Array.from(navigation.children).filter((item) => item !== overflow && item !== hamburger);
     const compact = Array.from({length: items.length}, () => false);
     navigation.dataset.overflow = 'false';
     overflow.dataset.hidden = 'true';
