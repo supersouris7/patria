@@ -52,6 +52,12 @@ main.shell { padding: 36px 0 72px; }
 .navigation .brand span { display: none; }
 .primary-navigation { align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
 .primary-navigation a { align-items: center; display: inline-flex; font-size: .9rem; gap: 6px; min-height: 44px; padding: 8px; }
+.primary-navigation .nav-overflow { display: none; }
+.primary-navigation [data-compact="true"] { display: none !important; }
+.primary-navigation .nav-overflow[data-hidden="true"] { display: none !important; }
+.primary-navigation .nav-overflow[data-hidden="false"] { display: inline-block !important; }
+.primary-navigation[data-overflow="true"] .nav-overflow { display: inline-block !important; }
+.primary-navigation .nav-overflow summary { min-height: 44px; }
 .nav-count { background: var(--surface-raised); border-radius: 99px; color: var(--text-soft); font-size: .72rem; padding: 2px 6px; white-space: nowrap; }
 .nav-count.warning { background: #2a2312; color: #f3d38a; }
 .nav-menu > summary { border-radius: var(--radius-small); color: var(--muted); cursor: pointer; font-size: .86rem; font-weight: 650; min-height: 44px; padding: 12px 9px; white-space: nowrap; }

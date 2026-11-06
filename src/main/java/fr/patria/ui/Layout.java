@@ -177,9 +177,11 @@ public final class Layout {
                 <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="nav-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
-        Html links = administrator ? manage : Html.concat(budget, estate, manage, follow);
+        Html links = administrator ? manage : Html.concat(budget, estate, manage, follow,
+                Html.raw("<details class=\"nav-menu nav-overflow\" name=\"navigation\"><summary aria-label=\"Plus\" title=\"Plus\">Plus</summary><div class=\"nav-panel\"><div class=\"nav-entries\"><a href=\"/assistant\">Assistant</a><a href=\"/bilan\">Bilan de santé</a></div></div></details>"));
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
                         navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false),
+                        Html.raw("<details class=\"nav-overflow\"><summary>Plus</summary><div class=\"nav-entries\"><a href=\"/assistant\">Assistant</a><a href=\"/bilan\">Bilan de santé</a></div></details>"),
                         realEstate ? Html.concat(navLink("/immobilier/prets", "Prêts", false), navLink("/immobilier/taxe-fonciere", "Taxe foncière", false),
                                 Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>")) : Html.EMPTY),
                 navLink("/administration", "Gérer", false), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active), navLink("/compte", "Mon compte", false));

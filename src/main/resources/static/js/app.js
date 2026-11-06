@@ -3,6 +3,33 @@
 const siteHeader = document.querySelector('.topbar');
 if (siteHeader && 'ResizeObserver' in window) new ResizeObserver(() => {
   document.documentElement.style.setProperty('--header-height', `${siteHeader.getBoundingClientRect().height}px`);
+  const navigation = siteHeader.querySelector('.primary-navigation');
+  const overflow = navigation?.querySelector('.nav-overflow');
+  if (!navigation || !overflow) return;
+  Array.from(navigation.children).forEach((item) => { if (item !== overflow) item.dataset.compact = 'false'; });
+  overflow.hidden = true;
+  overflow.open = false;
+  const fit = () => {
+    const available = navigation.clientWidth;
+    const items = Array.from(navigation.children).filter((item) => item !== overflow);
+    const compact = Array.from({length: items.length}, () => false);
+    navigation.dataset.overflow = 'false';
+    overflow.dataset.hidden = 'true';
+    overflow.open = false;
+    items.forEach((item, index) => { item.dataset.compact = 'false'; });
+    const widthAt = (count) => {
+      compact.fill(false);
+      for (let index = items.length - count; index < items.length; index += 1) compact[index] = true;
+      items.forEach((item, index) => { item.dataset.compact = String(compact[index]); });
+      overflow.dataset.hidden = compact.some(Boolean) ? 'false' : 'true';
+      navigation.dataset.overflow = compact.some(Boolean) ? 'true' : 'false';
+      return navigation.scrollWidth;
+    };
+    if (widthAt(0) <= available + 1) return;
+    let count = 1;
+    while (count <= items.length && widthAt(count) > available + 1) count += 1;
+  };
+  fit();
 }).observe(siteHeader);
 
 // Les menus natifs restent utilisables sans JavaScript.
