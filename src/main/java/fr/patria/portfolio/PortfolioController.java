@@ -21,6 +21,9 @@ public final class PortfolioController {
     }
 
     public void register(Router router) {
+        router.estateGet("/navigation/biens", request -> Response.page(fr.patria.ui.Html.concat(
+                fr.patria.ui.Html.raw("<a href=\"/immobilier#biens\">Voir tous les biens</a>"),
+                properties.all().stream().map(property -> fr.patria.ui.Html.of("<a href=\"/bien/%s\">%s</a>", property.id(), property.name())).collect(fr.patria.ui.Html.joining()))));
         router.estateGet("/immobilier", request -> Response.page(PortfolioPages.dashboard(portfolio.overview(), rates.current(), request.csrf())));
         router.estateGet("/bien/{id}", request -> Response.page(propertyPage(request)));
         router.estateGet("/bien/{id}/mensualites", this::months);

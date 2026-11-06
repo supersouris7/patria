@@ -168,22 +168,30 @@ public final class Layout {
             }
             if (path.startsWith("/administration/bien/")) active = AdminSection.PROPERTIES;
         }
-        Html links = administrator
-                // L'administrateur n'a pas de budget : ses seules pages sont celles des comptes.
-                ? Html.concat(navLink("/administration/foyers", "Foyers", active == AdminSection.HOUSEHOLDS),
-                        navLink("/administration/utilisateurs", "Utilisateurs", active == AdminSection.USERS),
-                        navLink("/administration/securite", "Sécurité", section == Section.SECURITY))
-                : Html.concat(menu("Budget", Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
-                        navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET))),
-                        realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY,
-                        menu("Suivi", Html.concat(iconLink("/bilan", "Bilan de santé", HEALTH_ICON, section == Section.HEALTH),
-                                iconLink("/assistant", "Guide de saisie", ASSISTANT_ICON, section == Section.ASSISTANT))),
-                        menu("Gestion", group(AdminGroup.HOUSEHOLD, chrome, active)));
+        Html budget = Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
+                navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET));
+        Html estate = Html.concat(navLink("/immobilier", "Patrimoine", section == Section.REAL_ESTATE
+                        && (chrome == null || chrome.location() == null || chrome.location().startsWith("/immobilier"))),
+                Html.raw("""
+                        <details class="nav-properties"><summary>Mes biens</summary><div data-property-links>
+                        <a href="/immobilier#biens">Voir tous les biens</a></div></details>"""),
+                navLink("/immobilier#prets", "Prêts", false), navLink("/immobilier#taxe-fonciere", "Taxe foncière", false));
+        Html follow = Html.concat(iconLink("/bilan", "Bilan de santé", Html.EMPTY, section == Section.HEALTH),
+                iconLink("/assistant", "Assistant", Html.EMPTY, section == Section.ASSISTANT));
+        // L'administrateur ne recoit aucun lien ni nom de bien des foyers.
+        Html links = administrator ? Html.EMPTY : Html.concat(menu("Budget", budget, section == Section.HOME || section == Section.BUDGET),
+                realEstate ? menu("Immobilier", estate, section == Section.REAL_ESTATE) : Html.EMPTY, follow);
+        Html mobile = administrator ? Html.EMPTY : menu("Menu", Html.concat(
+                Html.raw("<p class=\"nav-group-label\">Budget</p>"), budget,
+                realEstate ? Html.concat(Html.raw("<p class=\"nav-group-label\">Immobilier</p>"), estate) : Html.EMPTY, follow), section != Section.ACCOUNT && section != Section.NONE);
+        Html management = Html.concat(householdSwitch(chrome, csrf), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
-                <header class="topbar"><div class="shell navigation">%s<div class="account-bar">%s%s%s</div><nav aria-label="Navigation principale">%s</nav></div></header>""",
-                brand(), audience(chrome, csrf), householdSwitch(chrome, csrf), menu("Mon compte", Html.concat(account(chrome, section == Section.ACCOUNT), Html.of("""
-                <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s<span>Déconnexion</span></button></form>
-                """, Components.csrfField(csrf), LOGOUT_ICON))), links);
+                <header class="topbar"><div class="shell navigation">%s<nav class="desktop-navigation" aria-label="Navigation principale">%s</nav>
+                <div class="mobile-navigation">%s</div><div class="account-bar">%s%s%s
+                <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
+                </div></div></header>""",
+                brand(), links, mobile, audience(chrome, csrf), menu("Gérer", management, active != null && active != AdminSection.ACCOUNT), account(chrome, section == Section.ACCOUNT),
+                Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
     }
@@ -202,9 +210,13 @@ public final class Layout {
                 Components.csrfField(csrf), options);
     }
 
-    private static Html menu(String label, Html entries) {
-        return Html.of("<details class=\"nav-menu%s\" name=\"navigation\"><summary>%s</summary><div class=\"nav-panel\">%s</div></details>",
-                entries.toString().contains("aria-current=\"page\"") ? " active" : "", label, entries);
+    private static Html menu(String label, Html entries, boolean active) {
+        return Html.of("""
+                <details class="nav-menu%s" name="navigation"><summary>%s</summary><div class="nav-panel">
+                <label class="nav-search"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
+                <span class="visually-hidden">Rechercher dans %s</span><input type="search" placeholder="Rechercher…" autocomplete="off"></label>
+                <div class="nav-entries">%s</div><p class="nav-empty muted" role="status" hidden>Aucun résultat.</p></div></details>""",
+                active ? " active" : "", label, label, entries);
     }
 
     /**
@@ -221,7 +233,7 @@ public final class Layout {
                 chrome.location() == null ? "/" : chrome.location());
         String label = chrome.changes().isEmpty() ? "Qui voit quoi dans ce foyer" : "Qui voit quoi dans ce foyer : accès modifiés récemment";
         return Html.of("""
-                <details class="audience"><summary aria-label="%s" title="%s">%s%s</summary><div class="audience-panel" role="dialog" aria-label="Qui voit quoi">\
+                <details class="audience" name="navigation"><summary aria-label="%s" title="%s">%s%s</summary><div class="audience-panel" role="dialog" aria-label="Qui voit quoi">\
                 <p class="eyebrow">Qui voit quoi · %s</p>%s<ul class="audience-lines">%s</ul>\
                 <p class="muted small">L'administrateur crée les comptes et règle ces accès ; son compte administrateur ne voit aucune donnée financière dans l'interface. S'il ouvrait un accès,
                 y compris à un compte à lui, il apparaîtrait ici.</p></div></details>""",
@@ -252,7 +264,7 @@ public final class Layout {
     }
 
     private static Html group(AdminGroup group, Chrome chrome, AdminSection active) {
-        return java.util.Arrays.stream(AdminSection.values()).filter(section -> section.group == group && section.shownTo(chrome))
+        return java.util.Arrays.stream(AdminSection.values()).filter(section -> section != AdminSection.ACCOUNT && section.group == group && section.shownTo(chrome))
                 .map(section -> navLink(section.href, section.label, section == active)).collect(Html.joining());
     }
 
@@ -266,7 +278,7 @@ public final class Layout {
         String name = householdName(chrome);
         if (name.isEmpty()) return Html.EMPTY;
         Html change = chrome.households().size() > 1
-                ? Html.raw(chrome.administrator() ? " · <a href=\"/administration/foyers\">changer de foyer</a>" : " · changez de foyer dans l'en-tête") : Html.EMPTY;
+                ? Html.raw(chrome.administrator() ? " · <a href=\"/administration/foyers\">changer de foyer</a>" : " · changez de foyer dans Gérer") : Html.EMPTY;
         return Html.of("<p class=\"household-banner\">Foyer modifié : <b>%s</b>%s</p>", name, change);
     }
 

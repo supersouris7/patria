@@ -278,7 +278,7 @@ final class AccountPages {
                         + "Guide de saisie et imports. Un seul par foyer : le cocher remplace le gestionnaire actuel. Les cases ci-dessous sont alors sans objet.",
                         access != null && access.manager()),
                 option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Prévisionnel et Budget moyen, avec les revenus et dépenses de tous les membres, et toutes les lignes "
-                        + "en lecture seule dans Gestion. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
+                        + "en lecture seule dans Gérer. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
                 option("estate", "Tous les biens du foyer, en lecture seule", "Menu Immobilier : les biens de ce foyer (chaque bien appartient à un seul "
                         + "foyer), leurs prêts, mensualités, charges et prix du marché. Tout ou rien : on n'ouvre pas bien par bien. La part de chacun se règle "
                         + "dans Répartition. Sans cette case, les mensualités et charges restent comptées dans son budget, mais il n'ouvre pas les fiches.",

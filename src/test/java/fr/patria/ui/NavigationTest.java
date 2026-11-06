@@ -24,12 +24,19 @@ class NavigationTest {
             assertFalse(user.contains("href=\"/administration/membres\""));
             assertFalse(user.contains("<summary>Utilisateurs</summary>"));
             Layout.CHROME.set(new Layout.Chrome(new Layout.Chrome.Person("Gestionnaire", false, true, true),
-                    List.of(), 1, Layout.Chrome.Alerts.NONE, "/administration/revenus"));
+                    List.of(), 1, new Layout.Chrome.Alerts(false, List.of("Accès au foyer"), List.of(), null), "/administration/revenus"));
             String management = Layout.adminSection("Test", "csrf", Layout.AdminSection.INCOMES, Html.EMPTY).toString();
-            assertTrue(management.contains("class=\"nav-menu active\" name=\"navigation\"><summary>Gestion</summary>"));
+            assertTrue(management.contains("class=\"nav-menu active\" name=\"navigation\"><summary>Gérer</summary>"));
             assertTrue(management.contains("href=\"/administration/revenus\" class=\"active\" aria-current=\"page\""));
             assertFalse(management.contains("<aside class=\"admin-nav\""), "pas de navigation principale dupliquee");
-            assertTrue(management.contains("<a href=\"/immobilier\">Immobilier</a>"));
+            assertTrue(management.contains("<summary>Immobilier</summary>"));
+            assertTrue(management.contains("data-property-links"));
+            assertTrue(management.contains("Rechercher dans Immobilier"));
+            assertTrue(management.contains("href=\"/immobilier#prets\""));
+            assertTrue(management.contains("href=\"/immobilier#taxe-fonciere\""));
+            assertTrue(management.indexOf("class=\"audience\"") < management.indexOf("<summary>Gérer</summary>"));
+            assertTrue(management.indexOf("<summary>Gérer</summary>") < management.indexOf("class=\"account-link"));
+            assertTrue(management.indexOf("class=\"account-link") < management.indexOf("action=\"/deconnexion\""));
         } finally {
             Layout.CHROME.remove();
         }

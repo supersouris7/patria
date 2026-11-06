@@ -42,7 +42,7 @@ final class BudgetPages {
                 Components.pdfButton("/previsionnel.pdf" + scope(view))), scopeTabs(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
             return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Rien pour " + view.person().name(),
-                    "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Gestion → Revenus, la répartition des dépenses dans chaque dépense.",
+                    "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Gérer → Revenus, la répartition des dépenses dans chaque dépense.",
                     Components.button("/administration/revenus", "Revenus"))));
         }
         if (!view.hasIncome() && !view.hasExpenses()) {

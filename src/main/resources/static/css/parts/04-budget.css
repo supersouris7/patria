@@ -148,7 +148,7 @@ tfoot small { font-weight: 400; }
 
 /* ---- Budget : foyer ou personne ---- */
 .scope-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 99px; display: inline-flex; flex-wrap: wrap; gap: 4px; margin: -6px 0 18px; padding: 4px; }
-.scope-tabs a { border-radius: 99px; color: var(--muted); font-size: .88rem; font-weight: 700; padding: 6px 16px; text-decoration: none; }
+.scope-tabs a { border-radius: 99px; color: var(--muted); font-size: .88rem; font-weight: 700; max-width: 100%; overflow-wrap: anywhere; padding: 6px 16px; text-decoration: none; white-space: normal; }
 .scope-tabs a:hover { color: var(--text); }
 .scope-tabs a.active { background: var(--blue-deep); color: #fff; }
 /* Smartphone : les noms passent sur deux lignes, un cadre rectangulaire reste net */
@@ -182,7 +182,4 @@ tfoot small { font-weight: 400; }
 @media (max-width: 400px) {
     nav a { font-size: .76rem; padding: 6px 4px; }
     .navigation { gap: 4px; }
-}
-@media (max-width: 360px) {
-    .brand { display: none; }
 }

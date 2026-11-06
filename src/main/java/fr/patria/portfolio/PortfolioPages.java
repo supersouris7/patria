@@ -48,7 +48,7 @@ final class PortfolioPages {
                 overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
-                    "Les biens, prêts et apports s'ajoutent dans Gestion → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
+                    "Les biens, prêts et apports s'ajoutent dans Gérer → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
@@ -69,10 +69,10 @@ final class PortfolioPages {
                 balance(overview.revaluationPercent() == null ? List.of() : List.of(Line.note("Actualisation des estimations",
                                 "Évolution des prix du département (indice DVF) depuis la date d'estimation de chaque bien.", Html.text(Format.signedPercent(overview.revaluationPercent())))),
                         overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()),
-                Components.card("Biens", overview.properties().size(), Html.EMPTY,
-                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false)),
-                Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))),
-                Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
+                Html.of("<div id=\"biens\">%s</div>", Components.card("Biens", overview.properties().size(), Html.EMPTY,
+                        Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, false))),
+                Html.of("<div id=\"prets\">%s</div>", Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate)))),
+                Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes()))));
         return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
@@ -183,7 +183,7 @@ final class PortfolioPages {
     /** Taxes foncieres par annee, tous biens confondus, avec l'evolution d'une annee sur l'autre. */
     private static Html propertyTaxTable(List<Portfolio.TaxYear> years) {
         if (years.isEmpty()) {
-            return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Gestion → Biens et prêts → le bien → Charges.</p>");
+            return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Gérer → Biens et prêts → le bien → Charges.</p>");
         }
         int visible = 5;
         Html rows = years.stream().map(year -> {

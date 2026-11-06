@@ -121,7 +121,7 @@ public final class SecurityPages {
                         <pre><code>docker compose up -d --force-recreate
                         docker compose logs patria | grep -i chiffr</code></pre>
                         Les journaux affichent « Base chiffrée : … » pour chaque base.</li>
-                        <li><b>Vérifier</b> : le menu Sécurité de l'administrateur indique « Bases chiffrées ».</li>
+                        <li><b>Vérifier</b> : Gérer → Sécurité dans le compte administrateur indique « Bases chiffrées ».</li>
                         <li><b>Faire une nouvelle sauvegarde chiffrée et tester sa restauration</b>, avant de retirer la copie de l'étape 1, qui reste en clair.
                         Les anciennes sauvegardes ne sont pas converties automatiquement : chiffrez-les ou éliminez-les selon vos règles de conservation.
                         Ne supprimez pas votre seule copie vérifiée.</li></ol>""")),

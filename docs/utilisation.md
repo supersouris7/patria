@@ -19,7 +19,7 @@ Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte per
 
 **Connexions.** Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification. Il n'y a plus de bouton horloge dans la barre de navigation.
 
-**Navigation et consultation.** La barre du haut indique la rubrique active. Budget, Suivi et Gestion regroupent plusieurs pages ; Immobilier et les rubriques de l'administrateur sont des liens directs. Sur smartphone aussi, les noms restent visibles. Dans Gestion, les listes viennent avant les formulaires : ouvrez « Ajouter… » ou « Importer… » lorsque nécessaire. Une erreur de saisie rouvre le formulaire. Les aides des indicateurs s'ouvrent par appui, ou avec Entrée au clavier. Dans Foyers, ouvrez un foyer pour modifier ses membres et son gestionnaire.
+**Navigation et consultation.** Sur ordinateur, une seule ligne regroupe Patria, Budget (Prévisionnel, Budget moyen), Immobilier (Patrimoine, Mes biens, Prêts, Taxe foncière), Bilan de santé et Assistant. À droite : Qui voit quoi (jaune), Gérer, votre compte et la déconnexion. Les panneaux prennent toute la largeur sous la barre ; leur champ de recherche filtre les entrées, sans tenir compte des accents. « Mes biens » affiche les biens dans le même panneau, sans menu en cascade. Sur petit écran, le bouton Menu remplace les rubriques centrales. Dans Gérer se trouvent le sélecteur de foyer et les saisies autorisées ; pour l'administrateur, Foyers, Utilisateurs et Sécurité, sans accès aux finances. Les listes viennent avant les formulaires : ouvrez « Ajouter… » ou « Importer… » lorsque nécessaire. Une erreur de saisie rouvre le formulaire. Les aides des indicateurs s'ouvrent par appui, ou avec Entrée au clavier. Dans Foyers, ouvrez un foyer pour modifier ses membres et son gestionnaire.
 
 **Double authentification.** Mon compte → « Activer la double authentification » : scannez le QR code avec une application d'authentification (Aegis, 2FAS, Google Authenticator…), puis tapez le code affiché. Ensuite, la connexion demande ce code après le mot de passe ; cochez « Se souvenir de cet appareil 30 jours » sur vos appareils personnels. Téléphone perdu : demandez à l'administrateur de la retirer ; Patria vous le signalera.
 
@@ -53,7 +53,7 @@ Le taux d'endettement suit un repère bancaire HCSF : crédits divisés par reve
 
 ### Répartitions et compte joint
 
-- Parts égales par défaut, y compris après ajout d'une personne ; pourcentages personnalisés dans les dépenses et Gestion → Répartition pour biens/prêts.
+- Parts égales par défaut, y compris après ajout d'une personne ; pourcentages personnalisés dans les dépenses et Gérer → Répartition pour biens/prêts.
 - Un prêt suit la répartition du bien, sauf répartition propre.
 - Le compte joint est un membre de type « Compte joint » : il reçoit des virements et règle les dépenses attribuées. Il ne participe pas aux parts égales sauf pourcentage explicite.
 - Les virements entre membres sont des dépenses/recettes individuelles et restent neutres au niveau du foyer ; ils n'affectent pas l'endettement. Les crédits payés par le compte joint comptent à parts égales dans le taux de chaque personne.
@@ -95,7 +95,7 @@ Le prompt demandant des libellés génériques ne protège pas l'original que vo
 
 ### Dépenses CSV
 
-Gestion → Dépenses → Importer un fichier CSV. **Aucune ligne d'en-tête** ; ordre des colonnes :
+Gérer → Dépenses → Importer un fichier CSV. **Aucune ligne d'en-tête** ; ordre des colonnes :
 
 ```text
 libelle;categorie;montant;frequence;debut;fin
@@ -134,7 +134,7 @@ Les anciens en-têtes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres`, `
 
 Le gestionnaire crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
 
-**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gestion → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
+**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gérer → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
 
 ### Valeur et situation des prêts
 

@@ -163,7 +163,7 @@ final class WizardBudgetPages {
         Html quick = Html.of("""
                 <details class="help-block"><summary>Plus rapide : tout importer avec vos relevés bancaires</summary>
                 <p class="muted">L'IA est facultative. Si vous l'utilisez, caviardez et vérifiez d'abord les copies de vos relevés et contrats. Joignez uniquement ces copies avec le prompt : elle renvoie un fichier
-                à importer dans <a href="/administration/depenses">Gestion → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
+                à importer dans <a href="/administration/depenses">Gérer → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
                 Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "

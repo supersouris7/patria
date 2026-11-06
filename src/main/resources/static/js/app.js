@@ -1,11 +1,58 @@
 "use strict";
 
 // Les menus natifs restent utilisables sans JavaScript.
-const navigationMenus = document.querySelectorAll(".nav-menu");
+const navigationMenus = document.querySelectorAll(".nav-menu, .audience");
+const navText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+const filterNavigation = (menu) => {
+  const input = menu.querySelector('.nav-search input');
+  if (!input) return;
+  const query = navText(input.value.trim());
+  menu.querySelectorAll('.nav-group-label').forEach((label) => { label.hidden = !!query; });
+  const links = menu.querySelectorAll('.nav-entries a[href]');
+  links.forEach((link) => { link.hidden = !navText(link.textContent).includes(query); });
+  menu.querySelectorAll('.nav-properties').forEach((group) => {
+    if (query) group.open = true;
+    group.hidden = !!query && !navText(group.querySelector('summary').textContent).includes(query)
+      && !Array.from(group.querySelectorAll('a')).some((link) => !link.hidden);
+    if (query && navText(group.querySelector('summary').textContent).includes(query)) {
+      group.querySelectorAll('a').forEach((link) => { link.hidden = false; });
+    }
+  });
+  menu.querySelector('.nav-empty').hidden = Array.from(links).some((link) => !link.hidden);
+};
+const loadNavigationProperties = async (menu) => {
+  const target = menu.querySelector('[data-property-links]');
+  if (!target || target.dataset.loaded || target.dataset.loading) return;
+  target.dataset.loading = 'true';
+  target.querySelector('[role="status"]')?.remove();
+  const status = document.createElement('p');
+  status.setAttribute('role', 'status');
+  status.textContent = 'Chargement des biens…';
+  target.append(status);
+  try {
+    const response = await fetch('/navigation/biens');
+    if (!response.ok || response.redirected) throw new Error('navigation');
+    target.innerHTML = await response.text();
+    target.dataset.loaded = 'true';
+    target.querySelectorAll('a').forEach((link) => {
+      if (link.pathname === location.pathname && !link.hash) link.setAttribute('aria-current', 'page');
+    });
+    filterNavigation(menu);
+  } catch {
+    status.textContent = 'Liste indisponible. Utilisez « Voir tous les biens », ou refermez puis rouvrez le menu pour réessayer.';
+  } finally {
+    delete target.dataset.loading;
+  }
+};
 navigationMenus.forEach((menu) => {
   menu.addEventListener("toggle", () => {
-    if (menu.open) navigationMenus.forEach((other) => { if (other !== menu) other.open = false; });
+    if (!menu.open) return;
+    navigationMenus.forEach((other) => { if (other !== menu) other.open = false; });
+    menu.querySelector('.nav-search input')?.focus({preventScroll: true});
+    filterNavigation(menu);
+    loadNavigationProperties(menu);
   });
+  menu.querySelector('.nav-search input')?.addEventListener('input', () => filterNavigation(menu));
 });
 document.addEventListener("click", (event) => {
   navigationMenus.forEach((menu) => {
