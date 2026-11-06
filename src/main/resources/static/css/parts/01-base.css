@@ -47,6 +47,8 @@ main.shell { padding: 36px 0 72px; }
 /* ---- En-tete ---- */
 .topbar { background: rgb(10 14 19 / 92%); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
 .navigation { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; min-height: 64px; padding-block: 8px; }
+.navigation > * { flex: 0 0 auto; }
+.navigation .account-bar { flex: 1 0 auto; justify-content: flex-end; }
 .navigation .brand span { display: none; }
 .primary-navigation { align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
 .primary-navigation a { align-items: center; display: inline-flex; font-size: .9rem; gap: 6px; min-height: 44px; padding: 8px; }
@@ -115,11 +117,14 @@ label.check.option b { color: var(--text); display: block; }
 .muted.small { font-size: .8rem; margin: 0; }
 
 @media (max-width: 1000px) {
-    .primary-navigation { flex: 1 0 100%; order: 3; }
+    .navigation { gap: 8px; }
+    .primary-navigation { flex: 1 1 auto; min-width: 0; }
+    .primary-navigation a { font-size: .82rem; padding-inline: 6px; }
+    .account-bar { gap: 2px; }
 }
 @media (max-width: 600px) {
     .navigation { gap: 4px; }
-    .account-link span { max-width: 10ch; }
+    .account-link span { max-width: 8ch; }
     .account-link { padding-inline: 8px; }
     .nav-menu > summary { font-size: .8rem; padding-inline: 6px; }
     .nav-panel { padding: 16px; }
