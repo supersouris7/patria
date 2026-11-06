@@ -42,7 +42,7 @@ final class TransferPages {
         List<Person> people = visibility.everyone();
         List<Person> formPeople = visibility.people();
         List<Transfer> transfers = allTransfers.stream().filter(transfer -> visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
-        Html heading = Components.heading("Administration", "Virements", EXPLANATION, Html.EMPTY);
+        Html heading = Components.heading("Gestion", "Virements", EXPLANATION, Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, Html.concat(heading, Components.notice(notice),
                     Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : ajoutez un compte joint ou une deuxième personne.",
@@ -55,10 +55,9 @@ final class TransferPages {
                         : Html.of("<a href=\"/virement/%s\">Voir</a>", transfer.id()))).collect(Html.joining());
         Html list = transfers.isEmpty() ? Html.raw("<p class=\"empty\">Aucun virement.</p>")
                 : Components.table(List.of("Virement", "Libellé", "#Montant", "Fréquence", "Période", ""), rows, true, false);
-        Html content = Html.concat(heading, Components.notice(notice),
+        Html content = Html.concat(heading, Components.notice(notice), Components.card("Virements", transfers.size(), Html.EMPTY, list),
                 formPeople.size() < 2 ? Html.EMPTY
-                        : Components.card("Nouveau virement", null, Html.EMPTY, Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement")),
-                Components.card("Virements", transfers.size(), Html.EMPTY, list));
+                        : Components.disclosure("Ajouter un virement", Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement"), notice != null && notice.error()));
         return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }
 

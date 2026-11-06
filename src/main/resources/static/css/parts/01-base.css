@@ -51,6 +51,8 @@ main.shell { padding: 36px 0 72px; }
 .navigation { position: relative; }
 .nav-menu > summary { border-radius: var(--radius-small); color: var(--text); cursor: pointer; font-size: .9rem; font-weight: 650; min-height: 44px; padding: 12px 10px; }
 .nav-menu[open] > summary { background: var(--surface-raised); }
+.nav-menu.active > summary, .navigation > nav > a.active { box-shadow: inset 0 -3px var(--blue); color: var(--text); }
+.navigation > nav > a { align-items: center; display: flex; min-height: 44px; }
 .nav-menu:not([open]) > .nav-panel { display: none; }
 .nav-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-small); box-shadow: 0 8px 24px #0006; display: grid; gap: 4px; max-height: 65vh; min-width: 240px; overflow-y: auto; padding: 8px; position: absolute; z-index: 11; }
 .account-bar .nav-panel { right: 0; }

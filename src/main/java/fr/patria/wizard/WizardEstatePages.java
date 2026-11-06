@@ -99,7 +99,7 @@ final class WizardEstatePages {
         }).collect(Html.joining());
         return Html.concat(explain("Pour chaque bien : la dernière taxe foncière (un seul avis suffit, les autres années sont estimées), les charges de "
                 + "copropriété et l'assurance (montant annuel). Puis son occupation : loué (loyer perçu, qui entre dans le budget) ou résidence principale "
-                + "(loyer économisé, pour calculer l'enrichissement réel). La taxe foncière peut être mensualisée depuis Administration → le bien → Charges."), cards);
+                + "(loyer économisé, pour calculer l'enrichissement réel). La taxe foncière peut être mensualisée depuis Gestion → Biens et prêts → le bien → Charges."), cards);
     }
 
     static Html shares(WizardController.Context context) {
@@ -113,6 +113,6 @@ final class WizardEstatePages {
         return Html.concat(explain("Par défaut, chaque bien et chaque prêt est à parts égales entre les personnes (le compte joint n'y prend part que si on lui "
                         + "donne un pourcentage). Si un bien appartient surtout à l'un, ou si le compte joint paie la taxe foncière, ajustez-le."),
                 Components.card("Répartition actuelle", null, Components.secondaryButton("/administration/repartition", "Ajuster la répartition"),
-                        Html.of("<ul class=\"plain-list\">%s</ul><p class=\"muted\">La page Répartition s'ouvre dans l'administration ; revenez ensuite ici pour terminer l'étape.</p>", rows)));
+                        Html.of("<ul class=\"plain-list\">%s</ul><p class=\"muted\">La page Répartition s'ouvre dans Gestion ; revenez ensuite ici pour terminer l'étape.</p>", rows)));
     }
 }

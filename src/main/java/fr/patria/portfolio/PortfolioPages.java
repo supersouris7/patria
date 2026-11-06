@@ -48,7 +48,7 @@ final class PortfolioPages {
                 overview.properties().isEmpty() ? Html.EMPTY : Components.pdfButton("/immobilier.pdf"));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
-                    "Les biens, prêts et apports s'ajoutent depuis l'administration.", Layout.manages() ? Components.button("/administration/biens", "Aller à l'administration") : Html.EMPTY)));
+                    "Les biens, prêts et apports s'ajoutent dans Gestion → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
                 Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
@@ -85,7 +85,7 @@ final class PortfolioPages {
                 + (summary.returns().isPrincipalResidence() ? " · résidence principale" : "");
         boolean admin = Layout.manages();
         Html actions = Html.concat(Components.pdfButton("/bien/" + property.id() + "/synthese.pdf"),
-                admin ? Components.secondaryButton("/administration/bien/" + property.id(), "Administrer") : Html.EMPTY);
+                admin ? Components.secondaryButton("/administration/bien/" + property.id(), "Modifier le bien") : Html.EMPTY);
         Html hero = summary.scenarios().isEmpty()
                 ? Components.emptyState("Aucune valeur renseignée", "Indiquez le coût d'acquisition ou une estimation pour suivre la valeur de ce bien.",
                         admin ? Components.button("/administration/bien/" + property.id(), "Renseigner") : Html.EMPTY)
@@ -183,7 +183,7 @@ final class PortfolioPages {
     /** Taxes foncieres par annee, tous biens confondus, avec l'evolution d'une annee sur l'autre. */
     private static Html propertyTaxTable(List<Portfolio.TaxYear> years) {
         if (years.isEmpty()) {
-            return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Administration → un bien → Charges.</p>");
+            return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Gestion → Biens et prêts → le bien → Charges.</p>");
         }
         int visible = 5;
         Html rows = years.stream().map(year -> {
@@ -277,7 +277,7 @@ final class PortfolioPages {
         Html loans = overview.loanCount() == 0 ? Html.raw("<p class=\"empty\">Aucun prêt. Ajoutez-en un depuis « Prêts et apports » d'un bien.</p>")
                 : Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Restant dû", "#Taux actuel", ""), loanRows, true, false);
         Html content = Html.concat(
-                Components.heading("Administration", "Biens et prêts", null, Components.button("/administration/bien/nouveau", "+ Nouveau bien")),
+                Components.heading("Gestion", "Biens et prêts", null, Components.button("/administration/bien/nouveau", "+ Nouveau bien")),
                 Components.notice(notice),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY, properties),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, loans));
@@ -424,7 +424,7 @@ final class PortfolioPages {
         netLines.addAll(List.of(
                 Line.lead("Valeur retenue", null, derived("value", euroWhole(value))).echo(),
                 Line.of("Frais de vente et fiscalité", returns.isPrincipalResidence()
-                        ? "Résidence principale : plus-value exonérée d'impôt, seuls les frais d'agence comptent (environ 5 %). Taux modifiable dans Administrer."
+                        ? "Résidence principale : plus-value exonérée d'impôt, seuls les frais d'agence comptent (environ 5 %). Taux modifiable avec « Modifier le bien »."
                         : "Pourcentage défini sur chaque bien. Hors résidence principale, inclure l'impôt sur la plus-value (19 % + 17,2 %, réduit selon la durée de détention).",
                         derived("sale-fees", minus(saleFees))),
                 Line.of("Capital restant dû", null, Html.text(minus(debt))),

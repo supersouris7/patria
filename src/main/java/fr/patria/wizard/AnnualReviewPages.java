@@ -23,16 +23,14 @@ final class AnnualReviewPages {
     private AnnualReviewPages() {
     }
 
-    /** Bandeau du Previsionnel : revue conseillee, et ce qu'il faut verifier ce mois-ci. */
-    /** Encadre jaune du Previsionnel : configuration terminee a x %, avec « Terminer les imports » et « Ignorer ». */
+    /** Progression secondaire du Previsionnel ; le detail reste dans le guide. */
     static Html progress(int percent, int finished, int total, Step next, String csrf) {
         return Html.of("""
-                <section class="notice warning setup-progress" aria-label="Configuration du foyer"><div class="setup-progress-text">\
-                <b>Configuration terminée à %s %</b><span>%s étape%s sur %s faite%s ou passée%s dans le Guide de saisie. Prochaine : %s.</span>\
-                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="%s"><i style="width:%s%"></i></div></div>\
-                <div class="setup-progress-actions"><a class="button" href="/assistant">Terminer les imports</a>\
-                <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit" title="Ne plus afficher cet encadré (le guide reste dans l'en-tête)">Ignorer</button></form></div></section>""",
-                percent, finished, finished > 1 ? "s" : "", total, finished > 1 ? "s" : "", finished > 1 ? "s" : "", next.title(), percent, percent,
+                <section class="setup-progress" aria-label="Configuration du foyer"><details><summary>Configuration terminée à %s %%</summary>\
+                <p>%s étape%s sur %s faite%s ou passée%s. Prochaine : %s.</p>\
+                <div class="setup-progress-actions"><a class="button secondary" href="/assistant">Continuer la configuration</a>\
+                <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit">Masquer cet encart</button></form></div></details></section>""".replace("%%", "%"),
+                percent, finished, finished > 1 ? "s" : "", total, finished > 1 ? "s" : "", finished > 1 ? "s" : "", next.title(),
                 fr.patria.ui.Components.csrfField(csrf));
     }
 

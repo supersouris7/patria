@@ -3,6 +3,7 @@ package fr.patria.account;
 import fr.patria.ui.Components;
 import fr.patria.ui.Components.Field;
 import fr.patria.ui.Components.Input;
+import fr.patria.ui.Format;
 import fr.patria.ui.Html;
 import fr.patria.ui.Layout;
 import fr.patria.ui.Notice;
@@ -35,18 +36,21 @@ final class AccountPages {
      */
     static Html households(List<HouseholdCard> cards, List<Household> orphans, List<User> activeUsers, boolean recommendTwoFactor,
                            List<HouseholdDirectory.Archive> archives, Map<String, String> values, Notice notice, String csrf) {
-        Html blocks = cards.stream().map(card -> householdCard(card, cards.size(), activeUsers, csrf)).collect(Html.joining());
+        Html blocks = cards.stream().map(card -> householdCard(card, cards.size(), activeUsers, csrf, notice != null && notice.error())).collect(Html.joining());
         Html form = Components.form("/administration/foyers", csrf, false, Components.fields(2,
                 Components.input(Input.of("Nom du foyer", "name", Field.TEXT).required().maxLength(60).placeholder("Foyer Martin"), values)), "Créer le foyer");
         Html content = Html.concat(Components.heading("Administration", "Foyers",
-                        "Les foyers, leurs membres et l'avancement de leur configuration. Vous créez les comptes et réglez les droits ; "
-                                + "vous ne voyez aucune donnée financière : ce sont les gestionnaires de chaque foyer qui saisissent.", Html.EMPTY),
+                         "Foyers, gestionnaires et accès. Aucune donnée financière n'est visible ici.", Html.EMPTY),
                 Components.notice(notice), recommendTwoFactor ? Html.raw("""
                         <p class="notice error"><b>Double authentification fortement recommandée</b> : Patria est accessible depuis Internet.
                         <a href="/compte/double-authentification">L'activer pour le compte administrateur</a></p>""") : Html.EMPTY,
                 takeOver(orphans, activeUsers, values, csrf),
                 Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
-                Components.card("Nouveau foyer", null, Html.EMPTY, form), archives(archives, csrf));
+                Components.disclosure("Créer un foyer", form, notice != null && notice.error()),
+                Components.disclosure("Membre, compte et gestionnaire : quelle différence ?", Html.raw("""
+                        <p>Un <b>membre du foyer</b> figure dans le budget (personne ou compte joint). Un <b>compte de connexion</b> permet d'ouvrir Patria.
+                        Le rôle <b>gestionnaire</b> autorise la saisie et la consultation de tout le foyer. L'administrateur crée les comptes et règle les accès,
+                        mais ne consulte pas les finances des foyers.</p>"""), false), archives(archives, csrf));
         return Layout.adminSection("Foyers · Patria", csrf, Layout.AdminSection.HOUSEHOLDS, content);
     }
 
@@ -99,7 +103,7 @@ final class AccountPages {
                 du serveur tant que vous ne l'effacez pas ici.</p>"""), Components.table(List.of("Base", "Supprimé le", "#Taille", ""), rows, false, false)));
     }
 
-    private static Html householdCard(HouseholdCard card, int count, List<User> activeUsers, String csrf) {
+    private static Html householdCard(HouseholdCard card, int count, List<User> activeUsers, String csrf, boolean open) {
         Household household = card.household();
         Html members = card.members().isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre pour l'instant.</p>")
                 : Html.of("<div class=\"chips-line\">%s</div>", card.members().stream()
@@ -132,13 +136,15 @@ final class AccountPages {
                 current.isEmpty() ? "Personne ne peut saisir les biens, les prêts ni la répartition : choisissez le compte qui saisit tout."
                         : "Il voit et saisit tout le foyer. En choisir un autre le remplace ; l'ancien garde ses autres vues.");
         return Html.of("""
-                        <section class="household-card" id="foyer-%s"><h3>%s</h3>
+                         <section class="household-card" id="foyer-%s"><details%s><summary><b>%s</b><span class="muted">%s · Gestionnaire : %s · %s</span></summary><div class="disclosure-body">
                         <p class="eyebrow">Membres</p>%s%s%s
                         %s
                         <p class="eyebrow">Comptes qui y ont accès</p><p class="muted">%s</p>
                         <p class="eyebrow">Avancement de la configuration</p>%s
-                        <div class="household-actions">%s%s</div></section>""",
-                household.id(), household.name(), members, steps, addMember, manager,
+                         <div class="household-actions">%s%s</div></div></details></section>""",
+                household.id(), Html.raw(open ? " open" : ""), household.name(), Format.plural(card.members().size(), "membre", "membres"), card.managerUsers().isEmpty() ? "Aucun" : card.managerUsers().stream().map(User::name).collect(java.util.stream.Collectors.joining(", ")),
+                card.progress().isEmpty() ? "Configuration non commencée" : "Guide : " + card.progress().stream().map(entry -> entry.user().name() + " " + entry.progress().percent() + " %").collect(java.util.stream.Collectors.joining(", ")),
+                members, steps, addMember, manager,
                 card.users().isEmpty() ? "Aucun." : String.join(", ", card.users()), progress(card.progress()), rename, delete);
     }
 
@@ -177,13 +183,12 @@ final class AccountPages {
                 memberSelect(choices, values.getOrDefault("membre", ""))),
                 "Créer l'utilisateur");
         Html content = Html.concat(Components.heading("Administration", "Utilisateurs",
-                        "Vous seul créez les comptes et réglez ce que chacun voit. Chaque accès ouvert est visible par les comptes du foyer (icône « qui voit quoi ») "
-                                + "et inscrit au journal (Sécurité).",
+                         "Comptes de connexion et accès aux foyers. Les changements d'accès sont visibles par les personnes concernées et journalisés dans Sécurité.",
                         Html.EMPTY),
                 Components.notice(notice),
-                Components.card("Nouvel utilisateur", null, Html.EMPTY, form),
                 Components.card("Utilisateurs", users.size(), Html.EMPTY, users.isEmpty() ? Html.raw("<p class=\"empty\">Aucun utilisateur.</p>")
-                        : Components.table(List.of("Nom", "Identifiant", "État", "Foyers", ""), rows, false, false)));
+                        : Components.table(List.of("Nom", "Identifiant", "État", "Foyers", ""), rows, false, false)),
+                Components.disclosure("Créer un compte de connexion", Html.concat(Html.raw("<p class=\"muted\">Ce compte permet d'ouvrir Patria. Vous pouvez le lier à un membre du foyer, puis lui attribuer ses accès et son rôle gestionnaire.</p>"), form), !values.isEmpty() || notice != null && notice.error()));
         return Layout.adminSection("Utilisateurs · Patria", csrf, Layout.AdminSection.USERS, content);
     }
 
@@ -273,7 +278,7 @@ final class AccountPages {
                         + "Guide de saisie et imports. Un seul par foyer : le cocher remplace le gestionnaire actuel. Les cases ci-dessous sont alors sans objet.",
                         access != null && access.manager()),
                 option("whole", "Vue « Foyer » : les totaux", "Onglet « Foyer » dans Prévisionnel et Budget moyen, avec les revenus et dépenses de tous les membres, et toutes les lignes "
-                        + "en lecture seule dans Administration. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
+                        + "en lecture seule dans Gestion. Ne donne aucun droit de modification.", access != null && access.wholeHousehold()),
                 option("estate", "Tous les biens du foyer, en lecture seule", "Menu Immobilier : les biens de ce foyer (chaque bien appartient à un seul "
                         + "foyer), leurs prêts, mensualités, charges et prix du marché. Tout ou rien : on n'ouvre pas bien par bien. La part de chacun se règle "
                         + "dans Répartition. Sans cette case, les mensualités et charges restent comptées dans son budget, mais il n'ouvre pas les fiches.",

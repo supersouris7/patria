@@ -44,12 +44,12 @@ final class WizardPages {
                 <li><b>Un assistant IA externe</b> (ChatGPT, Claude, Le Chat…) n'est utile que pour transformer des PDF en fichier à importer : l'échéancier d'un prêt, ou vos relevés bancaires d'un coup. Tout le reste se saisit à la main. Patria ne lui envoie rien : <a href="/confidentialite">comment protéger vos données</a>.</li></ul>""");
         Html content = Html.concat(Components.heading("Patria", "Guide de saisie", context.admin() ? "Pour tout le foyer." : "Pour vos propres revenus et dépenses.",
                         actions),
-                Components.card("Comment ça marche", null, Html.EMPTY, intro),
                 Components.card("Les étapes", null, Html.of("<span class=\"muted\">%s sur %s · %s %%</span>".replace("%%", "%"), handled, steps.size(), percent),
                         Html.concat(Components.progress(percent), Html.of("<ol class=\"wizard-overview\">%s</ol>", list),
                                 Html.of("<form method=\"post\" action=\"/assistant/recommencer\" class=\"wizard-reset\" data-confirm=\"%s\">%s"
                                                 + "<button class=\"quiet\" type=\"submit\">Recommencer à zéro</button><span class=\"muted\">efface la progression, pas les données saisies</span></form>",
-                                        "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())))));
+                                         "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())))),
+                Components.disclosure("Comment ça marche", intro, false));
         return Layout.page("Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), content);
     }
 

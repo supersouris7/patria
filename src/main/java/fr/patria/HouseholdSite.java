@@ -76,7 +76,7 @@ final class HouseholdSite implements AutoCloseable {
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
-        budget.withHomeExtras(request -> fr.patria.ui.Html.concat(guide.progress(request), guide.reminder(request), health.summary(request))).register(router);
+        budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */

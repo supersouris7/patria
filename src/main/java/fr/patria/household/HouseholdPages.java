@@ -77,12 +77,13 @@ final class HouseholdPages {
                 Components.csrfField(csrf), Components.input(Input.of("Nouveau membre", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom, ou « Compte joint »"), Map.of()),
                 Components.select("Type", "kind", Arrays.stream(Person.Kind.values()).map(kind -> new Option(kind.name(), kind.label())).toList(), Person.Kind.PERSON.name()));
         Html help = Html.raw("""
-                <p class="muted">Un <b>membre</b> est une personne du budget (ou un compte joint) : il a des revenus et une part des dépenses. Ce n'est pas
-                un compte de connexion. Pour qu'une personne consulte Patria, l'administrateur lui crée un <b>utilisateur</b> lié à son membre.
+                <p class="muted">Un <b>membre du foyer</b> est une personne du budget (ou un compte joint) : il a des revenus et une part des dépenses. Ce n'est pas
+                un compte de connexion. Pour qu'une personne consulte Patria, l'administrateur lui crée un <b>compte de connexion</b> lié à son membre.
                 Un compte joint a son propre budget : il reçoit des virements et paie les dépenses qu'on lui attribue ; il ne prend part aux
                 « parts égales » que si on lui donne un pourcentage.</p>""");
-        Html content = Html.concat(Components.heading("Administration", "Membres", null, Html.EMPTY), Components.notice(notice),
-                Components.card("Membres du foyer", people.size(), Html.EMPTY, Html.concat(list, form, help)));
+        Html content = Html.concat(Components.heading("Gestion", "Membres", null, Html.EMPTY), Components.notice(notice),
+                Components.card("Membres du foyer", people.size(), Html.EMPTY, list),
+                Components.disclosure("Ajouter un membre du foyer", Html.concat(help, form), notice != null && notice.error()));
         return Layout.adminSection("Membres · Patria", csrf, Layout.AdminSection.MEMBERS, content);
     }
 
@@ -103,9 +104,9 @@ final class HouseholdPages {
         Html addIncome = formPeople.isEmpty()
                 ? (visibility.manages() ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
                         "<p class=\"empty\">Ajoutez d'abord les membres du foyer : <a href=\"/administration/membres\">Membres</a>.</p>")) : Html.EMPTY)
-                : Components.card("Ajouter un revenu", null, Html.EMPTY,
-                        Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"));
-        Html content = Html.concat(Components.heading("Administration", "Revenus", null, Html.EMPTY), Components.notice(notice), addIncome, incomesCard);
+                : Components.disclosure("Ajouter un revenu",
+                        Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"), notice != null && notice.error());
+        Html content = Html.concat(Components.heading("Gestion", "Revenus", null, Html.EMPTY), Components.notice(notice), incomesCard, addIncome);
         return Layout.adminSection("Revenus · Patria", csrf, Layout.AdminSection.INCOMES, content);
     }
 

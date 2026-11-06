@@ -5,6 +5,8 @@
 .back-link:hover { color: var(--text); }
 .page-heading { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 16px 24px; justify-content: space-between; margin-bottom: 24px; }
 .page-heading .muted { margin: 0; }
+.page-heading > div { max-width: 100%; min-width: 0; }
+.page-heading h1, .section-title h2 { overflow-wrap: anywhere; }
 .eyebrow { color: var(--blue); font-size: .7rem; font-weight: 800; letter-spacing: .14em; margin: 0 0 .4rem; text-transform: uppercase; }
 .heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -25,7 +27,9 @@
     padding: 9px 15px;
     text-decoration: none;
     transition: background .15s, border-color .15s, color .15s;
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 .button:hover, button:hover { background: var(--blue); }
 .button.secondary, button.secondary { background: transparent; border-color: var(--line-strong); color: var(--text-soft); }
@@ -50,8 +54,11 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .metrics:last-of-type { margin-bottom: 16px; }
 .metric { display: flex; flex-direction: column; min-height: 118px; padding: 18px 20px; }
 .metric-label { color: var(--muted); display: block; font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-.metric-label[title] { cursor: help; }
-.metric-label[title]::after { border: 1px solid var(--line-strong); border-radius: 50%; content: "?"; display: inline-grid; font-size: .58rem; height: 13px; letter-spacing: 0; margin-left: 5px; place-items: center; vertical-align: 1px; width: 13px; }
+.metric-help > summary { cursor: pointer; min-height: 24px; }
+.metric-help > p { color: var(--text-soft); font-size: .85rem; font-weight: 400; letter-spacing: normal; line-height: 1.5; margin: 8px 0; text-transform: none; }
+.disclosure { border-bottom: 1px solid var(--line); padding-inline: 0; }
+.disclosure > details > summary { color: var(--text); cursor: pointer; font-weight: 700; min-height: 44px; padding: 12px 0; }
+.disclosure-body { padding-top: 12px; }
 .metric strong { display: block; font-size: clamp(1.3rem, 2.1vw, 1.65rem); font-variant-numeric: tabular-nums; margin-top: 10px; overflow-wrap: anywhere; }
 .metric small { color: var(--muted); display: block; font-size: .8rem; margin-top: auto; padding-top: 6px; }
 .metric small a { font-weight: 650; text-decoration: none; }
@@ -148,7 +155,7 @@ th[data-order="desc"]::after { content: "▼"; opacity: 1; }
 .progress-cell small { color: var(--muted); font-size: .78rem; min-width: 36px; }
 .progress { background: var(--input); border-radius: 99px; flex: 1; height: 8px; overflow: hidden; }
 .progress span { background: linear-gradient(to right, var(--blue-deep), var(--blue)); border-radius: 99px; display: block; height: 100%; }
-.badge { background: var(--surface-raised); border-radius: 99px; color: var(--muted); display: inline-block; font-size: .74rem; font-weight: 750; padding: 2px 9px; white-space: nowrap; }
+.badge { background: var(--surface-raised); border-radius: 99px; color: var(--muted); display: inline-block; font-size: .74rem; font-weight: 750; max-width: 100%; overflow-wrap: anywhere; padding: 2px 9px; white-space: normal; }
 .badge.paid { background: rgb(127 220 138 / 12%); color: var(--success); }
 .detail { display: block; font-size: .85rem; }
 

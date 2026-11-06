@@ -21,10 +21,11 @@ final class HealthPages {
                 css(level), level.label(), checks.stream().filter(check -> check.level() == level).count(), "point" + (checks.stream().filter(check -> check.level() == level).count() > 1 ? "s" : "")))
                 .toArray(Html[]::new));
         Html domains = Arrays.stream(Check.Domain.values()).map(domain -> {
-            List<Check> own = checks.stream().filter(check -> check.domain() == domain).sorted(Comparator.comparing(Check::level)).toList();
+            List<Check> own = checks.stream().filter(check -> check.domain() == domain && check.level() == Check.Level.INFO).toList();
             if (own.isEmpty()) {
                 String empty = domain == Check.Domain.PROPERTIES && !estate ? "L'immobilier n'est pas ouvert pour votre compte." : "Rien à signaler pour l'instant.";
                 if (ignored.stream().anyMatch(check -> check.domain() == domain)) empty = "Les points de cette rubrique sont dans « Points ignorés » ci-dessous.";
+                if (checks.stream().anyMatch(check -> check.domain() == domain)) return Html.EMPTY;
                 return Components.card(domain.label(), null, Html.EMPTY, Html.of("<p class=\"muted\">%s</p>", empty));
             }
             return Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>%s</h2><span class=\"muted\">%s</span></div><ul class=\"health-list\">%s</ul></section>",
@@ -33,7 +34,12 @@ final class HealthPages {
         Html content = Html.concat(
                 Components.heading(owner, "Bilan de santé", "Un diagnostic automatique de vos finances, de vos biens et de vos impôts, à partir de ce qui est saisi.",
                         Components.pdfButton("/bilan.pdf")),
-                tiles, domains,
+                tiles,
+                priority("À traiter en priorité", Check.Level.BAD, checks, csrf),
+                priority("À surveiller", Check.Level.WARN, checks, csrf),
+                domains,
+                checks.stream().noneMatch(check -> check.level() == Check.Level.GOOD) ? Html.EMPTY : Components.disclosure("Points rassurants", Html.of("<ul class=\"health-list\">%s</ul>",
+                        checks.stream().filter(check -> check.level() == Check.Level.GOOD).map(check -> item(check, false, csrf)).collect(Html.joining())), false),
                 Html.of("""
                         <section class="card section" id="ignores"><details%s><summary>Points ignorés (%s)</summary>
                         <p class="muted">Ces choix ne concernent que votre compte et ce foyer. Les points ignorés ne comptent plus dans le résumé ni les compteurs.
@@ -46,11 +52,17 @@ final class HealthPages {
         return Layout.page("Bilan de santé · Patria", Layout.Section.HEALTH, csrf, content);
     }
 
+    private static Html priority(String title, Check.Level level, List<Check> checks, String csrf) {
+        List<Check> own = checks.stream().filter(check -> check.level() == level).toList();
+        return own.isEmpty() ? Html.EMPTY : Components.card(title, own.size(), Html.EMPTY,
+                Html.of("<ul class=\"health-list\">%s</ul>", own.stream().map(check -> item(check, false, csrf)).collect(Html.joining())));
+    }
+
     private static Html item(Check check, boolean ignored, String csrf) {
         Html action = !check.canIgnore() ? Html.EMPTY : Html.of("""
                 <form method="post" action="/bilan/%s">%s<input type="hidden" name="check" value="%s">
-                <button class="secondary" type="submit">%s</button></form>""",
-                ignored ? "retablir" : "ignorer", Components.csrfField(csrf), check.token(), ignored ? "Rétablir" : "Ignorer pour moi");
+                <button class="%s" type="submit">%s</button></form>""",
+                ignored ? "retablir" : "ignorer", Components.csrfField(csrf), check.token(), ignored ? "secondary" : "quiet", ignored ? "Rétablir" : "Ignorer pour moi");
         return Html.of("<li class=\"health-item %s\"><span class=\"health-mark\" aria-label=\"%s\">%s</span><div><b>%s</b><p>%s</p>%s%s</div></li>",
                 css(check.level()), check.level().label(), check.level().mark(), check.title(), check.detail(),
                 check.link() == null ? Html.EMPTY : Html.of("<a href=\"%s\">%s →</a>", check.link(), check.linkLabel()), action);

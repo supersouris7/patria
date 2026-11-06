@@ -42,7 +42,7 @@ final class BudgetPages {
                 Components.pdfButton("/previsionnel.pdf" + scope(view))), scopeTabs(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
             return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Rien pour " + view.person().name(),
-                    "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Administration → Revenus, la répartition des dépenses dans chaque dépense.",
+                    "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Gestion → Revenus, la répartition des dépenses dans chaque dépense.",
                     Components.button("/administration/revenus", "Revenus"))));
         }
         if (!view.hasIncome() && !view.hasExpenses()) {
@@ -57,7 +57,7 @@ final class BudgetPages {
         Html alerts = view.alerts().isEmpty() ? Html.EMPTY : Html.of("<section class=\"watch\"><h2>À surveiller</h2><ul>%s</ul></section>",
                 view.alerts().stream().sorted(java.util.Comparator.comparing(Forecast.Alert::serious).reversed())
                         .map(alert -> Html.of("<li class=\"%s\">%s</li>", alert.serious() ? "serious" : "warning", alert.text())).collect(Html.joining()));
-        Html content = Html.concat(heading, extras,
+        Html content = Html.concat(heading,
                 Components.metrics(4,
                         tile("Revenus du mois", "Revenus nets avant impôt et loyers perçus attendus ce mois-ci.", euroWhole(current.income()),
                                 Format.plural(current.incomes().size(), "versement", "versements")),
@@ -66,7 +66,7 @@ final class BudgetPages {
                         balanceTile(current.balance(), "Revenus du mois − dépenses du mois.", "après toutes les dépenses du mois"),
                         isAccount(view) ? tile("Taux d'endettement", "Calculé pour les personnes : les crédits payés par un compte joint comptent "
                                 + "à parts égales dans le taux de chacune.", Format.DASH, "pas de taux pour un compte") : debtTile(view.debt())),
-                alerts,
+                alerts, extras,
                 Components.card("12 prochains mois", null, Html.EMPTY, Html.concat(
                         view.provision().signum() == 0 ? Html.EMPTY : Html.of("<p class=\"provision\">À mettre de côté chaque mois pour les dépenses non mensuelles : <strong>%s</strong></p>",
                                 euroWhole(view.provision())),
@@ -224,7 +224,7 @@ final class BudgetPages {
         BigDecimal spending = expenses.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
         Html heading = Html.concat(Components.heading(owner(view), "Budget moyen", "Moyenne par mois sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
                         + (view.person() == null ? "" : " Part de " + view.person().name() + " seulement."),
-                Html.concat(Components.pdfButton("/budget-moyen.pdf" + scope(view)), Components.secondaryButton("/administration", "Administrer"))),
+                Html.concat(Components.pdfButton("/budget-moyen.pdf" + scope(view)), Components.secondaryButton("/administration/depenses", "Gérer les dépenses"))),
                 scopeTabs(view, "/budget"));
 
         Map<Category, BigDecimal> byCategory = new EnumMap<>(Category.class);
@@ -253,13 +253,13 @@ final class BudgetPages {
                         tile("Dépenses", null, euroWhole(spending), "par mois en moyenne"),
                         balanceTile(income.subtract(spending), "Revenus moyens − dépenses moyennes sur 12 mois.", "par mois en moyenne"),
                         tile("À mettre de côté", "Moyenne mensuelle des dépenses non mensuelles (assurances annuelles, taxes...).", euroWhole(view.provision()), "chaque mois")),
-                isAccount(view) ? Html.EMPTY : debtCard(view.debt()),
                 Components.card("Dépenses par catégorie", null, Html.EMPTY, byCategory.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense.</p>")
                         : Html.of("<div class=\"ranking\">%s</div>", bars)),
                 Components.card("Revenus", incomes.size(), Html.EMPTY, incomes.isEmpty() ? Html.raw("<p class=\"empty\">Aucun revenu.</p>")
                         : Components.table(List.of("Revenu", "Personne", "Rythme", "#Montant", "#Par mois"), incomeRows, true, false)),
                 Components.card("Dépenses", expenses.size(), Html.EMPTY, expenses.isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense.</p>")
-                        : Components.table(List.of("Dépense", "Catégorie", "Rythme", "#Montant", "#Par mois"), expenseRows, true, false)));
+                        : Components.table(List.of("Dépense", "Catégorie", "Rythme", "#Montant", "#Par mois"), expenseRows, true, false)),
+                isAccount(view) ? Html.EMPTY : Components.disclosure("Détail du taux d'endettement", debtCard(view.debt()), view.debt().credits().signum() > 0));
         return Layout.page("Budget moyen · Patria", Layout.Section.BUDGET, csrf, scope(view), content);
     }
 
@@ -335,11 +335,11 @@ final class BudgetPages {
                 java.util.stream.IntStream.range(0, properties.size()).mapToObj(index -> Html.concat(index == 0 ? Html.EMPTY : Html.raw(" · "),
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 
-        Html content = Html.concat(Components.heading("Administration", "Dépenses", null, Html.EMPTY), Components.notice(notice),
-                Components.card("Ajouter une dépense", null, Html.EMPTY, form),
-                Components.card("Importer un fichier CSV", null, Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
-                        importForm(csrf)),
-                Components.card("Dépenses saisies", items.size(), Html.EMPTY, Html.concat(table, automatic, taxLinks)));
+        Html content = Html.concat(Components.heading("Gestion", "Dépenses", null, Html.EMPTY), Components.notice(notice),
+                Components.card("Dépenses saisies", items.size(), Html.EMPTY, table),
+                Components.disclosure("Ajouter une dépense", Html.concat(automatic, taxLinks, form), notice != null && notice.error()),
+                Components.disclosure("Importer un fichier CSV", Html.concat(Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
+                        importForm(csrf)), false));
         return Layout.adminSection("Dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, content);
     }
 
@@ -400,7 +400,7 @@ final class BudgetPages {
                     formId, Components.csrfField(csrf), encoded, fresh + " dépense" + (fresh > 1 ? "s" : ""));
         }
         Html page = Html.concat(Components.backLink("/administration/depenses", "Dépenses"),
-                Components.heading("Administration", "Aperçu de l'import", summary, Html.EMPTY),
+                Components.heading("Gestion", "Aperçu de l'import", summary, Html.EMPTY),
                 Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(before, Components.table(columns, body, false, false), actions)));
         return Layout.adminSection("Import de dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, page);
     }
@@ -444,7 +444,7 @@ final class BudgetPages {
 
     static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, Map<Long, Long> taxPayers,
                        List<Person> people, Notice notice, Rejected rejected, String csrf) {
-        Html heading = Components.heading("Administration", "Répartition", "Part de chaque personne dans les biens et les prêts : "
+        Html heading = Components.heading("Gestion", "Répartition", "Part de chaque personne dans les biens et les prêts : "
                 + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading,

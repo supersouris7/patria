@@ -18,7 +18,10 @@
 .setup-progress-text span { display: block; font-weight: 500; margin-top: 2px; }
 .setup-progress-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
 .setup-progress-actions form { margin: 0; }
-.setup-progress-actions .quiet { color: #f3d38a; }
+.setup-progress { border-bottom: 1px solid var(--line); color: var(--muted); margin-bottom: 16px; padding-block: 8px; }
+.setup-progress summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
+.household-card > details > summary { cursor: pointer; min-height: 44px; overflow-wrap: anywhere; padding-block: 12px; }
+.household-card > details > summary .muted { display: block; font-size: .85rem; margin-top: 6px; }
 .progress-bar { background: rgb(243 211 138 / 16%); border-radius: 99px; height: 6px; margin-top: 8px; max-width: 420px; overflow: hidden; }
 .progress-bar i { background: #f3d38a; border-radius: 99px; display: block; height: 100%; }
 

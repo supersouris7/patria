@@ -19,6 +19,8 @@ Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte per
 
 **Connexions.** Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification. Il n'y a plus de bouton horloge dans la barre de navigation.
 
+**Navigation et consultation.** La barre du haut indique la rubrique active. Budget, Suivi et Gestion regroupent plusieurs pages ; Immobilier et les rubriques de l'administrateur sont des liens directs. Sur smartphone aussi, les noms restent visibles. Dans Gestion, les listes viennent avant les formulaires : ouvrez « Ajouter… » ou « Importer… » lorsque nécessaire. Une erreur de saisie rouvre le formulaire. Les aides des indicateurs s'ouvrent par appui, ou avec Entrée au clavier. Dans Foyers, ouvrez un foyer pour modifier ses membres et son gestionnaire.
+
 **Double authentification.** Mon compte → « Activer la double authentification » : scannez le QR code avec une application d'authentification (Aegis, 2FAS, Google Authenticator…), puis tapez le code affiché. Ensuite, la connexion demande ce code après le mot de passe ; cochez « Se souvenir de cet appareil 30 jours » sur vos appareils personnels. Téléphone perdu : demandez à l'administrateur de la retirer ; Patria vous le signalera.
 
 ## Commencer avec le Guide de saisie
@@ -51,7 +53,7 @@ Le taux d'endettement suit un repère bancaire HCSF : crédits divisés par reve
 
 ### Répartitions et compte joint
 
-- Parts égales par défaut, y compris après ajout d'une personne ; pourcentages personnalisés dans les dépenses et Administration → Répartition pour biens/prêts.
+- Parts égales par défaut, y compris après ajout d'une personne ; pourcentages personnalisés dans les dépenses et Gestion → Répartition pour biens/prêts.
 - Un prêt suit la répartition du bien, sauf répartition propre.
 - Le compte joint est un membre de type « Compte joint » : il reçoit des virements et règle les dépenses attribuées. Il ne participe pas aux parts égales sauf pourcentage explicite.
 - Les virements entre membres sont des dépenses/recettes individuelles et restent neutres au niveau du foyer ; ils n'affectent pas l'endettement. Les crédits payés par le compte joint comptent à parts égales dans le taux de chaque personne.
@@ -93,7 +95,7 @@ Le prompt demandant des libellés génériques ne protège pas l'original que vo
 
 ### Dépenses CSV
 
-Administration → Dépenses → Importer un fichier CSV. **Aucune ligne d'en-tête** ; ordre des colonnes :
+Gestion → Dépenses → Importer un fichier CSV. **Aucune ligne d'en-tête** ; ordre des colonnes :
 
 ```text
 libelle;categorie;montant;frequence;debut;fin
@@ -132,7 +134,7 @@ Les anciens en-têtes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres`, `
 
 Le gestionnaire crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
 
-**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Administration → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
+**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gestion → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
 
 ### Valeur et situation des prêts
 
@@ -173,6 +175,8 @@ Sur la fiche du prêt : mensualité recalculée au taux du marché à capital/du
 Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (précision d'environ 0,3 point), comparaison indicative s'il reste moins de 10 ans ; assurance, garantie et frais de dossier exclus. Ce n'est pas une offre bancaire.
 
 ## Revue annuelle et bilan de santé
+
+Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes ; la configuration est un encart repliable. Dans le Guide de saisie, la progression et les étapes précèdent les explications. Le bilan regroupe d'abord tous les points à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
 
 Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
 

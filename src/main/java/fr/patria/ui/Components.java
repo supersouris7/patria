@@ -29,6 +29,11 @@ public final class Components {
         return Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>%s%s</h2>%s</div>%s</section>", title, badge, buttons, body);
     }
 
+    public static Html disclosure(String title, Html body, boolean open) {
+        return Html.of("<section class=\"section disclosure\"><details%s><summary>%s</summary><div class=\"disclosure-body\">%s</div></details></section>",
+                Html.raw(open ? " open" : ""), title, body);
+    }
+
     public static Html emptyState(String title, String text, Html action) {
         return Html.of("<section class=\"card empty-state\"><h2>%s</h2><p class=\"muted\">%s</p>%s</section>", title, text, action);
     }
@@ -61,7 +66,7 @@ public final class Components {
 
     public static Html label(String label, String hint) {
         return hint == null ? Html.of("<span class=\"metric-label\">%s</span>", label)
-                : Html.of("<span class=\"metric-label\" title=\"%s\">%s</span>", hint, label);
+                : Html.of("<details class=\"metric-help\"><summary class=\"metric-label\">%s <span aria-hidden=\"true\">?</span></summary><p>%s</p></details>", label, hint);
     }
 
     /** Rangee de tuiles sur 3 ou 4 colonnes. */
@@ -112,8 +117,9 @@ public final class Components {
 
     /** Detail d'un calcul, ligne a ligne, comme un releve : « Valeur − frais − dette = valeur nette ». */
     public static Html breakdown(String title, List<Line> lines) {
-        Html rows = lines.stream().map(line -> Html.of("<div class=\"line %s%s\"><dt><span%s>%s</span>%s</dt><dd>%s</dd></div>",
-                line.level().name().toLowerCase(), line.inTile() ? " echo" : "", line.hint() == null ? Html.EMPTY : Html.of(" class=\"hint\" title=\"%s\"", line.hint()), line.label(),
+        Html rows = lines.stream().map(line -> Html.of("<div class=\"line %s%s\"><dt>%s%s</dt><dd>%s</dd></div>",
+                line.level().name().toLowerCase(), line.inTile() ? " echo" : "", line.hint() == null ? Html.text(line.label())
+                        : Html.of("<details class=\"metric-help\"><summary>%s <span aria-hidden=\"true\">?</span></summary><p>%s</p></details>", line.label(), line.hint()),
                 line.aside() == null ? Html.EMPTY : Html.of(" <small class=\"aside\">%s</small>", line.aside()), line.value())).collect(Html.joining());
         return Html.of("<div class=\"breakdown\"><h3>%s</h3><dl>%s</dl></div>", title, rows);
     }

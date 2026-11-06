@@ -154,20 +154,31 @@ public final class Layout {
      * aux liens Accueil et Budget pour rester sur la personne choisie.
      */
     public static Html page(String title, Section section, String csrf, String scope, Html content) {
+        return page(title, section, csrf, scope, content, null);
+    }
+
+    private static Html page(String title, Section section, String csrf, String scope, Html content, AdminSection active) {
         Chrome chrome = CHROME.get();
         boolean realEstate = chrome == null || chrome.realEstate();
         boolean administrator = chrome != null && chrome.administrator();
+        if (active == null && chrome != null && chrome.location() != null) {
+            String path = chrome.location().split("\\?", 2)[0];
+            for (AdminSection candidate : AdminSection.values()) {
+                if (path.equals(candidate.href) || path.startsWith(candidate.href + "/")) active = candidate;
+            }
+            if (path.startsWith("/administration/bien/")) active = AdminSection.PROPERTIES;
+        }
         Html links = administrator
                 // L'administrateur n'a pas de budget : ses seules pages sont celles des comptes.
-                ? Html.concat(menu("Foyers", navLink("/administration/foyers", "Liste et création des foyers", false)),
-                        menu("Utilisateurs", navLink("/administration/utilisateurs", "Comptes et accès aux foyers", false)),
-                        menu("Sécurité", navLink("/administration/securite", "Sécurité de l'installation", section == Section.SECURITY)))
+                ? Html.concat(navLink("/administration/foyers", "Foyers", active == AdminSection.HOUSEHOLDS),
+                        navLink("/administration/utilisateurs", "Utilisateurs", active == AdminSection.USERS),
+                        navLink("/administration/securite", "Sécurité", section == Section.SECURITY))
                 : Html.concat(menu("Budget", Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
                         navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET))),
-                        realEstate ? menu("Immobilier", navLink("/immobilier", "Vue d'ensemble des biens", section == Section.REAL_ESTATE)) : Html.EMPTY,
+                        realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY,
                         menu("Suivi", Html.concat(iconLink("/bilan", "Bilan de santé", HEALTH_ICON, section == Section.HEALTH),
                                 iconLink("/assistant", "Guide de saisie", ASSISTANT_ICON, section == Section.ASSISTANT))),
-                        menu("Gestion", group(AdminGroup.HOUSEHOLD, chrome, null)));
+                        menu("Gestion", group(AdminGroup.HOUSEHOLD, chrome, active)));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
                 <header class="topbar"><div class="shell navigation">%s<div class="account-bar">%s%s%s</div><nav aria-label="Navigation principale">%s</nav></div></header>""",
                 brand(), audience(chrome, csrf), householdSwitch(chrome, csrf), menu("Mon compte", Html.concat(account(chrome, section == Section.ACCOUNT), Html.of("""
@@ -192,7 +203,8 @@ public final class Layout {
     }
 
     private static Html menu(String label, Html entries) {
-        return Html.of("<details class=\"nav-menu\" name=\"navigation\"><summary>%s</summary><div class=\"nav-panel\">%s</div></details>", label, entries);
+        return Html.of("<details class=\"nav-menu%s\" name=\"navigation\"><summary>%s</summary><div class=\"nav-panel\">%s</div></details>",
+                entries.toString().contains("aria-current=\"page\"") ? " active" : "", label, entries);
     }
 
     /**
@@ -232,24 +244,11 @@ public final class Layout {
                 active ? " active" : "", Html.raw(active ? " aria-current=\"page\"" : ""), chrome.name(), ACCOUNT_ICON, chrome.name());
     }
 
-    /**
-     * Page d'une rubrique d'administration avec sa navigation laterale en deux groupes : « Comptes » (foyers,
-     * utilisateurs : tous les foyers) et « Foyer : Martin » (ce qu'il contient). Chacun ne voit que ses rubriques.
-     */
+    /** Rubrique de gestion ; la navigation commune indique la rubrique active. */
     public static Html adminSection(String title, String csrf, AdminSection active, Html content) {
         Chrome chrome = CHROME.get();
-        boolean admin = chrome == null || chrome.administrator();
-        Html accounts = group(AdminGroup.ACCOUNTS, chrome, active);
-        Html household = group(AdminGroup.HOUSEHOLD, chrome, active);
-        String name = householdName(chrome);
-        Html householdTitle = Html.of("<p class=\"eyebrow nav-group\">Foyer%s</p>", name.isEmpty() ? Html.EMPTY : Html.of(" · <span>%s</span>", name));
-        Html accountsTitle = Html.of("<p class=\"eyebrow nav-group\">%s</p>", admin ? "Comptes" : "Mon compte");
-        // L'administrateur n'a pas de groupe « Foyer » : il ne voit pas le contenu des foyers.
-        Html nav = chrome != null && chrome.administrator() ? Html.concat(accountsTitle, accounts)
-                : admin ? Html.concat(accountsTitle, accounts, householdTitle, household) : Html.concat(householdTitle, household, accountsTitle, accounts);
         Html body = active.group == AdminGroup.HOUSEHOLD ? Html.concat(householdBanner(chrome), content) : content;
-        return page(title, active == AdminSection.SECURITY ? Section.SECURITY : Section.ADMINISTRATION, csrf,
-                Html.of("<div class=\"admin-layout\"><aside class=\"admin-nav\">%s</aside><div>%s</div></div>", nav, body));
+        return page(title, active == AdminSection.SECURITY ? Section.SECURITY : Section.ADMINISTRATION, csrf, "", body, active);
     }
 
     private static Html group(AdminGroup group, Chrome chrome, AdminSection active) {
@@ -302,7 +301,7 @@ public final class Layout {
 
     /** Page d'administration d'un bien : navigation laterale + contenu, avec le rappel du foyer modifie. */
     public static Html adminPage(String title, String csrf, Html sideNav, Html content) {
-        return page(title, Section.ADMINISTRATION, csrf, Html.of("<div class=\"admin-layout\">%s<div>%s%s</div></div>", sideNav, householdBanner(CHROME.get()), content));
+        return page(title, Section.ADMINISTRATION, csrf, "", Html.of("<div class=\"admin-layout\">%s<div>%s%s</div></div>", sideNav, householdBanner(CHROME.get()), content), AdminSection.PROPERTIES);
     }
 
     public static Html message(String title, String text, String csrf) {

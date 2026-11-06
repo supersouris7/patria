@@ -67,18 +67,18 @@ final class SecurityPages {
         Html content = Html.concat(Components.heading("Administration", "Sécurité",
                         "Connexions, blocages, journal des droits et état de l'installation. Aucune donnée des foyers ici. Journal des connexions gardé "
                                 + SecurityLog.KEPT_DAYS + " jours.", Html.EMPTY),
-                tiles, recommended,
+                recommended, tiles,
                 Components.card("État de l'installation", null, Html.EMPTY, installation),
                 Components.card("Bloqués en ce moment", blocked.size(), Html.EMPTY, blockedList),
-                Components.card("Connexions échouées", failures.size(), Html.EMPTY, failures.isEmpty() ? Html.raw("<p class=\"empty\">Aucun échec enregistré.</p>")
-                        : Html.concat(Components.table(List.of("Date", "Identifiant tenté", "Adresse IP", "Lieu"), failureRows, false, false), place)),
+                Components.disclosure("Connexions échouées (" + failures.size() + ")", failures.isEmpty() ? Html.raw("<p class=\"empty\">Aucun échec enregistré.</p>")
+                        : Html.concat(Components.table(List.of("Date", "Identifiant tenté", "Adresse IP", "Lieu"), failureRows, false, false), place), !failures.isEmpty()),
                 Components.card("Comptes", users.size() + 1, Html.EMPTY,
                         Components.table(List.of("Compte", "Dernière connexion", "#Sessions ouvertes", "Mot de passe", "Double authentification"), accountRows, false, false)),
-                Components.card("Connexions réussies", successes.size(), Html.EMPTY, successes.isEmpty() ? Html.raw("<p class=\"empty\">Aucune connexion enregistrée.</p>")
-                        : Html.concat(Components.table(List.of("Date", "Compte", "Adresse IP", "Lieu"), successRows, false, false), place)),
-                Components.card("Journal des droits", audit.size(), Html.EMPTY, audit.isEmpty() ? Html.raw("<p class=\"empty\">Aucun changement enregistré.</p>")
+                Components.disclosure("Connexions réussies (" + successes.size() + ")", successes.isEmpty() ? Html.raw("<p class=\"empty\">Aucune connexion enregistrée.</p>")
+                        : Html.concat(Components.table(List.of("Date", "Compte", "Adresse IP", "Lieu"), successRows, false, false), place), false),
+                Components.disclosure("Journal des droits (" + audit.size() + ")", audit.isEmpty() ? Html.raw("<p class=\"empty\">Aucun changement enregistré.</p>")
                         : Html.concat(Html.raw("<p class=\"muted\">Comptes créés, accès ouverts ou retirés, mots de passe réinitialisés, foyers créés ou supprimés.</p>"),
-                        Components.table(List.of("Date", "Par", "Changement"), auditRows, false, false))));
+                        Components.table(List.of("Date", "Par", "Changement"), auditRows, false, false)), false));
         return Layout.adminSection("Sécurité · Patria", csrf, Layout.AdminSection.SECURITY, content);
     }
 

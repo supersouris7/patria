@@ -199,6 +199,7 @@ démarrage avec un message explicite.
 - `ui/Html` : tout texte inséré dans un gabarit est **échappé automatiquement**. Seul un objet `Html` est
   inséré tel quel. On écrit donc `Html.of("<td>%s</td>", bien.name())` sans jamais penser à l'échappement.
 - `ui/Components` : tuiles, cartes, tableaux, champs de formulaire, zone de suppression…
+- Navigation : `ui/Layout` regroupe Budget, Suivi et Gestion ; les destinations uniques (Immobilier, Foyers, Utilisateurs, Sécurité) sont des liens directs. La rubrique courante est marquée dans l'en-tête, sans seconde navigation principale latérale. Les formulaires d'ajout et aides utilisent des `<details>` natifs ; les listes et indicateurs précèdent les contenus secondaires. Le bilan trie d'abord les alertes par gravité, tous domaines confondus.
 - `ui/Format` : euros, pourcentages, dates, surfaces et durées à la française.
 - Les pages ne font **aucun calcul** : elles reçoivent des données déjà calculées (`Portfolio`, `LoanMath`).
 

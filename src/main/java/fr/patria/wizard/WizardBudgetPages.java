@@ -36,7 +36,7 @@ final class WizardBudgetPages {
                 "Ajouter ce membre");
         return Html.concat(explain("Ajoutez chaque personne dont les revenus et les dépenses comptent dans le budget, puis le compte joint s'il y en a un : "
                         + "il a son propre budget, alimenté par des virements. Un membre n'est pas un compte de connexion : les comptes se créent dans "
-                        + "Administration → Utilisateurs."),
+                        + "Utilisateurs dans la navigation de l'administrateur."),
                 Components.card("Membres du foyer", people.size(), Html.EMPTY, Html.concat(list, add)));
     }
 
@@ -163,7 +163,7 @@ final class WizardBudgetPages {
         Html quick = Html.of("""
                 <details class="help-block"><summary>Plus rapide : tout importer avec vos relevés bancaires</summary>
                 <p class="muted">L'IA est facultative. Si vous l'utilisez, caviardez et vérifiez d'abord les copies de vos relevés et contrats. Joignez uniquement ces copies avec le prompt : elle renvoie un fichier
-                à importer dans <a href="/administration/depenses">Administration → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
+                à importer dans <a href="/administration/depenses">Gestion → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
                 Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "
