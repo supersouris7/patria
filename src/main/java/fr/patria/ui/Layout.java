@@ -175,16 +175,14 @@ public final class Layout {
         Html estate = realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY;
         Html follow = Html.of("""
                 <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>
-                <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="nav-count" data-guide-progress hidden></span></a>""",
+                <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="menu-only">Assistant</span><span class="nav-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
         Html allLinks = administrator ? manage : Html.concat(budget, estate, manage, follow);
         Html links = allLinks;
-        // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les
-        // libelles complets (utilisable sans JavaScript).
-        Html burgerLinks = administrator ? Html.concat(manage, navLink("/compte", "Mon compte", section == Section.ACCOUNT))
-                : Html.concat(budget, estate, navLink("/bilan", "Bilan de santé", section == Section.HEALTH),
-                navLink("/assistant", "Assistant — Guide de saisie", section == Section.ASSISTANT), manage, navLink("/compte", "Mon compte", section == Section.ACCOUNT));
+        // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
+        // entrees, pastille du Bilan et % de l'Assistant compris (utilisable sans JavaScript).
+        Html burgerLinks = allLinks;
         Html burger = Html.of("""
                 <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="Menu principal" title="Menu principal">%s</summary>\
                 <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s</nav></div></details>""", BURGER_ICON, burgerLinks);

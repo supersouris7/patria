@@ -60,17 +60,20 @@ if (navigationStatus) {
       if (!response.ok || response.redirected) throw new Error('navigation');
       const state = await response.json();
       if (!Number.isInteger(state.warnings) || state.warnings < 0 || !Number.isInteger(state.progress) || state.progress < 0 || state.progress > 100) throw new Error('navigation');
-      const warnings = navigationStatus.querySelector('[data-warning-count]');
-      warnings.textContent = state.warnings;
-      warnings.hidden = state.warnings === 0;
-      warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
-      const progress = navigationStatus.querySelector('[data-guide-progress]');
-      progress.textContent = `${state.progress} %`;
-      progress.hidden = false;
-      progress.closest('a').setAttribute('aria-label', `Assistant, guide complété à ${state.progress} %`);
+      // Barre d'ordinateur et menu burger : les memes indicateurs aux deux endroits.
+      navigationStatus.querySelectorAll('[data-warning-count]').forEach((warnings) => {
+        warnings.textContent = state.warnings;
+        warnings.hidden = state.warnings === 0;
+        warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
+      });
+      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
+        progress.textContent = `${state.progress} %`;
+        progress.hidden = false;
+        progress.closest('a').setAttribute('aria-label', `Assistant, guide complété à ${state.progress} %`);
+      });
     } catch {
-      navigationStatus.querySelector('[data-warning-count]').closest('a').title = 'Indicateur indisponible — ouvrir le bilan de santé';
-      navigationStatus.querySelector('[data-guide-progress]').closest('a').title = 'Indicateur indisponible — ouvrir le guide de saisie';
+      navigationStatus.querySelectorAll('[data-warning-count]').forEach((element) => { element.closest('a').title = 'Indicateur indisponible — ouvrir le bilan de santé'; });
+      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((element) => { element.closest('a').title = 'Indicateur indisponible — ouvrir le guide de saisie'; });
     }
   })();
 }

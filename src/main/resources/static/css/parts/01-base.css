@@ -54,6 +54,8 @@ main.shell { padding: 36px 0 72px; }
 .nav-hamburger { display: none; }
 .nav-hamburger summary { min-height: 44px; padding: 8px; }
 .nav-hamburger .nav-entries { display: grid; gap: 4px; grid-template-columns: 1fr; margin: 0; }
+/* Libelle de l'Assistant : icone seule dans la barre, icone et nom dans le menu. */
+.primary-navigation .menu-only { display: none; }
 .primary-navigation { align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
 .primary-navigation a { align-items: center; display: inline-flex; font-size: .9rem; gap: 6px; min-height: 44px; padding: 8px; }
 .nav-count { background: var(--surface-raised); border-radius: 99px; color: var(--text-soft); font-size: .72rem; padding: 2px 6px; white-space: nowrap; }
