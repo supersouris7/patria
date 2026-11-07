@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -o -q compile)",
+      "Bash(mvn -o test)",
+      "Bash(gh run watch *)",
+      "Bash(graphify query *)",
+      "Bash(mvn -o -q test)",
+      "Bash(python3 -m unittest discover -s tests -p 'test_docker_publish.py')",
+      "Bash(graphify explain *)"
+    ]
+  }
+}
