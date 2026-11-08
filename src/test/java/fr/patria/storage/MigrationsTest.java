@@ -50,6 +50,7 @@ class MigrationsTest {
             database.query(connection -> {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("DROP TABLE health_scope");
+                    statement.execute("DROP TABLE savings_history");
                     statement.execute("DROP TABLE savings_positions");
                     statement.execute("DROP TABLE savings_accounts");
                     statement.execute("DROP TABLE savings_preferences");

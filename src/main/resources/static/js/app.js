@@ -347,7 +347,7 @@ document.querySelectorAll("button[data-copy]").forEach((button) => {
       source.select();
       try { copied = document.execCommand("copy"); } catch { copied = false; }
     }
-    status.textContent = copied ? "Prompt copié : joignez uniquement les copies caviardées vérifiées, jamais les originaux."
+    status.textContent = copied ? "Prompt copié : collez-le dans votre IA avec vos documents, puis collez sa réponse dans Patria."
       : "Copie automatique impossible : le prompt est sélectionné ci-dessous, copiez-le (Ctrl+C).";
   });
 });
@@ -443,3 +443,41 @@ document.querySelectorAll('.metric').forEach((tile) => {
   rows.forEach(box => box.addEventListener("change", refresh));
   refresh();
 })();
+
+// Ajout d'un placement : taux officiel pre-rempli (et non modifiable) pour un livret reglemente, saisie controlee sinon.
+document.querySelectorAll("[data-regulated-rates]").forEach(marker => {
+  const form = marker.closest("form");
+  const kind = form?.querySelector("select[name=kind]");
+  const rate = form?.querySelector("input[name=rate]");
+  if (!kind || !rate) return;
+  const rates = Object.fromEntries(marker.dataset.regulatedRates.split(";").filter(Boolean).map(entry => entry.split("=")));
+  rate.setAttribute("inputmode", "decimal");
+  rate.setAttribute("pattern", "\\d{1,2}([.,]\\d{1,3})?");
+  rate.title = "Un taux entre 0 et 30, par exemple 2,5";
+  const apply = () => {
+    const official = rates[kind.value];
+    if (official) {
+      rate.value = official;
+      rate.readOnly = true;
+      rate.dataset.auto = "1";
+    } else if (rate.dataset.auto) {
+      rate.value = "";
+      rate.readOnly = false;
+      delete rate.dataset.auto;
+    }
+  };
+  kind.addEventListener("change", apply);
+  apply();
+});
+
+// IA locale : un document depose peut prendre quelques minutes a analyser ; on le dit et on evite le double envoi.
+document.addEventListener("submit", event => {
+  const form = event.target;
+  const file = form.querySelector?.("input[name=document]");
+  if (!file || !file.files || file.files.length === 0) return;
+  const button = form.querySelector("button[type=submit]");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Analyse par l'IA locale en cours…";
+  }
+});

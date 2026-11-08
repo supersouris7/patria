@@ -28,7 +28,10 @@ class NavigationJourneyTest {
             assertEquals(403, TestAccounts.get(client, base, restricted, "/navigation/biens").statusCode());
             assertEquals(403, TestAccounts.get(client, base, admin, "/navigation/biens").statusCode());
             String overview = TestAccounts.get(client, base, reader, "/immobilier").body();
-            for (String anchor : new String[]{"biens", "prets", "taxe-fonciere"}) assertTrue(overview.contains("id=\"" + anchor + "\""));
+            for (String anchor : new String[]{"biens", "prets", "taxe-fonciere"}) {
+                assertTrue(TestAccounts.get(client, base, reader, "/immobilier/" + anchor).body().contains("id=\"" + anchor + "\""), anchor);
+                assertFalse(overview.contains("id=\"" + anchor + "\""), "plus en double dans Patrimoine");
+            }
             assertTrue(overview.indexOf("id=\"taxe-fonciere\"") < overview.indexOf("<h2>Bilan</h2>"), "bilan patrimonial en dernier");
             for (String tab : new String[]{"biens", "prets", "taxe-fonciere"}) {
                 var page = TestAccounts.get(client, base, reader, "/immobilier/" + tab);

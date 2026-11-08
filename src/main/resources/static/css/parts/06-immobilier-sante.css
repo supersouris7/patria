@@ -105,3 +105,22 @@ tr .badge { white-space: nowrap; }
 tr.positions td { padding-top: 0; }
 tr.positions li { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 tr.positions .link-button { background: none; border: 0; color: var(--muted, #8b98a5); cursor: pointer; font-size: 1.1rem; padding: 0 4px; }
+
+/* Epargne : graphique empile (bleu disponible, orange bourse, aqua long terme ; palette validee daltonisme) */
+.savings-chart { display: block; height: auto; max-width: 100%; width: 100%; }
+.savings-chart .grid { stroke: #24303c; stroke-width: 1; }
+.savings-chart .axis { fill: #8b98a5; font-size: 11px; }
+.savings-chart .seg { stroke: #111820; stroke-width: 2; }
+.savings-chart .seg:hover { opacity: .85; }
+.seg.available, .chart-legend i.available { fill: #3987e5; background: #3987e5; }
+.seg.stocks, .chart-legend i.stocks { fill: #d95926; background: #d95926; }
+.seg.long, .chart-legend i.long { fill: #199e70; background: #199e70; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 8px; padding: 0; font-size: .85rem; }
+.chart-legend i { border-radius: 3px; display: inline-block; height: 10px; margin-right: 6px; width: 10px; }
+tr.contribution td { border-top: 0; font-size: .9rem; padding-top: 0; }
+tr.contribution details { display: inline-block; margin-left: 8px; }
+.wizard-import h3 { margin-top: 0; }
+.danger-link { color: #ff8a8a; }
+.ai-warning { font-weight: 400; line-height: 1.5; }
+.local-ai { background: #10212f; border: 1px solid #24506f; border-radius: var(--radius-small); margin: 8px 0; padding: 10px 12px; }
+.local-ai input[type=file] { display: block; margin-top: 6px; }

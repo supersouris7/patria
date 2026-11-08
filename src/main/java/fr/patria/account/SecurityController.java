@@ -39,6 +39,20 @@ public final class SecurityController {
 
     public void register(Router router) {
         router.get("/administration/securite", this::page);
+        router.post("/administration/securite/ia", request -> {
+            try {
+                fr.patria.ai.LocalAi.Settings settings = new fr.patria.ai.LocalAi.Settings("on".equals(request.form().raw("ia")), request.form().raw("url"),
+                        request.form().raw("modele"));
+                accounts.setLocalAi(settings);
+                fr.patria.ai.LocalAi.configure(settings);
+                fr.patria.ui.Components.useLocalAi(settings.enabled());
+                fr.patria.ai.LocalAi.remember(settings.enabled() ? fr.patria.ai.LocalAi.check(settings) : null);
+                return Response.redirect("/administration/securite?ok=enregistre#ia-locale");
+            } catch (fr.patria.common.ValidationException exception) {
+                fr.patria.ai.LocalAi.remember(exception.getMessage());
+                return Response.redirect("/administration/securite#ia-locale");
+            }
+        });
     }
 
     private Response page(Request request) {

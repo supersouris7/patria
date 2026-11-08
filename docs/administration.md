@@ -153,6 +153,30 @@ Les mots de passe provisoires doivent être changés à la connexion suivante. D
 
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
 
+## IA locale (facultative)
+
+Sans IA locale, les imports (relevés, échéanciers, exports de courtier) proposent un prompt à copier dans un assistant externe, avec un avertissement sur les données. Avec une IA locale, l'utilisateur dépose son document (PDF texte, CSV ou texte) et Patria le fait convertir **sur votre serveur** : rien ne sort. Les scans sans texte ne sont pas lus.
+
+Prévoir environ **4 Go de mémoire libre** pour un modèle 3B (`qwen2.5:3b`, conseillé), **8 Go** pour un 7B (`qwen2.5:7b`, plus fiable). Sur processeur seul, comptez une à plusieurs minutes par document.
+
+1. Ajoutez Ollama à côté de Patria dans `compose.yaml` (même réseau, aucun port publié) :
+
+   ```yaml
+     ollama:
+       image: ollama/ollama:latest
+       container_name: ollama
+       volumes:
+         - ollama_models:/root/.ollama
+       restart: unless-stopped
+   # et sous volumes:
+     ollama_models:
+   ```
+
+2. Téléchargez le modèle une fois : `docker exec ollama ollama pull qwen2.5:3b`.
+3. Administration → Sécurité → **IA locale** : cochez « Utiliser une IA locale », adresse `http://ollama:11434`, modèle `qwen2.5:3b`, puis « Enregistrer et tester ». Le résultat du test s'affiche (serveur joignable, modèle installé).
+
+Décocher la case revient au prompt à copier. Les prompts restent toujours disponibles.
+
 ## Double authentification
 
 Chaque compte, administrateur compris, l'active dans **Mon compte** : en plus du mot de passe, Patria demande le code à 6 chiffres d'une application d'authentification (Aegis, 2FAS, Google Authenticator, Microsoft Authenticator, Bitwarden…). Norme TOTP : ni SMS ni service extérieur ; le QR code est dessiné par Patria et la clé reste sur le serveur.
@@ -226,8 +250,6 @@ Le schéma est migré au démarrage, avec copie préalable. Vérifiez la version
 | `HTTP_PORT` | Port du serveur Java, `8080` par défaut ; ne pas changer sans adapter le Compose/proxy. |
 | `OFFLINE` | `true` coupe les appels automatiques sortants : marché, taux, localisation des IP. |
 | `KOFI_URL` | Lien « Soutenir Patria » : `https://ko-fi.com/supersouris7` par défaut ; une autre URL `https://ko-fi.com/<nom>` le remplace, vide le masque. |
-| `STIRLING_URL` | Adresse d'un serveur [Stirling PDF](https://docs.stirlingpdf.com/) que vous gérez (ex. `http://stirling-pdf:8080`). Active « Préparer un document » : caviardage, OCR et nettoyage des PDF avant une IA. Absente : l'outil est masqué. |
-| `STIRLING_API_KEY` | Clé API de ce serveur (en-tête `X-API-KEY`), si sa connexion est activée. Les appels avec clé consomment son allocation de traitement : vérifiez ses quotas. |
 | `ADMIN_2FA_RESET` | `true` retire la double authentification de l'administrateur au démarrage (téléphone perdu) ; à retirer ensuite. |
 
 Les services utilisés hors mode hors ligne sont détaillés dans [Confidentialité](confidentialite.md). Sans réseau sortant, le budget reste utilisable, mais les données de marché ne sont plus actualisées.

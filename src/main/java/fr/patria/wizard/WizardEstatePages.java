@@ -61,14 +61,16 @@ final class WizardEstatePages {
             Html list = loans.isEmpty() ? Html.raw("<p class=\"muted\">Aucun prêt importé pour ce bien.</p>")
                     : Html.of("<ul class=\"done-list\">%s</ul>", loans.stream().map(loan -> Html.of("<li><span class=\"ok\" aria-hidden=\"true\">✓</span><a href=\"/pret/%s\">%s</a></li>",
                     loan.id(), loan.name())).collect(Html.joining()));
-            Html add = form(context, "/assistant/prets/" + property.id(), true, Components.fields(2,
+            Html add = form(context, "/assistant/prets/" + property.id(), true, Html.concat(Components.fields(2,
                     Components.input(Input.of("Nom du prêt", "name", Field.TEXT).required().maxLength(100).placeholder("Prêt principal, prêt à taux zéro…"), Map.of()),
-                    Components.fileInput("Échéancier CSV", "csv")), "Importer ce prêt");
+                    Html.raw("<label>Fichier CSV (facultatif)<input name=\"csv\" type=\"file\" accept=\".csv,text/csv\"></label>")), Components.localAiInput("echeancier"),
+                    Html.raw("<label>Ou collez la réponse de l'IA<textarea name=\"texte\" rows=\"5\" placeholder=\"Collez ici les lignes de l'échéancier\"></textarea></label>")),
+                    "Importer ce prêt");
             return Html.of("<section class=\"card section\" id=\"bien-%s\"><div class=\"section-title\"><h2>%s</h2></div>%s%s%s</section>",
                     property.id(), property.name(), list, Components.llmPrompt("prompt-pret-" + property.id(), CsvScheduleParser.llmPrompt()), add);
         }).collect(Html.joining());
-        return Html.concat(explain("Un prêt = un fichier d'échéancier CSV, préparé à la main ou avec une IA facultative. Avant de lui joindre le tableau "
-                + "d'amortissement, caviardez et vérifiez une copie ; n'envoyez pas l'original. Vérifiez le CSV obtenu avant import. Un prêt à taux zéro ou un "
+        return Html.concat(explain("Un prêt = son échéancier : un fichier CSV préparé à la main, ou la réponse d'une IA (copiez le prompt avec le tableau "
+                + "d'amortissement, puis collez sa réponse). Vérifiez ensuite le prêt importé. Un prêt à taux zéro ou un "
                 + "prêt complémentaire s'importe comme un prêt à part."), cards);
     }
 

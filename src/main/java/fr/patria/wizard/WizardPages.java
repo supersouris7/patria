@@ -67,6 +67,9 @@ final class WizardPages {
             case TAXES -> taxes(context, values);
             case TRANSFERS -> transfers(context, values);
             case SHARES -> shares(context);
+            case SAVINGS -> Html.concat(explain("Saisissez le solde de chaque livret, assurance-vie, PER, PEA ou compte-titres. Un versement programmé fait avancer le solde "
+                    + "tout seul et apparaît dans le budget. Pour la bourse, importez les lignes depuis l'export de votre courtier (Trade Republic, Boursorama…) "
+                    + "avec le prompt IA, puis complétez ou supprimez à la main."), context.savings().get());
             case HEALTH -> healthScope(context);
             case SUMMARY -> summary(context);
         };
@@ -132,14 +135,15 @@ final class WizardPages {
                 group, documents.stream().filter(document -> document.group().equals(group)).map(document -> documentRow(context, document)).collect(Html.joining())))
                 .collect(Html.joining());
         return Html.concat(
-                explain("Rassemblez ce que vous pouvez, au format papier ou PDF : rien n'est obligatoire. Une coche verte apparaît toute seule quand "
-                        + "l'information est déjà dans Patria ; sinon, cochez « J'ai ce document » ou « Pas concerné ». Astuce : avec vos relevés bancaires "
-                        + "et vos contrats, l'import de l'étape Dépenses fixes (prompt IA) remplit beaucoup de lignes d'un coup."),
-                Components.card("Préparer les documents avant un import", null, Html.EMPTY, Html.concat(Html.raw("""
-                        <ol class="steps"><li><b>Rassemblez les originaux</b> avec la liste ci-dessous. Une saisie manuelle ou un CSV préparé par vous-même ne nécessite pas d'IA.</li>
-                        <li><b>Caviardez une copie</b> avant tout partage : noms, adresses, IBAN, numéros, signatures et QR codes.</li>
-                        <li><b>Relisez la copie</b>, puis joignez uniquement celle-ci avec le prompt de l'étape Prêts ou Dépenses fixes. N'envoyez jamais l'original.</li></ol>
-                        <p class="muted">« J'ai ce document » indique qu'il est rassemblé, pas qu'il a été caviardé.</p>"""), Components.redactionLink(""))),
+                explain("Pour chaque document que vous avez, « J'ai ce document » vous emmène à l'étape qui l'exploite. Rien n'est obligatoire ; "
+                        + "une coche verte apparaît toute seule quand l'information est déjà dans Patria."),
+                Components.card("Comment ça marche", null, Html.EMPTY, Html.concat(Html.raw("""
+                        <ol class="steps"><li><b>« J'ai ce document »</b> : Patria ouvre l'étape où il sert (dépenses, prêts, épargne…).</li>
+                        <li><b>Copiez le prompt</b> dans votre assistant IA avec le document, puis <b>collez sa réponse</b> dans Patria.</li>
+                        <li><b>Cochez ce que vous gardez</b> dans l'aperçu : seules les lignes cochées sont importées.</li>
+                        <li><b>Complétez à la main</b> dans la même étape : supprimez une ligne importée ou ajoutez-en d'autres.</li></ol>"""),
+                        Components.localAi() ? Html.raw("<p class=\"notice success\"><b>IA locale activée</b> : dans chaque étape, déposez simplement le document ; "
+                                + "Patria le fait analyser sur votre serveur, rien ne sort.</p>") : Components.aiWarning())),
                 Components.card("Documents", null, Html.of("<span class=\"muted\">%s sur %s rassemblés</span>", ready, documents.size()),
                         Html.concat(Components.progress(documents.isEmpty() ? 0 : (int) (ready * 100 / documents.size())), groups)));
     }

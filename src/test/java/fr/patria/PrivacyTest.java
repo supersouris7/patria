@@ -120,80 +120,55 @@ class PrivacyTest {
     }
 
     @Test
-    void withoutStirlingTheToolIsHiddenAndAdviceStays() throws Exception {
-        try (App ignored = start(null)) {
-            assertFalse(get(null, "/aide/caviardage").statusCode() == 200, "ancien outil retiré");
-            assertFalse(get(null, "/vendor/pdfjs/build/pdf.min.mjs").statusCode() == 200);
-            Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
-            assertEquals(404, get(manager, "/documents/preparer").statusCode());
-            String expenses = get(manager, "/administration/depenses").body();
-            assertFalse(expenses.contains("/documents/preparer"));
-            assertTrue(expenses.contains("Caviardez une copie avec l'outil de votre choix"));
-            assertTrue(get(manager, "/assistant/documents").body().contains("Caviardez une copie avec l'outil de votre choix"));
-            assertTrue(get(null, "/aide/chiffrement").body().contains("Oubli au premier lancement"));
-        }
-    }
-
-    @Test
-    void stirlingRedactsACopyWithTheHouseholdNamesAndCleansIt() throws Exception {
-        java.util.List<String> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
-        java.util.List<String> bodies = new java.util.concurrent.CopyOnWriteArrayList<>();
-        com.sun.net.httpserver.HttpServer stirling = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
-        stirling.createContext("/", exchange -> {
-            calls.add(exchange.getRequestURI().getPath() + " " + exchange.getRequestHeaders().getFirst("X-API-KEY"));
-            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
-            byte[] answer = "%PDF-1.7 traite".getBytes(StandardCharsets.ISO_8859_1);
-            if (exchange.getRequestURI().getPath().endsWith("auto-redact")) exchange.getResponseHeaders().set("X-Stirling-Redaction-Matches", "3");
+    void promptsStayAndALocalAiConvertsDroppedDocuments() throws Exception {
+        java.util.List<String> prompts = new java.util.concurrent.CopyOnWriteArrayList<>();
+        com.sun.net.httpserver.HttpServer ollama = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        ollama.createContext("/api/tags", exchange -> {
+            byte[] answer = "{\"models\":[{\"name\":\"qwen2.5:3b\"}]}".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, answer.length);
             exchange.getResponseBody().write(answer);
             exchange.close();
         });
-        stirling.start();
-        try (App ignored = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, false, null, null)
-                .withStirling("http://127.0.0.1:" + stirling.getAddress().getPort() + "/", "cle-api"))) {
-            base = "http://127.0.0.1:" + ignored.port();
+        ollama.createContext("/api/generate", exchange -> {
+            prompts.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] answer = "{\"response\":\"Voici :\\n```csv\\nNetflix;Télécom et abonnements;13,49;Mensuel;01/01/2026;;Abonnement\\n```\",\"done\":true}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, answer.length);
+            exchange.getResponseBody().write(answer);
+            exchange.close();
+        });
+        ollama.start();
+        try (App ignored = start(null)) {
+            assertFalse(get(null, "/aide/caviardage").statusCode() == 200, "outil de caviardage retiré");
             Visitor admin = TestAccounts.admin(client, base);
             Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
-            assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Pascaline+Durand&kind=PERSON").statusCode());
-            assertTrue(get(manager, "/administration/depenses").body().contains("href=\"/documents/preparer\""));
-            String page = get(manager, "/documents/preparer").body();
-            assertTrue(page.contains("Pascaline Durand") && page.contains("repere_IBAN"), "noms du foyer et repères proposés");
+            String expenses = get(manager, "/administration/depenses").body();
+            assertTrue(expenses.contains("Copier le prompt IA") && expenses.contains("Attention aux données que vous confiez à une IA commerciale"));
+            assertFalse(expenses.contains("name=\"document\""), "pas d'IA locale par défaut");
 
-            HttpResponse<byte[]> refused = upload(manager, "mots=Pascaline", "pas un pdf".getBytes(StandardCharsets.UTF_8));
-            assertEquals(400, refused.statusCode());
-            assertTrue(calls.isEmpty(), "rien n'est envoyé à Stirling pour un fichier qui n'est pas un PDF");
+            assertEquals(303, post(admin, "/administration/securite/ia", "ia=on&url=http%3A%2F%2F127.0.0.1%3A" + ollama.getAddress().getPort() + "&modele=qwen2.5%3A3b")
+                    .statusCode());
+            assertTrue(get(admin, "/administration/securite").body().contains("IA locale prête"));
+            String withAi = get(manager, "/administration/depenses").body();
+            assertTrue(withAi.contains("name=\"document\"") && withAi.contains("Copier le prompt IA"), "document à déposer, prompt toujours là");
+            assertTrue(get(manager, "/assistant/documents").body().contains("IA locale activée"));
 
-            HttpResponse<byte[]> copy = upload(manager, "mots=Pascaline+Durand&repere_IBAN=on&images=on", "%PDF-1.4 original".getBytes(StandardCharsets.ISO_8859_1));
-            assertEquals(200, copy.statusCode(), new String(copy.body(), StandardCharsets.UTF_8));
-            assertEquals("application/pdf", copy.headers().firstValue("Content-Type").orElseThrow());
-            assertTrue(copy.headers().firstValue("Content-Disposition").orElseThrow().contains("copie-caviardee.pdf"));
-            assertEquals(java.util.List.of("/api/v1/security/auto-redact cle-api", "/api/v1/security/sanitize-pdf cle-api"), calls, "caviardage puis nettoyage, sans OCR");
-            assertTrue(bodies.getFirst().contains("Pascaline\\s+Durand") && bodies.getFirst().contains("name=\"useRegex\"\r\n\r\ntrue")
-                    && bodies.getFirst().contains("name=\"convertPDFToImage\"\r\n\r\ntrue"));
-            assertTrue(bodies.get(1).contains("name=\"removeMetadata\"\r\n\r\ntrue"));
+            String boundary = "b0undary";
+            String body = "--" + boundary + "\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n" + manager.csrf() + "\r\n"
+                    + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"ia\"\r\n\r\ndepenses\r\n"
+                    + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"document\"; filename=\"releve.txt\"\r\nContent-Type: text/plain\r\n\r\n"
+                    + "12/01/2026 PRLV NETFLIX 13,49\r\n--" + boundary + "--\r\n";
+            HttpResponse<String> preview = client.send(HttpRequest.newBuilder(URI.create(base + "/administration/depenses/import")).header("Cookie", manager.cookie())
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary).POST(HttpRequest.BodyPublishers.ofString(body)).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, preview.statusCode(), preview.body());
+            assertTrue(preview.body().contains("Netflix") && preview.body().contains("name=\"importer_1\""), "aperçu des lignes converties");
+            assertTrue(prompts.getFirst().contains("PRLV NETFLIX") && prompts.getFirst().contains("qwen2.5:3b"), "document et modèle envoyés à l'IA locale");
         } finally {
-            stirling.stop(0);
+            fr.patria.ai.LocalAi.configure(null);
+            fr.patria.ui.Components.useLocalAi(false);
+            ollama.stop(0);
         }
-    }
-
-    /** Envoi multipart vers « Preparer un document » : champs en {@code a=b&c=d} et le PDF. */
-    private HttpResponse<byte[]> upload(Visitor visitor, String fields, byte[] pdf) throws Exception {
-        String boundary = "test-boundary";
-        java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
-        java.util.List<String> parts = new java.util.ArrayList<>(java.util.List.of("csrf=" + visitor.csrf()));
-        parts.addAll(java.util.Arrays.asList(fields.split("&")));
-        for (String part : parts) {
-            String[] pair = part.split("=", 2);
-            body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + pair[0] + "\"\r\n\r\n"
-                    + java.net.URLDecoder.decode(pair[1], StandardCharsets.UTF_8) + "\r\n").getBytes(StandardCharsets.UTF_8));
-        }
-        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"document\"; filename=\"releve.pdf\"\r\n"
-                + "Content-Type: application/pdf\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-        body.writeBytes(pdf);
-        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-        return client.send(HttpRequest.newBuilder(URI.create(base + "/documents/preparer")).header("Cookie", visitor.cookie())
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary).POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(),
-                HttpResponse.BodyHandlers.ofByteArray());
     }
 
     @Test

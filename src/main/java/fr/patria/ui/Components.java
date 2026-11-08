@@ -216,42 +216,58 @@ public final class Components {
                 input.label(), mark, input.name(), values.getOrDefault(input.name(), ""), Html.raw(attributes.toString()), placeholder, help);
     }
 
+    private static volatile boolean localAi;
+
+    /** IA locale activee par l'administrateur : les imports proposent de deposer le document. */
+    public static void useLocalAi(boolean enabled) {
+        localAi = enabled;
+    }
+
+    public static boolean localAi() {
+        return localAi;
+    }
+
     /**
-     * Bouton « Copier le prompt IA » : un texte pret a coller dans un assistant IA avec ses documents, qui renvoie un
-     * fichier au format de l'import. Le prompt reste lisible (et copiable a la main) dans un bloc depliable.
+     * Avec une IA locale : deposer le document (PDF, CSV ou texte), converti en lignes de l'import {@code kind}
+     * (depenses, echeancier, bourse). Le formulaire doit etre en multipart. Rien sans IA locale.
+     */
+    public static Html localAiInput(String kind) {
+        if (!localAi) return Html.EMPTY;
+        return Html.of("""
+                <div class="local-ai"><label><b>Avec l'IA locale</b> : déposez le document (relevé, échéancier, export en PDF), Patria le convertit sans rien envoyer \
+                à l'extérieur<input name="document" type="file" accept=".pdf,.csv,.txt,application/pdf,text/csv,text/plain"></label>\
+                <input type="hidden" name="ia" value="%s"><p class="muted small">L'analyse peut prendre quelques minutes. Un scan sans texte n'est pas lisible.</p></div>""", kind);
+    }
+
+    /**
+     * Bouton « Copier le prompt IA » : un texte pret a coller dans un assistant IA avec ses documents, qui renvoie des
+     * lignes au format de l'import ; la reponse se colle ensuite dans Patria. Avertit sur les donnees confiees a un
+     * service commercial. Rien si l'administrateur a desactive l'aide IA.
      */
     public static Html llmPrompt(String id, String prompt) {
         return Html.of("""
-                <div class="llm-prompt"><p class="llm-why"><b>L'IA est facultative.</b> Vous pouvez préparer le CSV vous-même, ou demander à un assistant \
-                (ChatGPT, Claude, Le Chat, Gemini, ou un modèle local) de le faire. Patria ne lui envoie rien. Avant de joindre un document, créez et \
-                vérifiez une copie caviardée ; importez ensuite ici le CSV obtenu.</p>%s\
+                <div class="llm-prompt"><p class="llm-why"><b>Aide IA facultative.</b> Copiez le prompt dans un assistant IA (ChatGPT, Claude, Le Chat, Gemini, \
+                ou un modèle local) avec vos documents, puis collez sa réponse ci-dessous. Patria ne lui envoie rien lui-même.</p>%s\
                 <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
-                <span class="muted copy-status" role="status">2. Collez le prompt dans votre IA avec uniquement les copies caviardées vérifiées.</span></div>\
-                <details class="llm-privacy"><summary>Protéger vos données avant d'envoyer</summary><ul>\
-                <li><b>Supprimez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal, de contrat et de sécurité sociale sur une copie. \
-                Un simple rectangle ajouté au PDF peut laisser le texte récupérable. Vérifiez toutes les pages exportées, y compris les libellés.</li>\
-                <li><b>Désactivez</b> l'historique et l'utilisation de vos conversations pour l'entraînement dans les réglages de l'assistant, ou utilisez \
-                une conversation temporaire.</li>\
-                <li><b>Préférez</b> un modèle local si vous en avez un : rien ne quitte alors votre ordinateur.</li>\
-                <li>Le prompt demande des libellés génériques ; il n'empêche pas l'IA de lire les documents que vous lui envoyez. \
-                <a href="/confidentialite">En savoir plus sur la confidentialité</a>.</li>\
-                </ul></details>\
+                <span class="muted copy-status" role="status"></span></div>\
                 <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
-                redactionLink("1. "), id, id, prompt);
+                aiWarning(), id, id, prompt);
     }
 
-    private static volatile boolean redactionTool;
-
-    /** « Preparer un document » est propose (serveur Stirling PDF configure). Pose au demarrage. */
-    public static void useRedactionTool(boolean available) {
-        redactionTool = available;
+    /** Avertissement sur les donnees confiees a un assistant IA commercial. */
+    public static Html aiWarning() {
+        return Html.raw("""
+                <p class="notice warning ai-warning"><b>Attention aux données que vous confiez à une IA commerciale.</b> Elle reçoit tout ce que vous lui \
+                envoyez : noms, adresses, IBAN, numéros de compte, montants. Selon ses conditions, elle peut les conserver ou s'en servir pour s'entraîner. \
+                N'envoyez que ce que vous acceptez de partager : retirez vous-même les informations sensibles, désactivez l'historique et l'entraînement \
+                dans ses réglages, ou préférez un modèle local. <a href="/confidentialite">En savoir plus</a></p>""");
     }
 
-    /** Lien vers « Preparer un document » si un serveur Stirling PDF est configure, sinon un simple conseil. */
-    public static Html redactionLink(String step) {
-        return redactionTool
-                ? Html.of("<p><a class=\"button secondary\" href=\"/documents/preparer\" target=\"_blank\" rel=\"noopener noreferrer\">%sCaviarder une copie du document</a></p>", step)
-                : Html.of("<p class=\"muted\">%sCaviardez une copie avec l'outil de votre choix (noms, adresses, IBAN, numéros), puis relisez-la.</p>", step);
+    /** Import : un fichier CSV, les lignes collees (reponse d'une IA) dans {@code texte}, ou le document pour l'IA locale. */
+    public static Html importInput(String label, String name, String kind) {
+        return Html.of("""
+                %s<label>%s (facultatif)<input name="%s" type="file" accept=".csv,text/csv"></label>
+                <label>Ou collez les lignes (la réponse de l'IA)<textarea name="texte" rows="6"></textarea></label>""", localAiInput(kind), label, name);
     }
 
     public static Html fileInput(String label, String name) {

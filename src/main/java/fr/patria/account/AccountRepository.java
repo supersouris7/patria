@@ -363,6 +363,26 @@ public final class AccountRepository {
     }
 
     /** Ce que la page de connexion propose : {@code "message"} (demander a l'administrateur) ou {@code "form"}. */
+    /** IA locale reglee par l'administrateur (desactivee par defaut). */
+    public fr.patria.ai.LocalAi.Settings localAi() {
+        java.util.Map<String, String> values = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, "SELECT key, value FROM settings WHERE key LIKE 'local_ai_%'", row -> values.put(row.getString(1), row.getString(2))));
+        try {
+            return new fr.patria.ai.LocalAi.Settings("on".equals(values.get("local_ai_enabled")), values.get("local_ai_url"), values.get("local_ai_model"));
+        } catch (fr.patria.common.ValidationException exception) {
+            return fr.patria.ai.LocalAi.Settings.OFF;
+        }
+    }
+
+    public void setLocalAi(fr.patria.ai.LocalAi.Settings settings) {
+        database.transaction(connection -> {
+            for (String[] pair : new String[][]{{"local_ai_enabled", settings.enabled() ? "on" : "off"}, {"local_ai_url", settings.url()}, {"local_ai_model", settings.model()}}) {
+                Sql.update(connection, "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", pair[0], pair[1]);
+            }
+            return null;
+        });
+    }
+
     public String signupMode() {
         return database.query(connection -> Sql.list(connection, "SELECT value FROM settings WHERE key = 'signup_mode'", row -> row.getString(1)))
                 .stream().findFirst().orElse("message");

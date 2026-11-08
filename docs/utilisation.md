@@ -73,19 +73,16 @@ Ne ressaisissez pas dans les dépenses les mensualités, charges et loyers déj�
 
 Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » proposent une aide facultative ; **aucun document n'est envoyé à une IA par Patria**.
 
-### Caviarder avant tout envoi
+### Le parcours guidé
 
-Avant de joindre un document à une IA, créez une **copie caviardée** et relisez-la. Si votre installation est reliée à Stirling PDF, le bouton « Caviarder une copie du document » (étape Documents du guide, et à côté de chaque prompt) ouvre **Préparer un document** :
+À l'étape **Documents** du Guide de saisie, « J'ai ce document » ouvre l'étape qui l'exploite : relevés et contrats → Dépenses fixes, échéancier → Prêts, export de courtier → Épargne et bourse, bulletins → Revenus. Dans cette étape :
 
-1. Choisissez le PDF (25 Mo au plus).
-2. Vérifiez les mots à masquer, un par ligne : votre nom et ceux des membres du foyer sont proposés ; ajoutez rue, ville, employeur…
-3. Gardez les repères cochés (IBAN, carte, e-mail, téléphone, sécurité sociale, numéro fiscal, numéros longs). Cochez « Document scanné ou photo » pour un scan (OCR). « Transformer les pages en images » (recommandé) empêche de récupérer le texte masqué.
-4. Téléchargez `copie-caviardee.pdf` : métadonnées, scripts, pièces jointes et liens sont aussi effacés. Si rien n'a été trouvé, Patria le dit au lieu de télécharger.
-5. Relisez la copie page par page (adresses, signatures, QR codes et écritures manuscrites ne sont pas toujours détectés), puis copiez le prompt et joignez **uniquement cette copie**. L'IA demande d'abord les documents qui manquent (relevés de tous les comptes sur 12 mois, contrats, avis d'impôt), puis détecte un maximum de dépenses.
+1. **Copiez le prompt** dans votre assistant IA avec le document (relevés de tous les comptes, 12 mois si possible). L'IA demande d'abord ce qui manque, puis liste ce qu'elle trouve.
+2. **Collez sa réponse** dans le champ prévu (plus besoin de fichier ; les balises de code sont retirées). Un fichier CSV reste accepté.
+3. **Cochez ce que vous gardez** dans l'aperçu : seules les lignes cochées sont importées, puis vous revenez à l'étape.
+4. **Complétez à la main** : la liste « Déjà saisies » permet de modifier ou supprimer une ligne importée ; la liste à cocher ajoute le reste.
 
-Sans Stirling PDF, utilisez l'outil de caviardage de votre choix ; le reste du parcours est identique.
-
-Limites : 15 Mio, 30 pages, 12 millions de pixels et 12 000 pixels par côté à la résolution de traitement (144 dpi pour un PDF). PDF protégés non acceptés. Un navigateur récent avec JavaScript est nécessaire. Le contrôle est heuristique : e-mails, téléphones, IBAN, numéros longs et libellés identifiants ; il peut manquer des noms, adresses ou identifiants inhabituels et signaler de simples nombres financiers. Une partie de texte seulement masquée reste analysée par prudence ; les pages entièrement masquées ne contiennent plus d'information visible. Pas d'OCR ni garantie d'anonymat : dates, montants ou contexte laissés visibles peuvent vous identifier. Fermer le document ou l'onglet libère le travail de l'outil, mais n'efface pas les copies déjà téléchargées ni les traces éventuelles du système d'exploitation.
+**Attention aux données confiées à une IA commerciale** (ChatGPT, Claude, Gemini, Le Chat…) : elle reçoit tout ce que vous lui envoyez (noms, adresses, IBAN, montants) et peut, selon ses conditions, le conserver ou s'en servir pour s'entraîner. Retirez vous-même les informations sensibles, désactivez l'historique et l'entraînement, ou préférez un modèle local. Si l'administrateur a installé une **IA locale**, chaque import propose aussi de **déposer le document** (PDF texte, CSV ou texte) : Patria le fait analyser sur votre serveur, sans rien envoyer à l'extérieur, puis affiche directement l'aperçu. Comptez quelques minutes ; un scan sans texte n'est pas lisible.
 
 Le prompt demandant des libellés génériques ne protège pas l'original que vous auriez déjà envoyé. Une conversation temporaire ne garantit pas l'absence de conservation chez le fournisseur ; vérifiez ses conditions, ou utilisez un modèle réellement local sans service distant. [Détails](confidentialite.md).
 
@@ -176,7 +173,10 @@ Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (pr�
 Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.
 
 - **Taux** : ceux des livrets réglementés sont fournis par Patria, datés (source service-public.gouv.fr ; aucune API publique ne les donne livret par livret). Pour une assurance-vie ou un livret bancaire, saisissez le taux.
-- **Bourse** : sur un PEA ou un compte-titres, ajoutez des lignes avec leur code Yahoo Finance (ex. `AI.PA` pour Air Liquide à Paris, `CW8.PA` pour un ETF monde), la quantité et le prix de revient. Le cours du jour est récupéré automatiquement (en euros) ; sinon saisissez-le.
+- **Bourse** : sur un PEA ou un compte-titres, ajoutez des lignes avec leur code Yahoo Finance (ex. `AI.PA`, `CW8.PA`), la quantité et le prix de revient, ou **importez-les** depuis l'export de votre courtier (Trade Republic : Profil → Documents ; Boursorama, Fortuneo… : relevé de titres) avec le prompt IA : lignes `code;nom;quantité;prix de revient total`, l'ISIN étant converti en code de cotation. Le cours du jour est récupéré automatiquement ; une valeur cotée en dollars ou en livres est convertie en euros.
+- **Taux** : pré-rempli avec le taux officiel quand vous choisissez un livret réglementé.
+- **Versement programmé** : sur un placement, un montant et une fréquence font avancer le solde tout seul (plafond des livrets respecté) ; le versement apparaît dans le budget (Virements), donc dans le reste à vivre, sans gonfler l'objectif de précaution.
+- **Historique** : graphique en barres empilées des 24 derniers mois (disponible, bourse, long terme), rempli à chaque mise à jour et chaque mois.
 - **Tuiles** : épargne totale, épargne de précaution (en mois de dépenses), inflation sur 12 mois (INSEE) et **pouvoir d'achat** : l'évolution de vos revenus sur un an corrigée de l'inflation.
 - **Plan d'épargne de sécurité** : objectif de précaution (6 mois de dépenses par défaut, réglable), ce qui manque, un versement mensuel conseillé (combler en un an sans dépasser la moitié du reste mensuel) et l'ordre de remplissage : LEP si vous y êtes éligible, Livret A, LDDS, puis le long terme. Indicatif, pas un conseil en investissement.
 

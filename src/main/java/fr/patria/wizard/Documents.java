@@ -33,7 +33,7 @@ final class Documents {
 
             // Banque
             new Document("statements", "Banque", "Les relevés de compte des 3 derniers mois (chaque compte, compte joint compris)",
-                    "Ils montrent les prélèvements réguliers. Pour une aide IA facultative, caviardez et vérifiez une copie avant de la joindre au prompt d'import ; jamais l'original.",
+                    "Ils montrent tous les prélèvements réguliers : l'IA en tire la liste des dépenses à importer (étape Dépenses fixes).",
                     false, data -> false),
             new Document("credits", "Banque", "Les tableaux d'amortissement des crédits à la consommation, auto, travaux",
                     "Montant et date de la dernière mensualité. Espace client de la banque ou de l'organisme de crédit.", false,
@@ -45,7 +45,7 @@ final class Documents {
             new Document("deed", "Logement", "L'acte d'achat ou l'attestation du notaire de chaque bien",
                     "Prix, frais de notaire et date d'acquisition.", true, data -> !data.properties().isEmpty()),
             new Document("amortization", "Logement", "Le tableau d'amortissement de chaque prêt immobilier",
-                    "Espace client de la banque ou annexe de l'offre de prêt. Préparez le CSV vous-même, ou faites convertir une copie caviardée et vérifiée par une IA facultative.", true,
+                    "Espace client de la banque ou annexe de l'offre de prêt. L'IA le convertit en échéancier à importer (étape Prêts).", true,
                     data -> !data.loans().isEmpty()),
             new Document("property-tax", "Logement", "Le dernier avis de taxe foncière de chaque bien",
                     "impots.gouv.fr → Gérer mes biens immobiliers, ou l'avis papier d'octobre. Un seul avis suffit : les années suivantes sont estimées.", true,
@@ -57,6 +57,13 @@ final class Documents {
                     data -> data.hasCharge(ExpenseKind.INSURANCE) || data.hasItemNamed("assurance habitation")),
             new Document("rental-lease", "Logement", "Les baux de vos logements loués",
                     "Loyer hors charges perçu chaque mois et date d'entrée du locataire.", true, data -> data.hasRent(Occupancy.RENTAL)),
+
+            // Epargne
+            new Document("savings-statements", "Épargne", "Les derniers relevés de vos livrets, assurances-vie et PER",
+                    "Solde et date, sur l'espace client de la banque ou de l'assureur.", false, data -> data.hasSavings()),
+            new Document("brokerage", "Épargne", "L'export ou le relevé de vos PEA et comptes-titres (Trade Republic, Boursorama, Fortuneo…)",
+                    "Trade Republic : Profil → Documents (relevé de titres) ou export des transactions ; ailleurs, le « portefeuille » ou relevé de titres en PDF/CSV. "
+                            + "L'IA en tire vos lignes (code ISIN, quantité, prix de revient).", false, data -> data.hasPositions()),
 
             // Contrats et abonnements
             new Document("energy", "Contrats et abonnements", "Les contrats ou échéanciers d'électricité, de gaz, d'eau",
@@ -80,6 +87,20 @@ final class Documents {
             // Deplacements
             new Document("transport", "Déplacements", "L'abonnement de transport, le contrat de leasing ou LOA, la carte de péage",
                     "Montant mensuel ; carburant et péages : une moyenne sur quelques relevés.", false, data -> data.hasItem(Category.TRANSPORT)));
+
+    /** Etape du guide qui exploite ce document (import par l'IA ou saisie), ou {@code null}. */
+    static Step next(String id) {
+        return switch (id) {
+            case "payslips", "benefits" -> Step.INCOMES;
+            case "tax-notice" -> Step.TAXES;
+            case "lease" -> Step.HOUSING;
+            case "deed" -> Step.PROPERTIES;
+            case "amortization" -> Step.LOANS;
+            case "property-tax", "condo", "home-insurance", "rental-lease" -> Step.CHARGES;
+            case "brokerage", "savings-statements" -> Step.SAVINGS;
+            default -> Step.FIXED;
+        };
+    }
 
     static List<Document> forViewer(boolean admin) {
         return ALL.stream().filter(document -> admin || !document.adminOnly()).toList();

@@ -36,7 +36,7 @@ Pas de connexion bancaire, de publicité, de traceur ni de service d'analyse d'u
 
 Pour les données de marché, Patria transmet une adresse ou commune à l'API Adresse, des codes géographiques à DVF et une requête sans chiffres personnels à la BCE et à l'INSEE (inflation), et les codes des valeurs de bourse saisies à Yahoo Finance (jamais les quantités). Les IP de connexion sont transmises à ipwho.is pour la localisation de sécurité. `OFFLINE=true` coupe ces appels. Les liens Google Maps, carte DVF et Ko-fi ne sont ouverts que sur clic.
 
-Avant de partager un document avec une IA, **Préparer un document** (si l'installation est reliée à un serveur Stirling PDF) produit une copie caviardée : noms du foyer, IBAN, numéros et métadonnées masqués, pages transformées en images. Relisez toujours la copie.
+Les imports proposent un prompt à copier dans un assistant IA, dont la réponse se colle dans Patria ; Patria ne lui envoie rien. Attention aux données confiées à une IA commerciale. Avec une IA locale facultative (Ollama installé à côté), le document déposé est analysé sur votre serveur : rien ne sort.
 
 Le compte administrateur ne consulte pas les finances dans l'interface ; chaque compte voit seulement ce que l'administrateur lui coche dans le tableau des droits du foyer. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
 

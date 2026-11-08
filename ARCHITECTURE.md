@@ -129,7 +129,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Où sont les ventes affichées dans « Voir les N ventes en détail » ? | retenues par `market/MarketAnalysis.analyse`, enregistrées avec le prix par `MarketRepository.save` : table `market_sales` et position du bien (`market_prices.latitude/longitude`, migration v12) ; page `market/MarketPages.sales` |
 | D'où vient le prompt IA des imports ? | `budget/ExpenseCsv.llmPrompt`, `loan/CsvScheduleParser.llmPrompt` (construits depuis les catégories, fréquences et types), affichés par `ui/Components.llmPrompt`, copiés par `app.js` |
-| Comment caviarder les documents avant une IA ? | `pdf/PdfController` (`/documents/preparer`), client REST `pdf/Stirling` vers le serveur Stirling PDF de l'installation (`STIRLING_URL`) : OCR, caviardage par expressions, nettoyage ; masqué sans serveur |
+| Comment marche l'aide IA ? | Prompts à copier (`Components.llmPrompt`, avec avertissement), réponse collée dans le champ `texte` des imports (`FormData.uploadedText`) ; IA locale facultative (`ai/LocalAi`, Ollama réglé dans Sécurité, `ai/PdfText`) : document déposé, converti sur le serveur |
 | Quelles API externes sont appelées ? | `market/DataGouvClient` (data.gouv.fr) et `market/HousingRates` (BCE), sans clé |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |

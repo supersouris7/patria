@@ -349,7 +349,7 @@ final class BudgetPages {
                 dans cet ordre et <b>sans ligne d'en-tête</b> : <code>libellé;catégorie;montant;fréquence;début;fin</code>.
                 Exemple : <code>Mutuelle;Santé;35,69;Mensuel;01/01/2026;</code>. L'aperçu permet de choisir à qui reviennent
                 les dépenses avant tout enregistrement.</p>""");
-        return Html.concat(help, Components.llmPrompt("prompt-depenses", ExpenseCsv.llmPrompt()), Components.form("/administration/depenses/import", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Voir l'aperçu"));
+        return Html.concat(help, Components.llmPrompt("prompt-depenses", ExpenseCsv.llmPrompt()), Components.form("/administration/depenses/import", csrf, true, Components.importInput("Fichier CSV", "csv", "depenses"), "Voir l'aperçu"));
     }
 
     /**
@@ -395,6 +395,11 @@ final class BudgetPages {
     }
 
     static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, Map<String, String> choices, String csrf) {
+        return importPreview(rows, content, people, choices, null, csrf);
+    }
+
+    /** {@code back} : page ou revenir apres l'import (etape du guide), {@code null} pour Gerer → Depenses. */
+    static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, Map<String, String> choices, String back, String csrf) {
         boolean shared = people.size() >= 2;
         long errors = rows.stream().filter(row -> !row.valid()).count();
         long duplicates = rows.stream().filter(row -> row.valid() && row.duplicate()).count();
@@ -443,11 +448,12 @@ final class BudgetPages {
             before = Html.concat(before, pickers(rows));
             String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             actions = Html.of("<form id=\"%s\" method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
-                    + "<input type=\"hidden\" name=\"choix\" value=\"1\"><a class=\"button secondary\" href=\"/administration/depenses\">Annuler</a>"
+                    + "<input type=\"hidden\" name=\"choix\" value=\"1\">" + (back == null ? "" : "<input type=\"hidden\" name=\"retour\" value=\"" + back + "\">")
+                    + "<a class=\"button secondary\" href=\"" + (back == null ? "/administration/depenses" : back) + "\">Annuler</a>"
                     + "<button type=\"submit\" data-import-submit>Importer la sélection</button></form>",
                     formId, Components.csrfField(csrf), encoded);
         }
-        Html page = Html.concat(Components.backLink("/administration/depenses", "Dépenses"),
+        Html page = Html.concat(back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Retour au guide"),
                 Components.heading("Gestion", "Aperçu de l'import", summary, Html.EMPTY),
                 Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(before, Components.table(columns, body, false, false), actions)));
         return Layout.adminSection("Import de dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, page);

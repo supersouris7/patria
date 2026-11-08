@@ -72,7 +72,8 @@ final class PortfolioPages {
                 dans votre patrimoine ; vous pouvez la changer à tout moment.</p>""");
         Html propertyTable = Html.of("<div id=\"biens\">%s%s</div>", simulate, Components.card("Biens", overview.properties().size(), Html.EMPTY,
                 Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, tab.equals("biens"))));
-        Html loans = Html.of("<div id=\"prets\">%s</div>", Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))));
+        Html loans = Html.of("<div id=\"prets\">%s%s</div>", loanTiles(overview),
+                Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))));
         Html taxes = Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
         if (!tab.equals("patrimoine")) return Layout.page(title + " · Patria", Layout.Section.REAL_ESTATE, csrf,
                 Html.concat(heading, switch (tab) { case "biens" -> propertyTable; case "prets" -> loans; default -> taxes; }));
@@ -84,7 +85,6 @@ final class PortfolioPages {
                                 "après " + euroWhole(overview.debt()) + " de capital restant dû"),
                         realGainTile(overview.returns()),
                         nextMonthTile(overview.nextMonth(), null)),
-                propertyTable, loans, taxes,
                 balance(overview.revaluationPercent() == null ? List.of() : List.of(Line.note("Actualisation des estimations",
                                 "Évolution des prix du département (indice DVF) depuis la date d'estimation de chaque bien.", Html.text(Format.signedPercent(overview.revaluationPercent())))),
                          overview.value(), overview.net(), overview.debt(), overview.purchase(), overview.gain(), overview.contributed(), overview.returns()));
@@ -200,7 +200,7 @@ final class PortfolioPages {
         if (years.isEmpty()) {
             return Html.raw("<p class=\"empty\">Aucune taxe foncière saisie. Un seul avis suffit : Gérer → Biens et prêts → le bien → Charges.</p>");
         }
-        int visible = 5;
+        int visible = 50;
         Html rows = years.stream().map(year -> {
             boolean hidden = years.indexOf(year) >= visible;
             Html origin = year.estimated() == 0 ? Html.raw("<span class=\"badge paid\">Saisie</span>")
@@ -217,6 +217,27 @@ final class PortfolioPages {
         return Html.concat(Components.table(List.of("Année", "#Biens", "Origine", "#Montant", "#Évolution"), rows, true, false), more,
                 Html.raw("<p class=\"source\">Montants annuels complets. Années non saisies estimées à partir de l'avis le plus proche, "
                         + "revalorisé selon le coefficient légal des valeurs locatives.</p>"));
+    }
+
+    /** Chiffres cles des prets : capital restant du, mensualites, interets restant a payer, fin du dernier pret. */
+    private static Html loanTiles(Overview overview) {
+        List<LoanSummary> loans = overview.properties().stream().flatMap(summary -> summary.loans().stream()).toList();
+        if (loans.isEmpty()) return Html.EMPTY;
+        BigDecimal remaining = loans.stream().map(item -> item.status().remaining()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal borrowed = loans.stream().map(item -> item.status().borrowed()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal monthly = loans.stream().filter(item -> item.status().nextInstallment() != null).map(item -> item.status().nextInstallment().amount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal interest = loans.stream().map(item -> item.status().interestToPay()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        LoanSummary last = loans.stream().filter(item -> item.status().lastDate() != null).max(java.util.Comparator.comparing(item -> item.status().lastDate())).orElse(null);
+        int repaid = borrowed.signum() == 0 ? 0 : borrowed.subtract(remaining).multiply(BigDecimal.valueOf(100)).divide(borrowed, 0, java.math.RoundingMode.HALF_UP).intValue();
+        return Components.metrics(4,
+                tile("Capital restant dû", "Somme du capital qu'il reste à rembourser sur tous les prêts, d'après les échéanciers.", euroWhole(remaining),
+                        repaid + " % remboursé sur " + euroWhole(borrowed)),
+                tile("Mensualités", "Somme des prochaines échéances de chaque prêt (assurance comprise si elle figure dans l'échéancier).", euroWhole(monthly),
+                        Format.plural(loans.size(), "prêt", "prêts")),
+                tile("Intérêts restant à payer", "Intérêts des échéances à venir, jusqu'à la fin de chaque prêt.", euroWhole(interest), null),
+                tile("Fin du dernier prêt", "Date de la dernière échéance du prêt qui se termine le plus tard.", last == null ? Format.DASH : date(last.status().lastDate()),
+                        last == null ? null : Format.duration(last.status().remainingMonths()) + " restants"));
     }
 
     /** Tous les prets du patrimoine, avec le bien finance et la prochaine echeance. */

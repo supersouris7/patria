@@ -18,7 +18,17 @@ import java.util.Locale;
 
 /** Ce que le foyer contient deja : sert aux coches automatiques et aux etapes deja faites. */
 record Snapshot(List<Person> people, List<Income> incomes, List<BudgetItem> items, List<Property> properties, List<Loan> loans,
-                List<Expense> charges, List<RentPeriod> rents, List<Transfer> transfers) {
+                List<Expense> charges, List<RentPeriod> rents, List<Transfer> transfers, int[] savings) {
+
+    /** Placements saisis (page Epargne). */
+    boolean hasSavings() {
+        return savings[0] > 0;
+    }
+
+    /** Lignes de bourse saisies. */
+    boolean hasPositions() {
+        return savings[1] > 0;
+    }
 
     boolean hasIncome(IncomeKind kind) {
         return incomes.stream().anyMatch(income -> income.kind() == kind);

@@ -161,23 +161,22 @@ final class WizardBudgetPages {
 
     static Html fixed(WizardController.Context context, Map<String, String> values) {
         Html quick = Html.of("""
-                <details class="help-block"><summary>Plus rapide : tout détecter à partir de vos relevés bancaires</summary>
-                <ol class="steps">
-                <li><b>Rassemblez le plus de documents possible</b> : relevés de tous les comptes (12 mois si possible, 3 au minimum), contrats et
-                échéanciers (énergie, box, mobiles, assurances, mutuelle, crédits, garde), avis d'impôt. Caviardez et vérifiez les copies.</li>
-                <li><b>Copiez le prompt</b> dans votre IA avec ces copies. Elle vous dit d'abord ce qui manque, puis détecte un maximum de dépenses
-                et les marque : abonnement, télécom, doublon possible, hausse récente, résilié, à vérifier…</li>
-                <li><b>Importez le fichier</b> dans <a href="/administration/depenses">Gérer → Dépenses → Importer</a>. L'aperçu vous laisse tout
-                choisir : une case par dépense, et un bouton par type pour garder ou ignorer d'un clic (ex. tous les abonnements télécom).
-                Revenez ensuite ici : les lignes importées apparaîtront cochées.</li></ol>
-                <p class="muted">L'IA est facultative : vous pouvez aussi remplir la liste ci-dessous à la main.</p>%s</details>""",
-                Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()));
+                <section class="help-block wizard-import" id="import"><h3>Importer avec l'IA vos relevés bancaires et contrats</h3>
+                <ol class="steps"><li><b>Copiez le prompt</b> dans votre assistant IA avec vos relevés (tous les comptes, 12 mois si possible) et vos contrats.
+                Il vous dit d'abord ce qui manque, puis liste les dépenses en les marquant (abonnement, télécom, doublon possible…).</li>
+                <li><b>Collez sa réponse</b> ci-dessous, puis cochez dans l'aperçu ce que vous gardez.</li>
+                <li><b>Revenez ici</b> : les lignes importées s'affichent dans « Déjà saisies », à supprimer ou compléter à la main.</li></ol>%s
+                <form method="post" action="/administration/depenses/import" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="/assistant/depenses">%s
+                <label>Réponse de l'IA<textarea name="texte" rows="6" placeholder="Mutuelle;Santé;35,69;Mensuel;01/01/2026;;Santé"></textarea></label>
+                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></section>""",
+                Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()), Components.csrfField(context.csrf()), Components.localAiInput("depenses"));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "
                         + "d'un paiement et sa fréquence : Patria calcule les 12 prochains mois. Inutile de saisir ce que Patria reprend de l'immobilier "
                         + "(mensualités des prêts immobiliers, taxe foncière, copropriété, assurance d'un bien possédé)."),
-                Components.card("Dépenses fixes", null, Html.EMPTY, Html.concat(quick,
-                        checklist(context, "/assistant/depenses/ajouter", Checklist.FIXED, true, values, "Ajouter les dépenses cochées"))));
+                quick, saved(context, "/assistant/depenses"),
+                Components.card("Ajouter à la main", null, Html.EMPTY,
+                        checklist(context, "/assistant/depenses/ajouter", Checklist.FIXED, true, values, "Ajouter les dépenses cochées")));
     }
 
     static Html taxes(WizardController.Context context, Map<String, String> values) {
@@ -210,5 +209,27 @@ final class WizardBudgetPages {
         return Html.concat(explain("Avec un compte joint, chacun y verse une somme fixe chaque mois, et le compte paie les dépenses communes qu'on lui attribue "
                 + "(« Pour qui » dans les dépenses). Les virements apparaissent dans le budget de chacun : sortie pour l'un, entrée pour le compte joint."),
                 Components.card("Virements", context.snapshot().transfers().size(), Html.EMPTY, Html.concat(list, add)));
+    }
+
+    /**
+     * Toutes les lignes de budget deja saisies (importees ou ajoutees), avec Modifier et Supprimer : on revient a
+     * l'etape {@code back} apres une suppression.
+     */
+    static Html saved(WizardController.Context context, String back) {
+        List<BudgetItem> items = context.snapshot().items().stream().filter(item -> item.category() != Category.TRANSFER).toList();
+        if (items.isEmpty()) return Html.EMPTY;
+        Html rows = items.stream().map(item -> {
+            Map<Long, Integer> shares = context.shares().getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of());
+            boolean editable = context.visibility().canEdit(shares);
+            Html actions = !editable ? Html.raw("<span class=\"muted small\">Lecture seule</span>") : Html.of("""
+                    <a href="/depense/%s">Modifier</a><form method="post" action="/depense/%s/supprimer?retour=%s" class="inline-form">%s\
+                    <button class="link-button danger-link" type="submit" aria-label="Supprimer %s">Supprimer</button></form>""",
+                    item.id(), item.id(), back, Components.csrfField(context.csrf()), item.label());
+            return Html.of("<tr><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td>%s</td></tr>", item.label(), item.category().label(), euro(item.amount()),
+                    item.frequency().label(), actions);
+        }).collect(Html.joining());
+        return Components.card("Déjà saisies", items.size(), Html.EMPTY, Html.concat(
+                Html.raw("<p class=\"muted\">Lignes importées ou ajoutées : supprimez ce qui ne vous concerne pas, modifiez un montant, ajoutez le reste ci-dessous.</p>"),
+                Components.table(List.of("Dépense", "Catégorie", "#Montant", "Fréquence", ""), rows, true, true)));
     }
 }

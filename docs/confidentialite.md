@@ -33,13 +33,11 @@ Tout appel réseau révèle aussi l'IP du serveur à son destinataire, et les cl
 
 `OFFLINE=true` coupe les appels **automatiques** au marché, aux taux et à la localisation des IP ; plus de mise à jour du marché ou des estimations par l'indice. Cela ne bloque pas les liens externes sur lesquels vous cliquez ni vos propres envois à une IA. Les connexions restent enregistrées localement pendant 90 jours.
 
-## IA et caviardage
+## IA
 
 L'IA est facultative : les CSV peuvent être préparés manuellement. Patria ne transmet pas vos documents à une IA. Si vous en utilisez une, ses conditions de conservation et d'entraînement s'appliquent ; une conversation temporaire ne garantit pas l'absence de conservation.
 
-Si l'administrateur relie un serveur **Stirling PDF** (`STIRLING_URL`), « Préparer un document » (`/documents/preparer`, proposé avant les prompts d'import) produit une copie caviardée : le PDF est envoyé à ce serveur de l'installation, qui masque les mots indiqués (noms du foyer proposés d'office) et les identifiants courants (IBAN, carte, e-mail, téléphone, sécurité sociale, numéro fiscal, numéros longs), reconnaît au besoin le texte d'un scan (OCR), transforme les pages en images et efface les métadonnées, scripts, pièces jointes et liens. Ni Patria ni Stirling ne conservent le document. Sans serveur Stirling, l'outil est masqué : caviardez une copie avec l'outil de votre choix.
-
-Les adresses, signatures, QR codes et écritures manuscrites ne sont pas toujours détectés : relisez chaque page. Un rectangle superposé dans un PDF ordinaire peut laisser le texte dessous. Un prompt qui interdit de recopier les identifiants ne les retire pas du document transmis. Même après caviardage, montants, dates et libellés peuvent encore identifier une personne.
+**Attention aux données confiées à une IA commerciale** : elle reçoit tout ce que vous lui envoyez (noms, adresses, IBAN, numéros de compte, montants) et, selon ses conditions, peut les conserver ou s'en servir pour s'entraîner. Retirez vous-même les informations sensibles, désactivez l'historique et l'entraînement, ou préférez un modèle local. Patria rappelle cet avertissement à côté de chaque prompt. Avec une **IA locale** (Ollama installé par l'administrateur à côté de Patria), le document est analysé sur votre serveur : rien ne sort de l'installation. Un prompt qui demande des libellés génériques ne retire rien du document transmis.
 
 ## Protections à configurer
 

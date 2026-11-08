@@ -110,6 +110,30 @@ public final class FormData {
         return date;
     }
 
+    /**
+     * Contenu a importer : la reponse collee dans {@code texte} (sans les balises de code qu'ajoutent les assistants
+     * IA), sinon le fichier envoye dans {@code name}.
+     */
+    public byte[] uploadedText(String name, String label) {
+        // Document depose pour l'IA locale : converti en lignes au format de cet import ({@code ia} : son type).
+        byte[] document = files.get("document");
+        if (document != null && document.length > 0 && !raw("ia").isBlank() && converter != null) {
+            return converter.apply(raw("ia"), document).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+        String pasted = raw("texte").strip();
+        if (pasted.isEmpty()) return requiredFile(name, label);
+        String cleaned = pasted.replaceAll("(?m)^```[a-zA-Z]*\\s*$", "").strip();
+        if (cleaned.isEmpty()) throw new ValidationException("Collez la réponse de l'IA (les lignes au format demandé).");
+        return cleaned.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static volatile java.util.function.BiFunction<String, byte[], String> converter;
+
+    /** Conversion d'un document par l'IA locale (type d'import, contenu) ; {@code null} sans IA locale. Pose au demarrage. */
+    public static void useConverter(java.util.function.BiFunction<String, byte[], String> value) {
+        converter = value;
+    }
+
     public byte[] requiredFile(String name, String label) {
         byte[] content = files.get(name);
         if (content == null || content.length == 0) throw new ValidationException(label + " manquant.");

@@ -28,9 +28,31 @@ public final class Savings {
     public record PositionLine(SavingsRepository.Position position, BigDecimal price, String priceSource, BigDecimal value, BigDecimal gain) {
     }
 
-    /** Un placement valorise : solde (liquidites pour un PEA ou un compte-titres) + lignes, taux et interets annuels. */
-    public record Line(SavingsRepository.Account account, String owner, BigDecimal value, BigDecimal rate, BigDecimal yearlyInterest,
-                       List<PositionLine> positions) {
+    /**
+     * Un placement valorise : {@code balance} solde du jour (solde saisi + versements programmes depuis, plafond
+     * respecte ; liquidites pour un PEA ou un compte-titres), {@code added} la part ajoutee par les versements,
+     * {@code value} solde + lignes de bourse, taux et interets annuels.
+     */
+    public record Line(SavingsRepository.Account account, String owner, BigDecimal balance, BigDecimal added, BigDecimal value, BigDecimal rate,
+                       BigDecimal yearlyInterest, List<PositionLine> positions) {
+    }
+
+    /** Solde du jour : le solde saisi, plus chaque versement programme echu depuis (au plus le plafond d'un livret). */
+    public static BigDecimal balance(SavingsRepository.Account account, LocalDate today) {
+        SavingsRepository.Contribution contribution = account.contribution();
+        BigDecimal balance = account.balance();
+        if (contribution == null || contribution.frequency() == fr.patria.common.Frequency.ONCE) return balance;
+        java.time.YearMonth first = java.time.YearMonth.from(contribution.start());
+        java.time.YearMonth month = java.time.YearMonth.from(account.balanceDate()).plusMonths(1);
+        if (month.isBefore(first)) month = first;
+        java.time.YearMonth current = java.time.YearMonth.from(today);
+        while (!month.isAfter(current)) {
+            boolean due = month.isBefore(current) || today.getDayOfMonth() >= Math.min(contribution.start().getDayOfMonth(), month.lengthOfMonth());
+            if (due && contribution.frequency().occursIn(first, null, month)) balance = balance.add(contribution.amount());
+            month = month.plusMonths(1);
+        }
+        BigDecimal ceiling = account.kind().ceiling();
+        return ceiling != null && account.kind().regulated() && balance.compareTo(ceiling) > 0 ? ceiling.max(account.balance()) : balance;
     }
 
     public record Overview(List<Line> lines, BigDecimal total, BigDecimal available, BigDecimal stocks, BigDecimal stockGain) {
@@ -52,11 +74,15 @@ public final class Savings {
         BigDecimal gain = BigDecimal.ZERO;
         for (SavingsRepository.Account account : accounts) {
             List<PositionLine> held = new ArrayList<>();
-            BigDecimal value = account.balance();
+            BigDecimal current = balance(account, today);
+            BigDecimal value = current;
             if (account.kind().stocks()) {
                 for (SavingsRepository.Position position : positions) {
                     if (position.accountId() != account.id()) continue;
-                    PositionLine line = value(position, quotes.apply(position.symbol()));
+                    Optional<MarketFeeds.Quote> quote = quotes.apply(position.symbol());
+                    Optional<BigDecimal> fx = quote.filter(found -> !found.currency().equals("EUR"))
+                            .flatMap(found -> quotes.apply(found.currency() + "EUR=X")).map(MarketFeeds.Quote::price);
+                    PositionLine line = value(position, quote, fx);
                     held.add(line);
                     value = value.add(line.value());
                     stocks = stocks.add(line.value());
@@ -64,10 +90,10 @@ public final class Savings {
                 }
             }
             BigDecimal rate = rate(account, today);
-            BigDecimal interest = rate == null ? null : account.balance().multiply(rate).divide(HUNDRED, 0, RoundingMode.HALF_UP);
-            lines.add(new Line(account, owners.getOrDefault(account.personId(), "?"), value, rate, interest, held));
+            BigDecimal interest = rate == null ? null : current.multiply(rate).divide(HUNDRED, 0, RoundingMode.HALF_UP);
+            lines.add(new Line(account, owners.getOrDefault(account.personId(), "?"), current, current.subtract(account.balance()), value, rate, interest, held));
             total = total.add(value);
-            if (account.kind().available()) available = available.add(account.balance());
+            if (account.kind().available()) available = available.add(current);
         }
         return new Overview(lines, total, available, stocks, gain);
     }
@@ -81,6 +107,11 @@ public final class Savings {
     }
 
     static PositionLine value(SavingsRepository.Position position, Optional<MarketFeeds.Quote> quote) {
+        return value(position, quote, Optional.empty());
+    }
+
+    /** {@code rate} : cours de la devise de cotation en euros (ex. USDEUR=X), pour une valeur cotee hors euro. */
+    static PositionLine value(SavingsRepository.Position position, Optional<MarketFeeds.Quote> quote, Optional<BigDecimal> rate) {
         BigDecimal price;
         String source;
         if (position.price() != null) {
@@ -89,6 +120,9 @@ public final class Savings {
         } else if (quote.isPresent() && quote.get().currency().equals("EUR")) {
             price = quote.get().price();
             source = "cours du jour";
+        } else if (quote.isPresent() && rate.isPresent()) {
+            price = quote.get().price().multiply(rate.get()).setScale(4, RoundingMode.HALF_UP);
+            source = "cours du jour, converti depuis " + quote.get().currency();
         } else {
             price = position.cost().divide(position.quantity(), 4, RoundingMode.HALF_UP);
             source = quote.isPresent() ? "prix de revient (cotée en " + quote.get().currency() + ")" : "prix de revient";
@@ -155,7 +189,7 @@ public final class Savings {
         BigDecimal room = BigDecimal.ZERO;
         for (long holder : holders) {
             BigDecimal held = overview.lines().stream().filter(line -> line.account().personId() == holder && line.account().kind() == kind)
-                    .map(line -> line.account().balance()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .map(Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
             room = room.add(kind.ceiling().subtract(held).max(BigDecimal.ZERO));
         }
         return room;

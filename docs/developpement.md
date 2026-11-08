@@ -20,13 +20,11 @@ Serveur HTTP natif du JDK, SQLite, montants au centime, HTML généré côté se
 
 Les coefficients légaux de revalorisation foncière sont dans `src/main/java/fr/patria/expense/PropertyTaxRevaluation.java`. Ajouter chaque année le coefficient publié ; sinon le dernier connu est repris. Le comportement estimatif doit rester explicite pour les utilisateurs.
 
-## Caviardage (Stirling PDF)
+## Aide IA et IA locale
 
-`pdf/Stirling` (client REST) et `pdf/PdfController` (`/documents/preparer`). Patria garde toute l'interface ; le serveur Stirling PDF de l'installation sert de moteur, remplaçable sans toucher aux pages. Enchaînement : `POST /api/v1/misc/ocr-pdf` (si « Document scanné », `languages=fra,eng`, `ocrType=skip-text`), `POST /api/v1/security/auto-redact` (`listOfText` une expression par ligne, `useRegex=true`, `convertPDFToImage` selon la case ; nombre de zones lu dans `X-Stirling-Redaction-Matches`), puis `POST /api/v1/security/sanitize-pdf` (métadonnées, XMP, JavaScript, pièces jointes, liens). Clé API facultative en en-tête `X-API-KEY`. Le PDF ne transite qu'en mémoire (25 Mo au plus, limite propre à cette route dans `web/Request`).
+Les prompts (`ExpenseCsv.llmPrompt`, `CsvScheduleParser.llmPrompt`, `savings/PositionCsv.llmPrompt`) se copient toujours ; la réponse se colle dans le champ `texte` des imports (`FormData.uploadedText`, balises de code retirées) ou s'envoie en fichier. `Components.llmPrompt` affiche l'avertissement sur les IA commerciales.
 
-Les appels avec clé API consomment l'**allocation de traitement** du serveur Stirling (réponse 402 une fois épuisée) : vérifier les quotas réels de la version installée. La liste exacte des opérations est sur l'instance : `/swagger-ui/index.html`, spécification `/v1/api-docs`. Le caviardage manuel par sélection graphique n'est pas intégré : il demanderait un éditeur dans Patria (PDF.js) et la vérification des coordonnées attendues par l'API.
-
-Tests : `mvn verify` (un faux serveur Stirling vérifie l'enchaînement des appels et les champs envoyés).
+IA locale facultative (module `ai`) : `LocalAi` appelle le serveur Ollama réglé par l'administrateur (réglages `local_ai_*` de la base des comptes, page Sécurité) avec `POST /api/generate` (non diffusé, température 0) ; `PdfText` extrait le texte des PDF avec OpenPDF (pas d'OCR). Un formulaire d'import qui contient `Components.localAiInput(type)` envoie le champ `document` et `ia` (depenses, echeancier, bourse) ; `FormData.uploadedText` le fait convertir avant l'aperçu habituel (convertisseur posé par `App`). Envois de fichiers : 10 Mo au plus.
 
 ## Publication Docker Hub
 
@@ -58,7 +56,7 @@ Choisissez le numéro voulu ; cet exemple ne crée pas automatiquement la premi�
 gh workflow run docker.yml --ref main -f stable_tag=v0.5.0
 ```
 
-Le workflow utilise ses outils de publication actuels, mais teste et construit **le commit exact du tag demandé**, pas le dernier `main`. Il exécute les tests Java de cette version (le test navigateur de l'ancien outil de caviardage n'est plus lancé). Il ne remplace pas `unstable`. Les anciens tags peuvent afficher dans l'application une version Maven différente du numéro Docker ; ne déplacez pas leur tag pour corriger cela, alignez les versions lors des prochaines releases.
+Le workflow utilise ses outils de publication actuels, mais teste et construit **le commit exact du tag demandé**, pas le dernier `main`. Il exécute les tests Java de cette version. Il ne remplace pas `unstable`. Les anciens tags peuvent afficher dans l'application une version Maven différente du numéro Docker ; ne déplacez pas leur tag pour corriger cela, alignez les versions lors des prochaines releases.
 
 Le Compose garde `unstable` par défaut pour le serveur personnel. Les utilisateurs publics mettent `PATRIA_IMAGE=supersouris7/patria:latest` dans `.env`, ou fixent une version. La publication d'une image ne redéploie pas les conteneurs : garder votre mécanisme de mise à jour Portainer ou lancer `docker compose pull` puis `docker compose up -d` après sauvegarde.
 

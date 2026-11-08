@@ -216,6 +216,3 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .login-card { max-width: 400px; padding: 32px; width: 100%; }
 .login-card .brand { margin-bottom: 28px; }
 .login-card h1 { font-size: 1.9rem; }
-.pdf-presets { display: grid; gap: 6px 18px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.pdf-words { display: block; }
-.pdf-words textarea { background: transparent; border: 1px solid var(--line); border-radius: var(--radius-small); color: inherit; display: block; font: inherit; margin-top: 6px; padding: 10px 12px; width: 100%; }

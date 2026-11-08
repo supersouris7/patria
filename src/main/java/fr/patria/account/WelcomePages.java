@@ -101,8 +101,8 @@ final class WelcomePages {
                 %s
                 <li><b>Appels extérieurs</b> : adresse ou commune d'un bien vers l'API Adresse, codes géographiques vers DVF, requête sans chiffres personnels
                 vers la BCE et l'INSEE, codes des valeurs de bourse vers Yahoo Finance, et IP des connexions vers ipwho.is pour leur localisation. Le mode hors ligne coupe ces appels.</li>
-                <li><b>L'IA est facultative</b> : préparez vos CSV vous-même ou utilisez une IA. Avant tout envoi, créez une copie caviardée
-                (« Préparer un document » si votre installation le propose) et vérifiez chaque page. N'envoyez pas l'original.</li>
+                <li><b>L'IA est facultative</b> : préparez vos CSV vous-même ou utilisez une IA en collant sa réponse dans Patria. Attention aux
+                données confiées à une IA commerciale : elle reçoit tout ce que vous lui envoyez.</li>
                 </ul><p><a href="/confidentialite">Tout savoir sur la confidentialité</a></p>""", encryption);
     }
 

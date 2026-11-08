@@ -20,12 +20,9 @@ import java.util.Map;
  * @param supportUrl    KOFI_URL : page Ko-fi pour soutenir le developpement, remplace celle du projet ; vide la masque
  * @param resetAdminTwoFactor ADMIN_2FA_RESET=true : retire la double authentification de l'administrateur au
  *                      demarrage (telephone perdu) ; a retirer ensuite de la configuration
- * @param stirlingUrl   STIRLING_URL : adresse d'un serveur Stirling PDF (caviardage, OCR, nettoyage) ; {@code null} masque
- *                      l'outil « Preparer un document »
- * @param stirlingApiKey STIRLING_API_KEY : cle API de ce serveur (en-tete X-API-KEY), si sa connexion est activee
  */
 public record Config(String password, String adminLogin, Path databasePath, int port, Clock clock, boolean offline, String encryptionKey,
-                     String supportUrl, boolean resetAdminTwoFactor, String stirlingUrl, String stirlingApiKey) {
+                     String supportUrl, boolean resetAdminTwoFactor) {
     /** Page Ko-fi du projet, affichee par defaut (KOFI_URL la remplace, KOFI_URL vide la masque). */
     static final String PROJECT_SUPPORT_URL = "https://ko-fi.com/supersouris7";
 
@@ -36,22 +33,9 @@ public record Config(String password, String adminLogin, Path databasePath, int 
         if (supportUrl != null && !supportUrl.isEmpty() && !supportUrl.matches("https://ko-fi\\.com/[A-Za-z0-9_]{1,40}")) {
             throw new IllegalStateException("KOFI_URL doit être une adresse https://ko-fi.com/<nom>.");
         }
-        if (stirlingUrl != null && !stirlingUrl.isBlank() && !stirlingUrl.matches("https?://[^\\s]+")) {
-            throw new IllegalStateException("STIRLING_URL doit être une adresse http:// ou https://.");
-        }
-        stirlingUrl = stirlingUrl == null || stirlingUrl.isBlank() ? null : stirlingUrl.strip().replaceAll("/+$", "");
-        stirlingApiKey = stirlingApiKey == null || stirlingApiKey.isBlank() ? null : stirlingApiKey.strip();
     }
 
-    public Config(String password, String adminLogin, Path databasePath, int port, Clock clock, boolean offline, String encryptionKey,
-                  String supportUrl, boolean resetAdminTwoFactor) {
-        this(password, adminLogin, databasePath, port, clock, offline, encryptionKey, supportUrl, resetAdminTwoFactor, null, null);
-    }
 
-    /** Les memes reglages avec un serveur Stirling PDF (tests). */
-    public Config withStirling(String url, String apiKey) {
-        return new Config(password, adminLogin, databasePath, port, clock, offline, encryptionKey, supportUrl, resetAdminTwoFactor, url, apiKey);
-    }
 
     /** Sans le mode hors ligne ni chiffrement (tests). */
     public Config(String password, String adminLogin, Path databasePath, int port, Clock clock) {
@@ -79,8 +63,7 @@ public record Config(String password, String adminLogin, Path databasePath, int 
         return new Config(password, adminLogin.isEmpty() ? "admin" : adminLogin, Path.of(environment.getOrDefault("DATABASE_PATH", "/data/immobilier.sqlite3")),
                 Integer.parseInt(environment.getOrDefault("HTTP_PORT", "8080")), Clock.systemDefaultZone(),
                 "true".equalsIgnoreCase(environment.getOrDefault("OFFLINE", "").trim()), key(environment), support,
-                "true".equalsIgnoreCase(environment.getOrDefault("ADMIN_2FA_RESET", "").trim()),
-                environment.get("STIRLING_URL"), environment.get("STIRLING_API_KEY"));
+                "true".equalsIgnoreCase(environment.getOrDefault("ADMIN_2FA_RESET", "").trim()));
     }
 
     /** DB_ENCRYPTION_KEY, ou le fichier DB_ENCRYPTION_KEY_FILE (secret Docker) ; {@code null} si aucun. */

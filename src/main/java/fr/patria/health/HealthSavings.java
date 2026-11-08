@@ -65,7 +65,7 @@ final class HealthSavings {
         // 3. Plafonds atteints
         for (Savings.Line line : overview.lines()) {
             SavingsRepository.Account account = line.account();
-            if (account.kind().regulated() && account.kind().ceiling() != null && account.balance().compareTo(account.kind().ceiling()) >= 0) {
+            if (account.kind().regulated() && account.kind().ceiling() != null && line.balance().compareTo(account.kind().ceiling()) >= 0) {
                 checks.add(Check.of("savings-ceiling-" + account.id(), Domain.SAVINGS, Level.INFO, account.name() + " (" + line.owner() + ") : plafond atteint",
                         "Les intérêts continuent de s'ajouter, mais plus aucun versement n'est possible au-delà de " + euroWhole(account.kind().ceiling())
                                 + ". Les versements suivants iront sur un autre livret (LDDS, LEP) ou sur le long terme.").link(LINK, "Voir le plan"));
@@ -95,10 +95,10 @@ final class HealthSavings {
             BigDecimal below = BigDecimal.ZERO;
             BigDecimal loss = BigDecimal.ZERO;
             for (Savings.Line line : overview.lines()) {
-                if (!line.account().kind().available() || line.rate() == null || line.account().balance().signum() <= 0) continue;
+                if (!line.account().kind().available() || line.rate() == null || line.balance().signum() <= 0) continue;
                 if (line.rate().compareTo(inflation.percent()) < 0) {
-                    below = below.add(line.account().balance());
-                    loss = loss.add(interest(line.account().balance(), inflation.percent().subtract(line.rate())));
+                    below = below.add(line.balance());
+                    loss = loss.add(interest(line.balance(), inflation.percent().subtract(line.rate())));
                 }
             }
             if (loss.compareTo(BigDecimal.TEN) >= 0) {
@@ -148,7 +148,7 @@ final class HealthSavings {
                         .link(LINK, "Voir mes livrets"));
             }
         }
-        long stale = overview.lines().stream().filter(line -> line.account().kind() != SavingsKind.CURRENT && line.account().balanceDate().plusMonths(6).isBefore(today)).count();
+        long stale = overview.lines().stream().filter(line -> line.account().kind() != SavingsKind.CURRENT && line.account().contribution() == null && line.account().balanceDate().plusMonths(6).isBefore(today)).count();
         if (stale > 0) {
             checks.add(Check.of("savings-stale", Domain.SAVINGS, Level.INFO, Format.plural(stale, "solde à mettre à jour", "soldes à mettre à jour"),
                     "Ces soldes ont plus de 6 mois : mettez-les à jour pour que l'audit reste juste.").link(LINK, "Mettre à jour"));
@@ -172,7 +172,7 @@ final class HealthSavings {
     }
 
     private static BigDecimal sum(Savings.Overview overview, SavingsKind kind) {
-        return overview.lines().stream().filter(line -> line.account().kind() == kind).map(line -> line.account().balance()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return overview.lines().stream().filter(line -> line.account().kind() == kind).map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static BigDecimal interest(BigDecimal amount, BigDecimal percent) {

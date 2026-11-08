@@ -287,7 +287,7 @@ class AccountsTest {
         assertTrue(get(manager, "/administration/bien/1").body().contains("Foyer du bien"));
         HttpResponse<String> moved = post(manager, "/administration/bien/1/foyer", "foyer=2");
         assertEquals("/administration/bien/1?ok=deplace", moved.headers().firstValue("Location").orElseThrow());
-        assertTrue(get(manager, "/immobilier").body().contains("Studio"), "affiché dans le foyer d'arrivée");
+        assertTrue(get(manager, "/immobilier/biens").body().contains("Studio"), "affiché dans le foyer d'arrivée");
         assertTrue(get(manager, "/bien/1").body().contains("Apport initial"), "avec son apport");
         assertEquals(303, post(manager, "/foyer/choisir", "foyer=1").statusCode());
         assertFalse(get(manager, "/immobilier").body().contains("Studio"), "plus dans le foyer de départ");
@@ -397,5 +397,40 @@ class AccountsTest {
         assertFalse(get(camille, "/epargne").body().contains("Livret A de Paul"), "compte d'un membre non coché");
         assertEquals(404, post(camille, "/epargne/compte/1", "balance=1").statusCode());
         assertEquals(400, post(camille, "/epargne/compte", "person=1&kind=LIVRET_A&balance=10").statusCode(), "pas pour un membre non coché");
+    }
+
+    @Test
+    void guideLeadsFromADocumentToItsImportAndBack() throws Exception {
+        Visitor admin = admin();
+        Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
+        assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
+        assertEquals("/assistant/depenses#import", post(manager, "/assistant/documents/coche", "document=statements&status=HAVE").headers().firstValue("Location").orElseThrow(),
+                "« J'ai ce document » mène à l'import");
+        assertEquals("/assistant/epargne#import", post(manager, "/assistant/documents/coche", "document=brokerage&status=HAVE").headers().firstValue("Location").orElseThrow());
+        HttpResponse<String> preview = post(manager, "/administration/depenses/import", "retour=/assistant/depenses&texte="
+                + java.net.URLEncoder.encode("```csv\nNetflix;Télécom et abonnements;13,49;Mensuel;01/01/2026;;Abonnement\n```", java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(200, preview.statusCode(), preview.body());
+        Matcher content = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(preview.body());
+        assertTrue(content.find() && preview.body().contains("name=\"retour\" value=\"/assistant/depenses\""));
+        assertEquals("/assistant/depenses?ok=importe", post(manager, "/administration/depenses/import/valider", "contenu=" + content.group(1)
+                + "&choix=1&importer_1=on&retour=/assistant/depenses").headers().firstValue("Location").orElseThrow(), "retour au guide");
+        String step = get(manager, "/assistant/depenses").body();
+        assertTrue(step.contains("Déjà saisies") && step.contains("Netflix") && step.contains("/depense/1/supprimer?retour=/assistant/depenses"));
+        assertEquals("/assistant/depenses", post(manager, "/depense/1/supprimer?retour=/assistant/depenses", "").headers().firstValue("Location").orElseThrow());
+
+        // Epargne dans le guide : placement, versement programme (repris au budget), lignes collees
+        assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=PEA&name=PEA&balance=0&retour=/assistant/epargne").statusCode());
+        assertEquals(303, post(manager, "/epargne/compte/1/versement", "montant=150&frequence=MONTHLY&retour=/assistant/epargne").statusCode());
+        assertTrue(get(manager, "/administration/depenses").body().contains("Versement PEA"), "versement repris dans le budget");
+        HttpResponse<String> positions = post(manager, "/epargne/compte/1/import", "retour=/assistant/epargne&texte=CW8.PA%3BETF+Monde%3B2%3B900");
+        assertEquals(200, positions.statusCode(), positions.body());
+        Matcher encoded = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(positions.body());
+        assertTrue(encoded.find());
+        assertEquals("/assistant/epargne?ok=importe#compte-1", post(manager, "/epargne/compte/1/import/valider", "contenu=" + encoded.group(1)
+                + "&importer_1=on&retour=/assistant/epargne").headers().firstValue("Location").orElseThrow());
+        String savings = get(manager, "/assistant/epargne").body();
+        assertTrue(savings.contains("ETF Monde") && savings.contains("Versement programmé : 150"), "étape du guide complète");
+        String page = get(manager, "/epargne").body();
+        assertTrue(page.contains("savings-chart") && page.contains("data-regulated-rates"), "graphique et taux par défaut");
     }
 }

@@ -12,10 +12,8 @@ import java.util.Map;
 /** Requete HTTP vue par un controleur : parametres de chemin, formulaire, session. */
 public final class Request {
     private static final int MAX_FORM_BYTES = 64 * 1024;
-    private static final int MAX_UPLOAD_BYTES = 1024 * 1024;
-    /** Documents PDF envoyes a « Preparer un document » : jusqu'a 25 Mo, seulement sur cette route. */
-    public static final String PDF_UPLOAD_PATH = "/documents/preparer";
-    private static final int MAX_PDF_BYTES = 25 * 1024 * 1024;
+    /** Fichier envoye (CSV, ou document PDF pour l'IA locale). */
+    private static final int MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
     private final HttpExchange exchange;
     private final Map<String, String> pathParameters;
     private final Session session;
@@ -113,7 +111,7 @@ public final class Request {
         if (form == null) {
             String type = header("Content-Type");
             form = type != null && type.startsWith("multipart/form-data")
-                    ? MultipartParser.parse(type, body(PDF_UPLOAD_PATH.equals(path()) ? MAX_PDF_BYTES : MAX_UPLOAD_BYTES))
+                    ? MultipartParser.parse(type, body(MAX_UPLOAD_BYTES))
                     : FormData.urlEncoded(body(MAX_FORM_BYTES));
         }
         return form;

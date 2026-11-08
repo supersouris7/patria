@@ -56,7 +56,7 @@ public final class LoanController {
         Property property = PropertyController.require(properties, request.id());
         try {
             String name = request.form().requiredText("name", "Nom du prêt", 100);
-            List<ScheduleLine> lines = CsvScheduleParser.parse(request.form().requiredFile("csv", "Fichier CSV"));
+            List<ScheduleLine> lines = CsvScheduleParser.parse(request.form().uploadedText("csv", "Fichier CSV"));
             long id = loans.create(property.id(), name, lines);
             return Response.redirect("/pret/" + id + "?ok=echeancier");
         } catch (ValidationException exception) {
@@ -80,7 +80,7 @@ public final class LoanController {
     private Response replaceSchedule(Request request) {
         Loan loan = require(request.id());
         try {
-            loans.replaceSchedule(loan.id(), CsvScheduleParser.parse(request.form().requiredFile("csv", "Fichier CSV")));
+            loans.replaceSchedule(loan.id(), CsvScheduleParser.parse(request.form().uploadedText("csv", "Fichier CSV")));
             return Response.redirect("/pret/" + loan.id() + "?ok=echeancier");
         } catch (ValidationException exception) {
             return Response.invalid(LoanPages.manage(loan, propertyOf(loan), Notice.error(exception.getMessage()), request.csrf()));

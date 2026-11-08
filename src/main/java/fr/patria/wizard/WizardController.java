@@ -51,7 +51,7 @@ public final class WizardController {
     /** Depots du foyer utilises par l'assistant. */
     public record Stores(HouseholdRepository household, BudgetRepository items, ShareRepository shares, PropertyRepository properties,
                          LoanRepository loans, ExpenseRepository charges, RentRepository rents, WizardRepository progress,
-                         fr.patria.household.HealthScopeRepository healthScope) {
+                         fr.patria.household.HealthScopeRepository healthScope, fr.patria.savings.SavingsController savings) {
     }
 
     static final String REVIEW = "revue";
@@ -254,7 +254,7 @@ public final class WizardController {
     /** Tout ce qu'une page de l'assistant affiche, calcule une fois par requete. */
     record Context(boolean admin, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
                    Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
-                   java.util.Set<Long> healthScope, boolean healthConfigured) {
+                   java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings) {
         String mode() {
             return review ? "?mode=" + REVIEW : "";
         }
@@ -291,12 +291,14 @@ public final class WizardController {
         List<Income> incomes = stores.household().incomes().stream().filter(income -> everything || visibility.canSeeAny(income.personId())).toList();
         List<Transfer> transfers = stores.household().transfers().stream().filter(transfer -> everything || visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
         Snapshot snapshot = admin
-                ? new Snapshot(people, incomes, items, stores.properties().all(), stores.loans().all(), stores.charges().all(), stores.rents().all(), transfers)
-                : new Snapshot(people, incomes, items, List.of(), List.of(), List.of(), List.of(), transfers);
+                ? new Snapshot(people, incomes, items, stores.properties().all(), stores.loans().all(), stores.charges().all(), stores.rents().all(), transfers,
+                        stores.savings().counts(request))
+                : new Snapshot(people, incomes, items, List.of(), List.of(), List.of(), List.of(), transfers, stores.savings().counts(request));
         return new Context(admin, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.forViewer(admin),
                 stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf(),
                 stores.healthScope().scope(request.viewer(), people),
-                request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()));
+                request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
+                () -> stores.savings().wizardPanel(request, Step.SAVINGS.path()));
     }
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */
@@ -339,6 +341,11 @@ public final class WizardController {
             default -> throw new ValidationException("Choix invalide.");
         };
         stores.progress().setDocument(owner(request), id, status);
+        // « J'ai ce document » mene a l'etape qui l'exploite (import par l'IA ou saisie), si elle est ouverte a ce compte.
+        Step next = Documents.next(id);
+        if (status == WizardRepository.DocumentStatus.HAVE && next != null && Step.forViewer(request.viewer().realEstate()).contains(next)) {
+            return Response.redirect(next.path() + "#import");
+        }
         return back(request, Step.DOCUMENTS, "doc-" + id);
     }
 
@@ -486,7 +493,7 @@ public final class WizardController {
         Property property = property(request);
         try {
             String name = request.form().requiredText("name", "Nom du prêt", 100);
-            List<ScheduleLine> lines = CsvScheduleParser.parse(request.form().requiredFile("csv", "Fichier CSV"));
+            List<ScheduleLine> lines = CsvScheduleParser.parse(request.form().uploadedText("csv", "Fichier CSV"));
             stores.loans().create(property.id(), name, lines);
             return back(request, Step.LOANS, "bien-" + property.id());
         } catch (ValidationException exception) {

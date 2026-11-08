@@ -95,4 +95,35 @@ class SavingsTest {
         assertEquals(new BigDecimal("2.7"), RegulatedRates.before(SavingsKind.LEP, TODAY).orElseThrow().percent());
         assertTrue(RegulatedRates.at(SavingsKind.LIFE_INSURANCE, TODAY).isEmpty());
     }
+
+    @Test
+    void scheduledContributionsAdvanceTheBalanceUpToTheCeiling() {
+        SavingsRepository.Account livret = new SavingsRepository.Account(1, 1, SavingsKind.LIVRET_A, "Livret A", new BigDecimal("22000"), LocalDate.of(2026, 8, 20), null, null,
+                new SavingsRepository.Contribution(new BigDecimal("200"), Frequency.MONTHLY, LocalDate.of(2026, 1, 5), 9L));
+        assertEquals(new BigDecimal("22600"), Savings.balance(livret, TODAY), "septembre, octobre, novembre (le 5 est passé)");
+        assertEquals(new BigDecimal("22400"), Savings.balance(livret, LocalDate.of(2026, 11, 4)), "pas encore celui de novembre");
+        SavingsRepository.Account full = new SavingsRepository.Account(2, 1, SavingsKind.LIVRET_A, "Livret A", new BigDecimal("22900"), LocalDate.of(2026, 8, 20), null, null,
+                livret.contribution());
+        assertEquals(new BigDecimal("22950"), Savings.balance(full, TODAY), "plafond du Livret A");
+    }
+
+    @Test
+    void positionsImportResolvesIsinAndSkipsDuplicates() {
+        List<PositionCsv.Row> rows = PositionCsv.parse("IE00B4L5Y983;ETF Monde;12,4;1050,30\nAI.PA;Air Liquide;5;780\nAI.PA;Doublon;1;100\nXX;;0;1\n",
+                List.of(), isin -> isin.equals("IE00B4L5Y983") ? Optional.of("EUNL.DE") : Optional.empty());
+        assertEquals("EUNL.DE", rows.get(0).symbol());
+        assertEquals(new BigDecimal("12.4"), rows.get(0).quantity());
+        assertTrue(rows.get(1).fresh());
+        assertTrue(rows.get(2).duplicate(), "même code deux fois");
+        assertTrue(rows.get(3).error().startsWith("Quantité"));
+    }
+
+    @Test
+    void foreignQuotesAreConvertedAndPenceBecomePounds() {
+        assertEquals(new BigDecimal("87.53"), MarketFeeds.parseQuote("{\"currency\":\"GBp\",\"regularMarketPrice\":8753}").price());
+        SavingsRepository.Position apple = new SavingsRepository.Position(1, 1, "AAPL", "Apple", new BigDecimal("2"), new BigDecimal("300"), null);
+        Savings.PositionLine line = Savings.value(apple, Optional.of(new MarketFeeds.Quote(new BigDecimal("200"), "USD")), Optional.of(new BigDecimal("0.9")));
+        assertEquals(new BigDecimal("360.00"), line.value());
+        assertTrue(line.priceSource().contains("converti depuis USD"));
+    }
 }

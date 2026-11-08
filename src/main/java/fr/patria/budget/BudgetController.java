@@ -201,10 +201,10 @@ public final class BudgetController {
 
     private Response preview(Request request) {
         try {
-            String content = new String(request.form().requiredFile("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
+            String content = new String(request.form().uploadedText("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
             List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, visibleItems(request));
             boolean ok = rows.stream().allMatch(ExpenseCsv.Row::valid);
-            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, visibility(request).people(), Map.of(), request.csrf()));
+            return new Response.Page(ok ? 200 : 400, BudgetPages.importPreview(rows, content, visibility(request).people(), Map.of(), importBack(request), request.csrf()));
         } catch (ValidationException exception) {
             return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible. " + exception.getMessage())));
         }
@@ -222,13 +222,13 @@ public final class BudgetController {
             List<ExpenseCsv.Row> rows = ExpenseCsv.parse(content, visibleItems(request));
             Visibility visibility = visibility(request);
             List<Person> people = visibility.people();
-            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people, Map.of(), request.csrf()));
+            if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people, Map.of(), importBack(request), request.csrf()));
             Map<String, String> form = request.form().values();
             Map<Long, Integer> all = owner(form.getOrDefault("attribution", ""), people, false);
             // Apercu avec cases : seules les lignes cochees sont importees.
             boolean chosen = form.containsKey("choix");
             if (chosen && rows.stream().filter(ExpenseCsv.Row::fresh).noneMatch(row -> "on".equals(form.get("importer_" + row.line())))) {
-                return Response.invalid(BudgetPages.importPreview(rows, content, people, form, request.csrf()));
+                return Response.invalid(BudgetPages.importPreview(rows, content, people, form, importBack(request), request.csrf()));
             }
             List<BudgetRepository.NewExpense> fresh = rows.stream().filter(ExpenseCsv.Row::fresh)
                     .filter(row -> !chosen || "on".equals(form.get("importer_" + row.line()))).map(row -> {
@@ -236,7 +236,8 @@ public final class BudgetController {
                 return new BudgetRepository.NewExpense(row.item(), visibility.normalize(own.isEmpty() ? all : owner(own, people, true)));
             }).toList();
             items.insertAll(fresh);
-            return Response.redirect("/administration/depenses?ok=importe");
+            String back = importBack(request);
+            return Response.redirect(back != null ? back + "?ok=importe" : "/administration/depenses?ok=importe");
         } catch (ValidationException exception) {
             return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible. " + exception.getMessage())));
         }
@@ -281,7 +282,13 @@ public final class BudgetController {
     /** Retour au budget quand la depense y a ete ouverte ({@code ?retour=/budget...}). */
     private static String back(Request request) {
         String back = LocalPath.safe(request.query("retour"));
-        return back != null && back.startsWith("/budget") ? back : null;
+        return back != null && (back.startsWith("/budget") || back.startsWith("/assistant/")) ? back : null;
+    }
+
+    /** Import lance depuis une etape du guide : on y revient apres (champ {@code retour}). */
+    private static String importBack(Request request) {
+        String back = LocalPath.safe(request.form().raw("retour"));
+        return back != null && back.startsWith("/assistant/") && !back.contains("?") ? back : null;
     }
 
     private static BudgetItem read(FormData form, long id) {

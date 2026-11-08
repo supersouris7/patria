@@ -20,6 +20,7 @@ public enum Step {
     TAXES("impots", "Impôts", "Impôt sur le revenu (prélèvement à la source), solde, autres taxes.", false),
     TRANSFERS("virements", "Virements", "Ce que chacun verse au compte joint, chaque mois.", false),
     SHARES("repartition", "Répartition", "Qui paie quelle part des biens et des prêts.", true),
+    SAVINGS("epargne", "Épargne et bourse", "Livrets, assurance-vie, PEA et comptes-titres : soldes, versements programmés et lignes de bourse.", false),
     HEALTH("bilan", "Bilan de santé", "Les comptes que votre bilan prend en compte : le vôtre, les comptes joints, d'autres si besoin.", false),
     SUMMARY("recapitulatif", "Récapitulatif", "Ce qui est fait, passé ou reste à faire.", false);
 

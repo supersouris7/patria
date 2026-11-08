@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
 public final class MarketFeeds {
     static final String INFLATION_URL = "https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/011814630?lastNObservations=13";
     static final String QUOTE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1d&interval=1d";
+    static final String SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search?q=%s&quotesCount=5&newsCount=0";
     private static final Duration QUOTE_REFRESH = Duration.ofHours(1);
     private static final Duration INFLATION_REFRESH = Duration.ofDays(1);
     private static final Duration RETRY = Duration.ofMinutes(30);
@@ -107,6 +108,24 @@ public final class MarketFeeds {
         return Optional.ofNullable(quotes.get(key));
     }
 
+    /**
+     * Code Yahoo Finance d'un ISIN (recherche Yahoo, sans cle), pendant un import : appel direct, court ; vide hors
+     * ligne ou si rien n'est trouve.
+     */
+    public Optional<String> resolve(String isin) {
+        if (offline || isin == null || !isin.matches("[A-Z]{2}[A-Z0-9]{9}\\d")) return Optional.empty();
+        try {
+            Matcher symbol = Pattern.compile("\"symbol\"\\s*:\\s*\"([A-Za-z0-9.^=-]{1,20})\"").matcher(source.fetch(SEARCH_URL.formatted(isin)));
+            return symbol.find() ? Optional.of(symbol.group(1).toUpperCase(java.util.Locale.ROOT)) : Optional.empty();
+        } catch (IOException | RuntimeException exception) {
+            LOG.log(Level.INFO, "Code de " + isin + " introuvable", exception);
+            return Optional.empty();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        }
+    }
+
     /** Derniere inflation connue ; vide tant qu'elle n'a pas pu etre telechargee (ou hors ligne). */
     public Optional<Inflation> inflation() {
         if (offline) return Optional.empty();
@@ -135,7 +154,10 @@ public final class MarketFeeds {
         Matcher currency = Pattern.compile("\"currency\"\\s*:\\s*\"([A-Za-z]{3})\"").matcher(json);
         BigDecimal value = new BigDecimal(price.group(1));
         if (value.signum() <= 0) throw new IllegalArgumentException("Cours invraisemblable : " + value);
-        return new Quote(value, currency.find() ? currency.group(1).toUpperCase(java.util.Locale.ROOT) : "EUR");
+        String code = currency.find() ? currency.group(1) : "EUR";
+        // Londres cote souvent en pence (GBp) : ramene en livres.
+        if (code.equals("GBp") || code.equals("GBX")) return new Quote(value.movePointLeft(2), "GBP");
+        return new Quote(value, code.toUpperCase(java.util.Locale.ROOT));
     }
 
     /** Glissement annuel : dernier indice / indice du meme mois un an plus tot − 1 (observations SDMX de l'INSEE). */

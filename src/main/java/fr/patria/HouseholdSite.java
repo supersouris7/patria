@@ -64,7 +64,6 @@ final class HouseholdSite implements AutoCloseable {
         new ContributionController(contributions, properties, clock).register(router);
         new ExpenseController(expenses, properties, clock).register(router);
         new HouseholdController(household, clock, logins).register(router);
-        new fr.patria.pdf.PdfController(household).register(router);
         new TransferController(household, clock).register(router);
         Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
         Forecast forecast = new Forecast(budgetSources, clock);
@@ -72,14 +71,14 @@ final class HouseholdSite implements AutoCloseable {
         new RentController(rents, properties, clock).register(router);
         wizard = new WizardRepository(database);
         healthScope = new fr.patria.household.HealthScopeRepository(database);
+        fr.patria.savings.SavingsController savings = new fr.patria.savings.SavingsController(new fr.patria.savings.SavingsRepository(database), household, forecast,
+                budgetItems, feeds, clock);
+        savings.register(router);
         WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard,
-                healthScope), clock);
+                healthScope, savings), clock);
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
         healthPreferences = new HealthRepository(database);
-        fr.patria.savings.SavingsController savings = new fr.patria.savings.SavingsController(new fr.patria.savings.SavingsRepository(database), household, forecast,
-                feeds, clock);
-        savings.register(router);
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope, savings,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);

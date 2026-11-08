@@ -69,6 +69,7 @@ final class SecurityPages {
                                 + SecurityLog.KEPT_DAYS + " jours.", Html.EMPTY),
                 recommended, tiles,
                 Components.card("État de l'installation", null, Html.EMPTY, installation),
+                localAiCard(csrf),
                 Components.card("Bloqués en ce moment", blocked.size(), Html.EMPTY, blockedList),
                 Components.disclosure("Connexions échouées (" + failures.size() + ")", failures.isEmpty() ? Html.raw("<p class=\"empty\">Aucun échec enregistré.</p>")
                         : Html.concat(Components.table(List.of("Date", "Identifiant tenté", "Adresse IP", "Lieu"), failureRows, false, false), place), !failures.isEmpty()),
@@ -98,5 +99,24 @@ final class SecurityPages {
                 : Html.of("<span class=\"badge paid\">Activée%s</span>", twoFactor.equals(java.time.LocalDate.MIN) ? ""
                 : " le " + twoFactor.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         return Html.of("<tr><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td>%s</td></tr>", name, last == null ? "Jamais" : last.format(WHEN), open, password, state);
+    }
+
+    /** IA locale : oui ou non, adresse du serveur Ollama et modele, avec le resultat du dernier test. */
+    private static Html localAiCard(String csrf) {
+        fr.patria.ai.LocalAi.Settings settings = fr.patria.ai.LocalAi.settings();
+        String status = fr.patria.ai.LocalAi.status();
+        return Html.of("<div id=\"ia-locale\">%s</div>", Components.card("IA locale", null, Html.EMPTY, Html.of("""
+                <p>Sans IA locale, les imports proposent un <b>prompt à copier</b> dans un assistant externe (avec un avertissement sur les données). Avec une IA
+                locale (<a href="https://ollama.com" target="_blank" rel="noopener noreferrer">Ollama</a> installé à côté de Patria), l'utilisateur dépose simplement
+                son document : Patria le fait analyser sur votre serveur, <b>rien ne sort</b>. Il faut environ 4 Go de mémoire libre pour un modèle 3B, 8 Go pour un 7B.</p>
+                %s
+                <form method="post" action="/administration/securite/ia" class="stack">%s
+                <label class="check"><input type="checkbox" name="ia" value="on"%s> Utiliser une IA locale pour les imports</label>
+                <div class="row-form"><label>Adresse du serveur Ollama<input name="url" value="%s" maxlength="200"></label>
+                <label>Modèle<input name="modele" value="%s" maxlength="80" list="ia-modeles"></label><datalist id="ia-modeles">%s</datalist>
+                <button class="secondary" type="submit">Enregistrer et tester</button></div></form>""",
+                status == null ? Html.EMPTY : Html.of("<p class=\"notice %s\">%s</p>", status.startsWith("IA locale prête") ? "success" : "warning", status),
+                Components.csrfField(csrf), Html.raw(settings.enabled() ? " checked" : ""), settings.url(), settings.model(),
+                fr.patria.ai.LocalAi.SUGGESTED.stream().map(model -> Html.of("<option value=\"%s\">", model)).collect(Html.joining()))));
     }
 }

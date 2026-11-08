@@ -107,7 +107,7 @@ final class LoanPages {
                 Components.input(Input.of("Nom", "name", Field.TEXT).required().maxLength(100), Map.of("name", loan.name())), "Renommer"));
         Html schedule = Components.card("Remplacer l'échéancier", null, Html.EMPTY, Html.concat(
                 Html.raw("<p class=\"muted\">Le nouvel import remplace toutes les lignes existantes.</p>"),
-                Components.form("/pret/" + loan.id() + "/echeancier", csrf, true, Components.fileInput("Fichier CSV", "csv"), "Importer"),
+                Components.form("/pret/" + loan.id() + "/echeancier", csrf, true, Components.importInput("Fichier CSV", "csv", "echeancier"), "Importer"),
                 csvHelp()));
         Html content = Html.concat(
                 Components.backLink("/pret/" + loan.id(), loan.name()),
@@ -121,7 +121,7 @@ final class LoanPages {
     static Html create(Property property, Map<String, String> values, Notice notice, String csrf) {
         Html form = Components.form("/bien/" + property.id() + "/prets", csrf, true, Components.fields(2,
                 Components.input(Input.of("Nom du prêt", "name", Field.TEXT).required().maxLength(100).placeholder("Prêt principal"), values),
-                Components.fileInput("Échéancier CSV", "csv")), "Importer le prêt");
+                Components.importInput("Échéancier CSV", "csv", "echeancier")), "Importer le prêt");
         Html content = Html.concat(
                 Components.backLink("/administration/bien/" + property.id() + "/financements", "Prêts et apports"),
                 Components.heading("Bien", "Nouveau prêt", property.name(), Html.EMPTY), Components.notice(notice),

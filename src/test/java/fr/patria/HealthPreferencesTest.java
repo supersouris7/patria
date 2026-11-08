@@ -38,7 +38,7 @@ class HealthPreferencesTest {
             assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"warnings\":0"));
             assertTrue(TestAccounts.get(client, base, reader, "/navigation/etat").body().contains("\"warnings\":1"));
             assertEquals(303, TestAccounts.post(client, base, manager, "/assistant/documents/passer", "").statusCode());
-            assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"progress\":9"), "une etape sur onze");
+            assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"progress\":8"), "une etape sur douze");
             assertTrue(TestAccounts.get(client, base, reader, "/").body().contains("health-summary"), "autre compte non affecté");
             assertEquals(400, TestAccounts.post(client, base, reader, "/bilan/retablir", "check=withholding%3AWARN").statusCode());
             assertEquals(400, TestAccounts.post(client, base, manager, "/bilan/ignorer", "check=property-999-occupancy%3AWARN").statusCode());

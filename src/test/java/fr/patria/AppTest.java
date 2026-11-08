@@ -1,6 +1,7 @@
 package fr.patria;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -80,7 +81,7 @@ class AppTest {
     void privacyPageIsPublic() throws Exception {
         HttpResponse<String> page = get("/confidentialite");
         assertEquals(200, page.statusCode(), "lisible avant connexion");
-        assertTrue(page.body().contains("Ce qui sort du serveur") && page.body().contains("Masquez avant d'envoyer"));
+        assertTrue(page.body().contains("Ce qui sort du serveur") && page.body().contains("Attention aux données confiées à une IA commerciale"));
         assertTrue(get("/connexion").body().contains("href=\"/confidentialite\""), "lien depuis la connexion");
     }
 
@@ -140,7 +141,10 @@ class AppTest {
 
         String dashboard = get("/immobilier").body();
         assertTrue(dashboard.contains("350 000 €"), "valeur retenue");
-        assertTrue(dashboard.contains("Fourchette"));
+        assertTrue(get("/immobilier/biens").body().contains("Fourchette"));
+        String loans = get("/immobilier/prets").body();
+        assertTrue(loans.contains("Intérêts restant à payer") && loans.contains("Fin du dernier prêt"), "tuiles des prêts");
+        assertFalse(dashboard.contains("Et si je vendais"), "seulement dans Mes biens");
         assertTrue(dashboard.contains("199 500 €"), "capital restant dû au 15/06/2026");
         assertTrue(get(propertyPath).body().contains("value=\"350000\""));
 

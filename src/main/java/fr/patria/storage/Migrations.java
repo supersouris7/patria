@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 16;
+    public static final int LATEST = 17;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -52,6 +52,7 @@ public final class Migrations {
             if (version < 14) toVersion14(connection);
             if (version < 15) toVersion15(connection);
             if (version < 16) toVersion16(connection);
+            if (version < 17) toVersion17(connection);
             return null;
         });
     }
@@ -385,6 +386,27 @@ public final class Migrations {
             statement.execute("CREATE TABLE savings_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
         }
         setUserVersion(connection, 16);
+    }
+
+    /**
+     * Version 17 : versement programme sur un placement (le solde avance tout seul, une ligne de budget le reprend) et
+     * historique mensuel des soldes (graphique de l'epargne).
+     */
+    private static void toVersion17(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE savings_accounts ADD COLUMN contribution INTEGER");
+            statement.execute("ALTER TABLE savings_accounts ADD COLUMN contribution_frequency TEXT");
+            statement.execute("ALTER TABLE savings_accounts ADD COLUMN contribution_start TEXT");
+            statement.execute("ALTER TABLE savings_accounts ADD COLUMN contribution_item INTEGER");
+            statement.execute("""
+                    CREATE TABLE savings_history (
+                        account_id INTEGER NOT NULL REFERENCES savings_accounts(id) ON DELETE CASCADE,
+                        month TEXT NOT NULL,
+                        balance INTEGER NOT NULL,
+                        PRIMARY KEY (account_id, month)
+                    )""");
+        }
+        setUserVersion(connection, 17);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

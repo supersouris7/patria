@@ -75,8 +75,14 @@ public final class App implements AutoCloseable {
             else sites.site(accounts.households().getFirst().id());
 
             fr.patria.ui.BuildInfo.useSupportUrl(config.support());
-            fr.patria.pdf.Stirling.configure(config.stirlingUrl(), config.stirlingApiKey());
-            fr.patria.ui.Components.useRedactionTool(config.stirlingUrl() != null);
+            fr.patria.ai.LocalAi.Settings localAi = accounts.localAi();
+            fr.patria.ai.LocalAi.configure(localAi);
+            fr.patria.ui.Components.useLocalAi(localAi.enabled());
+            fr.patria.web.FormData.useConverter((kind, document) -> fr.patria.ai.LocalAi.convert(switch (kind) {
+                case "echeancier" -> fr.patria.loan.CsvScheduleParser.llmPrompt();
+                case "bourse" -> fr.patria.savings.PositionCsv.llmPrompt();
+                default -> fr.patria.budget.ExpenseCsv.llmPrompt();
+            }, document));
             Sessions sessions = new Sessions(config.clock());
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(log, config.offline(), config.clock());
             fr.patria.account.SessionViewers viewers = new fr.patria.account.SessionViewers(accounts, log, sites);

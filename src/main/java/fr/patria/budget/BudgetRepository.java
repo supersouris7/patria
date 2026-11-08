@@ -54,6 +54,26 @@ public final class BudgetRepository {
         });
     }
 
+    /** Une ligne et sa repartition, enregistrees ensemble ; renvoie son identifiant. */
+    public long insert(BudgetItem item, java.util.Map<Long, Integer> shares) {
+        return database.transaction(connection -> {
+            long id = Sql.insert(connection,
+                    "INSERT INTO budget_items (label, category, amount_cents, frequency, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                    item.label(), item.category().name(), cents(item.amount()), item.frequency().name(), item.start(), item.end());
+            if (!shares.isEmpty()) ShareRepository.write(connection, Shares.Subject.BUDGET_ITEM, id, shares);
+            return id;
+        });
+    }
+
+    /** Supprime une ligne et sa repartition. */
+    public void deleteWithShares(long id) {
+        database.transaction(connection -> {
+            Sql.update(connection, "DELETE FROM shares WHERE subject = ? AND subject_id = ?", Shares.Subject.BUDGET_ITEM.name(), id);
+            Sql.update(connection, "DELETE FROM budget_items WHERE id = ?", id);
+            return null;
+        });
+    }
+
     public void update(BudgetItem item) {
         database.query(connection -> Sql.update(connection,
                 "UPDATE budget_items SET label = ?, category = ?, amount_cents = ?, frequency = ?, start_date = ?, end_date = ? WHERE id = ?",
