@@ -226,6 +226,8 @@ Le schéma est migré au démarrage, avec copie préalable. Vérifiez la version
 | `HTTP_PORT` | Port du serveur Java, `8080` par défaut ; ne pas changer sans adapter le Compose/proxy. |
 | `OFFLINE` | `true` coupe les appels automatiques sortants : marché, taux, localisation des IP. |
 | `KOFI_URL` | Lien « Soutenir Patria » : `https://ko-fi.com/supersouris7` par défaut ; une autre URL `https://ko-fi.com/<nom>` le remplace, vide le masque. |
+| `STIRLING_URL` | Adresse d'un serveur [Stirling PDF](https://docs.stirlingpdf.com/) que vous gérez (ex. `http://stirling-pdf:8080`). Active « Préparer un document » : caviardage, OCR et nettoyage des PDF avant une IA. Absente : l'outil est masqué. |
+| `STIRLING_API_KEY` | Clé API de ce serveur (en-tête `X-API-KEY`), si sa connexion est activée. Les appels avec clé consomment son allocation de traitement : vérifiez ses quotas. |
 | `ADMIN_2FA_RESET` | `true` retire la double authentification de l'administrateur au démarrage (téléphone perdu) ; à retirer ensuite. |
 
 Les services utilisés hors mode hors ligne sont détaillés dans [Confidentialité](confidentialite.md). Sans réseau sortant, le budget reste utilisable, mais les données de marché ne sont plus actualisées.

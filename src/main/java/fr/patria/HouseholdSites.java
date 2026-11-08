@@ -29,17 +29,20 @@ final class HouseholdSites implements HouseholdDirectory {
     private final Map<Long, HouseholdSite> open = new ConcurrentHashMap<>();
     /** Taux moyen des credits immobiliers, partage par tous les foyers. */
     private final fr.patria.market.HousingRates rates;
+    /** Cours de bourse et inflation, partages par tous les foyers. */
+    private final fr.patria.savings.MarketFeeds feeds;
 
     HouseholdSites(Config config, AccountRepository accounts) {
         this.config = config;
         this.accounts = accounts;
         this.rates = new fr.patria.market.HousingRates(config.clock(), config.offline());
+        this.feeds = new fr.patria.savings.MarketFeeds(config.clock(), config.offline());
     }
 
     HouseholdSite site(long householdId) {
         return open.computeIfAbsent(householdId, id -> {
             Household household = accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe plus."));
-            return HouseholdSite.open(file(household), config.encryptionKey(), config.clock(), config.offline(), rates, this::logins);
+            return HouseholdSite.open(file(household), config.encryptionKey(), config.clock(), config.offline(), rates, feeds, this::logins);
         });
     }
 

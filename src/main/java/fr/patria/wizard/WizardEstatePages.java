@@ -68,7 +68,7 @@ final class WizardEstatePages {
                     property.id(), property.name(), list, Components.llmPrompt("prompt-pret-" + property.id(), CsvScheduleParser.llmPrompt()), add);
         }).collect(Html.joining());
         return Html.concat(explain("Un prêt = un fichier d'échéancier CSV, préparé à la main ou avec une IA facultative. Avant de lui joindre le tableau "
-                + "d'amortissement, caviardez et vérifiez une copie avec l'outil ci-dessous ; n'envoyez pas l'original. Vérifiez le CSV obtenu avant import. Un prêt à taux zéro ou un "
+                + "d'amortissement, caviardez et vérifiez une copie ; n'envoyez pas l'original. Vérifiez le CSV obtenu avant import. Un prêt à taux zéro ou un "
                 + "prêt complémentaire s'importe comme un prêt à part."), cards);
     }
 

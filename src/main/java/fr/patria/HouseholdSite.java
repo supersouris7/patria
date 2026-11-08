@@ -43,7 +43,7 @@ final class HouseholdSite implements AutoCloseable {
     final fr.patria.household.HealthScopeRepository healthScope;
     final Router router = new Router();
 
-    private HouseholdSite(Database database, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
+    private HouseholdSite(Database database, Clock clock, boolean offline, HousingRates rates, fr.patria.savings.MarketFeeds feeds, HouseholdController.Logins logins) {
         this.database = database;
         properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
@@ -64,6 +64,7 @@ final class HouseholdSite implements AutoCloseable {
         new ContributionController(contributions, properties, clock).register(router);
         new ExpenseController(expenses, properties, clock).register(router);
         new HouseholdController(household, clock, logins).register(router);
+        new fr.patria.pdf.PdfController(household).register(router);
         new TransferController(household, clock).register(router);
         Forecast.Sources budgetSources = new Forecast.Sources(household, budgetItems, properties, loans, expenses, rents, shares);
         Forecast forecast = new Forecast(budgetSources, clock);
@@ -76,7 +77,10 @@ final class HouseholdSite implements AutoCloseable {
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
         healthPreferences = new HealthRepository(database);
-        HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope,
+        fr.patria.savings.SavingsController savings = new fr.patria.savings.SavingsController(new fr.patria.savings.SavingsRepository(database), household, forecast,
+                feeds, clock);
+        savings.register(router);
+        HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope, savings,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
         router.userGet("/navigation/etat", request -> new fr.patria.web.Response.Text(200,
@@ -86,11 +90,11 @@ final class HouseholdSite implements AutoCloseable {
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */
-    static HouseholdSite open(Path file, String key, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
+    static HouseholdSite open(Path file, String key, Clock clock, boolean offline, HousingRates rates, fr.patria.savings.MarketFeeds feeds, HouseholdController.Logins logins) {
         Database database = Database.open(file, key);
         try {
             Migrations.apply(database, clock);
-            return new HouseholdSite(database, clock, offline, rates, logins);
+            return new HouseholdSite(database, clock, offline, rates, feeds, logins);
         } catch (RuntimeException exception) {
             database.close();
             throw exception;

@@ -75,21 +75,15 @@ Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » pro
 
 ### Caviarder avant tout envoi
 
-Dès l'étape **Documents** du Guide de saisie, le bloc « Préparer les documents avant un import » propose le parcours rassembler → caviarder → contrôler → relire. Il ne transmet aucun document. Les coches « J'ai ce document » suivent seulement le rassemblement, pas le caviardage.
+Avant de joindre un document à une IA, créez une **copie caviardée** et relisez-la. Si votre installation est reliée à Stirling PDF, le bouton « Caviarder une copie du document » (étape Documents du guide, et à côté de chaque prompt) ouvre **Préparer un document** :
 
-Dans ce bloc, dépliez **« Préparer, caviarder et contrôler les documents ici »** : l'outil fonctionne directement dans l'assistant. Un lien permet aussi de l'ouvrir dans un autre onglet (`/aide/caviardage`), comme depuis les aides à l'import des dépenses et prêts. Terminez le caviardage et téléchargez la copie avant de changer d'étape : le travail en mémoire n'est pas conservé en quittant la page.
+1. Choisissez le PDF (25 Mo au plus).
+2. Vérifiez les mots à masquer, un par ligne : votre nom et ceux des membres du foyer sont proposés ; ajoutez rue, ville, employeur…
+3. Gardez les repères cochés (IBAN, carte, e-mail, téléphone, sécurité sociale, numéro fiscal, numéros longs). Cochez « Document scanné ou photo » pour un scan (OCR). « Transformer les pages en images » (recommandé) empêche de récupérer le texte masqué.
+4. Téléchargez `copie-caviardee.pdf` : métadonnées, scripts, pièces jointes et liens sont aussi effacés. Si rien n'a été trouvé, Patria le dit au lieu de télécharger.
+5. Relisez la copie page par page (adresses, signatures, QR codes et écritures manuscrites ne sont pas toujours détectés), puis copiez le prompt et joignez **uniquement cette copie**. L'IA demande d'abord les documents qui manquent (relevés de tous les comptes sur 12 mois, contrats, avis d'impôt), puis détecte un maximum de dépenses.
 
-1. Choisissez un PDF ou une image PNG/JPEG. Il reste dans le navigateur ; ni téléversement au serveur Patria, ni stockage persistant par l'outil.
-2. Sur chaque page, encadrez les informations à supprimer à la souris ou au doigt. Au clavier, utilisez Gauche/Haut/Largeur/Hauteur en pourcentage, puis « Supprimer cette zone ». « Annuler » retire la dernière zone ; une page entière peut être supprimée visuellement.
-3. Retirez noms, adresses, IBAN, numéros de compte, fiscaux, de sécurité sociale, de contrat ; vérifiez aussi en-têtes, pieds de page, QR codes, signatures et libellés identifiants. Prévoyez une marge autour des éléments.
-4. Cochez la vérification de **chaque page**, puis lancez **Contrôler avant partage**. Indiquez si besoin les noms, adresses ou autres informations à rechercher (un par ligne, uniquement en mémoire dans le navigateur). Le contrôle recherche les identifiants courants et ces mots dans le texte PDF non entièrement masqué.
-5. Corrigez les points signalés et relancez le contrôle. Si aucun point n'est trouvé et que toutes les pages sont analysables, Patria indique : **« Le document semble ne plus contenir de données sensibles, à relire de votre côté. »** Ce n'est pas une garantie d'anonymat. Sans OCR, les images et scans reçoivent un avertissement de contrôle incomplet, jamais ce message rassurant. En cas de contrôle incomplet ou d'alerte, une confirmation de relecture supplémentaire est nécessaire pour télécharger.
-6. Téléchargez `document-caviarde.pdf`, ouvrez cette copie et relisez-la avant de l'envoyer. Toute modification de zone annule le contrôle et la validation de la page ; modifier les mots recherchés annule le contrôle.
-7. Copiez le prompt et joignez **uniquement la copie caviardée**, jamais l'original. L'IA demande d'abord les documents qui manquent (relevés de tous les comptes sur 12 mois, contrats, avis d'impôt), puis détecte un maximum de dépenses. Vérifiez le CSV généré avant import.
-
-Le PDF est reconstruit à partir des pixels caviardés : le texte caché, les métadonnées d'origine, annotations, formulaires, liens et pièces jointes ne sont pas recopiés. Cela supprime aussi la recherche et l'accessibilité du texte ; l'IA doit pouvoir lire des images. Les annotations ne sont pas rendues : vérifiez qu'aucune information utile n'a disparu. L'original reste intact sur votre appareil.
-
-![Outil de caviardage : en-tête supprimé en noir, mensualité fictive conservée, commandes de zones et validation des pages.](captures/caviardage.png)
+Sans Stirling PDF, utilisez l'outil de caviardage de votre choix ; le reste du parcours est identique.
 
 Limites : 15 Mio, 30 pages, 12 millions de pixels et 12 000 pixels par côté à la résolution de traitement (144 dpi pour un PDF). PDF protégés non acceptés. Un navigateur récent avec JavaScript est nécessaire. Le contrôle est heuristique : e-mails, téléphones, IBAN, numéros longs et libellés identifiants ; il peut manquer des noms, adresses ou identifiants inhabituels et signaler de simples nombres financiers. Une partie de texte seulement masquée reste analysée par prudence ; les pages entièrement masquées ne contiennent plus d'information visible. Pas d'OCR ni garantie d'anonymat : dates, montants ou contexte laissés visibles peuvent vous identifier. Fermer le document ou l'onglet libère le travail de l'outil, mais n'efface pas les copies déjà téléchargées ni les traces éventuelles du système d'exploitation.
 
@@ -176,6 +170,17 @@ Comparaison à la moyenne BCE/Banque de France des nouveaux prêts français à 
 Sur la fiche du prêt : mensualité recalculée au taux du marché à capital/durée restants identiques, économie d'intérêts, puis économie après indemnité au plafond légal (6 mois d'intérêts, au plus 3 % du capital restant dû). À partir de 0,7 point d'écart avec économie nette, demander une simulation à sa banque peut être utile.
 
 Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (précision d'environ 0,3 point), comparaison indicative s'il reste moins de 10 ans ; assurance, garantie et frais de dossier exclus. Ce n'est pas une offre bancaire.
+
+## Épargne
+
+Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.
+
+- **Taux** : ceux des livrets réglementés sont fournis par Patria, datés (source service-public.gouv.fr ; aucune API publique ne les donne livret par livret). Pour une assurance-vie ou un livret bancaire, saisissez le taux.
+- **Bourse** : sur un PEA ou un compte-titres, ajoutez des lignes avec leur code Yahoo Finance (ex. `AI.PA` pour Air Liquide à Paris, `CW8.PA` pour un ETF monde), la quantité et le prix de revient. Le cours du jour est récupéré automatiquement (en euros) ; sinon saisissez-le.
+- **Tuiles** : épargne totale, épargne de précaution (en mois de dépenses), inflation sur 12 mois (INSEE) et **pouvoir d'achat** : l'évolution de vos revenus sur un an corrigée de l'inflation.
+- **Plan d'épargne de sécurité** : objectif de précaution (6 mois de dépenses par défaut, réglable), ce qui manque, un versement mensuel conseillé (combler en un an sans dépasser la moitié du reste mensuel) et l'ordre de remplissage : LEP si vous y êtes éligible, Livret A, LDDS, puis le long terme. Indicatif, pas un conseil en investissement.
+
+Le **Bilan** audite l'épargne à chaque ouverture : précaution réelle, argent qui dort sur les comptes courants, plafonds atteints, LEP possible, livrets sous l'inflation, concentration sur une seule valeur, plus ou moins-values, PEA de moins de 5 ans, changement récent d'un taux, soldes de plus de 6 mois, pouvoir d'achat. En mode hors ligne, cours et inflation ne sont pas récupérés.
 
 ## Revue annuelle et bilan de santé
 

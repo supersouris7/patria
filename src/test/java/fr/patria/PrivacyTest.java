@@ -120,35 +120,80 @@ class PrivacyTest {
     }
 
     @Test
-    void redactionIsLocalAndLinkedBeforeBothImports() throws Exception {
+    void withoutStirlingTheToolIsHiddenAndAdviceStays() throws Exception {
         try (App ignored = start(null)) {
-            HttpResponse<String> help = get(null, "/aide/caviardage");
-            assertEquals(200, help.statusCode());
-            assertTrue(help.body().contains("Aucun document n'est envoyé"));
-            assertTrue(help.body().contains("redaction.mjs?v="));
-            assertFalse(help.body().contains("<form"), "aucun formulaire d'envoi du document sur la page publique");
-            assertTrue(help.headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
-            assertFalse(get(null, "/confidentialite").headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
-            for (String asset : new String[]{"/js/redaction.mjs", "/js/redaction-pdf.mjs", "/vendor/pdfjs/build/pdf.min.mjs", "/vendor/pdfjs/build/pdf.worker.min.mjs"}) {
-                HttpResponse<String> response = get(null, asset);
-                assertEquals(200, response.statusCode(), asset);
-                assertTrue(response.headers().firstValue("Content-Type").orElseThrow().contains("javascript"));
-            }
-            assertEquals(200, get(null, "/vendor/pdfjs/wasm/openjpeg.wasm").statusCode());
-            Visitor admin = TestAccounts.admin(client, base);
-            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
-            Visitor visitor = manager;
-            assertTrue(get(visitor, "/administration/depenses").body().contains("href=\"/aide/caviardage\""));
-            HttpResponse<String> documentStep = get(visitor, "/assistant/documents");
-            String preparation = documentStep.body();
-            assertTrue(preparation.contains("Préparer les documents avant un import") && preparation.contains("href=\"/aide/caviardage\""));
-            assertTrue(preparation.contains("id=\"redaction-file\"") && preparation.contains("redaction.mjs?v="), "outil integre, pas seulement un lien");
-            assertTrue(documentStep.headers().firstValue("Content-Security-Policy").orElseThrow().contains("'wasm-unsafe-eval'"));
-            assertTrue(help.body().contains("Contrôle Patria avant partage") && help.body().contains("Pas d'OCR"));
-            assertEquals(303, post(visitor, "/bien", "name=Test&kind=APARTMENT&purchase=100000&purchase_date=2020-01-01&estimate=120000&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
-            assertTrue(get(visitor, "/bien/1/prets/nouveau").body().contains("href=\"/aide/caviardage\""));
+            assertFalse(get(null, "/aide/caviardage").statusCode() == 200, "ancien outil retiré");
+            assertFalse(get(null, "/vendor/pdfjs/build/pdf.min.mjs").statusCode() == 200);
+            Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
+            assertEquals(404, get(manager, "/documents/preparer").statusCode());
+            String expenses = get(manager, "/administration/depenses").body();
+            assertFalse(expenses.contains("/documents/preparer"));
+            assertTrue(expenses.contains("Caviardez une copie avec l'outil de votre choix"));
+            assertTrue(get(manager, "/assistant/documents").body().contains("Caviardez une copie avec l'outil de votre choix"));
             assertTrue(get(null, "/aide/chiffrement").body().contains("Oubli au premier lancement"));
         }
+    }
+
+    @Test
+    void stirlingRedactsACopyWithTheHouseholdNamesAndCleansIt() throws Exception {
+        java.util.List<String> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.List<String> bodies = new java.util.concurrent.CopyOnWriteArrayList<>();
+        com.sun.net.httpserver.HttpServer stirling = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        stirling.createContext("/", exchange -> {
+            calls.add(exchange.getRequestURI().getPath() + " " + exchange.getRequestHeaders().getFirst("X-API-KEY"));
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
+            byte[] answer = "%PDF-1.7 traite".getBytes(StandardCharsets.ISO_8859_1);
+            if (exchange.getRequestURI().getPath().endsWith("auto-redact")) exchange.getResponseHeaders().set("X-Stirling-Redaction-Matches", "3");
+            exchange.sendResponseHeaders(200, answer.length);
+            exchange.getResponseBody().write(answer);
+            exchange.close();
+        });
+        stirling.start();
+        try (App ignored = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, false, null, null)
+                .withStirling("http://127.0.0.1:" + stirling.getAddress().getPort() + "/", "cle-api"))) {
+            base = "http://127.0.0.1:" + ignored.port();
+            Visitor admin = TestAccounts.admin(client, base);
+            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
+            assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Pascaline+Durand&kind=PERSON").statusCode());
+            assertTrue(get(manager, "/administration/depenses").body().contains("href=\"/documents/preparer\""));
+            String page = get(manager, "/documents/preparer").body();
+            assertTrue(page.contains("Pascaline Durand") && page.contains("repere_IBAN"), "noms du foyer et repères proposés");
+
+            HttpResponse<byte[]> refused = upload(manager, "mots=Pascaline", "pas un pdf".getBytes(StandardCharsets.UTF_8));
+            assertEquals(400, refused.statusCode());
+            assertTrue(calls.isEmpty(), "rien n'est envoyé à Stirling pour un fichier qui n'est pas un PDF");
+
+            HttpResponse<byte[]> copy = upload(manager, "mots=Pascaline+Durand&repere_IBAN=on&images=on", "%PDF-1.4 original".getBytes(StandardCharsets.ISO_8859_1));
+            assertEquals(200, copy.statusCode(), new String(copy.body(), StandardCharsets.UTF_8));
+            assertEquals("application/pdf", copy.headers().firstValue("Content-Type").orElseThrow());
+            assertTrue(copy.headers().firstValue("Content-Disposition").orElseThrow().contains("copie-caviardee.pdf"));
+            assertEquals(java.util.List.of("/api/v1/security/auto-redact cle-api", "/api/v1/security/sanitize-pdf cle-api"), calls, "caviardage puis nettoyage, sans OCR");
+            assertTrue(bodies.getFirst().contains("Pascaline\\s+Durand") && bodies.getFirst().contains("name=\"useRegex\"\r\n\r\ntrue")
+                    && bodies.getFirst().contains("name=\"convertPDFToImage\"\r\n\r\ntrue"));
+            assertTrue(bodies.get(1).contains("name=\"removeMetadata\"\r\n\r\ntrue"));
+        } finally {
+            stirling.stop(0);
+        }
+    }
+
+    /** Envoi multipart vers « Preparer un document » : champs en {@code a=b&c=d} et le PDF. */
+    private HttpResponse<byte[]> upload(Visitor visitor, String fields, byte[] pdf) throws Exception {
+        String boundary = "test-boundary";
+        java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+        java.util.List<String> parts = new java.util.ArrayList<>(java.util.List.of("csrf=" + visitor.csrf()));
+        parts.addAll(java.util.Arrays.asList(fields.split("&")));
+        for (String part : parts) {
+            String[] pair = part.split("=", 2);
+            body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + pair[0] + "\"\r\n\r\n"
+                    + java.net.URLDecoder.decode(pair[1], StandardCharsets.UTF_8) + "\r\n").getBytes(StandardCharsets.UTF_8));
+        }
+        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"document\"; filename=\"releve.pdf\"\r\n"
+                + "Content-Type: application/pdf\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        body.writeBytes(pdf);
+        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        return client.send(HttpRequest.newBuilder(URI.create(base + "/documents/preparer")).header("Cookie", visitor.cookie())
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary).POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
     }
 
     @Test

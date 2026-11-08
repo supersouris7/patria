@@ -8,6 +8,7 @@ import fr.patria.household.Income;
 import fr.patria.household.Visibility;
 import fr.patria.loan.Renegotiation;
 import fr.patria.portfolio.Portfolio;
+import fr.patria.savings.SavingsController;
 import fr.patria.ui.Html;
 import fr.patria.web.Request;
 import fr.patria.web.Response;
@@ -31,11 +32,13 @@ public final class HealthController {
     private final fr.patria.household.HealthScopeRepository scopes;
     private final Supplier<Renegotiation.Reference> rates;
     private final Clock clock;
+    private final SavingsController savings;
 
     public HealthController(Forecast forecast, HouseholdRepository household, Portfolio portfolio, HealthRepository preferences,
-                            fr.patria.household.HealthScopeRepository scopes,
+                            fr.patria.household.HealthScopeRepository scopes, SavingsController savings,
                             Supplier<Renegotiation.Reference> rates, Clock clock) {
         this.scopes = scopes;
+        this.savings = savings;
         this.forecast = forecast;
         this.household = household;
         this.portfolio = portfolio;
@@ -102,6 +105,11 @@ public final class HealthController {
         Portfolio.Overview overview = estate ? portfolio.overview() : null;
         if (overview != null) checks.addAll(HealthChecks.properties(overview, rates.get(), today));
         checks.addAll(HealthChecks.taxes(incomes, expenses, overview, today));
+        // Audit de l'epargne : remplace le simple repere de precaution quand des placements sont saisis.
+        SavingsController.Snapshot saved = savings.snapshot(request, scope);
+        List<Check> audit = HealthSavings.audit(saved, today);
+        if (!saved.overview().isEmpty()) checks.removeIf(check -> check.id().equals("savings"));
+        checks.addAll(audit);
         String owner = !scope.isEmpty() ? "Bilan de " + String.join(", ", people.stream().filter(person -> scope.contains(person.id())).map(fr.patria.household.Person::name).toList())
                 : view.person() == null ? "Budget du foyer" : "Budget de " + view.person().name();
         Set<String> ignored = preferences.ignored(request.viewer().userId());

@@ -50,6 +50,9 @@ class MigrationsTest {
             database.query(connection -> {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("DROP TABLE health_scope");
+                    statement.execute("DROP TABLE savings_positions");
+                    statement.execute("DROP TABLE savings_accounts");
+                    statement.execute("DROP TABLE savings_preferences");
                     statement.execute("DROP TABLE health_ignored");
                     statement.execute("PRAGMA user_version = 13");
                 }

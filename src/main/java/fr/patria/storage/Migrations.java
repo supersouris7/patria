@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 15;
+    public static final int LATEST = 16;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -51,6 +51,7 @@ public final class Migrations {
             if (version < 13) toVersion13(connection);
             if (version < 14) toVersion14(connection);
             if (version < 15) toVersion15(connection);
+            if (version < 16) toVersion16(connection);
             return null;
         });
     }
@@ -355,6 +356,35 @@ public final class Migrations {
             statement.execute("CREATE TABLE health_scope (user_id INTEGER NOT NULL, person_id INTEGER NOT NULL, PRIMARY KEY (user_id, person_id))");
         }
         setUserVersion(connection, 15);
+    }
+
+    /** Version 16 : epargne (livrets, assurance-vie, PEA, comptes titres) et lignes de bourse, par membre. */
+    private static void toVersion16(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE savings_accounts (
+                        id INTEGER PRIMARY KEY,
+                        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        kind TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        balance INTEGER NOT NULL,
+                        balance_date TEXT NOT NULL,
+                        rate TEXT,
+                        opened_on TEXT
+                    )""");
+            statement.execute("""
+                    CREATE TABLE savings_positions (
+                        id INTEGER PRIMARY KEY,
+                        account_id INTEGER NOT NULL REFERENCES savings_accounts(id) ON DELETE CASCADE,
+                        symbol TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        quantity TEXT NOT NULL,
+                        cost INTEGER NOT NULL,
+                        price INTEGER
+                    )""");
+            statement.execute("CREATE TABLE savings_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+        }
+        setUserVersion(connection, 16);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

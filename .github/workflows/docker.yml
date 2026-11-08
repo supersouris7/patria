@@ -44,36 +44,6 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn --batch-mode verify
-      # Dependances du test navigateur prises dans la revision du workflow : un ancien tag qui a le test mais pas encore
-      # son fichier de dependances reste testable.
-      - uses: actions/checkout@v5
-        if: hashFiles('tests/redaction_browser.py') != ''
-        with:
-          path: ci-tools
-          sparse-checkout: tests/requirements-browser.txt
-          sparse-checkout-cone-mode: false
-      - uses: actions/setup-python@v6
-        if: hashFiles('tests/redaction_browser.py') != ''
-        with:
-          python-version: '3.13'
-          cache: pip
-          cache-dependency-path: ci-tools/tests/requirements-browser.txt
-      - name: Installer Playwright, PyMuPDF et Chromium
-        if: hashFiles('tests/redaction_browser.py') != ''
-        run: |
-          pip install --requirement ci-tools/tests/requirements-browser.txt
-          python -m playwright install --with-deps chromium
-      - name: Vérifier le caviardage dans Chromium avant publication
-        if: hashFiles('tests/redaction_browser.py') != ''
-        run: |
-          # Les tests des tags anterieurs a 0.6.1 ecrivent dans /tmp/opencode : le dossier reste fourni.
-          mkdir -p /tmp/opencode
-          data="$RUNNER_TEMP/patria-browser"
-          APP_PASSWORD=test-only OFFLINE=true DATABASE_PATH="$data/data.sqlite3" HTTP_PORT=18101 java -jar target/patria.jar > "$RUNNER_TEMP/patria-browser.log" 2>&1 &
-          app_pid=$!
-          trap 'kill "$app_pid"' EXIT
-          curl --fail --silent --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:18101/sante
-          python tests/redaction_browser.py http://127.0.0.1:18101 || { tail -50 "$RUNNER_TEMP/patria-browser.log"; exit 1; }
 
   docker:
     needs: [publication, test]

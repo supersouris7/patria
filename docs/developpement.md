@@ -20,25 +20,13 @@ Serveur HTTP natif du JDK, SQLite, montants au centime, HTML généré côté se
 
 Les coefficients légaux de revalorisation foncière sont dans `src/main/java/fr/patria/expense/PropertyTaxRevaluation.java`. Ajouter chaque année le coefficient publié ; sinon le dernier connu est repris. Le comportement estimatif doit rester explicite pour les utilisateurs.
 
-## Caviardage
+## Caviardage (Stirling PDF)
 
-`ui/RedactionPage`, `static/js/redaction.mjs` (sélection/rastérisation) et `redaction-pdf.mjs` (PDF neuf d'images seulement). Pas de route de téléversement, de stockage de documents ni de service IA.
+`pdf/Stirling` (client REST) et `pdf/PdfController` (`/documents/preparer`). Patria garde toute l'interface ; le serveur Stirling PDF de l'installation sert de moteur, remplaçable sans toucher aux pages. Enchaînement : `POST /api/v1/misc/ocr-pdf` (si « Document scanné », `languages=fra,eng`, `ocrType=skip-text`), `POST /api/v1/security/auto-redact` (`listOfText` une expression par ligne, `useRegex=true`, `convertPDFToImage` selon la case ; nombre de zones lu dans `X-Stirling-Redaction-Matches`), puis `POST /api/v1/security/sanitize-pdf` (métadonnées, XMP, JavaScript, pièces jointes, liens). Clé API facultative en en-tête `X-API-KEY`. Le PDF ne transite qu'en mémoire (25 Mo au plus, limite propre à cette route dans `web/Request`).
 
-PDF.js est livré localement avec ses licences et ressources : [version, intégrité et maintenance](../src/main/resources/static/vendor/pdfjs/README.md). Il s'agit d'un parseur de documents non fiables : suivre ses mises à jour de sécurité. La CSP n'autorise l'exécution WASM que sur la page de caviardage et l'étape Documents qui intègre le même outil, sans `unsafe-eval` JavaScript ni service externe.
+Les appels avec clé API consomment l'**allocation de traitement** du serveur Stirling (réponse 402 une fois épuisée) : vérifier les quotas réels de la version installée. La liste exacte des opérations est sur l'instance : `/swagger-ui/index.html`, spécification `/v1/api-docs`. Le caviardage manuel par sélection graphique n'est pas intégré : il demanderait un éditeur dans Patria (PDF.js) et la vérification des coordonnées attendues par l'API.
 
-Le contrôle avant partage analyse le texte source PDF qui n'est pas entièrement couvert par les masques, dans le navigateur. Les boîtes de texte sont volontairement larges pour préférer une alerte de trop à une exclusion incertaine. Toute image ou extraction incomplète interdit le message rassurant (pas d'OCR). Les changements de masque ou de mots recherchés invalident le résultat ; une alerte ou analyse incomplète impose une confirmation de relecture avant export. Ce contrôle heuristique n'est pas une preuve d'anonymat.
-
-Tests Java : `mvn verify`. Test navigateur supplémentaire (Chromium installé) :
-
-```bash
-uv venv /tmp/opencode/patria-browser-tests
-uv pip install --python /tmp/opencode/patria-browser-tests/bin/python -r tests/requirements-browser.txt
-/tmp/opencode/patria-browser-tests/bin/python tests/redaction_browser.py http://127.0.0.1:8080
-```
-
-Utiliser une installation locale de test sans données réelles. Le test génère ses documents synthétiques et vérifie pixels, absence de texte/métadonnées/pièces jointes et absence d'envoi réseau des fichiers.
-Il utilise Chromium du système s'il existe, sinon celui installé par `python -m playwright install chromium`.
-La CI exécute ce test avant de publier l'image Docker.
+Tests : `mvn verify` (un faux serveur Stirling vérifie l'enchaînement des appels et les champs envoyés).
 
 ## Publication Docker Hub
 
@@ -70,7 +58,7 @@ Choisissez le numéro voulu ; cet exemple ne crée pas automatiquement la premi�
 gh workflow run docker.yml --ref main -f stable_tag=v0.5.0
 ```
 
-Le workflow utilise ses outils de publication actuels, mais teste et construit **le commit exact du tag demandé**, pas le dernier `main`. Il exécute les tests Java de cette version et les tests navigateur si ceux-ci existent dans le tag historique ; leurs dépendances (`tests/requirements-browser.txt`) viennent de la révision du workflow, pour qu'un ancien tag sans ce fichier reste testable. Il ne remplace pas `unstable`. Les anciens tags peuvent afficher dans l'application une version Maven différente du numéro Docker ; ne déplacez pas leur tag pour corriger cela, alignez les versions lors des prochaines releases.
+Le workflow utilise ses outils de publication actuels, mais teste et construit **le commit exact du tag demandé**, pas le dernier `main`. Il exécute les tests Java de cette version (le test navigateur de l'ancien outil de caviardage n'est plus lancé). Il ne remplace pas `unstable`. Les anciens tags peuvent afficher dans l'application une version Maven différente du numéro Docker ; ne déplacez pas leur tag pour corriger cela, alignez les versions lors des prochaines releases.
 
 Le Compose garde `unstable` par défaut pour le serveur personnel. Les utilisateurs publics mettent `PATRIA_IMAGE=supersouris7/patria:latest` dans `.env`, ou fixent une version. La publication d'une image ne redéploie pas les conteneurs : garder votre mécanisme de mise à jour Portainer ou lancer `docker compose pull` puis `docker compose up -d` après sauvegarde.
 

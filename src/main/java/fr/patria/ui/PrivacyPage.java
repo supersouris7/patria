@@ -18,6 +18,8 @@ public final class PrivacyPage {
                 <tr><td>API Adresse (data.gouv.fr, État)</td><td>l'adresse ou la commune d'un bien</td><td>calcul du prix du marché, au plus une fois par mois et par bien</td></tr>
                 <tr><td>Fichiers DVF (data.gouv.fr, État)</td><td>le code de la commune et du département</td><td>idem</td></tr>
                 <tr><td>Banque centrale européenne</td><td>rien de personnel</td><td>taux moyen des crédits, une fois par jour</td></tr>
+                <tr><td>INSEE</td><td>rien de personnel</td><td>indice des prix (inflation), une fois par jour</td></tr>
+                <tr><td>Yahoo Finance</td><td>le code d'une valeur de bourse (ex. AI.PA), jamais la quantité ni le montant</td><td>cours du jour des lignes saisies, au plus une fois par heure</td></tr>
                 <tr><td>ipwho.is</td><td>l'adresse IP d'une connexion (pas l'identifiant)</td><td>une fois par adresse, pour le pays et la ville sur la page Sécurité</td></tr>
                 <tr><td>Google Maps, carte DVF</td><td>les coordonnées d'une vente ou d'un bien</td><td>seulement si vous cliquez sur le lien</td></tr>
                 </tbody></table>
@@ -56,11 +58,11 @@ public final class PrivacyPage {
                         Tout le reste peut se saisir à la main, sans IA.</p>
                         <ol class="privacy-steps">
                         <li><b>Masquez avant d'envoyer</b> : nom, adresse, IBAN et numéros de compte, numéro fiscal, numéro de sécurité sociale, numéro de
-                        contrat. L'<a href="/aide/caviardage">outil de caviardage de Patria</a> travaille dans votre navigateur, sans envoyer l'original au
-                        serveur : vous sélectionnez les zones, puis il reconstruit un PDF d'images sans le texte ni les métadonnées d'origine.
-                        Un contrôle local recherche les identifiants courants et les mots que vous indiquez dans le texte PDF restant. Sans OCR, les images et scans
-                        sont signalés comme non analysables. Aucune absence d'alerte ne garantit l'anonymat. Un rectangle simplement superposé dans un éditeur PDF ne suffit pas.
-                        Relisez chaque page exportée avant de la partager.</li>
+                        contrat. Si l'administrateur a relié un serveur Stirling PDF, « Préparer un document » masque les noms du foyer et les
+                        identifiants courants (IBAN, carte, e-mail, téléphone, numéros), reconnaît au besoin le texte d'un scan, transforme les pages en
+                        images et efface les métadonnées. Le document transite par ce serveur de votre installation, sans être conservé. Les adresses,
+                        signatures et écritures manuscrites ne sont pas toujours détectées : aucun outil automatique ne garantit l'anonymat. Un rectangle
+                        simplement superposé dans un éditeur PDF ne suffit pas. Relisez chaque page avant de la partager.</li>
                         <li><b>Vérifiez les conditions du service</b> et désactivez l'entraînement si possible. Une conversation temporaire ne garantit pas
                         l'absence de conservation : les règles du fournisseur s'appliquent.</li>
                         <li><b>Préférez un modèle local</b> si vous en avez un (Ollama, LM Studio…) : rien ne quitte votre ordinateur.</li>

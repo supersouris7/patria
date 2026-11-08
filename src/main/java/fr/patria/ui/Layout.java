@@ -5,7 +5,7 @@ import java.util.List;
 /** Squelette commun des pages : en-tete, navigation principale, contenu. */
 public final class Layout {
     /** Entree active de la navigation principale. */
-    public enum Section { HOME, BUDGET, REAL_ESTATE, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
+    public enum Section { HOME, BUDGET, REAL_ESTATE, SAVINGS, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
 
     /** Foyer propose dans le selecteur de l'en-tete ; {@code managed} : la personne connectee en est gestionnaire. */
     public record Choice(long id, String name, boolean managed) {
@@ -178,7 +178,8 @@ public final class Layout {
                 <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="menu-only">Assistant</span><span class="nav-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
-        Html allLinks = administrator ? manage : Html.concat(budget, estate, manage, follow);
+        Html savings = navLink("/epargne", "Épargne", section == Section.SAVINGS);
+        Html allLinks = administrator ? manage : Html.concat(budget, estate, savings, manage, follow);
         Html links = allLinks;
         // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
         // entrees, pastille du Bilan et % de l'Assistant compris (utilisable sans JavaScript).

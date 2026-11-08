@@ -224,12 +224,11 @@ public final class Components {
         return Html.of("""
                 <div class="llm-prompt"><p class="llm-why"><b>L'IA est facultative.</b> Vous pouvez préparer le CSV vous-même, ou demander à un assistant \
                 (ChatGPT, Claude, Le Chat, Gemini, ou un modèle local) de le faire. Patria ne lui envoie rien. Avant de joindre un document, créez et \
-                vérifiez une copie caviardée ; importez ensuite ici le CSV obtenu.</p>\
-                <p><a class="button secondary" href="/aide/caviardage" target="_blank" rel="noopener noreferrer">1. Caviarder et contrôler les documents localement</a></p>\
+                vérifiez une copie caviardée ; importez ensuite ici le CSV obtenu.</p>%s\
                 <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
                 <span class="muted copy-status" role="status">2. Collez le prompt dans votre IA avec uniquement les copies caviardées vérifiées.</span></div>\
                 <details class="llm-privacy"><summary>Protéger vos données avant d'envoyer</summary><ul>\
-                <li><b>Supprimez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal, de contrat et de sécurité sociale avec l'outil de caviardage. \
+                <li><b>Supprimez</b> nom, adresse, IBAN, numéros de compte, numéro fiscal, de contrat et de sécurité sociale sur une copie. \
                 Un simple rectangle ajouté au PDF peut laisser le texte récupérable. Vérifiez toutes les pages exportées, y compris les libellés.</li>\
                 <li><b>Désactivez</b> l'historique et l'utilisation de vos conversations pour l'entraînement dans les réglages de l'assistant, ou utilisez \
                 une conversation temporaire.</li>\
@@ -238,7 +237,21 @@ public final class Components {
                 <a href="/confidentialite">En savoir plus sur la confidentialité</a>.</li>\
                 </ul></details>\
                 <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
-                id, id, prompt);
+                redactionLink("1. "), id, id, prompt);
+    }
+
+    private static volatile boolean redactionTool;
+
+    /** « Preparer un document » est propose (serveur Stirling PDF configure). Pose au demarrage. */
+    public static void useRedactionTool(boolean available) {
+        redactionTool = available;
+    }
+
+    /** Lien vers « Preparer un document » si un serveur Stirling PDF est configure, sinon un simple conseil. */
+    public static Html redactionLink(String step) {
+        return redactionTool
+                ? Html.of("<p><a class=\"button secondary\" href=\"/documents/preparer\" target=\"_blank\" rel=\"noopener noreferrer\">%sCaviarder une copie du document</a></p>", step)
+                : Html.of("<p class=\"muted\">%sCaviardez une copie avec l'outil de votre choix (noms, adresses, IBAN, numéros), puis relisez-la.</p>", step);
     }
 
     public static Html fileInput(String label, String name) {

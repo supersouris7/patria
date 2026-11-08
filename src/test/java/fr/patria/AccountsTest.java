@@ -369,4 +369,33 @@ class AccountsTest {
         assertEquals("/connexion?sans-foyer", post(null, "/connexion", "login=lou&password=provisoire1").headers().firstValue("Location").orElseThrow(),
                 "compte créé ; ses droits se cochent ensuite dans le tableau du foyer");
     }
+
+    @Test
+    void savingsBelongToAMemberAndFeedTheBilan() throws Exception {
+        Visitor admin = admin();
+        Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
+        assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
+        assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Camille&kind=PERSON").statusCode());
+        assertEquals(303, post(manager, "/administration/depenses", "label=Loyer&category=HOUSING&amount=1000&frequency=MONTHLY&start=2026-01-01").statusCode());
+        assertTrue(get(manager, "/").body().contains("href=\"/epargne\""), "Épargne dans la navigation");
+
+        assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=LIVRET_A&name=Livret+A+de+Paul&balance=2500").statusCode());
+        assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=PEA&name=PEA&balance=100&opened_on=2025-01-15").statusCode());
+        assertEquals(303, post(manager, "/epargne/compte/2/ligne", "symbol=cw8.pa&label=ETF+Monde&quantity=2&cost=1000&price=550").statusCode());
+        assertEquals(400, post(manager, "/epargne/compte/1/ligne", "symbol=AI.PA&quantity=1&cost=100").statusCode(), "pas de bourse sur un livret");
+        String page = get(manager, "/epargne").body();
+        assertTrue(page.contains("Livret A de Paul") && page.contains("CW8.PA") && page.contains("épargne de sécurité"), page);
+        assertTrue(page.contains("2,5\u00a0%"), "taux du LEP dans le plan");
+        assertEquals(303, post(manager, "/epargne/compte/1", "balance=3000").statusCode());
+        assertTrue(get(manager, "/epargne").body().replaceAll("[\\s\\u00a0\\u202f]", "").contains("3000€"));
+
+        String health = get(manager, "/bilan").body();
+        assertTrue(health.contains("Épargne de précaution : 3 mois"), health);
+        assertTrue(health.contains("PEA : 5 ans le"), "PEA de moins de 5 ans");
+
+        Visitor camille = account(admin, "camille", "Camille", "", 1, "access=on&member_2=on");
+        assertFalse(get(camille, "/epargne").body().contains("Livret A de Paul"), "compte d'un membre non coché");
+        assertEquals(404, post(camille, "/epargne/compte/1", "balance=1").statusCode());
+        assertEquals(400, post(camille, "/epargne/compte", "person=1&kind=LIVRET_A&balance=10").statusCode(), "pas pour un membre non coché");
+    }
 }

@@ -8,7 +8,6 @@ import fr.patria.ui.Components;
 import fr.patria.ui.Html;
 import fr.patria.ui.Layout;
 import fr.patria.ui.Notice;
-import fr.patria.ui.RedactionPage;
 import java.util.List;
 import java.util.Map;
 
@@ -138,13 +137,9 @@ final class WizardPages {
                         + "et vos contrats, l'import de l'étape Dépenses fixes (prompt IA) remplit beaucoup de lignes d'un coup."),
                 Components.card("Préparer les documents avant un import", null, Html.EMPTY, Html.concat(Html.raw("""
                         <ol class="steps"><li><b>Rassemblez les originaux</b> avec la liste ci-dessous. Une saisie manuelle ou un CSV préparé par vous-même ne nécessite pas d'IA.</li>
-                        <li><b>Caviardez une copie</b> avant tout partage : noms, adresses, IBAN, numéros, signatures et QR codes. Les documents restent dans votre navigateur.</li>
-                        <li><b>Lancez le contrôle Patria</b> : il recherche les identifiants courants dans le texte PDF encore visible et les mots que vous indiquez.
-                        Les images et scans nécessitent une relecture manuelle : le contrôle signale ses limites.</li>
-                        <li><b>Relisez la copie téléchargée</b>, puis joignez uniquement celle-ci avec le prompt de l'étape Prêts ou Dépenses fixes. N'envoyez jamais l'original.</li></ol>
-                        <p class="muted">« J'ai ce document » indique qu'il est rassemblé, pas qu'il a été caviardé ou contrôlé. Le travail de caviardage n'est pas conservé en quittant cette page.</p>
-                        <details><summary>Préparer, caviarder et contrôler les documents ici</summary>"""), RedactionPage.tool(), Html.raw("""
-                        </details><p><a href="/aide/caviardage" target="_blank" rel="noopener noreferrer">Ouvrir aussi l'outil dans un autre onglet</a></p>"""))),
+                        <li><b>Caviardez une copie</b> avant tout partage : noms, adresses, IBAN, numéros, signatures et QR codes.</li>
+                        <li><b>Relisez la copie</b>, puis joignez uniquement celle-ci avec le prompt de l'étape Prêts ou Dépenses fixes. N'envoyez jamais l'original.</li></ol>
+                        <p class="muted">« J'ai ce document » indique qu'il est rassemblé, pas qu'il a été caviardé.</p>"""), Components.redactionLink(""))),
                 Components.card("Documents", null, Html.of("<span class=\"muted\">%s sur %s rassemblés</span>", ready, documents.size()),
                         Html.concat(Components.progress(documents.isEmpty() ? 0 : (int) (ready * 100 / documents.size())), groups)));
     }

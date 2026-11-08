@@ -263,9 +263,7 @@ public final class Router implements HttpHandler {
         switch (response) {
             case Response.Page page -> {
                 headers.set("Content-Type", "text/html; charset=utf-8");
-                headers.set("Content-Security-Policy", java.util.Set.of("/aide/caviardage", "/assistant/documents").contains(exchange.getRequestURI().getPath())
-                        ? SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'") + "; worker-src 'self'"
-                        : SECURITY_POLICY);
+                headers.set("Content-Security-Policy", SECURITY_POLICY);
                 send(exchange, page.status(), page.html().toString().getBytes(StandardCharsets.UTF_8));
             }
             case Response.Text text -> {

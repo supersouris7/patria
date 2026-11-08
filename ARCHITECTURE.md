@@ -129,7 +129,7 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quand le prix du marché est-il recalculé ? | `market/MarketService` (cache 30 jours, calcul en arrière-plan) |
 | Où sont les ventes affichées dans « Voir les N ventes en détail » ? | retenues par `market/MarketAnalysis.analyse`, enregistrées avec le prix par `MarketRepository.save` : table `market_sales` et position du bien (`market_prices.latitude/longitude`, migration v12) ; page `market/MarketPages.sales` |
 | D'où vient le prompt IA des imports ? | `budget/ExpenseCsv.llmPrompt`, `loan/CsvScheduleParser.llmPrompt` (construits depuis les catégories, fréquences et types), affichés par `ui/Components.llmPrompt`, copiés par `app.js` |
-| Comment caviarder les documents avant une IA ? | `/aide/caviardage`, `ui/RedactionPage`, `static/js/redaction.mjs`, moteur PDF.js embarqué ; PDF reconstruit d'images caviardées par `redaction-pdf.mjs`. Aucun téléversement ni stockage. |
+| Comment caviarder les documents avant une IA ? | `pdf/PdfController` (`/documents/preparer`), client REST `pdf/Stirling` vers le serveur Stirling PDF de l'installation (`STIRLING_URL`) : OCR, caviardage par expressions, nettoyage ; masqué sans serveur |
 | Quelles API externes sont appelées ? | `market/DataGouvClient` (data.gouv.fr) et `market/HousingRates` (BCE), sans clé |
 | Comment est construit le prévisionnel du foyer ? | `budget/Forecast` (mois par mois, endettement, alertes, épargne de précaution) |
 | Comment est calculée la part d'une personne ? | `household/Shares.weight` (vide = parts égales), appliquée par `Forecast.Scope` ; table `shares` (migration v8) |
@@ -225,6 +225,8 @@ Ces appels ne bloquent jamais une page : le calcul est lancé en arrière-plan p
 affiche l'ancien résultat ou « calcul en cours » et se recharge quand il est terminé (`app.js`). La vue d'ensemble
 lit seulement le résultat en base. Une panne de data.gouv.fr n'efface pas un résultat valable ; l'indice
 départemental (API lente) est facultatif : sans lui, le prix est affiché « non actualisé » et recalculé le lendemain.
+
+Le module `savings` (Épargne) tient les placements par membre (`SavingsRepository`, migration v16), les taux réglementés datés (`RegulatedRates`, sans API publique par produit), et `MarketFeeds` : cours Yahoo Finance (endpoint `chart`, sans clé, toutes les heures) et inflation INSEE (série BDM 011814630, sans clé, une fois par jour), en arrière-plan et coupés hors ligne. `health/HealthSavings` en tire l'audit du bilan.
 
 Hors du module `market`, `account/IpLocator` demande à ipwho.is (HTTPS, sans clé) le pays et la ville des adresses
 IP du journal des connexions : seule l'adresse est envoyée, une fois, en arrière-plan ; le résultat est gardé dans

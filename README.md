@@ -34,9 +34,9 @@ Pas de connexion bancaire, de publicité, de traceur ni de service d'analyse d'u
 
 **Auto-hébergé ne signifie pas automatiquement sécurisé.** Configurez HTTPS pour l'accès distant et le chiffrement des bases **avant la première saisie**. Sans `DB_ENCRYPTION_KEY`, les fichiers restent lisibles ; après activation, perdre la clé rend les bases chiffrées irrécupérables. [Installation pas à pas](docs/administration.md#première-installation-docker).
 
-Pour les données de marché, Patria transmet une adresse ou commune à l'API Adresse, des codes géographiques à DVF et une requête sans chiffres personnels à la BCE. Les IP de connexion sont transmises à ipwho.is pour la localisation de sécurité. `OFFLINE=true` coupe ces appels. Les liens Google Maps, carte DVF et Ko-fi ne sont ouverts que sur clic.
+Pour les données de marché, Patria transmet une adresse ou commune à l'API Adresse, des codes géographiques à DVF et une requête sans chiffres personnels à la BCE et à l'INSEE (inflation), et les codes des valeurs de bourse saisies à Yahoo Finance (jamais les quantités). Les IP de connexion sont transmises à ipwho.is pour la localisation de sécurité. `OFFLINE=true` coupe ces appels. Les liens Google Maps, carte DVF et Ko-fi ne sont ouverts que sur clic.
 
-Avant de partager un document avec une IA, l'outil **Caviarder les documents localement**, intégré aux imports, permet de supprimer les zones choisies et de produire un PDF d'images sans texte ni métadonnées d'origine. Tout se passe dans le navigateur. La sélection et la vérification restent manuelles ; les données laissées visibles peuvent encore identifier une personne.
+Avant de partager un document avec une IA, **Préparer un document** (si l'installation est reliée à un serveur Stirling PDF) produit une copie caviardée : noms du foyer, IBAN, numéros et métadonnées masqués, pages transformées en images. Relisez toujours la copie.
 
 Le compte administrateur ne consulte pas les finances dans l'interface ; chaque compte voit seulement ce que l'administrateur lui coche dans le tableau des droits du foyer. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
 

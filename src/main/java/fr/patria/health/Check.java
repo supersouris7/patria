@@ -11,6 +11,7 @@ public record Check(String id, Domain domain, Level level, String title, String 
     public enum Domain {
         FINANCES("Finances", "Budget, reste à vivre, endettement, épargne"),
         PROPERTIES("Biens", "Valeur, marché, occupation, prêts"),
+        SAVINGS("Épargne", "Précaution, livrets, bourse, pouvoir d'achat"),
         TAXES("Impôts", "Impôt sur le revenu, taxe foncière, revenus fonciers, IFI");
 
         private final String label;

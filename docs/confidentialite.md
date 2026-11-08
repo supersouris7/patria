@@ -23,6 +23,8 @@ Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures 
 | API Adresse (`api-adresse.data.gouv.fr`) | Adresse ou commune d'un bien | Géolocalisation pour le marché |
 | DVF (`files.data.gouv.fr`, `tabular-api.data.gouv.fr`) | Codes commune/département | Calcul des comparables et indices ; résultat gardé 30 jours, actualisation possible |
 | BCE (`data-api.ecb.europa.eu`) | Requête de taux sans chiffres personnels | Actualisation quotidienne du taux moyen |
+| INSEE (`api.insee.fr`) | Rien de personnel | Inflation sur 12 mois (indice des prix, série 011814630), une fois par jour |
+| Yahoo Finance (`query1.finance.yahoo.com`) | Code d'une valeur de bourse (ex. `AI.PA`), jamais la quantité ni le montant | Cours du jour des lignes saisies, au plus une fois par heure |
 | `ipwho.is` | IP publique d'une connexion, pas l'identifiant | Localisation pays/ville du journal de sécurité, une fois par IP, cache local |
 | Google Maps / carte DVF | Coordonnées associées au lien et données de connexion du navigateur | Seulement sur clic |
 | Ko-fi | Données de connexion du navigateur | Seulement sur clic sur Soutenir, si le lien est configuré |
@@ -35,13 +37,9 @@ Tout appel réseau révèle aussi l'IP du serveur à son destinataire, et les cl
 
 L'IA est facultative : les CSV peuvent être préparés manuellement. Patria ne transmet pas vos documents à une IA. Si vous en utilisez une, ses conditions de conservation et d'entraînement s'appliquent ; une conversation temporaire ne garantit pas l'absence de conservation.
 
-L'outil intégré `/aide/caviardage`, proposé avant les prompts d'import, traite PDF et images **uniquement en mémoire dans votre navigateur**. Le moteur PDF.js et ses ressources sont servis par Patria, pas par un CDN. Aucun original ni résultat n'est téléversé par l'outil, aucun document n'est enregistré par lui dans le stockage du navigateur.
+Si l'administrateur relie un serveur **Stirling PDF** (`STIRLING_URL`), « Préparer un document » (`/documents/preparer`, proposé avant les prompts d'import) produit une copie caviardée : le PDF est envoyé à ce serveur de l'installation, qui masque les mots indiqués (noms du foyer proposés d'office) et les identifiants courants (IBAN, carte, e-mail, téléphone, sécurité sociale, numéro fiscal, numéros longs), reconnaît au besoin le texte d'un scan (OCR), transforme les pages en images et efface les métadonnées, scripts, pièces jointes et liens. Ni Patria ni Stirling ne conservent le document. Sans serveur Stirling, l'outil est masqué : caviardez une copie avec l'outil de votre choix.
 
-Vous sélectionnez manuellement les zones à supprimer sur toutes les pages. Le résultat est un **nouveau PDF contenant seulement des images caviardées**, sans objets, texte, annotations, pièces jointes ni métadonnées d'origine. L'original n'est pas modifié ; recherche et accessibilité du texte sont perdues. Joignez uniquement la copie exportée après relecture. [Mode d'emploi et limites](utilisation.md#caviarder-avant-tout-envoi).
-
-Avant téléchargement, un contrôle local recherche les identifiants courants et les mots que vous indiquez dans le texte PDF encore visible. Les mots recherchés et les résultats ne sont ni transmis ni conservés. Les images/scans ne sont pas lus par OCR : le contrôle se déclare incomplet et exige une confirmation de relecture, sans donner de feu vert. Même sans alerte, le message « semble ne plus contenir de données sensibles » reste une hypothèse limitée, pas une certification. Toute modification du caviardage invalide le contrôle précédent.
-
-Un rectangle superposé dans un PDF ordinaire peut laisser le texte dessous. Un prompt qui interdit de recopier les identifiants ne les retire pas du document transmis. Même après caviardage, les dates, montants et détails restants peuvent identifier une personne : **pas de garantie d'anonymat**. Le navigateur, ses extensions et l'appareil doivent être de confiance ; l'outil ne peut pas effacer leurs traces système ni vos téléchargements.
+Les adresses, signatures, QR codes et écritures manuscrites ne sont pas toujours détectés : relisez chaque page. Un rectangle superposé dans un PDF ordinaire peut laisser le texte dessous. Un prompt qui interdit de recopier les identifiants ne les retire pas du document transmis. Même après caviardage, montants, dates et libellés peuvent encore identifier une personne.
 
 ## Protections à configurer
 

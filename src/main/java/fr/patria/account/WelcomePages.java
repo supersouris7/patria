@@ -100,9 +100,9 @@ final class WelcomePages {
                 <li><b>Aucun compte en ligne, aucune publicité, aucun traceur</b> : pas de service tiers qui lit vos données.</li>
                 %s
                 <li><b>Appels extérieurs</b> : adresse ou commune d'un bien vers l'API Adresse, codes géographiques vers DVF, requête sans chiffres personnels
-                vers la BCE, et IP des connexions vers ipwho.is pour leur localisation. Le mode hors ligne coupe ces appels.</li>
-                <li><b>L'IA est facultative</b> : préparez vos CSV vous-même ou utilisez une IA. Avant tout envoi, créez une copie avec
-                l'<a href="/aide/caviardage">outil de caviardage local</a> et vérifiez chaque page. N'envoyez pas l'original.</li>
+                vers la BCE et l'INSEE, codes des valeurs de bourse vers Yahoo Finance, et IP des connexions vers ipwho.is pour leur localisation. Le mode hors ligne coupe ces appels.</li>
+                <li><b>L'IA est facultative</b> : préparez vos CSV vous-même ou utilisez une IA. Avant tout envoi, créez une copie caviardée
+                (« Préparer un document » si votre installation le propose) et vérifiez chaque page. N'envoyez pas l'original.</li>
                 </ul><p><a href="/confidentialite">Tout savoir sur la confidentialité</a></p>""", encryption);
     }
 

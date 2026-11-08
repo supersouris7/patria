@@ -97,3 +97,11 @@ tr .badge { white-space: nowrap; }
 .import-pick { align-items: center; display: inline-flex; gap: 6px; white-space: nowrap; }
 .import-hints { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .import-hints .badge.warn { background: #2a2312; border-color: #6b5520; color: #f3d38a; }
+
+/* Epargne : actions en ligne dans le tableau des comptes, lignes de bourse */
+.inline-form { align-items: center; display: inline-flex; gap: 6px; margin: 0 6px 0 0; vertical-align: middle; }
+.inline-form input { min-height: 0; padding: 6px 8px; width: 9em; }
+.inline-form button { padding: 6px 10px; }
+tr.positions td { padding-top: 0; }
+tr.positions li { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+tr.positions .link-button { background: none; border: 0; color: var(--muted, #8b98a5); cursor: pointer; font-size: 1.1rem; padding: 0 4px; }

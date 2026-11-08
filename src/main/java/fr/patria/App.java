@@ -75,13 +75,14 @@ public final class App implements AutoCloseable {
             else sites.site(accounts.households().getFirst().id());
 
             fr.patria.ui.BuildInfo.useSupportUrl(config.support());
+            fr.patria.pdf.Stirling.configure(config.stirlingUrl(), config.stirlingApiKey());
+            fr.patria.ui.Components.useRedactionTool(config.stirlingUrl() != null);
             Sessions sessions = new Sessions(config.clock());
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(log, config.offline(), config.clock());
             fr.patria.account.SessionViewers viewers = new fr.patria.account.SessionViewers(accounts, log, sites);
             Router router = new Router(sessions, viewers::of, household -> sites.site(household).router);
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
             router.publicGet("/aide/chiffrement", request -> Response.page(fr.patria.ui.SecurityPages.encryptionHelp(config.encryptionKey() != null, request.csrf())));
-            router.publicGet("/aide/caviardage", request -> Response.page(fr.patria.ui.RedactionPage.render(request.csrf())));
             router.publicGet("/confidentialite", request -> Response.page(fr.patria.ui.PrivacyPage.render(config.offline(), config.encryptionKey() != null, request.csrf())));
             AuthController auth = new AuthController(sessions, config.adminLogin(), config.password(),
                     new LoginAccounts(accounts, log, twoFactors, locator, config.clock()), config.clock());
