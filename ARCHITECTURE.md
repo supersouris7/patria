@@ -92,13 +92,15 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
   Une requête ne peut donc lire que le foyer de la session ; aucune requête SQL n'a de filtre « foyer ».
 - **Niveau de la route** (`Router.Access`) : `get`/`post` sont réservées **par défaut** : sur le routeur
   principal (foyers, utilisateurs, déplacement d'un bien) à l'administrateur de l'application
-  (`Viewer.isAdministrator()`), sur le routeur d'un foyer à qui le gère (`Viewer.manages()` : l'administrateur, ou
-  un utilisateur **gestionnaire** de ce foyer) ; `userGet`/`userPost` ouvrent une page aux utilisateurs ;
+  (`Viewer.isAdministrator()`), sur le routeur d'un foyer aux comptes qui ont la case **Immobilier**
+  (`Viewer.realEstate()` : biens, prêts, apports, répartition) ; `userGet`/`userPost` ouvrent une page aux utilisateurs ;
   `estateGet` à ceux qui consultent l'immobilier.
 - **L'administrateur ne voit aucune donnée des foyers** : `Viewer.admin` n'a ni vue ni gestion ; le routeur
   principal ne lui transmet aucune page d'un foyer (`/` et `/administration` le renvoient à Foyers, le reste en 403).
-  Il gère seul les comptes et les droits (routes `get`/`post` du routeur principal). Les données se saisissent avec
-  un compte **gestionnaire** (`Access.manager`).
+  Il gère seul les comptes et les droits (routes `get`/`post` du routeur principal). Seul l'administrateur crée membres
+  et comptes. Les droits sont un tableau par foyer (`Access` : membres cochés, totaux du foyer, immobilier ; chaque case
+  = voir et modifier), réglé dans Foyers (`POST /administration/foyers/{id}/droits`). L'ancien rôle de gestionnaire
+  est converti au démarrage (`AccountRepository.retireManagers`).
 - **Transparence** : comme il crée les comptes, l'administrateur pourrait s'en ouvrir un. Chaque changement de droits
   est donc inscrit dans `audit_log` (page Sécurité) et montré aux comptes du foyer : icône « qui voit quoi » de
   l'en-tête (`account/AudienceText`, calculée par `account/SessionViewers`), avec les changements depuis la dernière lecture.
@@ -138,11 +140,11 @@ la session ou le jeton CSRF, ni à construire une page d'erreur.
 | Quels mois pour la taxe foncière, la copropriété… dans le budget ? | `budget/Forecast.propertyTax` et `otherCharges` (appelées par `Forecast.month`) ; taxe foncière mensualisée (10 prélèvements, janvier à octobre) : table `property_tax_monthly` (migration v10), choisie dans les charges du bien ; payeur de la taxe foncière (compte joint, personne) : table `property_tax_payers` (migration v11), choisi dans Administration → Répartition, appliqué par `Forecast.month` |
 | Qui voit quoi (foyers, vues, immobilier) ? | `account/AccountRepository` (tables `households`, `users`, `user_households`, `user_members`), relu à chaque requête par `account/SessionViewers` (état du compte en une requête : `AccountRepository.state`) ; appliqué par `web/Router` (niveau de route) et `household/Visibility` (lignes) |
 | Comment un bien change-t-il de foyer ? | `PropertyMove` (copie par ATTACH dans la base d'arrivée, nouveaux identifiants, puis suppression au départ), route `/administration/bien/{id}/foyer` déclarée par `PropertyMove.register` |
-| Comment sont découpées les pages de comptes ? | `account/HouseholdsController` (Foyers, gestionnaire, reprise), `UsersController` (comptes, droits), `MyAccountController` (Mon compte, mots de passe, 2FA), socle commun `AccountSupport` ; dépôts `AccountRepository` (foyers, comptes, droits), `SecurityLog` (journaux), `TwoFactorStore` (2FA) |
+| Comment sont découpées les pages de comptes ? | `account/HouseholdsController` (Foyers, membres, tableau des droits, reprise), `SignupController` (« Créer un compte », demandes), `UsersController` (comptes, droits), `MyAccountController` (Mon compte, mots de passe, 2FA), socle commun `AccountSupport` ; dépôts `AccountRepository` (foyers, comptes, droits), `SecurityLog` (journaux), `TwoFactorStore` (2FA) |
 | Où sont les styles ? | `static/css/parts/*.css`, réunis dans l'ordre de `parts/files.txt` en une seule feuille `/css/patria.css` par `ui/Assets.stylesheet` (l'ordre compte : cascade) |
 | Où sont les pages du guide de saisie ? | `wizard/WizardPages` (accueil, étapes, documents, récapitulatif), `WizardBudgetPages` (budget), `WizardEstatePages` (immobilier), `AnnualReviewPages` (revue annuelle, rappels) |
 | Où est la base d'un foyer ? | `HouseholdSites` : foyer principal = DATABASE_PATH, les autres `foyer-N.sqlite3` à côté ; ouverte et migrée à la première visite (toutes au démarrage avec DB_ENCRYPTION_KEY) |
-| Qui gère un foyer ? | `account/Access.manager` (case « Gestionnaire du foyer »), lu par `account/SessionViewers` (`Viewer.Rights.MANAGER`) ; reprise des foyers sans gestionnaire : `HouseholdsController.takeOver` |
+| Qui voit quoi dans un foyer ? | `account/Access` (une ligne du tableau des droits), lu par `account/SessionViewers` (`Viewer.Rights`), appliqué par `household/Visibility` (lignes, « Ligne masquée » dans les totaux) ; reprise des foyers sans accès : `HouseholdsController.takeOver` |
 | Où sont les connexions et le journal des droits ? | tables `login_events` (90 jours) et `audit_log` de `comptes.sqlite3`, écrites par `LoginAccounts.recorded` (connexion) et `AccountSupport.audit` (droits) dans `account/SecurityLog` ; page `account/SecurityController` (`/administration/securite`) ; pays et ville : `account/IpLocator` (cache `ip_locations`) |
 | Comment marche la double authentification ? | codes TOTP : `common/Totp` (RFC 6238, un code ne sert qu'une fois : `two_factor.last_step`) ; QR code : `ui/QrCode` (bibliothèque qrcodegen) ; deuxième étape de la connexion : `AuthController` (`/connexion/code`, appareils retenus 30 jours : `trusted_devices`, empreinte SHA-256) ; activation dans `MyAccountController` (`/compte/double-authentification`), dépôt `account/TwoFactorStore`, table `two_factor` (migration v3 de `comptes.sqlite3`) ; « fortement recommandé » : `account/Exposure` |
 | Où consulter les connexions du compte ? | Historique de sécurité dans « Mon compte », depuis `account/SecurityLog` ; plus d'horloge ni de requête d'historique dans la navigation. |
@@ -183,7 +185,7 @@ est faite à côté du fichier : `immobilier.sqlite3.avant-migration-vN-AAAAMMJJ
 
 La base des comptes (`comptes.sqlite3`) a ses propres versions, dans `AccountRepository.migrate` (v2 : foyer
 gestionnaires, accueil de la première connexion, mot de passe provisoire, journaux des connexions et des droits,
-localisation des adresses IP).
+localisation des adresses IP ; v4 : demandes de compte).
 
 ### Chiffrement
 

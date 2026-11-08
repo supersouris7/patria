@@ -53,39 +53,6 @@ final class HouseholdPages {
                         + "Le prélèvement à la source se saisit dans les dépenses, catégorie « Impôts et taxes ».</p>"));
     }
 
-    /**
-     * Membres du foyer affiche (administrateur) : personnes et comptes joints, avec les comptes de connexion lies a
-     * chacun ({@code logins} : identifiants par membre).
-     */
-    static Html members(List<Person> people, List<Income> incomes, Map<Long, List<String>> logins, long householdId, Notice notice, String csrf) {
-        Html rows = people.stream().map(person -> {
-            List<String> linked = logins.getOrDefault(person.id(), List.of());
-            Html account = !linked.isEmpty() ? Html.text(String.join(", ", linked))
-                    : fr.patria.ui.Layout.canOpen("/administration/utilisateurs")
-                    ? Html.of("<a href=\"/administration/utilisateurs?membre=%s:%s\">Créer un compte</a>", householdId, person.id())
-                    : Html.raw("<span class=\"muted\">Aucun</span>");
-            return Html.of("<tr>%s%s%s<td>%s</td><td class=\"actions\"><form method=\"post\" action=\"/personne/%s/supprimer\" data-confirm=\"%s\">%s"
-                            + "<button class=\"quiet\" type=\"submit\">Supprimer</button></form></td></tr>",
-                    cell(person.name()), cell(person.isAccount() ? Html.raw("<small class=\"badge\">Compte joint</small>") : Html.text("Personne")),
-                    Html.of("<td class=\"num\">%s</td>", incomes.stream().filter(income -> income.personId() == person.id()).count()), account,
-                    person.id(), "Supprimer " + person.name() + ", ses revenus et ses virements ?" + (people.size() > 1
-                            ? " Ses parts des dépenses, biens et prêts seront réparties entre les autres membres." : ""), Components.csrfField(csrf));
-        }).collect(Html.joining());
-        Html list = people.isEmpty() ? Html.raw("<p class=\"empty\">Aucun membre : ajoutez les personnes du foyer, puis un compte joint s'il y en a un.</p>")
-                : Components.table(List.of("Nom", "Type", "#Revenus", "Compte de connexion", ""), rows, false, false);
-        Html form = Html.of("<form method=\"post\" action=\"/administration/membres\" class=\"inline-form row-form\">%s%s%s<button type=\"submit\">Ajouter</button></form>",
-                Components.csrfField(csrf), Components.input(Input.of("Nouveau membre", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom, ou « Compte joint »"), Map.of()),
-                Components.select("Type", "kind", Arrays.stream(Person.Kind.values()).map(kind -> new Option(kind.name(), kind.label())).toList(), Person.Kind.PERSON.name()));
-        Html help = Html.raw("""
-                <p class="muted">Un <b>membre du foyer</b> est une personne du budget (ou un compte joint) : il a des revenus et une part des dépenses. Ce n'est pas
-                un compte de connexion. Pour qu'une personne consulte Patria, l'administrateur lui crée un <b>compte de connexion</b> lié à son membre.
-                Un compte joint a son propre budget : il reçoit des virements et paie les dépenses qu'on lui attribue ; il ne prend part aux
-                « parts égales » que si on lui donne un pourcentage.</p>""");
-        Html content = Html.concat(Components.heading("Gestion", "Membres", null, Html.EMPTY), Components.notice(notice),
-                Components.card("Membres du foyer", people.size(), Html.EMPTY, list),
-                Components.disclosure("Ajouter un membre du foyer", Html.concat(help, form), notice != null && notice.error()));
-        return Layout.adminSection("Membres · Patria", csrf, Layout.AdminSection.MEMBERS, content);
-    }
 
     /** Revenus visibles par la personne connectee ; un utilisateur ne voit que ceux de ses vues ouvertes. */
     static Html incomes(Visibility visibility, List<Income> allIncomes, Map<String, String> values, Notice notice, String csrf) {
@@ -102,8 +69,8 @@ final class HouseholdPages {
                 ? Html.raw("<p class=\"empty\">Aucun revenu saisi.</p>")
                 : Components.table(List.of("Personne", "Libellé", "Type", "#Montant", "Fréquence", "Période", ""), incomeRows, true, false));
         Html addIncome = formPeople.isEmpty()
-                ? (visibility.manages() ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
-                        "<p class=\"empty\">Ajoutez d'abord les membres du foyer : <a href=\"/administration/membres\">Membres</a>.</p>")) : Html.EMPTY)
+                ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
+                        "<p class=\"empty\">Aucun membre ne vous est accessible : demandez à l'administrateur de cocher vos membres dans le tableau des droits.</p>"))
                 : Components.disclosure("Ajouter un revenu",
                         Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"), notice != null && notice.error());
         Html content = Html.concat(Components.heading("Gestion", "Revenus", null, Html.EMPTY), Components.notice(notice), incomesCard, addIncome);

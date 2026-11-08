@@ -13,6 +13,9 @@ public interface HouseholdDirectory {
     /** Ajoute un membre (personne ou compte joint) dans un foyer ; renvoie son identifiant. */
     long addMember(long householdId, String name, boolean account);
 
+    /** Supprime un membre et ses lignes propres (refuse s'il porte encore des donnees partagees, selon le foyer). */
+    void deleteMember(long householdId, long memberId);
+
     /**
      * Efface ce qui, dans les bases des foyers, est propre a un utilisateur supprime (progression de l'assistant) :
      * un nouvel utilisateur qui reprendrait son numero repart de zero.
@@ -36,7 +39,7 @@ public interface HouseholdDirectory {
         }
     }
 
-    Progress progress(long householdId, long userId, boolean manager);
+    Progress progress(long householdId, long userId, boolean realEstate);
 
     /** La progression de l'administrateur dans ce foyer passe a ce compte (reprise du foyer). */
     void transferFromAdministrator(long householdId, long userId);

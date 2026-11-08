@@ -3,10 +3,8 @@ package fr.patria.account;
 import fr.patria.web.Viewer;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Phrases de l'icone « qui voit quoi » : pour le foyer affiche, quels comptes voient quelles informations. Le texte
@@ -25,21 +23,18 @@ public final class AudienceText {
     public static Viewer.Audience of(Map<User, Access> accesses, List<HouseholdDirectory.Member> members, long me, List<SecurityLog.AuditEntry> changes) {
         List<String> lines = new ArrayList<>();
         Access mine = accesses.entrySet().stream().filter(entry -> entry.getKey().id() == me).map(Map.Entry::getValue).findFirst().orElse(null);
-        List<User> managers = users(accesses, access -> access.manager());
-        List<User> totals = users(accesses, access -> !access.manager() && access.wholeHousehold());
-        if (!managers.isEmpty()) lines.add(sentence(managers, me, "gère", "gérez", "gèrent") + " tout le foyer : toutes les lignes, les biens et les prêts.");
-        if (!totals.isEmpty()) lines.add(sentence(totals, me, "voit", "voyez", "voient") + " les totaux du foyer et toutes ses lignes, en lecture.");
+        List<User> totals = users(accesses, Access::wholeHousehold);
+        if (!totals.isEmpty()) lines.add(sentence(totals, me, "voit", "voyez", "voient") + " les totaux du foyer (les lignes des membres non accessibles y sont masquées).");
         for (HouseholdDirectory.Member member : members) {
-            boolean visible = mine != null && (mine.manager() || mine.wholeHousehold() || mine.members().contains(member.id()));
-            if (!visible) continue;
-            Set<User> seeing = new LinkedHashSet<>(users(accesses, access -> access.manager() || access.wholeHousehold() || access.members().contains(member.id())));
+            if (mine == null || !mine.members().contains(member.id())) continue;
+            List<User> seeing = users(accesses, access -> access.members().contains(member.id()));
             String what = member.account() ? "du compte joint « " + member.name() + " »" : "de " + member.name();
-            if (seeing.size() == 1 && seeing.iterator().next().id() == me) lines.add("Seul vous pouvez voir les informations " + what + ".");
-            else lines.add(sentence(List.copyOf(seeing), me, "a", "avez", "ont") + " accès aux informations " + what + ".");
+            if (seeing.size() == 1 && seeing.getFirst().id() == me) lines.add("Seul vous pouvez voir et modifier les informations " + what + ".");
+            else lines.add(sentence(seeing, me, "a", "avez", "ont") + " accès aux informations " + what + ".");
         }
-        List<User> estate = users(accesses, access -> access.manager() || access.realEstate());
-        if (!estate.isEmpty() && mine != null && (mine.manager() || mine.realEstate())) {
-            lines.add("Les biens de ce foyer (tous, avec leurs prêts et charges) : " + lower(sentence(estate, me, "les voit", "les voyez", "les voient")) + ".");
+        List<User> estate = users(accesses, Access::realEstate);
+        if (!estate.isEmpty() && mine != null && mine.realEstate()) {
+            lines.add("Les biens de ce foyer (tous, avec leurs prêts et charges) : " + lower(sentence(estate, me, "les gère", "les gérez", "les gèrent")) + ".");
         }
         List<String> recent = changes.stream().map(change -> change.at().format(DAY) + " · " + change.detail()).toList();
         return new Viewer.Audience(lines, recent);
@@ -66,7 +61,6 @@ public final class AudienceText {
     /** Pour le journal : ce qu'un compte voit dans un foyer, en quelques mots. */
     public static String summary(Access access, List<HouseholdDirectory.Member> members) {
         if (access == null) return "plus d'accès";
-        if (access.manager()) return "gestionnaire de tout le foyer";
         List<String> parts = new ArrayList<>();
         if (access.wholeHousehold()) parts.add("totaux du foyer");
         members.stream().filter(member -> access.members().contains(member.id())).forEach(member -> parts.add(member.name()));

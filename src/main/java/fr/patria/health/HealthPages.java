@@ -15,11 +15,25 @@ final class HealthPages {
     private HealthPages() {
     }
 
-    static Html page(String owner, List<Check> checks, List<Check> ignored, boolean estate, String csrf) {
-        Html tiles = Components.metrics(4, Arrays.stream(Check.Level.values()).map(level -> Html.of(
-                "<article class=\"metric health-tile %s\"><span class=\"metric-label\">%s</span><strong>%s</strong><small>%s</small></article>",
-                css(level), level.label(), checks.stream().filter(check -> check.level() == level).count(), "point" + (checks.stream().filter(check -> check.level() == level).count() > 1 ? "s" : "")))
-                .toArray(Html[]::new));
+    /** Ancre de la liste de chaque niveau : une tuile y mene et l'ouvre. */
+    static String anchor(Check.Level level) {
+        return switch (level) {
+            case BAD -> "a-corriger";
+            case WARN -> "a-surveiller";
+            case INFO -> "bon-a-savoir";
+            case GOOD -> "points-rassurants";
+        };
+    }
+
+    static Html page(String owner, List<Check> checks, List<Check> ignored, boolean estate, Html scope, String csrf) {
+        Html tiles = Components.metrics(4, Arrays.stream(Check.Level.values()).map(level -> {
+            long count = checks.stream().filter(check -> check.level() == level).count();
+            // Toute la tuile mene a sa liste (et la deplie) ; sans point, rien a ouvrir.
+            return count == 0
+                    ? Html.of("<article class=\"metric health-tile %s\"><span class=\"metric-label\">%s</span><strong>0</strong><small>point</small></article>", css(level), level.label())
+                    : Html.of("<a class=\"metric health-tile %s\" href=\"#%s\" data-open-target><span class=\"metric-label\">%s</span><strong>%s</strong><small>%s</small></a>",
+                    css(level), anchor(level), level.label(), count, count > 1 ? "points" : "point");
+        }).toArray(Html[]::new));
         Html domains = Arrays.stream(Check.Domain.values()).map(domain -> {
             List<Check> own = checks.stream().filter(check -> check.domain() == domain && check.level() == Check.Level.INFO).toList();
             if (own.isEmpty()) {
@@ -28,18 +42,19 @@ final class HealthPages {
                 if (checks.stream().anyMatch(check -> check.domain() == domain)) return Html.EMPTY;
                 return Components.card(domain.label(), null, Html.EMPTY, Html.of("<p class=\"muted\">%s</p>", empty));
             }
-            return Html.of("<section class=\"card section\"><div class=\"section-title\"><h2>%s</h2><span class=\"muted\">%s</span></div><ul class=\"health-list\">%s</ul></section>",
+            return Html.of("<section class=\"card section\" data-level-info><div class=\"section-title\"><h2>%s</h2><span class=\"muted\">%s</span></div><ul class=\"health-list\">%s</ul></section>",
                     domain.label(), domain.summary(), own.stream().map(check -> item(check, false, csrf)).collect(Html.joining()));
         }).collect(Html.joining());
         Html content = Html.concat(
                 Components.heading(owner, "Bilan de santé", "Un diagnostic automatique de vos finances, de vos biens et de vos impôts, à partir de ce qui est saisi.",
                         Components.pdfButton("/bilan.pdf")),
-                tiles,
-                priority("À traiter en priorité", Check.Level.BAD, checks, csrf),
-                priority("À surveiller", Check.Level.WARN, checks, csrf),
-                domains,
-                checks.stream().noneMatch(check -> check.level() == Check.Level.GOOD) ? Html.EMPTY : Components.disclosure("Points rassurants", Html.of("<ul class=\"health-list\">%s</ul>",
-                        checks.stream().filter(check -> check.level() == Check.Level.GOOD).map(check -> item(check, false, csrf)).collect(Html.joining())), false),
+                scope, tiles,
+                Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.BAD), priority("À traiter en priorité", Check.Level.BAD, checks, csrf)),
+                Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.WARN), priority("À surveiller", Check.Level.WARN, checks, csrf)),
+                Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.INFO), domains),
+                checks.stream().noneMatch(check -> check.level() == Check.Level.GOOD) ? Html.EMPTY : Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.GOOD),
+                        Components.disclosure("Points rassurants", Html.of("<ul class=\"health-list\">%s</ul>",
+                        checks.stream().filter(check -> check.level() == Check.Level.GOOD).map(check -> item(check, false, csrf)).collect(Html.joining())), false)),
                 Html.of("""
                         <section class="card section" id="ignores"><details%s><summary>Points ignorés (%s)</summary>
                         <p class="muted">Ces choix ne concernent que votre compte et ce foyer. Les points ignorés ne comptent plus dans le résumé ni les compteurs.
@@ -50,6 +65,23 @@ final class HealthPages {
                 Html.raw("<p class=\"source\">Repères indicatifs, calculés sur les 12 prochains mois et les données saisies : ils ne remplacent pas un conseiller. "
                         + "Plus les données sont à jour (revue annuelle), plus le bilan est juste.</p>"));
         return Layout.page("Bilan de santé · Patria", Layout.Section.HEALTH, csrf, content);
+    }
+
+    /**
+     * Comptes pris en compte dans le bilan, repliable : cases des membres visibles, cochees selon le perimetre actuel
+     * ({@code configured} : choisi par l'utilisateur, sinon par defaut).
+     */
+    static Html scope(List<fr.patria.household.Person> people, java.util.Set<Long> chosen, boolean configured, String action, String csrf) {
+        if (people.isEmpty()) return Html.EMPTY;
+        String names = chosen.isEmpty() ? "la vue du budget" : String.join(", ", people.stream().filter(person -> chosen.contains(person.id())).map(fr.patria.household.Person::name).toList());
+        Html boxes = people.stream().map(person -> Html.of("<label class=\"check\"><input type=\"checkbox\" name=\"membre_%s\" value=\"on\"%s>%s%s</label>",
+                person.id(), Html.raw(chosen.isEmpty() || chosen.contains(person.id()) ? " checked" : ""), person.name(), person.isAccount() ? " (compte joint)" : "")).collect(Html.joining());
+        return Html.of("""
+                <details class="card section health-scope"><summary><b>Comptes pris en compte :</b> %s%s</summary>
+                <form method="post" action="%s" class="stack">%s<p class="muted">Par défaut : le membre que vous représentez et les comptes joints que vous voyez.
+                Ajoutez d'autres comptes pour un bilan plus large.</p><div class="chips-line">%s</div>
+                <div class="form-actions"><button type="submit">Enregistrer</button></div></form></details>""",
+                names, configured ? "" : " (par défaut)", action, Components.csrfField(csrf), boxes);
     }
 
     private static Html priority(String title, Check.Level level, List<Check> checks, String csrf) {

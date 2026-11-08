@@ -110,7 +110,6 @@ public final class SalesChart {
                     fmt(x), fmt(y), sale.address().isBlank() ? "Vente" : sale.address(), Format.date(sale.date()), Format.area(sale.area()),
                     Format.perSquareMeter(sale.perSquareMeter())));
         }
-        svg.append(Html.of("<circle class=\"home-ring\" cx=\"%s\" cy=\"%s\" r=\"13\"/>", fmt(center), fmt(center)));
         svg.append(Html.of("<g class=\"home-marker\" transform=\"translate(%s %s)\"><title>Votre bien</title><path class=\"home\" d=\"M-9 0 0-9 9 0M-6-3v11h12V-3M-2 8V2h4v6\"/></g>", fmt(center), fmt(center)));
         svg.append(Html.of("<text class=\"marker-label\" x=\"%s\" y=\"%s\">Votre bien</text>", fmt(center + 16), fmt(center + 4)));
         svg.append(Html.raw("<text class=\"axis\" x=\"8\" y=\"18\">N ↑</text>"));

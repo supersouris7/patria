@@ -23,7 +23,7 @@ final class PropertyMove {
 
     /** Route du deplacement, sur le routeur principal (elle touche deux bases). */
     static void register(fr.patria.web.Router router, HouseholdSites sites, fr.patria.account.AccountRepository accounts, fr.patria.web.Sessions sessions) {
-        // Deplacer un bien : un gestionnaire des deux foyers (l'administrateur ne voit pas les biens).
+        // Deplacer un bien : l'acces Immobilier dans les deux foyers (l'administrateur ne voit pas les biens).
         router.userPost("/administration/bien/{id}/foyer", request -> {
             long target;
             try {
@@ -32,11 +32,11 @@ final class PropertyMove {
                 throw new fr.patria.common.ValidationException("Foyer invalide.");
             }
             long from = request.viewer().household().id();
-            if (!request.viewer().manages() || request.viewer().isAdministrator()) {
-                throw new fr.patria.common.ForbiddenException("Seul un gestionnaire des deux foyers peut déplacer un bien.");
+            if (!request.viewer().realEstate() || request.viewer().isAdministrator()) {
+                throw new fr.patria.common.ForbiddenException("Il faut l'accès Immobilier dans les deux foyers pour déplacer un bien.");
             }
             if (target == from || request.viewer().households().stream().noneMatch(household -> household.id() == target && household.managed())) {
-                throw new fr.patria.common.ValidationException("Choisissez un autre foyer dont vous êtes gestionnaire.");
+                throw new fr.patria.common.ValidationException("Choisissez un autre foyer où vous avez l'accès Immobilier.");
             }
             HouseholdSite source = sites.site(from);
             if (source.properties.find(request.id()).isEmpty()) throw new fr.patria.common.NotFoundException("Bien introuvable", "Ce bien n'existe pas.");

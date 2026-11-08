@@ -49,6 +49,7 @@ class MigrationsTest {
             Migrations.apply(database, CLOCK);
             database.query(connection -> {
                 try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE health_scope");
                     statement.execute("DROP TABLE health_ignored");
                     statement.execute("PRAGMA user_version = 13");
                 }

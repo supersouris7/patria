@@ -46,6 +46,13 @@ class AppTest {
         return client.send(request(path).GET().build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    private TestAccounts.Visitor manager;
+
+    /** Membre ajoute par l'administrateur, coche pour le compte de test. */
+    private HttpResponse<String> member(String form) throws Exception {
+        return TestAccounts.member(client, base, manager, 1, form);
+    }
+
     private HttpResponse<String> post(String path, String form) throws Exception {
         return client.send(request(path).header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form)).build(), HttpResponse.BodyHandlers.ofString());
@@ -64,6 +71,7 @@ class AppTest {
     /** Connexion avec un compte gestionnaire du foyer principal (l'administrateur ne voit pas les finances). */
     private String login() throws Exception {
         TestAccounts.Visitor manager = TestAccounts.manager(client, base);
+        this.manager = manager;
         sessionCookie = manager.cookie();
         return manager.csrf();
     }
@@ -207,7 +215,7 @@ class AppTest {
         String csrf = login();
         assertTrue(get("/").body().contains("Votre budget est vide"));
 
-        assertEquals(303, post("/administration/membres", "csrf=" + csrf + "&name=Camille").statusCode());
+        assertEquals(303, member("name=Camille").statusCode());
         String household = get("/administration/revenus").body();
         Matcher person = Pattern.compile("<option value=\"(\\d+)\"[^>]*>Camille</option>").matcher(household);
         assertTrue(person.find(), household);
@@ -231,8 +239,8 @@ class AppTest {
     @Test
     void eachPersonHasOwnBudgetWithSharedExpenses() throws Exception {
         String csrf = login();
-        post("/administration/membres", "csrf=" + csrf + "&name=Alice");
-        post("/administration/membres", "csrf=" + csrf + "&name=Bob");
+        member("name=Alice");
+        member("name=Bob");
         Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(Alice|Bob)</option>").matcher(get("/administration/revenus").body());
         java.util.Map<String, String> people = new java.util.HashMap<>();
         while (ids.find()) people.put(ids.group(2), ids.group(1));
@@ -281,8 +289,8 @@ class AppTest {
     @Test
     void importsExpensesFromCsvAfterPreview() throws Exception {
         String csrf = login();
-        post("/administration/membres", "csrf=" + csrf + "&name=William");
-        post("/administration/membres", "csrf=" + csrf + "&name=Lou");
+        member("name=William");
+        member("name=Lou");
         Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Lou)</option>").matcher(get("/administration/revenus").body());
         java.util.Map<String, String> people = new java.util.HashMap<>();
         while (ids.find()) people.put(ids.group(2), ids.group(1));
@@ -326,10 +334,10 @@ class AppTest {
     void transfersToJointAccountFromAdministration() throws Exception {
         String csrf = login();
         assertTrue(get("/administration/virements").body().contains("Un seul membre dans le foyer") || get("/administration/virements").body().contains("ajoutez un compte joint"));
-        post("/administration/membres", "csrf=" + csrf + "&name=William&kind=PERSON");
-        post("/administration/membres", "csrf=" + csrf + "&name=Compte+joint&kind=ACCOUNT");
-        String foyer = get("/administration/membres").body();
-        assertTrue(foyer.contains("<small class=\"badge\">Compte joint</small>"), foyer);
+        member("name=William&kind=PERSON");
+        member("name=Compte+joint&kind=ACCOUNT");
+        String foyer = get("/administration/revenus").body();
+        assertTrue(foyer.contains("Compte joint"), foyer);
         Matcher ids = Pattern.compile("<option value=\"(\\d+)\"[^>]*>(William|Compte joint)</option>").matcher(get("/administration/virements").body());
         java.util.Map<String, String> members = new java.util.HashMap<>();
         while (ids.find()) members.put(ids.group(2), ids.group(1));

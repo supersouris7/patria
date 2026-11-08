@@ -37,6 +37,17 @@ final class TestAccounts {
         return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    /**
+     * Ajoute un membre au foyer {@code household} (seul l'administrateur le peut), puis, si {@code visitor} est donne,
+     * lui coche tout ce foyer dans le tableau des droits. Renvoie la reponse de l'ajout.
+     */
+    static HttpResponse<String> member(HttpClient client, String base, Visitor visitor, long household, String form) throws Exception {
+        Visitor admin = admin(client, base);
+        HttpResponse<String> added = post(client, base, admin, "/administration/foyers/" + household + "/membres", form.contains("kind=") ? form : form + "&kind=PERSON");
+        if (visitor != null) assertEquals(303, post(client, base, admin, "/administration/utilisateur/" + visitor.id() + "/foyer/" + household, "access=on&all=on").statusCode());
+        return added;
+    }
+
     /** Connexion ; un mot de passe provisoire est remplace par {@code password + "-final"}... sauf si {@code keep}. */
     static Visitor login(HttpClient client, String base, String login, String password) throws Exception {
         HttpResponse<String> logged = post(client, base, null, "/connexion", "login=" + login + "&password=" + password);
@@ -97,6 +108,6 @@ final class TestAccounts {
 
     /** Gestionnaire du foyer principal : il saisit tout. */
     static Visitor manager(HttpClient client, String base) throws Exception {
-        return account(client, base, admin(client, base), "gestion", "Gestion", 1, "access=on&manager=on");
+        return account(client, base, admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
     }
 }

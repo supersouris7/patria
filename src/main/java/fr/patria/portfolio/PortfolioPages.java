@@ -108,14 +108,14 @@ final class PortfolioPages {
                         tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()),
                                 summary.borrowed().signum() == 0 ? null : "sur " + euroWhole(summary.borrowed()) + " empruntés"),
                         nextMonthTile(summary.nextMonth(), "/bien/" + property.id() + "/mensualites")),
-                balance(revaluationLines(summary.revaluation()), summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(),
-                        summary.contributed(), summary.returns()),
                 marketCard(summary, csrf),
                 fr.patria.market.SalesCard.render(summary.property(), sales, summary.squareMeter().value(), today),
                 Components.card("Prêts", summary.loans().size(), Components.secondaryButton("/bien/" + property.id() + "/mensualites", "Mensualités"),
                         loansTable(summary.loans(), rate)),
                 Components.card("Apports", summary.contributions().size(), Html.EMPTY,
-                        contributionsTable(summary.contributions(), summary.contributed())));
+                        contributionsTable(summary.contributions(), summary.contributed())),
+                balance(revaluationLines(summary.revaluation()), summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(),
+                        summary.contributed(), summary.returns()));
         return Layout.page(property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 

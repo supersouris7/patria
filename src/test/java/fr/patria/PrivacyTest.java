@@ -58,15 +58,15 @@ class PrivacyTest {
         try (App ignored = start(null)) {
             Visitor admin = TestAccounts.admin(client, base);
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Foyer+Martin").statusCode());
-            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&manager=on").statusCode());
-            assertEquals(303, TestAccounts.post(client, base, manager, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
+            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
+            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&all=on").statusCode());
+            assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
         }
         assertTrue(Encryption.isPlain(main));
         Files.copy(main, directory.resolve("patria.sqlite3.avant-migration-v12-20260101-000000"));
         try (App ignored = start(KEY)) {
             Visitor admin = login("gestion", "gestion-motdepasse");
-            assertTrue(get(admin, "/administration/membres").body().contains("Paul"), "données relues avec la clé");
+            assertTrue(get(admin, "/administration/revenus").body().contains("Paul"), "données relues avec la clé");
             assertEquals(303, post(admin, "/bien", "name=Studio&kind=APARTMENT&purchase=100000&purchase_date=2020-01-01&estimate=120000"
                     + "&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
             assertEquals("/administration/bien/1?ok=deplace", location(post(admin, "/administration/bien/1/foyer", "foyer=2")), "déplacement entre bases chiffrées");
@@ -136,7 +136,7 @@ class PrivacyTest {
             }
             assertEquals(200, get(null, "/vendor/pdfjs/wasm/openjpeg.wasm").statusCode());
             Visitor admin = TestAccounts.admin(client, base);
-            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             Visitor visitor = manager;
             assertTrue(get(visitor, "/administration/depenses").body().contains("href=\"/aide/caviardage\""));
             HttpResponse<String> documentStep = get(visitor, "/assistant/documents");
@@ -164,7 +164,7 @@ class PrivacyTest {
             assertEquals("/", location(post(null, "/connexion", "login=admin&password=secret")), "une seule fois");
             assertTrue(get(admin, "/administration/foyers").body().contains("class=\"version\""), "version en pied de page");
 
-            Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&manager=on");
+            Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
             Visitor gestion = manager;
             assertEquals("/assistant", location(post(gestion, "/bienvenue/terminer", "")), "le gestionnaire commence par le guide");
             String home = get(gestion, "/").body();

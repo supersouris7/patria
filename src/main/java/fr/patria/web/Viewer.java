@@ -19,16 +19,23 @@ import java.util.Set;
  */
 public record Viewer(Long userId, String name, Household household, List<Household> households, Rights rights, Signals signals) {
     /**
-     * Droits dans le foyer affiche.
+     * Droits dans le foyer affiche, regles par l'administrateur dans le tableau des droits du foyer. Chaque case donne
+     * un acces complet (voir et modifier).
      *
-     * @param wholeHousehold vue « Foyer » (total de tous les membres) ouverte
-     * @param members        membres dont la vue est ouverte ; {@code null} pour un gestionnaire (tous)
-     * @param realEstate     consultation de tous les biens du foyer
-     * @param manages        gestion complete du foyer (utilisateur gestionnaire)
+     * @param wholeHousehold totaux du foyer et reglages communs (les lignes des membres non coches y sont masquees)
+     * @param members        membres accessibles : leurs lignes sont visibles et modifiables
+     * @param realEstate     biens, prets, apports et repartition : consultation et modification
      */
-    public record Rights(boolean wholeHousehold, Set<Long> members, boolean realEstate, boolean manages) {
-        public static final Rights NONE = new Rights(false, Set.of(), false, false);
-        public static final Rights MANAGER = new Rights(true, null, true, true);
+    public record Rights(boolean wholeHousehold, Set<Long> members, boolean realEstate) {
+        public static final Rights NONE = new Rights(false, Set.of(), false);
+
+        public Rights {
+            members = members == null ? Set.of() : Set.copyOf(members);
+        }
+
+        public static Rights user(boolean wholeHousehold, Set<Long> members, boolean realEstate) {
+            return new Rights(wholeHousehold, members, realEstate);
+        }
     }
 
     /**
@@ -41,7 +48,7 @@ public record Viewer(Long userId, String name, Household household, List<Househo
     public record Signals(boolean mustChangePassword, Audience audience, String notice) {
     }
 
-    /** Un foyer du selecteur ; {@code managed} : l'utilisateur en est gestionnaire. */
+    /** Un foyer du selecteur ; {@code managed} : l'utilisateur y gere l'immobilier (deplacement d'un bien). */
     public record Household(long id, String name, boolean managed) {
         public Household(long id, String name) {
             this(id, name, false);
@@ -73,10 +80,6 @@ public record Viewer(Long userId, String name, Household household, List<Househo
         return rights.realEstate();
     }
 
-    public boolean manages() {
-        return rights.manages();
-    }
-
     public boolean mustChangePassword() {
         return signals.mustChangePassword();
     }
@@ -94,18 +97,18 @@ public record Viewer(Long userId, String name, Household household, List<Househo
         return userId == null;
     }
 
-    /** Vue de ce membre ouverte. */
+    /** Ce membre est accessible. */
     public boolean sees(long personId) {
-        return members() == null || members().contains(personId);
+        return members().contains(personId);
     }
 
     /** Tous ces membres ont leur vue ouverte : une ligne qui ne concerne qu'eux est modifiable. */
     public boolean seesAll(Collection<Long> personIds) {
-        return members() == null || members().containsAll(personIds);
+        return personIds.stream().allMatch(this::sees);
     }
 
     /** Une ligne qui concerne au moins un de ces membres est visible. */
     public boolean seesAny(Collection<Long> personIds) {
-        return members() == null || personIds.stream().anyMatch(members()::contains);
+        return personIds.stream().anyMatch(this::sees);
     }
 }

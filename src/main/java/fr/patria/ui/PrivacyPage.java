@@ -38,9 +38,8 @@ public final class PrivacyPage {
                         <li>Les synthèses PDF sont fabriquées sur le serveur : rien n'est envoyé pour les produire.</li></ul>""")),
                 Components.card("Qui voit quoi", null, Html.EMPTY, Html.raw("""
                         <ul class="plain-list privacy-list">
-                        <li><b>Chacun ne voit que ce qui le concerne</b> : un utilisateur voit ses propres lignes (les membres qu'il représente), et seulement
-                        si on les lui ouvre, les totaux du foyer et l'immobilier.</li>
-                        <li><b>Un gestionnaire</b> voit et modifie tout son foyer. Il ne voit pas les autres foyers.</li>
+                        <li><b>Chacun ne voit que ce que l'administrateur lui a coché</b> dans le tableau des droits du foyer : les membres dont il voit
+                        et modifie les lignes, et, seulement si on les lui ouvre, les totaux du foyer et l'immobilier. Il ne voit pas les autres foyers.</li>
                         <li><b>L'administrateur</b> crée les foyers et les comptes, règle les droits et surveille la sécurité. Il <b>ne voit aucune donnée
                         financière dans l'interface avec son compte administrateur</b> : ni revenus, ni dépenses, ni biens.</li>
                         <li><b>Transparence</b> : comme il crée les comptes, l'administrateur pourrait s'en créer un et se l'ouvrir. Chaque accès est donc

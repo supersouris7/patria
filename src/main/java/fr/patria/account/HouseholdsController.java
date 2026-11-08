@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Page Foyers de l'administrateur : foyers, membres (noms), gestionnaire, avancement, reprise, foyers supprimes. */
+/** Page Foyers de l'administrateur : foyers, membres (noms), tableau des droits, avancement, reprise, foyers supprimes. */
 public final class HouseholdsController extends AccountSupport {
     public HouseholdsController(AccountSupport.Stores stores) {
         super(stores);
@@ -34,20 +34,36 @@ public final class HouseholdsController extends AccountSupport {
         });
         router.post("/administration/foyers", this::createHousehold);
         router.post("/administration/foyers/reprise", this::takeOver);
-        // Un seul gestionnaire par foyer : le choisir le remplace ; « Aucun » le retire.
-        router.post("/administration/foyers/{id}/gestionnaire", request -> {
+        router.post("/administration/foyers/{id}/membre/{membre}/supprimer", request -> {
             Household household = household(request.id());
+            long id = request.id("membre");
+            HouseholdDirectory.Member member = directory.members(household.id()).stream().filter(candidate -> candidate.id() == id).findFirst()
+                    .orElseThrow(() -> new fr.patria.common.NotFoundException("Membre introuvable", "Ce membre n'existe pas."));
             try {
-                String chosen = request.form().raw("compte").trim();
-                if (chosen.isEmpty()) {
-                    for (User manager : managers(household)) demote(manager, household);
-                } else {
-                    makeManager(chosenUser(chosen), household);
-                }
-                return Response.redirect("/administration/foyers?ok=" + (chosen.isEmpty() ? "acces" : "gestionnaire") + "#foyer-" + household.id());
+                directory.deleteMember(household.id(), id);
             } catch (ValidationException exception) {
                 return Response.invalid(householdsPage(request, Map.of(), Notice.error(exception.getMessage())));
             }
+            accounts.forgetMember(household.id(), id);
+            audit("MEMBER", household.id(), null, "Membre « " + member.name() + " » supprimé du foyer « " + household.name() + " ».");
+            return Response.redirect("/administration/foyers?ok=supprime#foyer-" + household.id());
+        });
+        // Tableau des droits : une ligne par compte actif, une case par membre, totaux et immobilier.
+        router.post("/administration/foyers/{id}/droits", request -> {
+            Household household = household(request.id());
+            Map<String, String> form = request.form().values();
+            Map<User, Access> before = accounts.accessesTo(household.id());
+            List<HouseholdDirectory.Member> members = directory.members(household.id());
+            for (User user : accounts.users()) {
+                if (!user.active()) continue;
+                Access after = access(user, household, form, "u" + user.id() + "_");
+                Access previous = before.get(user);
+                if (same(previous, after)) continue;
+                accounts.setAccess(user.id(), household.id(), after);
+                audit("ACCESS", household.id(), user.id(), user.name() + " : " + (after.any() ? (previous == null ? "accès ouvert" : "accès modifié") + " ("
+                        + AudienceText.summary(after, members) + ")" : "plus d'accès à ce foyer") + ".");
+            }
+            return Response.redirect("/administration/foyers?ok=acces#foyer-" + household.id());
         });
         router.post("/administration/foyers/{id}/renommer", request -> {
             Household household = household(request.id());
@@ -73,15 +89,13 @@ public final class HouseholdsController extends AccountSupport {
         List<User> users = accounts.users();
         List<AccountPages.HouseholdCard> cards = accounts.households().stream().map(household -> {
             Map<User, Access> shared = accounts.accessesTo(household.id());
-            List<AccountPages.AccountProgress> progress = shared.entrySet().stream()
-                    .filter(entry -> entry.getValue().manager() || !entry.getValue().members().isEmpty())
-                    .map(entry -> new AccountPages.AccountProgress(entry.getKey(), entry.getValue().manager(),
-                            directory.progress(household.id(), entry.getKey().id(), entry.getValue().manager()))).toList();
-            List<User> managers = shared.entrySet().stream().filter(entry -> entry.getKey().active() && entry.getValue().manager()).map(Map.Entry::getKey).toList();
-            return new AccountPages.HouseholdCard(household, directory.members(household.id()), managers.size(),
-                    shared.keySet().stream().map(user -> user.name() + (user.active() ? "" : " (désactivé)")).toList(), progress, managers);
+            List<AccountPages.AccountProgress> progress = shared.entrySet().stream().filter(entry -> entry.getKey().active())
+                    .map(entry -> new AccountPages.AccountProgress(entry.getKey(),
+                            directory.progress(household.id(), entry.getKey().id(), entry.getValue().realEstate()))).toList();
+            return new AccountPages.HouseholdCard(household, directory.members(household.id()), shared, progress);
         }).toList();
-        List<Household> orphans = cards.stream().filter(card -> card.managers() == 0).map(AccountPages.HouseholdCard::household).toList();
+        List<Household> orphans = cards.stream().filter(card -> card.accesses().keySet().stream().noneMatch(User::active))
+                .map(AccountPages.HouseholdCard::household).toList();
         boolean recommend = !twoFactors.twoFactor(null).enabled() && Exposure.exposed(request, log);
         return AccountPages.households(cards, orphans, users.stream().filter(User::active).toList(), recommend, directory.archives(), values, notice, request.csrf());
     }
@@ -108,8 +122,8 @@ public final class HouseholdsController extends AccountSupport {
     }
 
     /**
-     * Reprise des foyers sans gestionnaire : un nouveau compte devient gestionnaire des foyers coches, avec la
-     * progression du guide de l'administrateur et le membre qui porte son nom. Sert au passage a la version ou
+     * Reprise des foyers auxquels aucun compte n'a acces : un compte recoit tous les droits sur les foyers coches,
+     * avec la progression du guide de l'administrateur. Sert au passage a la version ou
      * l'administrateur ne voit plus les finances.
      */
     private Response takeOver(Request request) {
@@ -118,28 +132,35 @@ public final class HouseholdsController extends AccountSupport {
             List<Household> chosen = accounts.households().stream().filter(household -> "on".equals(form.get("foyer_" + household.id()))).toList();
             if (chosen.isEmpty()) throw new ValidationException("Cochez au moins un foyer à confier à ce compte.");
             if (!form.getOrDefault("compte", "").isBlank()) {
-                // Compte existant : il devient gestionnaire des foyers coches.
+                // Compte existant : tous les droits sur les foyers coches.
                 User user = chosenUser(form.get("compte"));
-                for (Household household : chosen) makeManager(user, household);
-                return Response.redirect("/administration/foyers?ok=gestionnaire");
+                for (Household household : chosen) grantAll(user, household);
+                return Response.redirect("/administration/foyers?ok=acces");
             }
             String login = login(form.getOrDefault("login", ""));
             String name = request.form().requiredText("name", "Nom affiché", 60);
             long id = accounts.createUser(login, name, form.getOrDefault("password", ""), LocalDate.now(clock));
             audit("USER", null, id, "Compte « " + login + " » créé pour reprendre des foyers.");
-            for (Household household : chosen) {
-                Set<Long> members = directory.members(household.id()).stream().filter(member -> member.name().equalsIgnoreCase(name))
-                        .map(HouseholdDirectory.Member::id).collect(Collectors.toSet());
-                Access access = new Access(id, household.id(), household.name(), true, members, true, true);
-                accounts.setAccess(id, household.id(), access);
-                directory.transferFromAdministrator(household.id(), id);
-                audit("ACCESS", household.id(), id, name + " : accès ouvert (" + AudienceText.summary(access, directory.members(household.id())) + ").");
-            }
+            User user = accounts.user(id).orElseThrow();
+            for (Household household : chosen) grantAll(user, household);
             return Response.redirect("/administration/utilisateur/" + id + "?ok=reprise");
         } catch (ValidationException exception) {
             Map<String, String> values = new java.util.HashMap<>(form);
             values.remove("password");
             return Response.invalid(householdsPage(request, values, Notice.error(exception.getMessage())));
         }
+    }
+
+    /** Tous les droits sur un foyer (reprise), avec la progression du guide de l'administrateur. */
+    private void grantAll(User user, Household household) {
+        Access access = access(user, household, Map.of("all", "on"), "");
+        accounts.setAccess(user.id(), household.id(), access);
+        directory.transferFromAdministrator(household.id(), user.id());
+        audit("ACCESS", household.id(), user.id(), user.name() + " : accès ouvert (" + AudienceText.summary(access, directory.members(household.id())) + ").");
+    }
+
+    private static boolean same(Access before, Access after) {
+        if (before == null) return !after.any();
+        return before.wholeHousehold() == after.wholeHousehold() && before.realEstate() == after.realEstate() && before.members().equals(after.members());
     }
 }

@@ -168,7 +168,7 @@ public final class Router implements HttpHandler {
     /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
     private static Layout.Chrome chrome(Viewer viewer, boolean insecure, String location) {
         if (viewer == null) return null;
-        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.manages(), viewer.realEstate()),
+        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.realEstate(), viewer.realEstate()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
                 new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.notice()),
                 location);
@@ -213,7 +213,7 @@ public final class Router implements HttpHandler {
             for (int i = 0; i < route.parameters().size(); i++) parameters.put(route.parameters().get(i), matcher.group(i + 1));
             if (route.isPrivate() && !allowed(route.access(), viewer, households != null)) {
                 throw new ForbiddenException(route.access() == Access.REAL_ESTATE ? "L'immobilier n'est pas ouvert pour votre compte."
-                        : households != null ? "Cette page est réservée à l'administrateur." : "Cette page est réservée aux gestionnaires du foyer.");
+                        : households != null ? "Cette page est réservée à l'administrateur." : "Cette page demande l'accès Immobilier : demandez-le à l'administrateur.");
             }
             Request request = new Request(exchange, parameters, session, viewer);
             if (route.isPrivate() && method.equals("POST")) checkCsrf(request);
@@ -237,11 +237,11 @@ public final class Router implements HttpHandler {
 
     /**
      * {@link Access#ADMIN} : sur le routeur principal (foyers, utilisateurs), l'administrateur de l'application ; sur
-     * le routeur d'un foyer, qui le gere (l'administrateur, ou un utilisateur gestionnaire de ce foyer).
+     * le routeur d'un foyer, les pages de gestion de l'immobilier (case « Immobilier » du tableau des droits).
      */
     private static boolean allowed(Access access, Viewer viewer, boolean main) {
         return switch (access) {
-            case ADMIN -> main ? viewer.isAdministrator() : viewer.manages();
+            case ADMIN -> main ? viewer.isAdministrator() : viewer.realEstate();
             case USER -> true;
             case REAL_ESTATE -> viewer.realEstate();
         };

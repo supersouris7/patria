@@ -50,7 +50,8 @@ import java.util.Map;
 public final class WizardController {
     /** Depots du foyer utilises par l'assistant. */
     public record Stores(HouseholdRepository household, BudgetRepository items, ShareRepository shares, PropertyRepository properties,
-                         LoanRepository loans, ExpenseRepository charges, RentRepository rents, WizardRepository progress) {
+                         LoanRepository loans, ExpenseRepository charges, RentRepository rents, WizardRepository progress,
+                         fr.patria.household.HealthScopeRepository healthScope) {
     }
 
     static final String REVIEW = "revue";
@@ -84,7 +85,6 @@ public final class WizardController {
             }
         }
         router.userPost("/assistant/documents/coche", this::checkDocument);
-        router.post("/assistant/membres/ajouter", this::addMember);
         router.userPost("/assistant/revenus/ajouter", this::addIncome);
         router.userPost("/assistant/logement/ajouter", request -> addExpenses(request, Step.HOUSING, List.of(Checklist.RENT), false));
         router.userPost("/assistant/depenses/ajouter", request -> addExpenses(request, Step.FIXED, Checklist.FIXED, true));
@@ -94,6 +94,7 @@ public final class WizardController {
         router.post("/assistant/charges/{id}", this::addCharge);
         router.post("/assistant/occupation/{id}", this::addOccupancy);
         router.userPost("/assistant/virements/ajouter", this::addTransfer);
+        router.userPost("/assistant/bilan/enregistrer", this::saveHealthScope);
 
         // Revue annuelle : ce qui change d'une annee sur l'autre, ligne par ligne.
         router.userGet("/assistant/revue-annuelle", request -> Response.page(annualPage(request, request.confirmation())));
@@ -109,6 +110,18 @@ public final class WizardController {
             stores.progress().setReviewed(owner(request), LocalDate.now(clock));
             return Response.redirect("/assistant/revue-annuelle?ok=enregistre");
         });
+    }
+
+    /** Etape « Bilan de sante » : comptes a prendre en compte (au moins un parmi les membres visibles). */
+    private Response saveHealthScope(Request request) {
+        if (request.viewer().isAdministrator()) throw new ValidationException("L'administrateur n'a pas de bilan.");
+        java.util.Set<Long> chosen = new java.util.LinkedHashSet<>();
+        for (Person person : stores.household().people()) {
+            if (request.viewer().sees(person.id()) && "on".equals(request.form().raw("membre_" + person.id()))) chosen.add(person.id());
+        }
+        if (chosen.isEmpty()) return Response.invalid(render(request, Step.HEALTH, Notice.error("Cochez au moins un compte à prendre en compte dans le bilan."), Map.of()));
+        stores.healthScope().save(request.viewer().userId(), chosen);
+        return finish(request, Step.HEALTH, WizardRepository.Status.DONE);
     }
 
     // ---- Revue annuelle ----
@@ -135,10 +148,10 @@ public final class WizardController {
      * a faire. Vide quand tout est fait, quand il a ete ignore, ou pour un compte qui ne modifie rien (vues en lecture).
      */
     public Html progress(Request request) {
-        if (!request.viewer().manages() && request.viewer().members().isEmpty()) return Html.EMPTY;
+        if (!request.viewer().wholeHousehold() && !request.viewer().realEstate() && request.viewer().members().isEmpty()) return Html.EMPTY;
         String owner = owner(request);
         if (stores.progress().bannerHidden(owner)) return Html.EMPTY;
-        List<Step> steps = Step.forViewer(request.viewer().manages()).stream().filter(step -> step != Step.SUMMARY).toList();
+        List<Step> steps = Step.forViewer(request.viewer().realEstate()).stream().filter(step -> step != Step.SUMMARY).toList();
         Map<Step, WizardRepository.Status> progress = stores.progress().steps(owner);
         long finished = steps.stream().filter(progress::containsKey).count();
         if (finished == steps.size()) return Html.EMPTY;
@@ -240,7 +253,8 @@ public final class WizardController {
 
     /** Tout ce qu'une page de l'assistant affiche, calcule une fois par requete. */
     record Context(boolean admin, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
-                   Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf) {
+                   Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
+                   java.util.Set<Long> healthScope, boolean healthConfigured) {
         String mode() {
             return review ? "?mode=" + REVIEW : "";
         }
@@ -267,19 +281,22 @@ public final class WizardController {
     }
 
     private Context context(Request request) {
-        boolean admin = request.viewer().manages();
+        boolean admin = request.viewer().realEstate();
         List<Person> people = stores.household().people();
         Visibility visibility = Visibility.of(request.viewer(), people);
+        boolean everything = visibility.seesEverything();
         Map<Shares.Key, Map<Long, Integer>> shares = stores.shares().all();
         List<BudgetItem> items = stores.items().all().stream()
-                .filter(item -> admin || visibility.canSee(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()))).toList();
-        List<Income> incomes = stores.household().incomes().stream().filter(income -> admin || visibility.canSeeAny(income.personId())).toList();
-        List<Transfer> transfers = stores.household().transfers().stream().filter(transfer -> admin || visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
+                .filter(item -> everything || visibility.canSee(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()))).toList();
+        List<Income> incomes = stores.household().incomes().stream().filter(income -> everything || visibility.canSeeAny(income.personId())).toList();
+        List<Transfer> transfers = stores.household().transfers().stream().filter(transfer -> everything || visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
         Snapshot snapshot = admin
                 ? new Snapshot(people, incomes, items, stores.properties().all(), stores.loans().all(), stores.charges().all(), stores.rents().all(), transfers)
                 : new Snapshot(people, incomes, items, List.of(), List.of(), List.of(), List.of(), transfers);
         return new Context(admin, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.forViewer(admin),
-                stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf());
+                stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf(),
+                stores.healthScope().scope(request.viewer(), people),
+                request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()));
     }
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */

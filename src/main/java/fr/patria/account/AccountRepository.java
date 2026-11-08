@@ -23,7 +23,7 @@ import org.mindrot.jbcrypt.BCrypt;
  */
 public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
-    private static final int LATEST = 3;
+    private static final int LATEST = 4;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
     /** Cout de bcrypt : 12 ; la propriete systeme {@code patria.bcrypt.cost} l'abaisse pour les tests (4 a 31). */
     private static final int COST = Math.clamp(Integer.getInteger("patria.bcrypt.cost", 12), 4, 31);
@@ -82,7 +82,7 @@ public final class AccountRepository {
             }
         }
         if (version < 2) {
-            // Gestionnaires ; accueil (welcomed_on, settings pour l'administrateur) ; mot de passe choisi par
+            // Gestionnaires (role retire, voir retireManagers) ; accueil (welcomed_on, settings pour l'administrateur) ; mot de passe choisi par
             // l'administrateur, a changer ; derniere lecture de « qui voit quoi » ; journaux de connexion et des droits ;
             // localisation des adresses IP (cache).
             try (Statement statement = connection.createStatement()) {
@@ -131,6 +131,20 @@ public final class AccountRepository {
                         )""");
                 statement.execute("CREATE TABLE trusted_devices (token_hash TEXT PRIMARY KEY, account TEXT NOT NULL, expires_at TEXT NOT NULL)");
                 statement.execute("PRAGMA user_version = 3");
+            }
+        }
+        if (version < 4) {
+            // Demandes de creation de compte envoyees depuis la page de connexion.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("""
+                        CREATE TABLE account_requests (
+                            id INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            login TEXT NOT NULL,
+                            message TEXT NOT NULL,
+                            created_at TEXT NOT NULL
+                        )""");
+                statement.execute("PRAGMA user_version = 4");
             }
         }
     }
@@ -185,6 +199,10 @@ public final class AccountRepository {
 
     public Optional<User> user(long id) {
         return database.query(connection -> Sql.list(connection, "SELECT * FROM users WHERE id = ?", AccountRepository::user, id)).stream().findFirst();
+    }
+
+    public boolean loginTaken(String login) {
+        return database.query(connection -> !Sql.list(connection, "SELECT id FROM users WHERE login = ? COLLATE NOCASE", row -> row.getLong(1), login).isEmpty());
     }
 
     public long createUser(String login, String name, String password, LocalDate today) {
@@ -271,25 +289,21 @@ public final class AccountRepository {
             Map<Long, Set<Long>> members = new LinkedHashMap<>();
             Sql.list(connection, "SELECT household_id, person_id FROM user_members WHERE user_id = ? ORDER BY person_id",
                     row -> members.computeIfAbsent(row.getLong(1), key -> new LinkedHashSet<>()).add(row.getLong(2)), userId);
-            List<Access> result = new ArrayList<>();
-            for (Access access : Sql.list(connection, """
-                    SELECT a.household_id, h.name, a.whole_household, a.real_estate, a.manager FROM user_households a
+            return Sql.list(connection, """
+                    SELECT a.household_id, h.name, a.whole_household, a.real_estate FROM user_households a
                     JOIN households h ON h.id = a.household_id WHERE a.user_id = ? ORDER BY h.id""",
-                    row -> new Access(userId, row.getLong(1), row.getString(2), row.getInt(3) == 1, Set.of(), row.getInt(4) == 1, row.getInt(5) == 1), userId)) {
-                result.add(new Access(userId, access.householdId(), access.householdName(), access.wholeHousehold(),
-                        Set.copyOf(members.getOrDefault(access.householdId(), Set.of())), access.realEstate(), access.manager()));
-            }
-            return result;
+                    row -> new Access(userId, row.getLong(1), row.getString(2), row.getInt(3) == 1, members.getOrDefault(row.getLong(1), Set.of()),
+                            row.getInt(4) == 1), userId);
         });
     }
 
-    /** Remplace les droits d'un utilisateur sur un foyer ; {@code null} retire l'acces. */
+    /** Remplace les droits d'un utilisateur sur un foyer ; {@code null} ou aucune case cochee retire l'acces. */
     public void setAccess(long userId, long householdId, Access access) {
         database.transaction(connection -> {
             Sql.update(connection, "DELETE FROM user_households WHERE user_id = ? AND household_id = ?", userId, householdId);
-            if (access != null) {
-                Sql.update(connection, "INSERT INTO user_households (user_id, household_id, whole_household, real_estate, manager) VALUES (?, ?, ?, ?, ?)",
-                        userId, householdId, access.wholeHousehold() ? 1 : 0, access.realEstate() ? 1 : 0, access.manager() ? 1 : 0);
+            if (access != null && access.any()) {
+                Sql.update(connection, "INSERT INTO user_households (user_id, household_id, whole_household, real_estate) VALUES (?, ?, ?, ?)",
+                        userId, householdId, access.wholeHousehold() ? 1 : 0, access.realEstate() ? 1 : 0);
                 for (long person : access.members()) {
                     Sql.update(connection, "INSERT INTO user_members (user_id, household_id, person_id) VALUES (?, ?, ?)", userId, householdId, person);
                 }
@@ -306,20 +320,77 @@ public final class AccountRepository {
                     row -> members.computeIfAbsent(row.getLong(1), key -> new LinkedHashSet<>()).add(row.getLong(2)), householdId);
             Map<User, Access> result = new LinkedHashMap<>();
             Sql.list(connection, """
-                    SELECT u.*, a.whole_household, a.real_estate, a.manager, h.name AS household_name FROM user_households a
+                    SELECT u.*, a.whole_household, a.real_estate, h.name AS household_name FROM user_households a
                     JOIN users u ON u.id = a.user_id JOIN households h ON h.id = a.household_id
                     WHERE a.household_id = ? ORDER BY u.name COLLATE NOCASE, u.login""", row -> {
                 User user = user(row);
                 return result.put(user, new Access(user.id(), householdId, row.getString("household_name"), row.getInt("whole_household") == 1,
-                        Set.copyOf(members.getOrDefault(user.id(), Set.of())), row.getInt("real_estate") == 1, row.getInt("manager") == 1));
+                        members.getOrDefault(user.id(), Set.of()), row.getInt("real_estate") == 1));
             }, householdId);
             return result;
         });
     }
 
-    /** Gestionnaires actifs d'un foyer. */
-    public long activeManagers(long householdId) {
-        return accessesTo(householdId).entrySet().stream().filter(entry -> entry.getKey().active() && entry.getValue().manager()).count();
+    /** Un membre supprime n'est plus coche pour personne. */
+    public void forgetMember(long householdId, long personId) {
+        database.query(connection -> Sql.update(connection, "DELETE FROM user_members WHERE household_id = ? AND person_id = ?", householdId, personId));
+    }
+
+    /**
+     * Le role de gestionnaire n'existe plus : un ancien gestionnaire garde exactement ce qu'il voyait (tous les membres,
+     * les totaux et l'immobilier), en cases cochees. Appele au demarrage ; sans effet ensuite.
+     */
+    public void retireManagers(java.util.function.LongFunction<List<Long>> householdMembers) {
+        List<long[]> managers = database.query(connection -> Sql.list(connection, "SELECT user_id, household_id FROM user_households WHERE manager = 1",
+                row -> new long[]{row.getLong(1), row.getLong(2)}));
+        for (long[] manager : managers) {
+            List<Long> people = householdMembers.apply(manager[1]);
+            database.transaction(connection -> {
+                Sql.update(connection, "UPDATE user_households SET manager = 0, whole_household = 1, real_estate = 1 WHERE user_id = ? AND household_id = ?",
+                        manager[0], manager[1]);
+                for (long person : people) {
+                    Sql.update(connection, "INSERT OR IGNORE INTO user_members (user_id, household_id, person_id) VALUES (?, ?, ?)", manager[0], manager[1], person);
+                }
+                return null;
+            });
+        }
+    }
+
+    // ---- Demandes de compte ----
+
+    /** Une demande envoyee depuis la page de connexion. */
+    public record AccountRequest(long id, String name, String login, String message, String createdAt) {
+    }
+
+    /** Ce que la page de connexion propose : {@code "message"} (demander a l'administrateur) ou {@code "form"}. */
+    public String signupMode() {
+        return database.query(connection -> Sql.list(connection, "SELECT value FROM settings WHERE key = 'signup_mode'", row -> row.getString(1)))
+                .stream().findFirst().orElse("message");
+    }
+
+    public void setSignupMode(String mode) {
+        database.query(connection -> Sql.update(connection,
+                "INSERT INTO settings (key, value) VALUES ('signup_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", mode));
+    }
+
+    public List<AccountRequest> requests() {
+        return database.query(connection -> Sql.list(connection, "SELECT id, name, login, message, created_at FROM account_requests ORDER BY id",
+                row -> new AccountRequest(row.getLong(1), row.getString(2), row.getString(3), row.getString(4), row.getString(5))));
+    }
+
+    /** Enregistre une demande ; refusee (faux) au-dela de {@code limit} demandes en attente ou si l'identifiant est deja demande. */
+    public boolean addRequest(String name, String login, String message, String createdAt, int limit) {
+        return database.transaction(connection -> {
+            long pending = Sql.list(connection, "SELECT COUNT(*) FROM account_requests", row -> row.getLong(1)).getFirst();
+            boolean taken = !Sql.list(connection, "SELECT 1 FROM account_requests WHERE login = ? COLLATE NOCASE", row -> 1, login).isEmpty();
+            if (pending >= limit || taken) return false;
+            Sql.update(connection, "INSERT INTO account_requests (name, login, message, created_at) VALUES (?, ?, ?, ?)", name, login, message, createdAt);
+            return true;
+        });
+    }
+
+    public void deleteRequest(long id) {
+        database.query(connection -> Sql.update(connection, "DELETE FROM account_requests WHERE id = ?", id));
     }
 
     // ---- Accueil de la premiere connexion ----

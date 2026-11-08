@@ -27,7 +27,7 @@ class WizardTest {
     /** Le gestionnaire du foyer principal, qui saisit (le premier compte cree). */
     private Visitor manager() throws Exception {
         root = TestAccounts.admin(client, base);
-        return TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&manager=on");
+        return TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&all=on");
     }
 
     /** Un compte lie a un membre ({@code membre=1%3A1}), mot de passe provisoire deja change. */
@@ -73,12 +73,12 @@ class WizardTest {
         assertTrue(get(admin, "/assistant/documents").body().contains("Les 3 derniers bulletins de salaire"));
         assertEquals(303, post(admin, "/assistant/documents/coche", "document=statements&status=HAVE").statusCode());
         assertTrue(get(admin, "/assistant/documents").body().contains("class=\"doc have\" id=\"doc-statements\""), "coche verte manuelle");
-        assertEquals("/assistant/membres", location(post(admin, "/assistant/documents/terminer", "")), "étape suivante");
+        assertEquals("/assistant/revenus", location(post(admin, "/assistant/documents/terminer", "")), "étape suivante (les membres sont créés par l'administrateur)");
 
         // 2. Membres, 3. Revenus
-        assertEquals(303, post(admin, "/assistant/membres/ajouter", "name=Paul&kind=PERSON").statusCode());
-        assertEquals(303, post(admin, "/assistant/membres/ajouter", "name=Camille&kind=PERSON").statusCode());
-        assertEquals(303, post(admin, "/assistant/membres/ajouter", "name=Compte+joint&kind=ACCOUNT").statusCode());
+        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON").statusCode());
+        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON").statusCode());
+        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Compte+joint&kind=ACCOUNT").statusCode());
         assertEquals(303, post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(400, post(admin, "/assistant/revenus/ajouter", "person=3&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode(),
                 "pas de revenu pour le compte joint ici : seulement les personnes ouvertes");
@@ -112,9 +112,9 @@ class WizardTest {
         assertTrue(documents.contains("class=\"doc have\" id=\"doc-amortization\"") && documents.contains("class=\"doc have\" id=\"doc-property-tax\""));
 
         // Progression : passer, reprendre, revue
-        assertEquals("/assistant/revenus", location(post(admin, "/assistant/membres/passer", "")), "étape passée, suivante à faire");
-        assertTrue(get(admin, "/assistant").body().contains("href=\"/assistant/revenus\""), "Reprendre : la première étape à faire");
-        assertEquals("/assistant/membres?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
+        assertEquals("/assistant/logement", location(post(admin, "/assistant/revenus/passer", "")), "étape passée, suivante à faire");
+        assertTrue(get(admin, "/assistant").body().contains("href=\"/assistant/logement\""), "Reprendre : la première étape à faire");
+        assertEquals("/assistant/revenus?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
         String summary = get(admin, "/assistant/recapitulatif").body();
         assertTrue(summary.contains("Passé") && summary.contains("Fait") && summary.contains("À faire"));
         assertEquals(303, post(admin, "/assistant/recommencer", "").statusCode());
@@ -125,8 +125,8 @@ class WizardTest {
     @Test
     void possibleErrorsAreCaught() throws Exception {
         Visitor admin = manager();
-        post(admin, "/assistant/membres/ajouter", "name=Paul&kind=PERSON");
-        post(admin, "/assistant/membres/ajouter", "name=Camille&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON");
 
         // Double envoi (retour arriere, deux onglets) : pas de doublon
         String netflix = "amount_netflix=13,49&frequency_netflix=MONTHLY&start_netflix=2026-01-01";
@@ -167,8 +167,8 @@ class WizardTest {
     @Test
     void annualReviewChangesAmountsFromADate() throws Exception {
         Visitor admin = manager();
-        post(admin, "/assistant/membres/ajouter", "name=Paul&kind=PERSON");
-        post(admin, "/assistant/membres/ajouter", "name=Camille&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON");
         post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2025-01-01");
         post(admin, "/assistant/depenses/ajouter", "amount_netflix=13,49&frequency_netflix=MONTHLY&start_netflix=2025-01-01&who_netflix=2"
                 + "&amount_spotify=10,99&frequency_spotify=MONTHLY&start_spotify=2025-01-01");
@@ -194,8 +194,8 @@ class WizardTest {
     @Test
     void userHasOnlyTheStepsOfItsOwnLines() throws Exception {
         Visitor admin = manager();
-        post(admin, "/administration/membres", "name=Paul&kind=PERSON");
-        post(admin, "/administration/membres", "name=Camille&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON");
+        TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON");
         Visitor paul = user("paul", "Paul", "1%3A1");
 
         String home = get(paul, "/assistant").body();

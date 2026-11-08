@@ -374,3 +374,29 @@ document.querySelectorAll(".check-row").forEach((row) => {
   if (!box || !amount) return;
   amount.addEventListener("input", () => { if (amount.value.trim() !== "") box.checked = true; });
 });
+
+// Bilan : une tuile mene a sa liste et la deplie (aussi a l'ouverture d'un lien avec ancre).
+const openTarget = (hash) => {
+  const target = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+  if (!target) return;
+  if (target.tagName === 'DETAILS') target.open = true;
+  target.querySelectorAll('details').forEach((details) => { details.open = true; });
+  target.scrollIntoView({behavior: 'smooth', block: 'start'});
+};
+document.querySelectorAll('a[data-open-target]').forEach((link) => link.addEventListener('click', (event) => {
+  event.preventDefault();
+  history.replaceState(null, '', link.hash);
+  openTarget(link.hash);
+}));
+if (location.hash && document.querySelector(`a[data-open-target][href="${CSS.escape(location.hash)}"]`)) openTarget(location.hash);
+
+// Tuile avec explication (?) : toute la tuile la deplie, pas seulement le texte.
+document.querySelectorAll('.metric').forEach((tile) => {
+  const help = tile.querySelector('details.metric-help');
+  if (!help) return;
+  tile.classList.add('has-help');
+  tile.addEventListener('click', (event) => {
+    if (event.target.closest('a, button, summary, input, select, textarea, label')) return;
+    help.open = !help.open;
+  });
+});

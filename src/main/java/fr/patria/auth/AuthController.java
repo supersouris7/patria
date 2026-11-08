@@ -255,7 +255,7 @@ public final class AuthController {
                 <form method="post" action="/connexion" class="stack">%s<label>Identifiant
                 <input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label><label>Mot de passe
                 <input name="password" type="password" autocomplete="current-password" required></label>
-                <button type="submit">Ouvrir Patria</button></form><p class="muted"><a href="/confidentialite">Confidentialité</a></p></main>""", Layout.brand(),
+                <button type="submit">Ouvrir Patria</button></form><p class="muted"><a href="/inscription">Créer un compte</a> · <a href="/confidentialite">Confidentialité</a></p></main>""", Layout.brand(),
                 insecure ? fr.patria.ui.SecurityPages.loginWarning() : Html.EMPTY, Components.notice(notice),
                 next == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"suite\" value=\"%s\">", next)));
     }

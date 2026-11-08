@@ -10,8 +10,7 @@ Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures 
 
 ## Qui peut consulter
 
-- **Utilisateur** : vues et foyers ouverts à son compte ; lignes partagées hors de ses vues en lecture seule.
-- **Gestionnaire** : lecture et gestion de tout son foyer, pas des autres foyers sans accès.
+- **Utilisateur** : seulement ce que l'administrateur lui coche dans le tableau des droits (membres, totaux du foyer, immobilier), pas les autres foyers sans accès ; lignes partagées avec un membre non coché en lecture seule.
 - **Compte administrateur** : comptes, noms des membres, droits, avancement de configuration sans montants et sécurité ; aucune finance dans l'interface avec ce compte. Il peut cependant créer un compte et lui ouvrir des droits.
 - **Exploitant du serveur** : accès technique aux fichiers, mémoire et clé ; il peut lire les données ou modifier le programme et les journaux. L'isolation applicative n'est pas une protection contre lui.
 

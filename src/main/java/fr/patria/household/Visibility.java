@@ -27,8 +27,9 @@ public final class Visibility {
         return new Visibility(viewer, people);
     }
 
-    public boolean manages() {
-        return viewer.manages();
+    /** Totaux du foyer et tous les membres : aucun filtre de lignes. */
+    public boolean seesEverything() {
+        return viewer.wholeHousehold() && people.stream().allMatch(person -> viewer.sees(person.id()));
     }
 
     public boolean wholeHousehold() {
@@ -54,8 +55,15 @@ public final class Visibility {
         return people.stream().filter(person -> Shares.weight(shares, people, person.id()).signum() > 0).map(Person::id).collect(Collectors.toSet());
     }
 
+    /** Membres non coches pour ce compte : dans les totaux du foyer, leurs lignes sont masquees. */
+    public Set<Long> hidden() {
+        return people.stream().map(Person::id).filter(id -> !viewer.sees(id)).collect(Collectors.toSet());
+    }
+
+    /** Une ligne est visible si elle concerne au moins un membre accessible (en lecture seule s'il en concerne d'autres). */
     public boolean canSee(Map<Long, Integer> shares) {
-        return viewer.wholeHousehold() || viewer.seesAny(holders(shares));
+        Set<Long> holders = holders(shares);
+        return holders.isEmpty() ? viewer.wholeHousehold() : viewer.seesAny(holders);
     }
 
     public boolean canEdit(Map<Long, Integer> shares) {
@@ -64,7 +72,7 @@ public final class Visibility {
 
     public boolean canSeeAny(long... personIds) {
         for (long id : personIds) if (viewer.sees(id)) return true;
-        return viewer.wholeHousehold();
+        return personIds.length == 0 && viewer.wholeHousehold();
     }
 
     public boolean canEditAll(long... personIds) {
@@ -83,7 +91,7 @@ public final class Visibility {
      */
     public Map<Long, Integer> normalize(Map<Long, Integer> parsed) {
         List<Person> open = people();
-        if (viewer.manages() || open.size() == people.size()) return parsed;
+        if (open.size() == people.size()) return parsed;
         if (open.isEmpty()) throw new ValidationException("Aucune vue de membre ne vous est ouverte : demandez à l'administrateur.");
         if (parsed.values().stream().mapToInt(Integer::intValue).sum() > 0) return parsed;
         List<Person> sharing = open.stream().filter(person -> !person.isAccount()).toList();

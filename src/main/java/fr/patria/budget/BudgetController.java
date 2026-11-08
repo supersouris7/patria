@@ -54,7 +54,7 @@ public final class BudgetController {
             Forecast.View view = view(request);
             return pdf("budget-moyen", BudgetReports.average(view, forecast.averageIncomes(view), forecast.averageExpenses(view), LocalDate.now(clock)));
         });
-        router.userGet("/administration", request -> Response.redirect(request.viewer().manages() ? "/administration/membres" : "/administration/revenus"));
+        router.userGet("/administration", request -> Response.redirect("/administration/revenus"));
         router.userGet("/administration/depenses", request -> Response.page(adminPage(request, defaults(), request.confirmation())));
         router.userPost("/administration/depenses", this::create);
         router.userGet("/administration/depenses/modele.csv", request -> new Response.Download("modele-depenses.csv", "text/csv; charset=utf-8",
@@ -139,7 +139,7 @@ public final class BudgetController {
      */
     private List<BudgetItem> visibleItems(Request request) {
         Visibility visibility = visibility(request);
-        if (visibility.manages()) return items.all();
+        if (visibility.seesEverything()) return items.all();
         Map<Shares.Key, Map<Long, Integer>> shares = sources.shares().all();
         return items.all().stream().filter(item -> visibility.canSee(shares.getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of()))).toList();
     }

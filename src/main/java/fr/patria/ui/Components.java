@@ -268,7 +268,7 @@ public final class Components {
         if (!readOnly) return form(action, csrf, false, body, submitLabel);
         return Html.of("""
                 <div class="stack"><p class="notice" role="status">Lecture seule : cette ligne concerne aussi un membre dont la vue ne vous est pas ouverte.
-                Seul un gestionnaire du foyer, ou un compte qui a toutes ses vues, peut la modifier.</p><fieldset class="readonly-view" disabled>%s</fieldset></div>""", body);
+                Seul un compte qui a accès à tous ses membres peut la modifier.</p><fieldset class="readonly-view" disabled>%s</fieldset></div>""", body);
     }
 
     /** Formulaire POST protege par le jeton CSRF. */

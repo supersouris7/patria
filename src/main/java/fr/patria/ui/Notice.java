@@ -20,7 +20,6 @@ public record Notice(boolean error, String text) {
             Map.entry("acces", "Droits enregistrés."),
             Map.entry("mot-de-passe", "Mot de passe modifié."),
             Map.entry("mot-de-passe-provisoire", "Mot de passe réinitialisé : provisoire, l'utilisateur le changera à sa prochaine connexion."),
-            Map.entry("gestionnaire", "Gestionnaire nommé : il voit et saisit tout le foyer. Les comptes du foyer le voient dans « qui voit quoi »."),
             Map.entry("double-authentification", "Double authentification retirée. L'utilisateur en sera averti à sa prochaine connexion."),
             Map.entry("double-authentification-active", "Double authentification activée : le code sera demandé à chaque connexion."),
             Map.entry("double-authentification-inactive", "Double authentification désactivée."),

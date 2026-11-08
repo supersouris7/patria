@@ -150,7 +150,7 @@ final class WizardBudgetPages {
                 context.admin()
                         ? "Votre logement se saisit comme un bien, aux étapes suivantes : sa valeur, son prêt (tableau d'amortissement), sa taxe foncière, sa copropriété, "
                         + "son assurance. Patria les compte automatiquement dans le budget : ne les saisissez pas ici."
-                        : "Les biens et leurs prêts sont saisis par le gestionnaire du foyer ; leurs mensualités et charges apparaissent dans votre budget pour votre part.");
+                        : "Les biens et leurs prêts sont saisis par les comptes qui ont l'accès Immobilier ; leurs mensualités et charges apparaissent dans votre budget pour votre part.");
         return Html.concat(explain("Le logement est la plus grosse dépense fixe. Locataire : le loyer et les charges locatives reviennent chaque mois. "
                         + "Propriétaire : le prêt et les charges du bien sont repris de l'immobilier. Les deux à la fois (locataire et propriétaire d'un logement loué) : "
                         + "remplissez les deux parties."),

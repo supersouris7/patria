@@ -22,11 +22,11 @@ class HealthPreferencesTest {
         try (App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, true))) {
             String base = "http://127.0.0.1:" + app.port();
             var admin = TestAccounts.admin(client, base);
-            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
-            assertEquals(303, TestAccounts.post(client, base, manager, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
+            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
+            assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/administration/revenus",
                     "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
-            var reader = TestAccounts.account(client, base, admin, "lecture", "Lecture", 1, "access=on&whole=on");
+            var reader = TestAccounts.account(client, base, admin, "lecture", "Lecture", 1, "access=on&whole=on&member_1=on");
             assertTrue(TestAccounts.get(client, base, manager, "/").body().contains("health-summary"));
             assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"warnings\":1"));
             assertEquals(403, TestAccounts.get(client, base, admin, "/navigation/etat").statusCode());

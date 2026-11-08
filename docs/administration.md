@@ -2,7 +2,7 @@
 
 [Présentation](../README.md) · [Utilisation](utilisation.md) · [Confidentialité](confidentialite.md)
 
-Ce guide concerne l'exploitant du serveur et le compte administrateur. Le **gestionnaire d'un foyer** utilise le [guide utilisateur](utilisation.md) : ce sont deux rôles distincts.
+Ce guide concerne l'exploitant du serveur et le compte administrateur. Les **utilisateurs des foyers** utilisent le [guide utilisateur](utilisation.md) : ce sont deux rôles distincts.
 
 ## Avant de commencer
 
@@ -129,17 +129,27 @@ Alternatives : [Nginx Proxy Manager](https://nginxproxymanager.com/guide/), [Tra
 
 ## Créer les accès
 
-Le compte administrateur ne voit aucune donnée financière **dans l'interface**. Il crée les foyers et comptes et règle les droits. Pour votre budget personnel, créez aussi un compte utilisateur gestionnaire.
+Le compte administrateur ne voit aucune donnée financière **dans l'interface**. Il est le seul à créer les foyers, leurs membres et les comptes, et à régler les droits. Pour votre budget personnel, créez aussi un compte utilisateur.
 
 1. Administration → Foyers → Nouveau foyer (le foyer principal existe déjà).
-2. Ajoutez ses membres (personnes, puis compte joint).
+2. Dans la carte du foyer, ajoutez ses membres (personnes, puis compte joint). Le « × » d'un membre le supprime.
 3. Utilisateurs → Nouvel utilisateur : choisissez le membre représenté et un mot de passe provisoire d'au moins 8 caractères.
-4. Dans la carte du foyer, choisissez le **Gestionnaire** dans la liste puis Enregistrer. Il renseigne le budget et l'immobilier sans créer de comptes ni accorder des accès. Il n'y en a qu'un par foyer : en choisir un autre remplace le précédent, qui garde ses autres vues ; « Aucun gestionnaire » retire ce rôle.
-5. Ouvrez seulement les vues nécessaires aux autres comptes : leurs membres, les totaux du foyer et/ou l'immobilier.
+4. Dans la carte du foyer, tableau **Qui voit quoi** : une ligne par compte, une colonne par membre, puis **Totaux du foyer** et **Immobilier**. Cochez ce que chacun voit, puis « Enregistrer les droits ».
+
+Chaque case donne l'accès complet (voir et modifier) :
+
+- **Un membre** : ses revenus, dépenses et virements. Une ligne partagée avec un membre non coché reste visible, en lecture seule.
+- **Totaux du foyer** : le total de tous les membres (les lignes des membres non cochés y apparaissent « Ligne masquée ») et les réglages communs (Guide de saisie, impôts du foyer).
+- **Immobilier** : biens, prêts, apports, charges et répartition.
+- Aucune case : le compte n'a pas accès au foyer.
+
+La page d'un utilisateur résume ses droits dans chaque foyer, avec un lien vers le tableau. Le rôle de « gestionnaire » des versions précédentes n'existe plus : au démarrage, un ancien gestionnaire reçoit toutes les cases de son foyer, que vous pouvez ensuite décocher.
+
+**Demandes de compte.** Le lien « Créer un compte » de la page de connexion affiche, au choix (Administration → Demandes de compte), un simple message « demandez à l'administrateur » ou un formulaire (nom, identifiant souhaité, message). Les demandes arrivent sur cette même page : « Créer le compte » avec un mot de passe provisoire, ou « Supprimer ». Au plus 30 demandes restent en attente.
 
 Les mots de passe provisoires doivent être changés à la connexion suivante. Désactivation, suppression de compte ou réinitialisation déconnectent les sessions concernées. Les changements de droits sont journalisés et visibles dans « qui voit quoi ».
 
-**Migration depuis une version où l'administrateur saisissait le budget :** les données restent présentes. Foyers propose les foyers sans gestionnaire : confiez-les à un compte existant ou créez votre compte personnel. Le compte gestionnaire reprend la progression du guide de saisie.
+**Migration depuis une version où l'administrateur saisissait le budget :** les données restent présentes. Foyers propose les foyers auxquels aucun compte n'a accès : confiez-les à un compte existant ou créez votre compte personnel. Ce compte reçoit toutes les cases et reprend la progression du guide de saisie.
 
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
 

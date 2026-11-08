@@ -78,20 +78,20 @@ public final class Layout {
     public enum AdminGroup { ACCOUNTS, HOUSEHOLD }
 
     /** Qui voit une rubrique d'administration. */
-    enum Who { ADMINISTRATOR, MANAGER, EVERYONE }
+    enum Who { ADMINISTRATOR, ESTATE, EVERYONE }
 
     /** Rubriques de l'administration, affichees en navigation laterale, par groupe, pour ceux qui peuvent les ouvrir. */
     public enum AdminSection {
         SECURITY(AdminGroup.ACCOUNTS, "/administration/securite", "Sécurité", Who.ADMINISTRATOR),
         HOUSEHOLDS(AdminGroup.ACCOUNTS, "/administration/foyers", "Foyers", Who.ADMINISTRATOR),
         USERS(AdminGroup.ACCOUNTS, "/administration/utilisateurs", "Utilisateurs", Who.ADMINISTRATOR),
+        REQUESTS(AdminGroup.ACCOUNTS, "/administration/demandes", "Demandes de compte", Who.ADMINISTRATOR),
         ACCOUNT(AdminGroup.ACCOUNTS, "/compte", "Mon compte", Who.EVERYONE),
-        MEMBERS(AdminGroup.HOUSEHOLD, "/administration/membres", "Membres", Who.MANAGER),
         INCOMES(AdminGroup.HOUSEHOLD, "/administration/revenus", "Revenus", Who.EVERYONE),
         EXPENSES(AdminGroup.HOUSEHOLD, "/administration/depenses", "Dépenses", Who.EVERYONE),
         TRANSFERS(AdminGroup.HOUSEHOLD, "/administration/virements", "Virements", Who.EVERYONE),
-        PROPERTIES(AdminGroup.HOUSEHOLD, "/administration/biens", "Biens et prêts", Who.MANAGER),
-        SHARES(AdminGroup.HOUSEHOLD, "/administration/repartition", "Répartition", Who.MANAGER);
+        PROPERTIES(AdminGroup.HOUSEHOLD, "/administration/biens", "Biens et prêts", Who.ESTATE),
+        SHARES(AdminGroup.HOUSEHOLD, "/administration/repartition", "Répartition", Who.ESTATE);
 
         private final AdminGroup group;
         private final String href;
@@ -115,7 +115,7 @@ public final class Layout {
             if (chrome.administrator()) return group == AdminGroup.ACCOUNTS;
             return switch (who) {
                 case ADMINISTRATOR -> false;
-                case MANAGER -> chrome.manages();
+                case ESTATE -> chrome.manages();
                 case EVERYONE -> true;
             };
         }
@@ -340,6 +340,7 @@ public final class Layout {
     public static Html document(String title, String bodyClass, Html body) {
         return Html.of("""
                 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="color-scheme" content="dark"><style>html,body{background:#0a0e13;color:#edf3f8}</style>
                 <title>%s</title><link rel="icon" type="image/png" href="%s"><link rel="stylesheet" href="%s"><script defer src="%s"></script></head>
                 <body class="%s">%s</body></html>""",
                 title, Assets.url("/images/patria-logo.png"), Assets.url("/css/patria.css"), Assets.url("/js/app.js"), bodyClass, body);

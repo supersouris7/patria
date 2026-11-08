@@ -20,6 +20,7 @@ public enum Step {
     TAXES("impots", "Impôts", "Impôt sur le revenu (prélèvement à la source), solde, autres taxes.", false),
     TRANSFERS("virements", "Virements", "Ce que chacun verse au compte joint, chaque mois.", false),
     SHARES("repartition", "Répartition", "Qui paie quelle part des biens et des prêts.", true),
+    HEALTH("bilan", "Bilan de santé", "Les comptes que votre bilan prend en compte : le vôtre, les comptes joints, d'autres si besoin.", false),
     SUMMARY("recapitulatif", "Récapitulatif", "Ce qui est fait, passé ou reste à faire.", false);
 
     private final String slug;
@@ -56,7 +57,7 @@ public enum Step {
 
     /** Etapes proposees a l'administrateur ou a un utilisateur. */
     public static List<Step> forViewer(boolean admin) {
-        return Arrays.stream(values()).filter(step -> admin || !step.adminOnly).toList();
+        return Arrays.stream(values()).filter(step -> step != MEMBERS && (admin || !step.adminOnly)).toList();
     }
 
     public static Optional<Step> of(String name) {

@@ -14,13 +14,13 @@ public final class BudgetScope {
     }
 
     public static Forecast.View view(Forecast forecast, Visibility visibility, Long asked) {
-        if (visibility.manages()) return forecast.next12Months(asked);
+        if (visibility.seesEverything()) return forecast.next12Months(asked);
         List<Person> open = visibility.people();
         Long scope;
         if (asked != null && open.stream().anyMatch(person -> person.id() == asked)) scope = asked;
         else if (visibility.wholeHousehold()) scope = null;
         else if (!open.isEmpty()) scope = open.getFirst().id();
         else throw new ForbiddenException("Aucune vue ne vous est ouverte dans ce foyer.");
-        return forecast.next12Months(scope).withTabs(visibility.wholeHousehold(), open);
+        return forecast.next12Months(scope, visibility.hidden()).withTabs(visibility.wholeHousehold(), open);
     }
 }

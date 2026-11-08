@@ -6,13 +6,13 @@ Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et su
 
 ## Première connexion
 
-L'administrateur de l'installation crée votre compte et les accès à votre foyer. Changez le mot de passe provisoire dès la première connexion. Quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
+L'administrateur de l'installation crée votre compte et les accès à votre foyer. Sans compte, le lien « Créer un compte » de la page de connexion explique comment le lui demander. Changez le mot de passe provisoire dès la première connexion. Quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
 
-Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Un **gestionnaire** renseigne tout son foyer. L'**administrateur** gère l'installation, les comptes et les droits, pas les finances dans l'interface.
+Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. L'**administrateur** gère l'installation, les membres, les comptes et les droits, pas les finances dans l'interface.
 
-- Un utilisateur consulte les membres et vues qui lui sont ouverts ; les totaux du foyer et l'immobilier ne sont pas automatiquement visibles.
-- Il modifie les revenus, dépenses et virements qui ne concernent que ses vues ; une ligne partagée avec un autre membre est en lecture seule.
-- Le gestionnaire voit et modifie tout son foyer, y compris les biens et la répartition. Il ne crée pas de compte ni ne règle les droits.
+- L'administrateur coche, pour chaque compte, les membres auxquels il a accès, les **totaux du foyer** et l'**immobilier**. Chaque case donne l'accès complet : voir et modifier.
+- Une ligne partagée avec un membre auquel vous n'avez pas accès est en lecture seule. Dans les totaux du foyer, les lignes de ces membres apparaissent « Ligne masquée ».
+- Les totaux du foyer donnent aussi les réglages communs ; l'immobilier, les biens, prêts, apports et la répartition.
 - L'icône jaune « qui voit quoi », à côté du foyer, indique les accès et leurs changements récents. Cela ne protège pas contre l'exploitant du serveur : [limites de confidentialité](confidentialite.md).
 
 Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
@@ -37,7 +37,7 @@ L'icône étincelles ouvre un parcours guidé :
 
 Chaque étape explique le chiffre attendu et ce que Patria reprend déjà, pour éviter les doublons. Les étapes non pertinentes peuvent être passées. « Reprendre » saute les étapes faites ou passées ; « Tout revoir » les affiche avec les données existantes ; « Recommencer à zéro » efface **la progression, pas les données**. La progression est propre au compte. Les lignes déjà saisies ne sont pas recréées ; les saisies par personne restent proposées avec l'existant.
 
-Un utilisateur non gestionnaire dispose des étapes correspondant à ses droits. Le gestionnaire renseigne aussi les membres, biens et répartitions. Le bandeau de progression du Prévisionnel permet de reprendre la configuration ou de masquer ce rappel.
+Chacun dispose des étapes correspondant à ses droits ; les biens, prêts et répartitions demandent l'accès Immobilier. Les membres sont créés par l'administrateur. Le bandeau de progression du Prévisionnel permet de reprendre la configuration ou de masquer ce rappel.
 
 ## Budget : ce qui rentre, ce qui sort, ce qui reste
 
@@ -59,7 +59,7 @@ Le taux d'endettement suit un repère bancaire HCSF : crédits divisés par reve
 - Un prêt suit la répartition du bien, sauf répartition propre.
 - Le compte joint est un membre de type « Compte joint » : il reçoit des virements et règle les dépenses attribuées. Il ne participe pas aux parts égales sauf pourcentage explicite.
 - Les virements entre membres sont des dépenses/recettes individuelles et restent neutres au niveau du foyer ; ils n'affectent pas l'endettement. Les crédits payés par le compte joint comptent à parts égales dans le taux de chaque personne.
-- Pour un utilisateur non gestionnaire, « parts égales » concerne seulement ses membres accessibles.
+- Pour un utilisateur qui n'a pas accès à tous les membres, « parts égales » concerne seulement ses membres accessibles.
 
 ### Ce qui est repris de l'immobilier
 
@@ -134,9 +134,9 @@ Les anciens en-têtes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres`, `
 
 ## Immobilier
 
-Le gestionnaire crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
+Un compte avec l'accès Immobilier crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
 
-**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gérer → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un gestionnaire de deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
+**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gérer → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un compte avec l'accès Immobilier dans deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
 
 ### Valeur et situation des prêts
 
@@ -155,7 +155,7 @@ Définissez les périodes de location (loyer perçu) ou de résidence principale
 
 La rentabilité depuis l'achat inclut le coût du crédit payé (intérêts/frais des échéances passées), les charges et les loyers perçus/économisés. Enrichissement réel = valeur après frais de vente − coût d'acquisition − coût du crédit − charges + loyers perçus et économisés. Le multiple compare la valeur nette à l'argent sorti de votre poche. Ces repères dépendent des données saisies et ne calculent pas une fiscalité personnelle complète.
 
-Modifier ou supprimer un bien, un prêt ou un apport se fait dans ses pages de gestion. La suppression d'un bien supprime aussi les données liées. Un gestionnaire de deux foyers peut déplacer un bien : prêts, échéanciers, apports, charges, occupation et marché suivent ; la répartition repart à parts égales.
+Modifier ou supprimer un bien, un prêt ou un apport se fait dans ses pages de gestion. La suppression d'un bien supprime aussi les données liées. Un compte avec l'accès Immobilier dans deux foyers peut déplacer un bien : prêts, échéanciers, apports, charges, occupation et marché suivent ; la répartition repart à parts égales.
 
 ### Prix au m² et ventes du secteur
 
@@ -178,11 +178,13 @@ Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (pr�
 
 ## Revue annuelle et bilan de santé
 
+Le bilan porte par défaut sur votre compte personnel et les comptes joints que vous voyez. Choisissez les comptes pris en compte à l'étape **Bilan de santé** du guide ou dans l'encart **Comptes pris en compte** du bilan. Il signale les grosses sommes ponctuelles (impôts, assurance…) à mensualiser, le mois le plus serré, les virements qui ne couvrent pas un compte joint et les abonnements en double. Cliquez sur une tuile pour aller à la liste correspondante.
+
 Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes ; la configuration est un encart repliable. Dans le Guide de saisie, la progression et les étapes précèdent les explications. Le bilan regroupe d'abord tous les points à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
 
 Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
 
-Guide de saisie → Revue annuelle : pour chaque revenu/dépense récurrente, nouveau montant et date d'effet, ou arrêt. L'ancien montant s'arrête la veille et la répartition est reprise. Pour les gestionnaires : taxe foncière de l'année et estimation ancienne des biens. Calendrier des mises à jour et rappel sur le Prévisionnel après un an.
+Guide de saisie → Revue annuelle : pour chaque revenu/dépense récurrente, nouveau montant et date d'effet, ou arrêt. L'ancien montant s'arrête la veille et la répartition est reprise. Avec l'accès Immobilier : taxe foncière de l'année et estimation ancienne des biens. Calendrier des mises à jour et rappel sur le Prévisionnel après un an.
 
 L'icône cœur ouvre le bilan : reste à vivre, déficit, endettement, épargne de précaution (3 à 6 mois), dépenses fixes, abonnements et salaires anciens ; estimations, occupation, rendement, dette et taux des prêts ; prélèvement à la source, foncier, loyers à déclarer et repère IFI. Chaque signal explique le problème et propose un lien ; il respecte les vues ouvertes à votre compte. Ce diagnostic est indicatif, pas un conseil fiscal ou financier.
 

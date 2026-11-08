@@ -40,6 +40,7 @@ final class HouseholdSite implements AutoCloseable {
     final PropertyRepository properties;
     final WizardRepository wizard;
     final HealthRepository healthPreferences;
+    final fr.patria.household.HealthScopeRepository healthScope;
     final Router router = new Router();
 
     private HouseholdSite(Database database, Clock clock, boolean offline, HousingRates rates, HouseholdController.Logins logins) {
@@ -69,16 +70,18 @@ final class HouseholdSite implements AutoCloseable {
         BudgetController budget = new BudgetController(forecast, budgetSources, clock);
         new RentController(rents, properties, clock).register(router);
         wizard = new WizardRepository(database);
-        WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard), clock);
+        healthScope = new fr.patria.household.HealthScopeRepository(database);
+        WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard,
+                healthScope), clock);
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
         healthPreferences = new HealthRepository(database);
-        HealthController health = new HealthController(forecast, household, portfolio, healthPreferences,
+        HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
         router.userGet("/navigation/etat", request -> new fr.patria.web.Response.Text(200,
                 "{\"warnings\":" + health.warningCount(request) + ",\"progress\":"
-                        + wizard.summary(request.viewer().userId(), request.viewer().manages()).percent() + "}"));
+                        + wizard.summary(request.viewer().userId(), request.viewer().realEstate()).percent() + "}"));
         budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
     }
 

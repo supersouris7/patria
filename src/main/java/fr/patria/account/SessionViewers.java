@@ -41,7 +41,7 @@ public final class SessionViewers {
         if (accesses.isEmpty()) return Optional.empty();
         Access access = accesses.stream().filter(candidate -> candidate.householdId() == session.householdId()).findFirst().orElse(accesses.getFirst());
         List<Viewer.Household> households = accesses.stream()
-                .map(candidate -> new Viewer.Household(candidate.householdId(), candidate.householdName(), candidate.manager())).toList();
+                .map(candidate -> new Viewer.Household(candidate.householdId(), candidate.householdName(), candidate.realEstate())).toList();
         Map<User, Access> shared = new LinkedHashMap<>();
         accounts.accessesTo(access.householdId()).forEach((other, rights) -> {
             if (other.active()) shared.put(other, rights);
@@ -51,8 +51,8 @@ public final class SessionViewers {
         String notice = state.get().twoFactorRemovedOn() == null ? null : "L'administrateur a retiré votre double authentification le "
                 + state.get().twoFactorRemovedOn().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". Si ce n'est pas vous qui l'avez demandé, "
                 + "changez votre mot de passe et réactivez-la dans Mon compte.";
-        Viewer.Rights rights = access.manager() ? Viewer.Rights.MANAGER : new Viewer.Rights(access.wholeHousehold(), access.members(), access.realEstate(), false);
-        return Optional.of(new Viewer(user.id(), user.name(), new Viewer.Household(access.householdId(), access.householdName(), access.manager()), households,
+        Viewer.Rights rights = Viewer.Rights.user(access.wholeHousehold(), access.members(), access.realEstate());
+        return Optional.of(new Viewer(user.id(), user.name(), new Viewer.Household(access.householdId(), access.householdName(), access.realEstate()), households,
                 rights, new Viewer.Signals(state.get().mustChangePassword(), audience, notice)));
     }
 }

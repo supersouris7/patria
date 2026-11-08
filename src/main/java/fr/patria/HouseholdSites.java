@@ -58,6 +58,11 @@ final class HouseholdSites implements HouseholdDirectory {
         return site(householdId).household.addMember(name, account ? fr.patria.household.Person.Kind.ACCOUNT : fr.patria.household.Person.Kind.PERSON);
     }
 
+    @Override
+    public void deleteMember(long householdId, long memberId) {
+        site(householdId).household.deletePerson(memberId);
+    }
+
     /** Identifiants des utilisateurs lies a chaque membre d'un foyer (page Membres). */
     Map<Long, List<String>> logins(long householdId) {
         Map<Long, List<String>> result = new java.util.HashMap<>();
@@ -128,6 +133,7 @@ final class HouseholdSites implements HouseholdDirectory {
             HouseholdSite site = site(household.id());
             site.wizard.forgetUser(userId);
             site.healthPreferences.forgetUser(userId);
+            site.healthScope.forgetUser(userId);
         }
     }
 

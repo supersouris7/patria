@@ -14,7 +14,7 @@ final class WelcomePages {
     }
 
     /**
-     * Ecran {@code step} (1 a 4). {@code manages} : gestionnaire du foyer (il saisit) ; {@code administrator} :
+     * Ecran {@code step} (1 a 4). {@code manages} : utilisateur d'un foyer (il saisit) ; {@code administrator} :
      * l'administrateur (son role, sans budget) ;
      * {@code encrypted} : bases chiffrees (DB_ENCRYPTION_KEY).
      */
@@ -112,7 +112,7 @@ final class WelcomePages {
                 : Html.of("""
                 <p><a class="button kofi" href="%s" target="_blank" rel="noopener noreferrer">♥ Soutenir Patria sur Ko-fi</a></p>
                 <p class="muted small">Le lien ouvre ko-fi.com dans un nouvel onglet ; Patria ne charge rien depuis Ko-fi. Il reste en pied de page.</p>""", url);
-        Html start = administrator ? Html.raw("<p>Pour commencer : <b>Foyers</b>, puis un compte par personne dans <b>Utilisateurs</b>, avec un gestionnaire par foyer.</p>")
+        Html start = administrator ? Html.raw("<p>Pour commencer : <b>Foyers</b>, puis un compte par personne dans <b>Utilisateurs</b>, et cochez qui voit quoi dans le tableau des droits de chaque foyer.</p>")
                 : manages ? Html.raw("<p>Pour commencer, le <b>Guide de saisie</b> vous accompagne étape par étape, des documents à rassembler jusqu'au récapitulatif.</p>")
                 : Html.raw("<p>Pour commencer, ouvrez le <b>Prévisionnel</b> : vos revenus et dépenses y apparaissent dès qu'ils sont saisis.</p>");
         return Html.of("""

@@ -60,42 +60,6 @@ public abstract class AccountSupport {
         }
     }
 
-    /** Comptes gestionnaires d'un foyer (un seul en principe). */
-    protected List<User> managers(Household household) {
-        return accounts.accessesTo(household.id()).entrySet().stream().filter(entry -> entry.getValue().manager()).map(Map.Entry::getKey).toList();
-    }
-
-    /** Ce compte n'est plus gestionnaire : il garde ses autres vues ; sans aucune, il n'a plus acces au foyer. */
-    protected void demote(User user, Household household) {
-        Access access = accounts.accesses(user.id()).stream().filter(candidate -> candidate.householdId() == household.id()).findFirst().orElse(null);
-        if (access == null || !access.manager()) return;
-        boolean keeps = access.wholeHousehold() || !access.members().isEmpty();
-        Access after = keeps ? new Access(user.id(), household.id(), household.name(), access.wholeHousehold(), access.members(), access.realEstate(), false) : null;
-        accounts.setAccess(user.id(), household.id(), after);
-        audit("ACCESS", household.id(), user.id(), user.name() + (after == null ? " : n'est plus gestionnaire, plus d'accès à ce foyer."
-                : " : n'est plus gestionnaire (" + AudienceText.summary(after, directory.members(household.id())) + ")."));
-    }
-
-    /**
-     * Ce compte devient le gestionnaire du foyer, a la place du precedent (qui garde ses autres vues). Ses autres vues
-     * sont gardees ; un nouveau venu est relie au membre qui porte son nom. S'il est le premier gestionnaire, il
-     * reprend la progression du guide de l'administrateur.
-     */
-    protected void makeManager(User user, Household household) {
-        Access before = accounts.accesses(user.id()).stream().filter(access -> access.householdId() == household.id()).findFirst().orElse(null);
-        if (before != null && before.manager()) return;
-        for (User previous : managers(household)) demote(previous, household);
-        List<HouseholdDirectory.Member> members = directory.members(household.id());
-        boolean first = accounts.activeManagers(household.id()) == 0;
-        Set<Long> linked = before != null ? before.members() : members.stream().filter(member -> member.name().equalsIgnoreCase(user.name()))
-                .map(HouseholdDirectory.Member::id).collect(Collectors.toSet());
-        Access access = new Access(user.id(), household.id(), household.name(), before == null || before.wholeHousehold(), linked, true, true);
-        accounts.setAccess(user.id(), household.id(), access);
-        if (first) directory.transferFromAdministrator(household.id(), user.id());
-        audit("ACCESS", household.id(), user.id(), user.name() + " : " + (before == null ? "accès ouvert" : "accès modifié") + " ("
-                + AudienceText.summary(access, members) + ").");
-    }
-
     protected Household household(long id) {
         return accounts.household(id).orElseThrow(() -> new NotFoundException("Foyer introuvable", "Ce foyer n'existe pas."));
     }
@@ -109,19 +73,26 @@ public abstract class AccountSupport {
         return login;
     }
 
-    /** Droits lus dans le formulaire d'acces ; {@code null} si « Accès » est decoche. */
+    /** Droits lus dans le formulaire d'acces d'un utilisateur ; {@code null} si « Accès » est decoche. */
     protected Access access(User user, Household household, Map<String, String> form) {
         if (!"on".equals(form.get("access"))) return null;
-        boolean manager = "on".equals(form.get("manager"));
+        Access access = access(user, household, form, "");
+        if (!access.any()) throw new ValidationException("Cochez au moins un accès dans « " + household.name() + " » : un membre, les totaux ou l'immobilier.");
+        return access;
+    }
+
+    /**
+     * Une ligne du tableau des droits : {@code <prefix>member_<id>}, {@code <prefix>whole} (totaux et reglages
+     * communs), {@code <prefix>estate} (immobilier) ; {@code <prefix>all} coche tout.
+     */
+    protected Access access(User user, Household household, Map<String, String> form, String prefix) {
+        boolean all = "on".equals(form.get(prefix + "all"));
         Set<Long> members = new LinkedHashSet<>();
         for (HouseholdDirectory.Member member : directory.members(household.id())) {
-            if ("on".equals(form.get("member_" + member.id()))) members.add(member.id());
+            if (all || "on".equals(form.get(prefix + "member_" + member.id()))) members.add(member.id());
         }
-        boolean whole = "on".equals(form.get("whole"));
-        if (!manager && !whole && members.isEmpty()) {
-            throw new ValidationException("Ouvrez au moins une vue dans « " + household.name() + " » : le foyer, un membre, ou la gestion complète.");
-        }
-        return new Access(user.id(), household.id(), household.name(), whole, members, "on".equals(form.get("estate")), manager);
+        return new Access(user.id(), household.id(), household.name(), all || "on".equals(form.get(prefix + "whole")), members,
+                all || "on".equals(form.get(prefix + "estate")));
     }
 
     protected User user(long id) {

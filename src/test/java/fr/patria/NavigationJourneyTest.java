@@ -17,7 +17,7 @@ class NavigationJourneyTest {
         try (App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, true))) {
             String base = "http://127.0.0.1:" + app.port();
             var admin = TestAccounts.admin(client, base);
-            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             var reader = TestAccounts.account(client, base, admin, "lecture", "Lecture", 1, "access=on&whole=on&estate=on");
             var restricted = TestAccounts.account(client, base, admin, "budget", "Budget", 1, "access=on&whole=on");
             assertEquals(303, TestAccounts.post(client, base, manager, "/bien", "name=Maison+%3Cscript%3E&kind=HOUSE&purchase=250000&estimate=300000").statusCode());
@@ -38,7 +38,7 @@ class NavigationJourneyTest {
             }
             assertTrue(TestAccounts.get(client, base, reader, "/immobilier/biens").body().contains("data-filter"));
             assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Second").statusCode());
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&manager=on").statusCode());
+            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&all=on").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/foyer/choisir", "foyer=2").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/bien", "name=SECRET_FOYER_2&kind=HOUSE").statusCode());
             assertTrue(TestAccounts.get(client, base, manager, "/navigation/biens").body().contains("SECRET_FOYER_2"));

@@ -104,7 +104,7 @@ public final class UsersController extends AccountSupport {
                 String[] parts = member.split(":", 2);
                 long person = parts[1].equals("nouveau") ? directory.addMember(household, name, false) : Long.parseLong(parts[1]);
                 Household target = household(household);
-                Access access = new Access(id, household, target.name(), false, Set.of(person), false, false);
+                Access access = new Access(id, household, target.name(), false, Set.of(person), false);
                 accounts.setAccess(id, household, access);
                 audit("ACCESS", household, id, name + " : accès ouvert (" + AudienceText.summary(access, directory.members(household)) + ").");
             }
@@ -130,10 +130,6 @@ public final class UsersController extends AccountSupport {
         Access before = accounts.accesses(user.id()).stream().filter(access -> access.householdId() == household.id()).findFirst().orElse(null);
         try {
             Access access = access(user, household, request.form().values());
-            // Un seul gestionnaire par foyer : cocher la case le remplace.
-            if (access != null && access.manager()) {
-                for (User previous : managers(household)) if (previous.id() != user.id()) demote(previous, household);
-            }
             accounts.setAccess(user.id(), household.id(), access);
             List<HouseholdDirectory.Member> members = directory.members(household.id());
             String now = AudienceText.summary(access, members);

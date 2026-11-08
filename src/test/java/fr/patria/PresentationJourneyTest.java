@@ -17,12 +17,12 @@ class PresentationJourneyTest {
         try (App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK, true))) {
             String base = "http://127.0.0.1:" + app.port();
             var admin = TestAccounts.admin(client, base);
-            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&manager=on");
+            var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             String users = TestAccounts.get(client, base, admin, "/administration/utilisateurs").body();
             before(users, "<h2>Utilisateurs", "<summary>Créer un compte de connexion");
             String households = TestAccounts.get(client, base, admin, "/administration/foyers").body();
             assertTrue(households.contains("<details><summary><b>"), "les details du foyer ne sont pas tous deployes");
-            assertEquals(303, TestAccounts.post(client, base, manager, "/administration/membres", "name=Paul&kind=PERSON").statusCode());
+            assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/administration/revenus",
                     "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
             String home = TestAccounts.get(client, base, manager, "/").body();

@@ -29,7 +29,7 @@ public final class WelcomeController {
             } catch (NumberFormatException exception) {
                 step = 1;
             }
-            return Response.page(WelcomePages.page(step, request.viewer().name(), request.viewer().manages(), request.viewer().isAdministrator(),
+            return Response.page(WelcomePages.page(step, request.viewer().name(), !request.viewer().isAdministrator(), request.viewer().isAdministrator(),
                     encrypted, request.csrf()));
         });
         router.userPost("/bienvenue/terminer", request -> {
@@ -38,7 +38,7 @@ public final class WelcomeController {
             if (next != null) return Response.redirect(next);
             boolean skipped = !request.form().raw("passer").isEmpty();
             if (request.viewer().isAdministrator()) return Response.redirect("/administration/foyers");
-            return Response.redirect(!skipped && request.viewer().manages() ? "/assistant" : "/");
+            return Response.redirect(!skipped ? "/assistant" : "/");
         });
     }
 }

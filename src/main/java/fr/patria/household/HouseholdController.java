@@ -34,13 +34,9 @@ public final class HouseholdController {
 
     public void register(Router router) {
         // Ancienne page « Foyer et revenus », scindee en Membres et Revenus.
-        router.userGet("/administration/foyer", request -> Response.redirect(request.viewer().manages() ? "/administration/membres" : "/administration/revenus"));
-        router.get("/administration/membres", request -> Response.page(membersPage(request, request.confirmation())));
-        router.post("/administration/membres", this::addPerson);
-        router.post("/personne/{id}/supprimer", request -> {
-            household.deletePerson(request.id());
-            return Response.redirect("/administration/membres?ok=supprime");
-        });
+        router.userGet("/administration/foyer", request -> Response.redirect("/administration/revenus"));
+        // Les membres se gerent dans l'administration (tableau des droits du foyer).
+        router.userGet("/administration/membres", request -> Response.redirect("/administration/revenus"));
         router.userGet("/administration/revenus", this::page);
         router.userPost("/administration/revenus", this::addIncome);
         router.userGet("/revenu/{id}", this::editForm);
@@ -56,24 +52,9 @@ public final class HouseholdController {
         return Visibility.of(request.viewer(), household.people());
     }
 
-    private fr.patria.ui.Html membersPage(Request request, Notice notice) {
-        return HouseholdPages.members(household.people(), household.incomes(), logins.byMember(request.viewer().household().id()),
-                request.viewer().household().id(), notice, request.csrf());
-    }
-
     private Response page(Request request) {
         return Response.page(HouseholdPages.incomes(visibility(request), household.incomes(), Map.of("start", LocalDate.now(clock).withDayOfMonth(1).toString()),
                 request.confirmation(), request.csrf()));
-    }
-
-    private Response addPerson(Request request) {
-        try {
-            String kind = request.form().raw("kind");
-            household.addMember(request.form().requiredText("name", "Nom", 60), kind.isBlank() ? Person.Kind.PERSON : Person.Kind.parse(kind));
-            return Response.redirect("/administration/membres?ok=enregistre");
-        } catch (ValidationException exception) {
-            return Response.invalid(membersPage(request, Notice.error(exception.getMessage())));
-        }
     }
 
     private Response addIncome(Request request) {

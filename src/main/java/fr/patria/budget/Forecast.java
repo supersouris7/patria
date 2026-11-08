@@ -173,10 +173,34 @@ public final class Forecast {
      * personne inconnue donne le foyer entier.
      */
     public View next12Months(Long personId) {
-        LocalDate today = LocalDate.now(clock);
+        return next12Months(personId, Set.of());
+    }
+
+    /**
+     * Comme {@link #next12Months(Long)} ; dans la vue du foyer, les lignes qui ne concernent que des membres
+     * {@code hidden} (masques a un gestionnaire) gardent leur montant mais perdent libelle et lien.
+     */
+    public View next12Months(Long personId, Set<Long> hidden) {
         Data data = load();
         Person person = personId == null ? null : data.people().stream().filter(p -> p.id() == personId).findFirst().orElse(null);
-        Scope scope = new Scope(person, data);
+        return build(new Scope(person, null, hidden, data), person, data);
+    }
+
+    /**
+     * Previsionnel d'un groupe de membres (perimetre du bilan : soi, les comptes joints, les comptes choisis) : leurs
+     * revenus, leur part de chaque depense ; les virements entre eux s'annulent.
+     */
+    public View next12MonthsOf(Set<Long> group) {
+        Data data = load();
+        if (group.size() == 1) {
+            Person person = data.people().stream().filter(p -> group.contains(p.id())).findFirst().orElse(null);
+            return build(new Scope(person, null, Set.of(), data), person, data);
+        }
+        return build(new Scope(null, Set.copyOf(group), Set.of(), data), null, data);
+    }
+
+    private View build(Scope scope, Person person, Data data) {
+        LocalDate today = LocalDate.now(clock);
         List<Month> months = new ArrayList<>();
         for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data, scope));
         DebtRatio debt = debtRatio(months, data, scope, today, jointCredits(data, person, today));
@@ -224,19 +248,39 @@ public final class Forecast {
      * Ce que voit la vue : tout le foyer (part 1 partout) ou une personne (ses revenus, et sa part de chaque
      * element). Un pret sans repartition propre suit celle de son bien.
      */
-    private record Scope(Person person, Data data) {
-        boolean includes(Income income) {
-            return person == null || income.personId() == person.id();
+    private record Scope(Person person, Set<Long> group, Set<Long> hidden, Data data) {
+        /** Le membre fait partie de la vue (le foyer entier : tous). */
+        boolean has(long memberId) {
+            return person != null ? person.id() == memberId : group == null || group.contains(memberId);
         }
 
-        /** Tout pour un seul membre (payeur choisi) : 1 pour lui ou pour le foyer, 0 pour les autres. */
+        boolean includes(Income income) {
+            return has(income.personId());
+        }
+
+        /** Tout pour un seul membre (payeur choisi) : 1 s'il fait partie de la vue, 0 sinon. */
         BigDecimal member(long memberId) {
-            return person == null || person.id() == memberId ? BigDecimal.ONE : BigDecimal.ZERO;
+            return has(memberId) ? BigDecimal.ONE : BigDecimal.ZERO;
         }
 
         BigDecimal weight(Shares.Subject subject, long id) {
-            if (person == null) return BigDecimal.ONE;
-            return Shares.weight(data.shares().getOrDefault(new Shares.Key(subject, id), Map.of()), data.people(), person.id());
+            if (person == null && group == null) return BigDecimal.ONE;
+            Map<Long, Integer> shares = data.shares().getOrDefault(new Shares.Key(subject, id), Map.of());
+            if (person != null) return Shares.weight(shares, data.people(), person.id());
+            return data.people().stream().filter(member -> group.contains(member.id())).map(member -> Shares.weight(shares, data.people(), member.id()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add).min(BigDecimal.ONE);
+        }
+
+        /** Vue du foyer : ligne masquee si tous ceux qui la paient sont masques a ce gestionnaire. */
+        boolean masked(Shares.Subject subject, long id) {
+            if (hidden.isEmpty() || person != null || group != null) return false;
+            Map<Long, Integer> shares = data.shares().getOrDefault(new Shares.Key(subject, id), Map.of());
+            List<Person> holders = data.people().stream().filter(member -> Shares.weight(shares, data.people(), member.id()).signum() > 0).toList();
+            return !holders.isEmpty() && holders.stream().allMatch(member -> hidden.contains(member.id()));
+        }
+
+        boolean maskedIncome(Income income) {
+            return person == null && group == null && hidden.contains(income.personId());
         }
 
         BigDecimal loan(Loan loan) {
@@ -266,26 +310,32 @@ public final class Forecast {
         List<IncomeLine> incomes = new ArrayList<>();
         for (Income income : data.incomes()) {
             if (!income.paidIn(month) || !scope.includes(income)) continue;
+            if (scope.maskedIncome(income)) {
+                incomes.add(new IncomeLine("Revenu masqué", "", income.amount(), income.frequency(), Origin.BUDGET, null));
+                continue;
+            }
             String who = data.people().stream().filter(person -> person.id() == income.personId()).map(Person::name).findFirst().orElse("");
             incomes.add(new IncomeLine(income.label(), who, income.amount(), income.frequency(), Origin.BUDGET, "/revenu/" + income.id()));
         }
         List<Line> expenses = new ArrayList<>();
         for (BudgetItem item : data.items()) {
             if (!item.dueIn(month)) continue;
-            add(expenses, scope.apply(new Line(item.label(), item.category(), item.amount(), item.frequency(), Origin.BUDGET, "/depense/" + item.id()),
-                    scope.weight(Shares.Subject.BUDGET_ITEM, item.id())));
+            boolean masked = scope.masked(Shares.Subject.BUDGET_ITEM, item.id());
+            add(expenses, scope.apply(new Line(masked ? "Ligne masquée" : item.label(), item.category(), item.amount(), item.frequency(), Origin.BUDGET,
+                    masked ? null : "/depense/" + item.id()), scope.weight(Shares.Subject.BUDGET_ITEM, item.id())));
         }
         // Virements : depense pour l'emetteur, recette pour le destinataire ; internes, donc absents de la vue du foyer
-        if (scope.person() != null) {
-            long me = scope.person().id();
+        if (scope.person() != null || scope.group() != null) {
             for (Transfer transfer : data.transfers()) {
                 if (!transfer.paidIn(month)) continue;
                 String link = "/virement/" + transfer.id();
-                if (transfer.fromId() == me) {
+                // Un virement entre deux membres de la vue s'annule.
+                if (scope.has(transfer.fromId()) && scope.has(transfer.toId())) continue;
+                if (scope.has(transfer.fromId())) {
                     String to = data.name(transfer.toId());
                     expenses.add(new Line(transfer.label().isBlank() ? "Virement vers " + to : transfer.label() + " (vers " + to + ")", Category.TRANSFER,
                             transfer.amount(), transfer.frequency(), Origin.BUDGET, link));
-                } else if (transfer.toId() == me) {
+                } else if (scope.has(transfer.toId())) {
                     String from = data.name(transfer.fromId());
                     incomes.add(new IncomeLine(transfer.label().isBlank() ? "Virement de " + from : transfer.label() + " (de " + from + ")", from,
                             transfer.amount(), transfer.frequency(), Origin.BUDGET, link));
@@ -394,7 +444,7 @@ public final class Forecast {
         BigDecimal total = BigDecimal.ZERO;
         for (Person account : data.people()) {
             if (!account.isAccount()) continue;
-            Scope scope = new Scope(account, data);
+            Scope scope = new Scope(account, null, Set.of(), data);
             List<Month> months = new ArrayList<>();
             for (int i = 0; i < HORIZON; i++) months.add(month(YearMonth.from(today).plusMonths(i), data, scope));
             total = total.add(credits(months));

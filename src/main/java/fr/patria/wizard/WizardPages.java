@@ -68,6 +68,7 @@ final class WizardPages {
             case TAXES -> taxes(context, values);
             case TRANSFERS -> transfers(context, values);
             case SHARES -> shares(context);
+            case HEALTH -> healthScope(context);
             case SUMMARY -> summary(context);
         };
         int number = context.steps().indexOf(step) + 1;
@@ -222,4 +223,17 @@ final class WizardPages {
                 Components.card("Étapes", null, Html.EMPTY, Html.concat(Components.table(List.of("Étape", "État"), rows, false, false), actions)));
     }
 
+
+    /** Etape « Bilan de sante » : les comptes pris en compte, cases des membres visibles. */
+    static Html healthScope(WizardController.Context context) {
+        List<Person> visible = context.visibility().people();
+        Html boxes = visible.stream().map(person -> Html.of("<label class=\"check option\"><input type=\"checkbox\" name=\"membre_%s\" value=\"on\"%s><span><b>%s</b>"
+                + "<span class=\"help\">%s</span></span></label>", person.id(),
+                Html.raw(context.healthScope().isEmpty() || context.healthScope().contains(person.id()) ? " checked" : ""), person.name(),
+                person.isAccount() ? "Compte joint : ses dépenses et les virements qu'il reçoit." : "Ses revenus et sa part des dépenses.")).collect(Html.joining());
+        return Html.concat(explain("Le bilan de santé analyse vos finances à partir des comptes que vous choisissez ici. Par défaut : le membre que vous "
+                        + "représentez et les comptes joints que vous voyez. Ajoutez d'autres membres pour un bilan de tout le foyer ; vous pourrez changer ce choix depuis le Bilan."),
+                Components.card("Comptes pris en compte" + (context.healthConfigured() ? "" : " (par défaut)"), null, Html.EMPTY,
+                        form(context, "/assistant/bilan/enregistrer", false, Html.of("<div class=\"access-options\">%s</div>", boxes), "Enregistrer et continuer")));
+    }
 }

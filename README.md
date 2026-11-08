@@ -38,7 +38,7 @@ Pour les données de marché, Patria transmet une adresse ou commune à l'API Ad
 
 Avant de partager un document avec une IA, l'outil **Caviarder les documents localement**, intégré aux imports, permet de supprimer les zones choisies et de produire un PDF d'images sans texte ni métadonnées d'origine. Tout se passe dans le navigateur. La sélection et la vérification restent manuelles ; les données laissées visibles peuvent encore identifier une personne.
 
-Le compte administrateur ne consulte pas les finances dans l'interface ; un gestionnaire voit tout son foyer. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
+Le compte administrateur ne consulte pas les finances dans l'interface ; chaque compte voit seulement ce que l'administrateur lui coche dans le tableau des droits du foyer. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
 
 ## Repères, pas conseil financier
 

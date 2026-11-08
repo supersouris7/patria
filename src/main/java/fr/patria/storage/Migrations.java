@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 14;
+    public static final int LATEST = 15;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -50,6 +50,7 @@ public final class Migrations {
             if (version < 12) toVersion12(connection);
             if (version < 13) toVersion13(connection);
             if (version < 14) toVersion14(connection);
+            if (version < 15) toVersion15(connection);
             return null;
         });
     }
@@ -346,6 +347,14 @@ public final class Migrations {
             statement.execute("CREATE TABLE health_ignored (user_id INTEGER NOT NULL, check_token TEXT NOT NULL, PRIMARY KEY (user_id, check_token))");
         }
         setUserVersion(connection, 14);
+    }
+
+    /** Version 15 : comptes pris en compte dans le bilan de chaque utilisateur (aucun chiffre). */
+    private static void toVersion15(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE health_scope (user_id INTEGER NOT NULL, person_id INTEGER NOT NULL, PRIMARY KEY (user_id, person_id))");
+        }
+        setUserVersion(connection, 15);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

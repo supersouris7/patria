@@ -69,3 +69,11 @@
 .health-item.level-warn { border-color: rgb(242 181 68 / 35%); }
 .health-summary { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: space-between; margin-bottom: 16px; }
 .review-done { color: var(--text-soft); margin: 4px 0 10px; }
+
+/* Tuiles du bilan : toute la tuile mene a sa liste ; tuiles avec (?) : toute la tuile deplie l'explication. */
+a.health-tile { color: inherit; text-decoration: none; cursor: pointer; }
+a.health-tile:hover, a.health-tile:focus-visible { border-color: var(--line-strong); background: var(--surface-raised); }
+.metric.has-help { cursor: pointer; }
+#a-corriger, #a-surveiller, #bon-a-savoir, #points-rassurants { scroll-margin-top: calc(var(--header-height, 64px) + 12px); }
+.health-scope summary { cursor: pointer; }
+.health-scope form { margin-top: 12px; }
