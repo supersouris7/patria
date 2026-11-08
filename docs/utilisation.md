@@ -141,7 +141,7 @@ Un compte avec l'accès Immobilier crée les biens (type, adresse, commune, surf
 ### Valeur et situation des prêts
 
 - Estimations prudente et optimiste, actualisées selon l'indice mensuel DVF départemental du même type de bien depuis la date d'estimation.
-- Curseur de valeur retenue : pessimiste, prudent, fourchette, optimiste ou valeur libre, enregistrée directement ; retour au prudent si les estimations changent.
+- Curseur de valeur retenue : prudent, prix du marché (prix médian du m² de la commune × surface, quand il est connu), fourchette, optimiste ou valeur libre, enregistrée directement ; retour au prudent si les estimations changent.
 - Vue d'ensemble : somme des valeurs retenues, capital restant dû, valeur nette indicative, plus-value latente et prochaine mensualité.
 - Valeur nette indicative = valeur estimée − frais de vente/fiscalité renseignés − capital restant dû. Les charges récurrentes annuelles ne sont pas déduites de cette valeur.
 - Taux actuel, capital restant dû et prochaine échéance calculés à la date du jour depuis l'échéancier. Un prêt futur compte pour la totalité du capital emprunté.

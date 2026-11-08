@@ -57,14 +57,20 @@ final class PortfolioPages {
                     "Les biens, prêts et apports s'ajoutent dans Gérer → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
-                Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
+                Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small><a class=\"simulate-link\" href=\"/bien/%s\">Simuler un prix de vente →</a></td>",
+                        summary.property().id(), summary.property().name(), summary.property().kind().label(), summary.property().id()),
                 cell(summary.property().commune().isBlank() ? Format.DASH : summary.property().commune()),
                 number(summary.property().area(), area(summary.property().area())),
                 number(summary.value(), Html.of("%s<small>%s</small>", euroWhole(summary.value()), summary.scenario())),
                 number(summary.squareMeter().value(), Format.perSquareMeter(summary.squareMeter().value())),
                 marketCell(summary.squareMeter()),
                 number(summary.debt(), euroWhole(summary.debt())))).collect(Html.joining());
-        Html propertyTable = Html.of("<div id=\"biens\">%s</div>", Components.card("Biens", overview.properties().size(), Html.EMPTY,
+        Html simulate = Html.raw("""
+                <p class="notice info simulate-hint"><b>Et si je vendais ?</b> Cliquez sur un bien pour ouvrir sa fiche. En haut, faites glisser le curseur
+                « Valeur retenue », ou choisissez un scénario (prudent, prix du marché, fourchette, optimiste) : Patria recalcule aussitôt ce qu'il vous
+                resterait après les frais de vente, la fiscalité et le remboursement du prêt, et votre gain réel. La valeur choisie devient celle du bien
+                dans votre patrimoine ; vous pouvez la changer à tout moment.</p>""");
+        Html propertyTable = Html.of("<div id=\"biens\">%s%s</div>", simulate, Components.card("Biens", overview.properties().size(), Html.EMPTY,
                 Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, tab.equals("biens"))));
         Html loans = Html.of("<div id=\"prets\">%s</div>", Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))));
         Html taxes = Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
@@ -126,8 +132,8 @@ final class PortfolioPages {
         String caption = (property.estimateLow() == null ? "Coût d'acquisition du " : "Estimation du ") + date(property.estimateDate()) + ", "
                 + revaluationText(property, summary.revaluation(), summary.squareMeter().market()) + ".";
         Html chips = Html.concat(
-                chip("Pessimiste", s.pessimistic(), summary.value(), "Estimation prudente − 5 %"),
                 chip("Prudent", s.prudent(), summary.value(), "Estimation prudente"),
+                s.market() == null ? Html.EMPTY : chip("Prix du marché", s.market(), summary.value(), "Prix médian du m² des ventes de la commune × surface du bien"),
                 chip("Fourchette", s.middle(), summary.value(), "Milieu entre estimations prudente et optimiste"),
                 chip("Optimiste", s.optimistic(), summary.value(), "Estimation optimiste"));
         return Html.of("""

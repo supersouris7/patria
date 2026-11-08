@@ -75,8 +75,9 @@ final class PortfolioReports {
                 signed("Enrichissement réel", summary.returns().realGain(), multiple(summary.returns())),
                 nextMonth(summary.nextMonth())));
         if (!summary.scenarios().isEmpty()) {
-            report.section("Scénarios de valeur").table(List.of("#Pessimiste", "#Prudent", "#Fourchette", "#Optimiste"), List.of(row(
-                    euroWhole(summary.scenarios().pessimistic()), euroWhole(summary.scenarios().prudent()), euroWhole(summary.scenarios().middle()),
+            report.section("Scénarios de valeur").table(List.of("#Prudent", "#Prix du marché", "#Fourchette", "#Optimiste"), List.of(row(
+                    euroWhole(summary.scenarios().prudent()), summary.scenarios().market() == null ? "—" : euroWhole(summary.scenarios().market()),
+                    euroWhole(summary.scenarios().middle()),
                     euroWhole(summary.scenarios().optimistic()))), null, false);
             if (summary.revaluation().factor() != null) {
                 report.note("Estimation du " + Format.date(summary.revaluation().since()) + " (" + euroWhole(summary.revaluation().base())

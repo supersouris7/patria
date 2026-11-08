@@ -229,13 +229,14 @@ public final class Portfolio {
         BigDecimal contributed = contributions.stream().map(Contribution::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal factor = marketPrice == null ? null : marketPrice.revaluation();
         Revaluation revaluation = new Revaluation(factor, Valuation.base(property), property.estimateDate());
-        Valuation.Scenarios scenarios = Valuation.scenarios(property, factor == null ? BigDecimal.ONE : factor);
         BigDecimal value = Valuation.retained(property, factor == null ? BigDecimal.ONE : factor);
+        SquareMeter squareMeter = squareMeter(property, value, marketPrice, marketRefreshing);
+        Valuation.Scenarios scenarios = Valuation.scenarios(property, factor == null ? BigDecimal.ONE : factor).withMarket(squareMeter.marketValue());
         BigDecimal net = Valuation.net(value, property.saleFeesRate(), debt);
         Returns returns = returns(property, value, net, borrowed, repaid, contributed, sumLoans(loanSummaries, LoanMath.Status::creditCost), expenses, rents, today);
         return new PropertySummary(property, loanSummaries, contributions, scenarios, value, scenarios.nameOf(value), debt, borrowed, repaid,
                 contributed, net, value.subtract(property.purchase()), LoanMath.nextMonth(loans, schedules, today),
-                squareMeter(property, value, marketPrice, marketRefreshing), returns, revaluation,
+                squareMeter, returns, revaluation,
                 property.estimateDate().plusYears(OUTDATED_ESTIMATE_YEARS).isBefore(today), rents.isEmpty());
     }
 

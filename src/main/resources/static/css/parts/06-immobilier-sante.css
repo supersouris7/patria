@@ -77,3 +77,9 @@ a.health-tile:hover, a.health-tile:focus-visible { border-color: var(--line-stro
 #a-corriger, #a-surveiller, #bon-a-savoir, #points-rassurants { scroll-margin-top: calc(var(--header-height, 64px) + 12px); }
 .health-scope summary { cursor: pointer; }
 .health-scope form { margin-top: 12px; }
+
+/* Mes biens : invitation a simuler un prix de vente */
+.simulate-hint { margin-bottom: 1rem; }
+.simulate-link { display: block; font-size: .85rem; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.notice.info { background: #10212f; border-color: #24506f; color: var(--text-soft); font-weight: 400; line-height: 1.5; }
+.notice.info b { color: #9fd3ff; }

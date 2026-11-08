@@ -9,7 +9,7 @@ import java.math.RoundingMode;
  *   <li>prudent : estimation prudente, a defaut le cout d'acquisition ;</li>
  *   <li>optimiste : estimation optimiste, a defaut la prudente ;</li>
  *   <li>fourchette : milieu des deux ;</li>
- *   <li>pessimiste : prudent − 5 %.</li>
+ *   <li>prix du marche : prix median du m² des ventes de la commune × surface, quand il est connu (arrondi a 1 000 €).</li>
  * </ul>
  * Les estimations peuvent etre actualisees par un coefficient (evolution des prix du departement depuis la date
  * d'estimation, calcule par le module « marche »). La valeur retenue est celle choisie avec le curseur, sinon le
@@ -18,7 +18,6 @@ import java.math.RoundingMode;
  */
 public final class Valuation {
     public static final BigDecimal DEFAULT_SALE_FEES = new BigDecimal("0.08");
-    private static final BigDecimal PESSIMISTIC_FACTOR = new BigDecimal("0.95");
     /** Arrondi des scenarios : des valeurs rondes, lisibles. */
     private static final BigDecimal STEP = new BigDecimal("10000");
     /** Pas du curseur de la valeur retenue : 1 000 €, pour un reglage fin. */
@@ -30,26 +29,35 @@ public final class Valuation {
     private Valuation() {
     }
 
-    public record Scenarios(BigDecimal pessimistic, BigDecimal prudent, BigDecimal middle, BigDecimal optimistic) {
+    /** {@code market} : prix du marche, {@code null} sans prix median connu pour la commune ou sans surface. */
+    public record Scenarios(BigDecimal prudent, BigDecimal market, BigDecimal middle, BigDecimal optimistic) {
         public boolean isEmpty() {
             return optimistic.signum() == 0;
         }
 
+        /** Les memes scenarios avec le prix du marche (valeur mediane × surface), arrondi au pas du curseur. */
+        public Scenarios withMarket(BigDecimal marketValue) {
+            BigDecimal rounded = marketValue == null || marketValue.signum() <= 0 ? null
+                    : marketValue.divide(SLIDER_STEP, 0, RoundingMode.HALF_UP).multiply(SLIDER_STEP);
+            return new Scenarios(prudent, rounded, middle, optimistic);
+        }
+
         /** Nom du scenario egal a {@code value}, ou « Personnalisée ». */
         public String nameOf(BigDecimal value) {
-            if (value.compareTo(pessimistic) == 0) return "Pessimiste";
             if (value.compareTo(prudent) == 0) return "Prudent";
+            if (market != null && value.compareTo(market) == 0) return "Prix du marché";
             if (value.compareTo(middle) == 0) return "Fourchette";
             if (value.compareTo(optimistic) == 0) return "Optimiste";
             return "Personnalisée";
         }
 
         public BigDecimal sliderMin() {
-            return pessimistic.subtract(SLIDER_MARGIN).max(BigDecimal.ZERO);
+            BigDecimal low = market == null ? prudent : prudent.min(market);
+            return low.subtract(SLIDER_MARGIN).max(BigDecimal.ZERO);
         }
 
         public BigDecimal sliderMax() {
-            return optimistic.add(SLIDER_MARGIN);
+            return (market == null ? optimistic : optimistic.max(market)).add(SLIDER_MARGIN);
         }
 
         /**
@@ -62,7 +70,7 @@ public final class Valuation {
         }
 
         boolean sameAs(Scenarios other) {
-            return pessimistic.compareTo(other.pessimistic) == 0 && prudent.compareTo(other.prudent) == 0
+            return prudent.compareTo(other.prudent) == 0
                     && middle.compareTo(other.middle) == 0 && optimistic.compareTo(other.optimistic) == 0;
         }
     }
@@ -77,7 +85,7 @@ public final class Valuation {
         BigDecimal prudent = base(property).multiply(revaluation);
         BigDecimal optimistic = (property.estimateHigh() != null ? property.estimateHigh().max(base(property)) : base(property)).multiply(revaluation);
         BigDecimal middle = prudent.add(optimistic).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-        return new Scenarios(round(prudent.multiply(PESSIMISTIC_FACTOR)), round(prudent), round(middle), round(optimistic));
+        return new Scenarios(round(prudent), null, round(middle), round(optimistic));
     }
 
     /** Estimation prudente telle que saisie, ou a defaut le cout d'acquisition. */

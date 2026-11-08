@@ -17,7 +17,9 @@ class ValuationTest {
     void scenariosAreRoundedToTenThousand() {
         Valuation.Scenarios scenarios = Valuation.scenarios(property("250000", "302000", "398000"));
 
-        assertEquals(new BigDecimal("290000"), scenarios.pessimistic());
+        assertEquals(null, scenarios.market(), "sans prix du marché connu");
+        assertEquals(new BigDecimal("412000"), scenarios.withMarket(new BigDecimal("411650")).market(), "prix du marché arrondi à 1 000 €");
+        assertEquals("Prix du marché", scenarios.withMarket(new BigDecimal("411650")).nameOf(new BigDecimal("412000")));
         assertEquals(new BigDecimal("300000"), scenarios.prudent());
         assertEquals(new BigDecimal("350000"), scenarios.middle());
         assertEquals(new BigDecimal("400000"), scenarios.optimistic());
