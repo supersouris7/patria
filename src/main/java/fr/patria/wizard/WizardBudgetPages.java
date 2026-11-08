@@ -167,7 +167,7 @@ final class WizardBudgetPages {
                 <li><b>Collez sa réponse</b> ci-dessous, puis cochez dans l'aperçu ce que vous gardez.</li>
                 <li><b>Revenez ici</b> : les lignes importées s'affichent dans « Déjà saisies », à supprimer ou compléter à la main.</li></ol>%s
                 <form method="post" action="/administration/depenses/import" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="/assistant/depenses">%s
-                <label>Réponse de l'IA<textarea name="texte" rows="6" placeholder="Mutuelle;Santé;35,69;Mensuel;01/01/2026;;Santé"></textarea></label>
+                <label>Réponse de l'IA<textarea name="texte" rows="10" placeholder="Mutuelle;Santé;35,69;Mensuel;01/01/2026;;Santé"></textarea></label>
                 <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></section>""",
                 Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()), Components.csrfField(context.csrf()), Components.localAiInput("depenses"));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "

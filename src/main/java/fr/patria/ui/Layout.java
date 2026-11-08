@@ -169,8 +169,8 @@ public final class Layout {
             }
             if (path.startsWith("/administration/bien/")) active = AdminSection.PROPERTIES;
         }
-        Html budget = Html.concat(navLink("/" + scope, "Prévisionnel", section == Section.HOME),
-                navLink("/budget" + scope, "Budget moyen", section == Section.BUDGET));
+        // Budget : une seule entree ; Previsionnel et Moyen se choisissent dans la barre de la page.
+        Html budget = navLink("/" + scope, "Budget", section == Section.HOME || section == Section.BUDGET);
         Html manage = navLink("/administration", "Gérer", section == Section.ADMINISTRATION || section == Section.SECURITY);
         Html estate = realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY;
         Html follow = Html.of("""
@@ -179,7 +179,7 @@ public final class Layout {
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
         Html savings = navLink("/epargne", "Épargne", section == Section.SAVINGS);
-        Html allLinks = administrator ? manage : Html.concat(budget, estate, savings, manage, follow);
+        Html allLinks = administrator ? manage : Html.concat(budget, savings, estate, manage, follow);
         Html links = allLinks;
         // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
         // entrees, pastille du Bilan et % de l'Assistant compris (utilisable sans JavaScript).

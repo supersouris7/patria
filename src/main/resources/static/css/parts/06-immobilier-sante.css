@@ -80,7 +80,6 @@ a.health-tile:hover, a.health-tile:focus-visible { border-color: var(--line-stro
 
 /* Mes biens : invitation a simuler un prix de vente */
 .simulate-hint { margin-bottom: 1rem; }
-.simulate-link { display: block; font-size: .85rem; font-weight: 600; margin-top: 2px; white-space: nowrap; }
 .notice.info { background: #10212f; border-color: #24506f; color: var(--text-soft); font-weight: 400; line-height: 1.5; }
 .notice.info b { color: #9fd3ff; }
 
@@ -126,3 +125,32 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .local-ai input[type=file] { display: block; margin-top: 6px; }
 .ai-settings { margin: -6px 0 12px; }
 .ai-settings ol { line-height: 1.5; margin: 8px 0; padding-left: 1.3rem; }
+/* Tirelire rose de la page Epargne */
+.piggy { height: 84px; width: 105px; flex: none; }
+.piggy .body, .piggy .leg, .piggy .ear { fill: #f6a5c4; }
+.piggy .ear { fill: #ec86ad; }
+.piggy .snout { fill: #ec86ad; }
+.piggy .nostril { fill: #b8466f; }
+.piggy .eye { fill: #2a1a22; }
+.piggy .slot { fill: #b8466f; }
+.piggy .tail { fill: none; stroke: #ec86ad; stroke-width: 3; stroke-linecap: round; }
+.piggy .coin { fill: #f2c94c; stroke: #c99a1e; stroke-width: 1.5; animation: piggy-coin 2.4s ease-in 1; }
+.piggy .coin-mark { fill: #8a6400; font: 700 10px system-ui, sans-serif; }
+@keyframes piggy-coin { from { transform: translateY(-14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .piggy .coin { animation: none; } }
+
+/* Guide lineaire : barre de progression, plan replie, un document par ecran */
+.wizard-linear { display: block; max-width: 920px; margin: 0 auto; }
+.wizard-bar { margin: 0 0 14px; }
+.wizard-plan { margin-top: 8px; }
+.wizard-plan summary { color: var(--text-soft, #b7c3cf); cursor: pointer; font-size: .9rem; }
+.wizard-plan-steps, .doc-plan { columns: 2 220px; font-size: .9rem; margin: 8px 0; padding-left: 1.4rem; }
+.wizard-plan-steps a, .doc-plan a { color: inherit; }
+.doc-plan li.have a::after { content: " ✓"; color: #6fd39a; }
+.doc-progress { color: var(--text-soft, #b7c3cf); font-size: .9rem; margin-bottom: 14px; }
+.doc-progress span { display: block; margin-bottom: 6px; }
+.doc-screen h2 { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 6px; }
+.doc-choices { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 4px; }
+.doc-choices form { margin: 0; }
+.doc-import { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
+.doc-screen { padding: 20px 24px; }

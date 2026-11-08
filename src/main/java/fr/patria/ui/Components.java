@@ -286,7 +286,7 @@ public final class Components {
     public static Html importInput(String label, String name, String kind) {
         return Html.of("""
                 %s<label>%s (facultatif)<input name="%s" type="file" accept=".csv,text/csv"></label>
-                <label>Ou collez les lignes (la réponse de l'IA)<textarea name="texte" rows="6"></textarea></label>""", localAiInput(kind), label, name);
+                <label>Ou collez les lignes (la réponse de l'IA)<textarea name="texte" rows="10"></textarea></label>""", localAiInput(kind), label, name);
     }
 
     public static Html fileInput(String label, String name) {

@@ -29,6 +29,20 @@ final class SavingsPages {
         }
     }
 
+    /** Tirelire rose (illustration decorative, sans texte) : une piece tombe dans la fente. */
+    static final String PIGGY = """
+            <svg class="piggy" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+            <circle class="coin" cx="62" cy="10" r="8"/><text class="coin-mark" x="62" y="14" text-anchor="middle">€</text>
+            <ellipse class="body" cx="58" cy="56" rx="40" ry="28"/>
+            <path class="ear" d="M34 34 L40 20 L50 31 Z"/>
+            <rect class="slot" x="50" y="29" width="18" height="4" rx="2"/>
+            <rect class="leg" x="30" y="76" width="10" height="14" rx="4"/><rect class="leg" x="70" y="76" width="10" height="14" rx="4"/>
+            <ellipse class="snout" cx="98" cy="58" rx="10" ry="9"/>
+            <circle class="nostril" cx="95" cy="57" r="1.8"/><circle class="nostril" cx="101" cy="57" r="1.8"/>
+            <circle class="eye" cx="82" cy="46" r="3"/>
+            <path class="tail" d="M18 52 q-8 -4 -4 -10 q4 -5 7 1"/>
+            </svg>""";
+
     static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf) {
         Savings.Overview overview = snapshot.overview();
         Savings.Plan plan = snapshot.plan();
@@ -46,7 +60,7 @@ final class SavingsPages {
                 Components.tile("Pouvoir d'achat", "Évolution de vos revenus sur un an, corrigée de l'inflation. Positif : vos revenus progressent plus vite que les prix.",
                         power, powerSub));
         Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Livrets, assurance-vie, PEA et comptes-titres de chacun, avec un plan pour sécuriser le foyer.",
-                        Html.EMPTY),
+                        Html.raw(PIGGY)),
                 Components.notice(notice), tiles, chart(bars), planCard(snapshot, csrf), accounts(overview, today, null, csrf), addAccount(people, null, csrf),
                 Html.of("<p class=\"muted small\">Taux des livrets réglementés : %s, vérifiés le %s. Cours de bourse : Yahoo Finance, en euros, rafraîchis toutes les heures. "
                         + "Indicatif : ce n'est pas un conseil en investissement.</p>", RegulatedRates.SOURCE, Format.date(RegulatedRates.CHECKED)));
@@ -129,7 +143,7 @@ final class SavingsPages {
         Html paste = Html.of("""
                 <details><summary>Importer les lignes depuis l'export du courtier (Trade Republic, Boursorama…)</summary>%s
                 <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s<label>Réponse de l'IA (lignes code;nom;quantité;prix de revient)
-                <textarea name="texte" rows="6" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label>
+                <textarea name="texte" rows="10" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label>
                 <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></details>""",
                 Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), account, token(csrf, back), Components.localAiInput("bourse"));
         Html add = Html.of("""
@@ -280,6 +294,24 @@ final class SavingsPages {
         Html hint = stocks ? Html.EMPTY : Html.raw("<p class=\"muted\">Pour importer vos lignes de bourse, ajoutez d'abord votre PEA ou compte-titres ci-dessous (type « PEA » ou "
                 + "« Compte-titres ») : l'import apparaîtra sous ce compte.</p>");
         return Html.of("<div id=\"import\">%s%s%s</div>", accounts(overview, today, back, csrf), hint, addAccount(people, back, csrf));
+    }
+
+    /**
+     * Import d'un export de courtier depuis l'ecran d'un document du guide : une zone par PEA ou compte-titres, ou, s'il
+     * n'y en a pas encore, le formulaire pour le creer ici.
+     */
+    static Html brokerImport(Savings.Overview overview, List<Person> people, String back, String csrf) {
+        List<Savings.Line> accounts = overview.lines().stream().filter(line -> line.account().kind().stocks()).toList();
+        if (accounts.isEmpty()) {
+            return Html.concat(Html.raw("<p>Créez d'abord le compte qui détient ces titres (type « PEA » ou « Compte-titres ») ; la zone d'import apparaîtra ensuite ici.</p>"),
+                    addAccount(people, back, csrf));
+        }
+        Html forms = accounts.stream().map(line -> Html.of("""
+                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s
+                <label>Réponse de l'IA pour « %s » (lignes code;nom;quantité;prix de revient)<textarea name="texte" rows="10"></textarea></label>
+                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form>""",
+                line.account().id(), token(csrf, back), Components.localAiInput("bourse"), line.account().name())).collect(Html.joining());
+        return Html.concat(Components.llmPrompt("prompt-bourse-guide", PositionCsv.llmPrompt()), forms);
     }
 
     static Html addAccount(List<Person> people, String back, String csrf) {

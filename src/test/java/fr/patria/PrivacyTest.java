@@ -157,7 +157,9 @@ class PrivacyTest {
             assertTrue(get(admin, "/administration/securite").body().contains("IA locale prête"));
             String withAi = get(manager, "/administration/depenses").body();
             assertTrue(withAi.contains("name=\"document\"") && withAi.contains("Copier le prompt IA"), "document à déposer, prompt toujours là");
-            assertTrue(get(manager, "/assistant/documents").body().contains("IA locale activée"));
+            assertEquals(303, post(manager, "/assistant/documents/coche", "document=statements&status=HAVE").statusCode());
+            String document = get(manager, "/assistant/documents?doc=statements").body();
+            assertTrue(document.contains("<b>IA locale</b>") && document.contains("name=\"document\""), "document à déposer dans l'écran du document");
 
             String boundary = "b0undary";
             String body = "--" + boundary + "\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n" + manager.csrf() + "\r\n"

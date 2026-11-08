@@ -16,6 +16,18 @@ public final class LocalPath {
         return raw;
     }
 
+    private static final java.util.regex.Pattern ASSISTANT = java.util.regex.Pattern.compile("/assistant/[a-z-]+(\\?doc=[a-z0-9-]+)?");
+
+    /** Retour vers une page du guide apres un import ({@code /assistant/depenses}, {@code /assistant/documents?doc=x}), sinon {@code null}. */
+    public static String assistant(String raw) {
+        return raw != null && ASSISTANT.matcher(raw).matches() ? raw : null;
+    }
+
+    /** {@code path} avec {@code ok=} en plus de ses parametres eventuels. */
+    public static String withOk(String path, String ok) {
+        return path + (path.contains("?") ? "&" : "?") + "ok=" + ok;
+    }
+
     public static String encode(String path) {
         return URLEncoder.encode(path, StandardCharsets.UTF_8);
     }

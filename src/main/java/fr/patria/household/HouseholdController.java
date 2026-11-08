@@ -39,6 +39,8 @@ public final class HouseholdController {
         router.userGet("/administration/membres", request -> Response.redirect("/administration/revenus"));
         router.userGet("/administration/revenus", this::page);
         router.userPost("/administration/revenus", this::addIncome);
+        router.userPost("/administration/revenus/import", this::previewIncomes);
+        router.userPost("/administration/revenus/import/valider", this::importIncomes);
         router.userGet("/revenu/{id}", this::editForm);
         router.userPost("/revenu/{id}", this::update);
         router.userPost("/revenu/{id}/supprimer", request -> {
@@ -64,6 +66,43 @@ public final class HouseholdController {
         } catch (ValidationException exception) {
             return Response.invalid(HouseholdPages.incomes(visibility(request), household.incomes(), request.form().values(), Notice.error(exception.getMessage()), request.csrf()));
         }
+    }
+
+    /** Revenus colles (reponse d'une IA) ou deposes : apercu avec une case par ligne. */
+    private Response previewIncomes(Request request) {
+        try {
+            String content = new String(request.form().uploadedText("csv", "Fichier CSV"), java.nio.charset.StandardCharsets.UTF_8);
+            List<IncomeCsv.Row> rows = IncomeCsv.parse(content, visibility(request).people(), household.incomes());
+            return Response.page(HouseholdPages.importPreview(rows, content, importBack(request), request.csrf()));
+        } catch (ValidationException exception) {
+            return Response.invalid(HouseholdPages.incomes(visibility(request), household.incomes(), Map.of(), Notice.error("Import impossible. " + exception.getMessage()),
+                    request.csrf()));
+        }
+    }
+
+    /** Le contenu est relu et reverifie ; seules les lignes cochees sont enregistrees. */
+    private Response importIncomes(Request request) {
+        try {
+            String content = new String(java.util.Base64.getUrlDecoder().decode(request.form().raw("contenu")), java.nio.charset.StandardCharsets.UTF_8);
+            List<IncomeCsv.Row> rows = IncomeCsv.parse(content, visibility(request).people(), household.incomes());
+            int added = 0;
+            for (IncomeCsv.Row row : rows) {
+                if (!row.fresh() || !"on".equals(request.form().raw("importer_" + row.line()))) continue;
+                household.addIncome(row.income());
+                added++;
+            }
+            if (added == 0) throw new ValidationException("Cochez au moins un revenu à importer.");
+            String back = importBack(request);
+            return Response.redirect(back != null ? LocalPath.withOk(back, "importe") : "/administration/revenus?ok=importe");
+        } catch (IllegalArgumentException exception) {
+            return Response.invalid(HouseholdPages.incomes(visibility(request), household.incomes(), Map.of(), Notice.error("Import impossible : " + exception.getMessage()),
+                    request.csrf()));
+        }
+    }
+
+    /** Import lance depuis une etape du guide : on y revient apres (champ {@code retour}). */
+    private static String importBack(Request request) {
+        return LocalPath.assistant(request.form().raw("retour"));
     }
 
     private Response editForm(Request request) {

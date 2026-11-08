@@ -45,8 +45,8 @@ final class TransferPages {
         Html heading = Components.heading("Gestion", "Virements", EXPLANATION, Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, Html.concat(heading, Components.notice(notice),
-                    Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : ajoutez un compte joint ou une deuxième personne.",
-                            Components.button("/administration/membres", "Membres"))));
+                    Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : demandez à l'administrateur d'ajouter un compte joint ou une deuxième personne.",
+                            Html.EMPTY)));
         }
         Html rows = transfers.stream().map(transfer -> Html.of("<tr>%s%s%s%s%s<td class=\"actions\">%s</td></tr>",
                 cell(name(people, transfer.fromId()) + " → " + name(people, transfer.toId())), cell(transfer.label().isBlank() ? Format.DASH : transfer.label()),
@@ -55,9 +55,9 @@ final class TransferPages {
                         : Html.of("<a href=\"/virement/%s\">Voir</a>", transfer.id()))).collect(Html.joining());
         Html list = transfers.isEmpty() ? Html.raw("<p class=\"empty\">Aucun virement.</p>")
                 : Components.table(List.of("Virement", "Libellé", "#Montant", "Fréquence", "Période", ""), rows, true, false);
-        Html content = Html.concat(heading, Components.notice(notice), Components.card("Virements", transfers.size(), Html.EMPTY, list),
-                formPeople.size() < 2 ? Html.EMPTY
-                        : Components.disclosure("Ajouter un virement", Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement"), notice != null && notice.error()));
+        Html content = Html.concat(heading, Components.notice(notice), formPeople.size() < 2 ? Html.EMPTY
+                        : Components.disclosure("Ajouter un virement", Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement"), notice != null && notice.error()),
+                Components.card("Virements", transfers.size(), Html.EMPTY, list));
         return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }
 

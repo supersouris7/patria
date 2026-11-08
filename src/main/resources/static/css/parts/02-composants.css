@@ -216,3 +216,14 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .login-card { max-width: 400px; padding: 32px; width: 100%; }
 .login-card .brand { margin-bottom: 28px; }
 .login-card h1 { font-size: 1.9rem; }
+/* Budget : choix Previsionnel / Moyen a gauche du choix du compte */
+.budget-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 16px; }
+.budget-bar .scope-tabs { margin: 0; }
+.segmented { background: #0d141b; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; padding: 3px; }
+.segmented a { border-radius: 999px; color: var(--text-soft, #b7c3cf); font-weight: 650; padding: 6px 16px; text-decoration: none; }
+.segmented a.active { background: #1d6fd1; color: #fff; }
+/* Zones de texte (reponse d'une IA a coller, mots, messages) : meme style que les champs, pleine largeur */
+textarea { background: var(--input); border: 1px solid var(--line-strong); border-radius: var(--radius-small); box-sizing: border-box; color: var(--text);
+  display: block; font: inherit; font-size: .95rem; margin-top: 6px; padding: 10px 12px; resize: vertical; width: 100%; }
+textarea:focus { border-color: var(--blue); outline: 3px solid rgb(58 168 255 / 18%); outline-offset: 0; }
+textarea[name="texte"] { font: .85rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-height: 12rem; white-space: pre; overflow-x: auto; }

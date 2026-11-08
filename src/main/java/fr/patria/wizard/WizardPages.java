@@ -76,9 +76,12 @@ final class WizardPages {
         int number = context.steps().indexOf(step) + 1;
         Html heading = Components.heading("Guide · étape " + number + " sur " + context.steps().size() + (context.review() ? " · revue" : ""),
                 step.title(), step.summary(), Html.EMPTY);
-        Html content = Html.concat(heading, Components.notice(notice), body, step == Step.SUMMARY ? Html.EMPTY : footer(context, step));
-        Html layout = Html.of("<div class=\"wizard\"><div class=\"wizard-steps\" role=\"navigation\" aria-label=\"Étapes du guide\"><a class=\"wizard-home\" href=\"/assistant\">← Guide de saisie</a>"
-                + "<ol>%s</ol></div><div class=\"wizard-body\">%s</div></div>", stepper(context, step), content);
+        // Un ecran de document a ses propres boutons Precedent / Suivant ; l'ecran de fin des documents garde ceux de l'etape.
+        boolean documentScreen = step == Step.DOCUMENTS && currentDocument(context) != null;
+        Html bar = Html.of("<div class=\"wizard-bar\">%s<details class=\"wizard-plan\"><summary>Plan du guide</summary><ol class=\"wizard-plan-steps\">%s</ol></details></div>",
+                Components.progress(context.steps().isEmpty() ? 0 : (number - 1) * 100 / context.steps().size()), stepper(context, step));
+        Html content = Html.concat(bar, heading, Components.notice(notice), body, step == Step.SUMMARY || documentScreen ? Html.EMPTY : footer(context, step));
+        Html layout = Html.of("<div class=\"wizard wizard-linear\"><div class=\"wizard-body\">%s</div></div>", content);
         return Layout.page(step.title() + " · Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), layout);
     }
 
@@ -95,7 +98,7 @@ final class WizardPages {
         return Html.of("""
                 <div class="wizard-footer">%s<div class="wizard-next">\
                 <form method="post" action="%s/passer">%s%s<button class="quiet" type="submit">Passer cette étape</button></form>\
-                <form method="post" action="%s/terminer">%s%s<button type="submit">Étape terminée →</button></form></div></div>""",
+                <form method="post" action="%s/terminer">%s%s<button type="submit">Suivant →</button></form></div></div>""",
                 back, step.path(), Components.csrfField(context.csrf()), modeField(context), step.path(), Components.csrfField(context.csrf()), modeField(context));
     }
 
@@ -128,46 +131,99 @@ final class WizardPages {
 
     // ---- 1. Documents ----
 
+    /**
+     * Phase 1 du guide : les documents, un par ecran. « Je l'ai » ouvre ici meme l'import de ce document (prompt,
+     * reponse de l'IA a coller, apercu a cocher) ; « Pas sous la main » ou « Pas concerne » passe au suivant. Aucun
+     * lien ne saute vers une autre etape : les categories viennent ensuite, dans l'ordre.
+     */
     static Html documents(WizardController.Context context) {
         List<Documents.Document> documents = Documents.forViewer(context.admin());
         long ready = documents.stream().filter(document -> isReady(context, document)).count();
-        Html groups = documents.stream().map(Documents.Document::group).distinct().map(group -> Html.of("<h3 class=\"wizard-group\">%s</h3><ul class=\"doc-list\">%s</ul>",
-                group, documents.stream().filter(document -> document.group().equals(group)).map(document -> documentRow(context, document)).collect(Html.joining())))
-                .collect(Html.joining());
-        return Html.concat(
-                explain("Pour chaque document que vous avez, « J'ai ce document » vous emmène à l'étape qui l'exploite. Rien n'est obligatoire ; "
-                        + "une coche verte apparaît toute seule quand l'information est déjà dans Patria."),
-                Components.card("Comment ça marche", null, Html.EMPTY, Html.concat(Html.raw("""
-                        <ol class="steps"><li><b>« J'ai ce document »</b> : Patria ouvre l'étape où il sert (dépenses, prêts, épargne…).</li>
-                        <li><b>Copiez le prompt</b> dans votre assistant IA avec le document, puis <b>collez sa réponse</b> dans Patria.</li>
-                        <li><b>Cochez ce que vous gardez</b> dans l'aperçu : seules les lignes cochées sont importées.</li>
-                        <li><b>Complétez à la main</b> dans la même étape : supprimez une ligne importée ou ajoutez-en d'autres.</li></ol>"""),
-                        Components.localAi() ? Html.raw("<p class=\"notice success\"><b>IA locale activée</b> : dans chaque étape, déposez simplement le document ; "
-                                + "Patria le fait analyser sur votre serveur, rien ne sort.</p>") : Components.aiWarning())),
-                Components.card("Documents", null, Html.of("<span class=\"muted\">%s sur %s rassemblés</span>", ready, documents.size()),
-                        Html.concat(Components.progress(documents.isEmpty() ? 0 : (int) (ready * 100 / documents.size())), groups)));
+        Documents.Document current = currentDocument(context);
+        int percent = documents.isEmpty() ? 100 : (int) (ready * 100 / documents.size());
+        Html progress = Html.of("<div class=\"doc-progress\"><span>%s</span>%s</div>",
+                current == null ? ready + " document" + (ready > 1 ? "s" : "") + " sur " + documents.size() + " rassemblé" + (ready > 1 ? "s" : "")
+                        : "Document " + (documents.indexOf(current) + 1) + " sur " + documents.size() + " · " + current.group(),
+                Components.progress(current == null ? 100 : (documents.indexOf(current) * 100 / documents.size())));
+        Html plan = Html.of("<details class=\"wizard-plan\"><summary>Liste des documents (%s sur %s)</summary><ol class=\"doc-plan\">%s</ol></details>", ready, documents.size(),
+                documents.stream().map(document -> Html.of("<li class=\"%s\"><a href=\"/assistant/documents?doc=%s\">%s</a></li>", isReady(context, document) ? "have" : "",
+                        document.id(), document.label())).collect(Html.joining()));
+        if (current == null) {
+            return Html.concat(progress, Components.card("Documents terminés", null, Html.EMPTY, Html.of("""
+                    <p>%s document%s sur %s rassemblé%s ou déjà dans Patria. La suite du guide reprend chaque catégorie (revenus, dépenses, prêts, épargne…) :
+                    vous y retrouvez ce qui a été importé, à vérifier, compléter ou supprimer.</p>""", ready, ready > 1 ? "s" : "", documents.size(), ready > 1 ? "s" : "")),
+                    plan);
+        }
+        boolean auto = current.auto().test(context.snapshot());
+        WizardRepository.DocumentStatus status = context.documents().get(current.id());
+        boolean have = auto || status == WizardRepository.DocumentStatus.HAVE;
+        String back = "/assistant/documents?doc=" + current.id();
+        Html state = auto ? Html.raw("<span class=\"badge paid\">Déjà dans Patria</span>")
+                : status == WizardRepository.DocumentStatus.HAVE ? Html.raw("<span class=\"badge paid\">Je l'ai</span>")
+                : status == WizardRepository.DocumentStatus.NOT_CONCERNED ? Html.raw("<span class=\"badge\">Pas concerné</span>") : Html.EMPTY;
+        Html choices = Html.of("<div class=\"doc-choices\">%s%s%s</div>",
+                docButton(context, current, "HAVE", have ? "Importer à nouveau" : "Je l'ai", have ? "secondary" : ""),
+                docButton(context, current, "", "Pas sous la main", "secondary"),
+                docButton(context, current, "NOT_CONCERNED", "Pas concerné", "quiet"));
+        Html importArea = have ? Html.of("<section class=\"doc-import\" id=\"import\">%s</section>", importFor(context, current, back)) : Html.EMPTY;
+        int index = documents.indexOf(current);
+        Html previous = index == 0 ? Html.raw("<a class=\"button secondary\" href=\"/assistant\">← Guide</a>")
+                : Html.of("<a class=\"button secondary\" href=\"/assistant/documents?doc=%s\">← Précédent</a>", documents.get(index - 1).id());
+        Html next = Html.of("<a class=\"button\" href=\"/assistant/documents?doc=%s\">Suivant →</a>", Documents.after(current.id(), documents));
+        return Html.concat(progress,
+                Html.of("""
+                        <section class="card doc-screen"><p class="eyebrow">%s</p><h2>%s %s</h2><p class="help">%s</p>%s%s</section>""",
+                        current.group(), current.label(), state, current.where(), choices, importArea),
+                Html.of("<div class=\"wizard-footer\">%s<div class=\"wizard-next\">%s</div></div>", previous, next), plan);
+    }
+
+    /** Document affiche : celui demande ({@code ?doc=}), sinon le premier a traiter ; {@code null} une fois au bout. */
+    static Documents.Document currentDocument(WizardController.Context context) {
+        List<Documents.Document> documents = Documents.forViewer(context.admin());
+        String wanted = context.document();
+        if ("fin".equals(wanted)) return null;
+        return documents.stream().filter(document -> document.id().equals(wanted)).findFirst()
+                .orElse(documents.stream().filter(document -> !isReady(context, document)).findFirst().orElse(null));
+    }
+
+    /** Import propre a un document, dans son ecran : retour au meme document apres l'apercu. */
+    static Html importFor(WizardController.Context context, Documents.Document document, String back) {
+        String kind = Documents.importKind(document.id());
+        Html warning = Components.localAi() ? Html.raw("<p class=\"notice success\"><b>IA locale</b> : déposez le document, il est analysé sur votre serveur.</p>")
+                : Html.EMPTY;
+        if (kind == null) {
+            Step step = Documents.next(document.id());
+            return Html.of("<p>Ce document se saisit à l'étape « %s », plus loin dans le guide : gardez-le sous la main.</p>",
+                    step == null ? "Récapitulatif" : step.title());
+        }
+        return switch (kind) {
+            case "revenus" -> Html.concat(warning, fr.patria.household.HouseholdPages.importForm(context.visibility().people(), back, context.csrf()));
+            case "bourse" -> Html.concat(warning, context.brokerImport().apply(back));
+            case "echeancier" -> loanImport(context, back);
+            default -> Html.concat(warning, Components.llmPrompt("prompt-doc-" + document.id(), fr.patria.budget.ExpenseCsv.llmPrompt()), Html.of("""
+                    <form method="post" action="/administration/depenses/import" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="%s">%s
+                    <label>Réponse de l'IA<textarea name="texte" rows="10"></textarea></label>
+                    <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form>""",
+                    Components.csrfField(context.csrf()), back, Components.localAiInput("depenses")));
+        };
+    }
+
+    /** Echeancier d'un pret : une zone par bien ; sans bien, il se saisit a l'etape Biens puis Prets. */
+    private static Html loanImport(WizardController.Context context, String back) {
+        if (context.snapshot().properties().isEmpty()) {
+            return Html.raw("<p>Le prêt se rattache à un bien : créez le bien à l'étape « Biens immobiliers », puis importez l'échéancier à l'étape « Prêts ».</p>");
+        }
+        Html forms = context.snapshot().properties().stream().map(property -> Html.of("""
+                <form method="post" action="/assistant/prets/%s" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="%s">
+                <h3>%s</h3><label>Nom du prêt<input name="name" maxlength="100" required placeholder="Prêt principal, prêt à taux zéro…"></label>%s
+                <label>Réponse de l'IA (lignes de l'échéancier)<textarea name="texte" rows="10"></textarea></label>
+                <div class="form-actions"><button type="submit">Importer ce prêt</button></div></form>""",
+                property.id(), Components.csrfField(context.csrf()), back, property.name(), Components.localAiInput("echeancier"))).collect(Html.joining());
+        return Html.concat(Components.llmPrompt("prompt-doc-pret", fr.patria.loan.CsvScheduleParser.llmPrompt()), forms);
     }
 
     static boolean isReady(WizardController.Context context, Documents.Document document) {
         return document.auto().test(context.snapshot()) || context.documents().containsKey(document.id());
-    }
-
-    static Html documentRow(WizardController.Context context, Documents.Document document) {
-        boolean auto = document.auto().test(context.snapshot());
-        WizardRepository.DocumentStatus status = context.documents().get(document.id());
-        String css = auto || status == WizardRepository.DocumentStatus.HAVE ? "have" : status == WizardRepository.DocumentStatus.NOT_CONCERNED ? "na" : "missing";
-        String mark = css.equals("have") ? "✓" : css.equals("na") ? "–" : "";
-        Html actions;
-        if (auto) {
-            actions = Html.raw("<span class=\"badge paid\">Déjà dans Patria</span>");
-        } else if (status != null) {
-            actions = Html.concat(Html.of("<span class=\"badge%s\">%s</span>", status == WizardRepository.DocumentStatus.HAVE ? " paid" : "",
-                    status == WizardRepository.DocumentStatus.HAVE ? "Rassemblé" : "Pas concerné"), docButton(context, document, "", "Annuler", "quiet"));
-        } else {
-            actions = Html.concat(docButton(context, document, "HAVE", "J'ai ce document", "secondary"), docButton(context, document, "NOT_CONCERNED", "Pas concerné", "quiet"));
-        }
-        return Html.of("<li class=\"doc %s\" id=\"doc-%s\"><span class=\"doc-mark\" aria-hidden=\"true\">%s</span><div><b>%s</b><span class=\"help\">%s</span></div>"
-                + "<div class=\"doc-actions\">%s</div></li>", css, document.id(), mark, document.label(), document.where(), actions);
     }
 
     static Html docButton(WizardController.Context context, Documents.Document document, String status, String label, String style) {

@@ -481,3 +481,17 @@ document.addEventListener("submit", event => {
     button.textContent = "Analyse par l'IA locale en cours…";
   }
 });
+
+// Tableau des droits : ajouter un compte au foyer fait apparaitre sa ligne (cases a cocher, puis Enregistrer).
+document.querySelectorAll("[data-add-account]").forEach(select => {
+  select.addEventListener("change", () => {
+    const row = select.closest("form")?.querySelector(`tr[data-candidate="${CSS.escape(select.value)}"]`);
+    if (!row) return;
+    row.hidden = false;
+    row.removeAttribute("data-candidate");
+    select.querySelector(`option[value="${CSS.escape(select.value)}"]`)?.remove();
+    select.value = "";
+    row.querySelector("input[type=checkbox]")?.focus();
+    if (select.options.length <= 1) select.closest("label").hidden = true;
+  });
+});

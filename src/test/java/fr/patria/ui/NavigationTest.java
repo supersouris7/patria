@@ -19,7 +19,7 @@ class NavigationTest {
                     List.of(), 1, Layout.Chrome.Alerts.NONE, "/compte"));
             String user = Layout.page("Test", Layout.Section.ACCOUNT, "csrf", "?personne=2", Html.EMPTY).toString();
             assertFalse(user.contains("<summary>Budget</summary>"), "acces directs");
-            assertTrue(user.contains("href=\"/budget?personne=2\""));
+            assertTrue(user.contains("href=\"/?personne=2\"") && user.contains(">Budget<"), "une seule entrée Budget, qui garde la personne");
             assertFalse(user.contains("<summary>Immobilier</summary>"));
             assertFalse(user.contains("href=\"/administration/membres\""));
             assertFalse(user.contains("<summary>Utilisateurs</summary>"));

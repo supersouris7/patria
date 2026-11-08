@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Administration du foyer : personnes et revenus. */
-final class HouseholdPages {
+public final class HouseholdPages {
     /** Frequences proposees pour un revenu. */
     static final List<Frequency> INCOME_FREQUENCIES = List.of(Frequency.MONTHLY, Frequency.ANNUAL, Frequency.ONCE);
 
@@ -73,7 +73,8 @@ final class HouseholdPages {
                         "<p class=\"empty\">Aucun membre ne vous est accessible : demandez à l'administrateur de cocher vos membres dans le tableau des droits.</p>"))
                 : Components.disclosure("Ajouter un revenu",
                         Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"), notice != null && notice.error());
-        Html content = Html.concat(Components.heading("Gestion", "Revenus", null, Html.EMPTY), Components.notice(notice), incomesCard, addIncome);
+        Html importer = formPeople.isEmpty() ? Html.EMPTY : Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", importForm(formPeople, null, csrf), false);
+        Html content = Html.concat(Components.heading("Gestion", "Revenus", null, Html.EMPTY), Components.notice(notice), addIncome, importer, incomesCard);
         return Layout.adminSection("Revenus · Patria", csrf, Layout.AdminSection.INCOMES, content);
     }
 
@@ -92,5 +93,40 @@ final class HouseholdPages {
     static String period(Income income) {
         if (income.frequency() == Frequency.ONCE) return Format.date(income.start());
         return "depuis " + Format.date(income.start()) + (income.end() == null ? "" : " jusqu'au " + Format.date(income.end()));
+    }
+
+    /**
+     * Import des revenus : prompt pour les bulletins et attestations, reponse a coller (ou fichier, ou document pour
+     * l'IA locale). {@code back} : etape du guide ou revenir apres l'import.
+     */
+    public static Html importForm(List<Person> people, String back, String csrf) {
+        List<String> names = people.stream().filter(person -> !person.isAccount()).map(Person::name).toList();
+        return Html.concat(Components.llmPrompt("prompt-revenus" + (back == null ? "" : "-guide"), IncomeCsv.llmPrompt(names)), Html.of("""
+                <form method="post" action="/administration/revenus/import" class="stack" enctype="multipart/form-data">%s%s%s
+                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form>""",
+                Components.csrfField(csrf), back == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back),
+                Components.importInput("Fichier CSV", "csv", "revenus|" + String.join(",", names))));
+    }
+
+    /** Apercu de l'import des revenus : une case par revenu valide et nouveau. */
+    static Html importPreview(List<IncomeCsv.Row> rows, String content, String back, String csrf) {
+        long fresh = rows.stream().filter(IncomeCsv.Row::fresh).count();
+        Html body = rows.stream().map(row -> row.valid() ? Html.of("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td>%s<td>%s</td><td>%s</td></tr>",
+                row.fresh() ? Html.of("<input type=\"checkbox\" name=\"importer_%s\" value=\"on\" form=\"revenus-import\" checked aria-label=\"Importer %s\">",
+                        row.line(), row.income().label()) : Html.text(String.valueOf(row.line())),
+                row.person(), row.income().label(), row.income().kind().label(), number(row.income().amount(), Format.euro(row.income().amount())),
+                row.income().frequency().label(), row.duplicate() ? Html.raw("<span class=\"badge\">Déjà saisi</span>") : Html.raw("<span class=\"badge paid\">À importer</span>"))
+                : Html.of("<tr class=\"row-error\"><td>%s</td><td colspan=\"6\" class=\"negative\">%s</td></tr>", row.line(), row.error())).collect(Html.joining());
+        String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String cancel = back == null ? "/administration/revenus" : back;
+        Html actions = fresh == 0 ? Html.raw("<p class=\"muted\">Rien de nouveau à importer.</p>") : Html.of("""
+                <form id="revenus-import" method="post" action="/administration/revenus/import/valider" class="form-actions">%s<input type="hidden" name="contenu" value="%s">%s\
+                <a class="button secondary" href="%s">Annuler</a><button type="submit">Importer la sélection</button></form>""",
+                Components.csrfField(csrf), encoded, back == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), cancel);
+        Html content2 = Html.concat(Components.backLink(cancel, back == null ? "Revenus" : "Retour au guide"),
+                Components.heading("Gestion", "Aperçu de l'import", fresh + " revenu" + (fresh > 1 ? "s" : "") + " à importer. Les lignes en erreur sont ignorées.", Html.EMPTY),
+                Components.card("Revenus", rows.size(), Html.EMPTY, Html.concat(Components.table(List.of("Importer", "Personne", "Libellé", "Type", "#Montant", "Fréquence", "État"),
+                        body, false, false), actions)));
+        return Layout.adminSection("Import des revenus · Patria", csrf, Layout.AdminSection.INCOMES, content2);
     }
 }

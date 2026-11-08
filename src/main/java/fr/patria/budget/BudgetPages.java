@@ -39,7 +39,7 @@ final class BudgetPages {
     static Html home(Forecast.View view, Html extras, String csrf) {
         Forecast.Month current = view.current();
         Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), "Prévisionnel : ce mois-ci et les 12 prochains mois, mois par mois.",
-                Components.pdfButton("/previsionnel.pdf" + scope(view))), scopeTabs(view, "/"));
+                Components.pdfButton("/previsionnel.pdf" + scope(view))), budgetBar(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
             return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Rien pour " + view.person().name(),
                     "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Gérer → Revenus, la répartition des dépenses dans chaque dépense.",
@@ -49,7 +49,7 @@ final class BudgetPages {
             return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Votre budget est vide",
                     "Commencez par le foyer : les personnes et leurs revenus, puis les dépenses (une seule saisie par dépense, l'application prévoit les mois suivants). "
                             + "Les prêts, charges et loyers de l'immobilier sont repris automatiquement.",
-                    Components.button(Layout.manages() ? "/administration/membres" : "/administration/revenus", "Renseigner le foyer"))));
+                    Components.button("/assistant", "Ouvrir le Guide de saisie"))));
         }
         BigDecimal nonMonthly = current.expenses().stream().filter(line -> line.frequency() != Frequency.MONTHLY)
                 .map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -100,6 +100,18 @@ final class BudgetPages {
     /** Parametre de la personne affichee, repris par les liens Previsionnel et Budget moyen. */
     private static String scope(Forecast.View view) {
         return view.person() == null ? "" : "?personne=" + view.person().id();
+    }
+
+    /**
+     * Barre du Budget : a gauche le choix de la page (Previsionnel ou Moyen), a droite le compte affiche (Foyer, une
+     * personne). Les deux pages restent distinctes ; la personne choisie suit d'une page a l'autre.
+     */
+    private static Html budgetBar(Forecast.View view, String path) {
+        boolean forecast = path.equals("/");
+        Html pages = Html.of("""
+                <nav class="segmented" aria-label="Page du budget"><a href="/%s"%s>Prévisionnel</a><a href="/budget%s"%s>Moyen</a></nav>""",
+                scope(view), Html.raw(forecast ? " class=\"active\" aria-current=\"page\"" : ""), scope(view), Html.raw(forecast ? "" : " class=\"active\" aria-current=\"page\""));
+        return Html.of("<div class=\"budget-bar\">%s%s</div>", pages, scopeTabs(view, path));
     }
 
     private static Html scopeTabs(Forecast.View view, String path) {
@@ -225,7 +237,7 @@ final class BudgetPages {
         Html heading = Html.concat(Components.heading(owner(view), "Budget moyen", "Moyenne par mois sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
                         + (view.person() == null ? "" : " Part de " + view.person().name() + " seulement."),
                 Html.concat(Components.pdfButton("/budget-moyen.pdf" + scope(view)), Components.secondaryButton("/administration/depenses", "Gérer les dépenses"))),
-                scopeTabs(view, "/budget"));
+                budgetBar(view, "/budget"));
 
         Map<Category, BigDecimal> byCategory = new EnumMap<>(Category.class);
         for (Forecast.Average line : expenses) byCategory.merge(line.category(), line.monthly(), BigDecimal::add);
@@ -336,10 +348,10 @@ final class BudgetPages {
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 
         Html content = Html.concat(Components.heading("Gestion", "Dépenses", null, Html.EMPTY), Components.notice(notice),
-                Components.card("Dépenses saisies", items.size(), Html.EMPTY, table),
                 Components.disclosure("Ajouter une dépense", Html.concat(automatic, taxLinks, form), notice != null && notice.error()),
-                Components.disclosure("Importer un fichier CSV", Html.concat(Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
-                        importForm(csrf)), false));
+                Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", Html.concat(Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
+                        importForm(csrf)), false),
+                Components.card("Dépenses saisies", items.size(), Html.EMPTY, table));
         return Layout.adminSection("Dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, content);
     }
 
@@ -503,8 +515,8 @@ final class BudgetPages {
                 + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading,
-                    Components.emptyState("Une seule personne dans le foyer", "La répartition sert à partir de deux personnes.",
-                            Components.button("/administration/membres", "Ajouter une personne"))));
+                    Components.emptyState("Une seule personne dans le foyer", "La répartition sert à partir de deux personnes : demandez à l'administrateur d'en ajouter une.",
+                            Html.EMPTY)));
         }
         if (properties.isEmpty()) {
             return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading, Components.notice(notice),

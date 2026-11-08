@@ -134,7 +134,7 @@ Le compte administrateur ne voit aucune donnée financière **dans l'interface**
 1. Administration → Foyers → Nouveau foyer (le foyer principal existe déjà).
 2. Dans la carte du foyer, ajoutez ses membres (personnes, puis compte joint). Le « × » d'un membre le supprime.
 3. Utilisateurs → Nouvel utilisateur : choisissez le membre représenté et un mot de passe provisoire d'au moins 8 caractères.
-4. Dans la carte du foyer, tableau **Qui voit quoi** : une ligne par compte, une colonne par membre, puis **Totaux du foyer** et **Immobilier**. Cochez ce que chacun voit, puis « Enregistrer les droits ».
+4. Dans la carte du foyer, tableau **Qui voit quoi** : une ligne par compte du foyer (« Ajouter un compte à ce foyer » en ajoute un), une colonne par membre, puis **Totaux du foyer** et **Immobilier**. Cochez ce que chacun voit, puis « Enregistrer les droits ».
 
 Chaque case donne l'accès complet (voir et modifier) :
 

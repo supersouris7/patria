@@ -406,9 +406,23 @@ class AccountsTest {
         Visitor admin = admin();
         Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
         assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
-        assertEquals("/assistant/depenses#import", post(manager, "/assistant/documents/coche", "document=statements&status=HAVE").headers().firstValue("Location").orElseThrow(),
-                "« J'ai ce document » mène à l'import");
-        assertEquals("/assistant/epargne#import", post(manager, "/assistant/documents/coche", "document=brokerage&status=HAVE").headers().firstValue("Location").orElseThrow());
+        assertEquals("/assistant/documents?doc=statements#import", post(manager, "/assistant/documents/coche", "document=statements&status=HAVE").headers()
+                .firstValue("Location").orElseThrow(), "« J'ai ce document » ouvre l'import dans l'écran du document, sans changer d'étape");
+        String screen = get(manager, "/assistant/documents?doc=statements").body();
+        assertTrue(screen.contains("Document ") && screen.contains("name=\"retour\" value=\"/assistant/documents?doc=statements\"") && screen.contains("name=\"texte\""));
+        assertTrue(post(manager, "/assistant/documents/coche", "document=statements&status=").headers().firstValue("Location").orElseThrow()
+                .startsWith("/assistant/documents?doc="), "« Pas sous la main » passe au document suivant");
+        assertEquals("/assistant/documents?doc=brokerage#import", post(manager, "/assistant/documents/coche", "document=brokerage&status=HAVE").headers().firstValue("Location").orElseThrow());
+        assertTrue(get(manager, "/assistant/documents?doc=brokerage").body().contains("Créez d'abord le compte"), "sans PEA : le créer ici");
+        HttpResponse<String> fromDocument = post(manager, "/administration/revenus/import", "retour=" + java.net.URLEncoder.encode("/assistant/documents?doc=payslips",
+                java.nio.charset.StandardCharsets.UTF_8) + "&texte=" + java.net.URLEncoder.encode("Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;", java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(200, fromDocument.statusCode(), fromDocument.body());
+        Matcher incomes = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(fromDocument.body());
+        assertTrue(incomes.find());
+        assertEquals("/assistant/documents?doc=payslips&ok=importe", post(manager, "/administration/revenus/import/valider", "contenu=" + incomes.group(1)
+                + "&importer_1=on&retour=" + java.net.URLEncoder.encode("/assistant/documents?doc=payslips", java.nio.charset.StandardCharsets.UTF_8))
+                .headers().firstValue("Location").orElseThrow(), "revenu importé, retour au même document");
+        assertTrue(get(manager, "/administration/revenus").body().replaceAll("[\\s\\u00a0\\u202f]", "").contains("2450"), "revenu importé");
         HttpResponse<String> preview = post(manager, "/administration/depenses/import", "retour=/assistant/depenses&texte="
                 + java.net.URLEncoder.encode("```csv\nNetflix;Télécom et abonnements;13,49;Mensuel;01/01/2026;;Abonnement\n```", java.nio.charset.StandardCharsets.UTF_8));
         assertEquals(200, preview.statusCode(), preview.body());

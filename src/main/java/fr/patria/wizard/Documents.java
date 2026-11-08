@@ -102,6 +102,26 @@ final class Documents {
         };
     }
 
+    /** Document suivant dans la liste, ou {@code fin} apres le dernier. */
+    static String after(String id, List<Document> documents) {
+        for (int index = 0; index < documents.size() - 1; index++) {
+            if (documents.get(index).id().equals(id)) return documents.get(index + 1).id();
+        }
+        return "fin";
+    }
+
+    /** Import propose pour ce document : depenses, revenus, echeancier, bourse ; {@code null} : saisie a une etape du guide. */
+    static String importKind(String id) {
+        return switch (id) {
+            case "payslips", "benefits" -> "revenus";
+            case "amortization" -> "echeancier";
+            case "brokerage" -> "bourse";
+            case "statements", "credits", "tax-notice", "lease", "energy", "telecom", "subscriptions", "health", "insurance", "childcare", "school",
+                 "transport" -> "depenses";
+            default -> null;
+        };
+    }
+
     static List<Document> forViewer(boolean admin) {
         return ALL.stream().filter(document -> admin || !document.adminOnly()).toList();
     }

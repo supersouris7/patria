@@ -161,11 +161,19 @@ final class AccountPages {
                             access != null && access.members().contains(member.id()))).collect(Html.joining()),
                     box(prefix + "whole", user.name() + " : totaux du foyer", access != null && access.wholeHousehold()),
                     box(prefix + "estate", user.name() + " : immobilier", access != null && access.realEstate()));
-            return Html.of("<tr><th scope=\"row\">%s <span class=\"muted small\">%s</span></th>%s</tr>", user.name(), user.login(), cells);
+            // Seuls les comptes du foyer sont affiches ; les autres attendent, caches, qu'on les ajoute.
+            boolean member = access != null && access.any();
+            return Html.of("<tr%s><th scope=\"row\">%s <span class=\"muted small\">%s</span></th>%s</tr>",
+                    Html.raw(member ? "" : " hidden data-candidate=\"" + user.id() + "\""), user.name(), user.login(), cells);
         }).collect(Html.joining());
+        List<User> outside = activeUsers.stream().filter(user -> card.accesses().get(user) == null || !card.accesses().get(user).any()).toList();
+        Html add = outside.isEmpty() ? Html.EMPTY : Html.of("""
+                <label class="add-account">Ajouter un compte à ce foyer <select data-add-account><option value="">Choisir un compte…</option>%s</select></label>""",
+                outside.stream().map(user -> Html.of("<option value=\"%s\">%s (%s)</option>", user.id(), user.name(), user.login())).collect(Html.joining()));
+        boolean empty = outside.size() == activeUsers.size();
         return Html.of("""
                 <form method="post" action="/administration/foyers/%s/droits" class="rights-form">%s
-                <div class="table-wrap"><table class="rights-table"><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>
+                %s<div class="table-wrap"><table class="rights-table"><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>%s
                 <ul class="muted small rights-legend">
                 <li><b>Une colonne de membre</b> : ses revenus, dépenses et virements, à voir et modifier. Une ligne partagée avec un membre non coché
                 reste visible mais en lecture seule.</li>
@@ -174,7 +182,9 @@ final class AccountPages {
                 <li><b>Immobilier</b> : les biens, prêts, apports, charges et la répartition, à voir et modifier.</li>
                 <li>Aucune case cochée : le compte n'a pas accès à ce foyer.</li></ul>
                 <div class="form-actions"><button type="submit">Enregistrer les droits</button></div></form>""",
-                household, Components.csrfField(csrf), head, rows);
+                household, Components.csrfField(csrf),
+                empty ? Html.raw("<p class=\"muted\">Aucun compte n'a encore accès à ce foyer : ajoutez-en un ci-dessous, cochez ses cases, puis enregistrez.</p>") : Html.EMPTY,
+                head, rows, add);
     }
 
     private static Html box(String name, String label, boolean checked) {

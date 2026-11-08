@@ -254,7 +254,8 @@ public final class WizardController {
     /** Tout ce qu'une page de l'assistant affiche, calcule une fois par requete. */
     record Context(boolean admin, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
                    Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
-                   java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings) {
+                   java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings,
+                   String document, java.util.function.Function<String, fr.patria.ui.Html> brokerImport) {
         String mode() {
             return review ? "?mode=" + REVIEW : "";
         }
@@ -298,7 +299,8 @@ public final class WizardController {
                 stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf(),
                 stores.healthScope().scope(request.viewer(), people),
                 request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
-                () -> stores.savings().wizardPanel(request, Step.SAVINGS.path()));
+                () -> stores.savings().wizardPanel(request, Step.SAVINGS.path()),
+                request.query("doc"), back -> stores.savings().wizardBrokerImport(request, back));
     }
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */
@@ -341,12 +343,9 @@ public final class WizardController {
             default -> throw new ValidationException("Choix invalide.");
         };
         stores.progress().setDocument(owner(request), id, status);
-        // « J'ai ce document » mene a l'etape qui l'exploite (import par l'IA ou saisie), si elle est ouverte a ce compte.
-        Step next = Documents.next(id);
-        if (status == WizardRepository.DocumentStatus.HAVE && next != null && Step.forViewer(request.viewer().realEstate()).contains(next)) {
-            return Response.redirect(next.path() + "#import");
-        }
-        return back(request, Step.DOCUMENTS, "doc-" + id);
+        // Le guide reste sur les documents, un par un : « Je l'ai » ouvre l'import de ce document ici meme ; sinon le suivant.
+        if (status == WizardRepository.DocumentStatus.HAVE) return Response.redirect("/assistant/documents?doc=" + id + "#import");
+        return Response.redirect("/assistant/documents?doc=" + Documents.after(id, Documents.forViewer(request.viewer().realEstate())));
     }
 
     // ---- Membres, revenus, virements ----
@@ -495,6 +494,9 @@ public final class WizardController {
             String name = request.form().requiredText("name", "Nom du prêt", 100);
             List<ScheduleLine> lines = CsvScheduleParser.parse(request.form().uploadedText("csv", "Fichier CSV"));
             stores.loans().create(property.id(), name, lines);
+            // Import lance depuis l'ecran d'un document : on y revient.
+            String document = fr.patria.web.LocalPath.assistant(request.form().raw("retour"));
+            if (document != null) return Response.redirect(fr.patria.web.LocalPath.withOk(document, "importe"));
             return back(request, Step.LOANS, "bien-" + property.id());
         } catch (ValidationException exception) {
             return invalid(request, Step.LOANS, exception);

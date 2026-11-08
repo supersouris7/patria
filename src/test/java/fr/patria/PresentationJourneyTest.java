@@ -29,10 +29,10 @@ class PresentationJourneyTest {
             before(home, "class=\"metrics cols-4\"", "class=\"setup-progress\"");
             before(home, "class=\"metrics cols-4\"", "health-summary");
             String incomes = TestAccounts.get(client, base, manager, "/administration/revenus").body();
-            before(incomes, "<h2>Revenus", "<summary>Ajouter un revenu");
+            before(incomes, "<summary>Ajouter un revenu", "<h2>Revenus");
             String expenses = TestAccounts.get(client, base, manager, "/administration/depenses").body();
-            before(expenses, "<h2>Dépenses saisies", "<summary>Ajouter une dépense");
-            before(expenses, "<summary>Ajouter une dépense", "<summary>Importer un fichier CSV");
+            before(expenses, "<summary>Ajouter une dépense", "<summary>Importer (réponse d");
+            before(expenses, "<summary>Importer (réponse d", "<h2>Dépenses saisies");
             String guide = TestAccounts.get(client, base, manager, "/assistant").body();
             before(guide, "<h2>Les étapes", "<summary>Comment ça marche");
             String budget = TestAccounts.get(client, base, manager, "/budget").body();

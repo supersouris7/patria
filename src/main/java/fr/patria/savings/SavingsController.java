@@ -82,12 +82,11 @@ public final class SavingsController {
     /** Apres une action : retour a l'etape du guide d'ou elle vient ({@code retour}), sinon a la page Epargne. */
     private static Response done(Request request, String ok, String anchor) {
         String back = back(request);
-        return Response.redirect((back != null ? back : "/epargne") + "?ok=" + ok + (anchor == null ? "" : "#" + anchor));
+        return Response.redirect(fr.patria.web.LocalPath.withOk(back != null ? back : "/epargne", ok) + (anchor == null ? "" : "#" + anchor));
     }
 
     static String back(Request request) {
-        String back = fr.patria.web.LocalPath.safe(request.form().raw("retour"));
-        return back != null && back.startsWith("/assistant/") && !back.contains("?") ? back : null;
+        return fr.patria.web.LocalPath.assistant(request.form().raw("retour"));
     }
 
     /** Versement programme : le solde avance a chaque echeance, une ligne de budget (Virements) le reprend. */
@@ -213,6 +212,12 @@ public final class SavingsController {
     public fr.patria.ui.Html wizardPanel(Request request, String back) {
         Visibility visibility = Visibility.of(request.viewer(), household.people());
         return SavingsPages.wizard(snapshot(request, java.util.Set.of()), visibility.people(), LocalDate.now(clock), back, request.csrf());
+    }
+
+    /** Import d'un export de courtier dans l'ecran d'un document du guide. */
+    public fr.patria.ui.Html wizardBrokerImport(Request request, String back) {
+        Visibility visibility = Visibility.of(request.viewer(), household.people());
+        return SavingsPages.brokerImport(snapshot(request, java.util.Set.of()).overview(), visibility.people(), back, request.csrf());
     }
 
     /** Nombre de placements et de lignes de bourse visibles (coches automatiques du guide). */

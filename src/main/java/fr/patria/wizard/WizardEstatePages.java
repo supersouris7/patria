@@ -64,7 +64,7 @@ final class WizardEstatePages {
             Html add = form(context, "/assistant/prets/" + property.id(), true, Html.concat(Components.fields(2,
                     Components.input(Input.of("Nom du prêt", "name", Field.TEXT).required().maxLength(100).placeholder("Prêt principal, prêt à taux zéro…"), Map.of()),
                     Html.raw("<label>Fichier CSV (facultatif)<input name=\"csv\" type=\"file\" accept=\".csv,text/csv\"></label>")), Components.localAiInput("echeancier"),
-                    Html.raw("<label>Ou collez la réponse de l'IA<textarea name=\"texte\" rows=\"5\" placeholder=\"Collez ici les lignes de l'échéancier\"></textarea></label>")),
+                    Html.raw("<label>Ou collez la réponse de l'IA<textarea name=\"texte\" rows=\"10\" placeholder=\"Collez ici les lignes de l'échéancier\"></textarea></label>")),
                     "Importer ce prêt");
             return Html.of("<section class=\"card section\" id=\"bien-%s\"><div class=\"section-title\"><h2>%s</h2></div>%s%s%s</section>",
                     property.id(), property.name(), list, Components.llmPrompt("prompt-pret-" + property.id(), CsvScheduleParser.llmPrompt()), add);

@@ -237,7 +237,7 @@ public final class BudgetController {
             }).toList();
             items.insertAll(fresh);
             String back = importBack(request);
-            return Response.redirect(back != null ? back + "?ok=importe" : "/administration/depenses?ok=importe");
+            return Response.redirect(back != null ? LocalPath.withOk(back, "importe") : "/administration/depenses?ok=importe");
         } catch (ValidationException exception) {
             return Response.invalid(adminPage(request, defaults(), Notice.error("Import impossible. " + exception.getMessage())));
         }
@@ -287,8 +287,7 @@ public final class BudgetController {
 
     /** Import lance depuis une etape du guide : on y revient apres (champ {@code retour}). */
     private static String importBack(Request request) {
-        String back = LocalPath.safe(request.form().raw("retour"));
-        return back != null && back.startsWith("/assistant/") && !back.contains("?") ? back : null;
+        return LocalPath.assistant(request.form().raw("retour"));
     }
 
     private static BudgetItem read(FormData form, long id) {
