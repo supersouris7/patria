@@ -17,7 +17,7 @@ RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT} ${APP_VERSIO
     && mv "org/sqlite/native/Linux/${arch}/libsqlitejdbc.so" . && rm -rf org && test -s libsqlitejdbc.so
 
 # Java reduit aux modules utiles (jlink) ; la derniere mise a jour de Java 21 est reprise a chaque construction.
-FROM eclipse-temurin:21-jdk-jammy AS runtime
+FROM eclipse-temurin:25-jdk-jammy AS runtime
 
 RUN $JAVA_HOME/bin/jlink \
     --add-modules java.base,java.desktop,java.logging,java.net.http,java.sql,java.xml,jdk.crypto.ec,jdk.httpserver,jdk.localedata,jdk.unsupported \
