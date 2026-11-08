@@ -76,11 +76,9 @@ final class WizardPages {
         int number = context.steps().indexOf(step) + 1;
         Html heading = Components.heading("Guide · étape " + number + " sur " + context.steps().size() + (context.review() ? " · revue" : ""),
                 step.title(), step.summary(), Html.EMPTY);
-        // Un ecran de document a ses propres boutons Precedent / Suivant ; l'ecran de fin des documents garde ceux de l'etape.
-        boolean documentScreen = step == Step.DOCUMENTS && currentDocument(context) != null;
         Html bar = Html.of("<div class=\"wizard-bar\">%s<details class=\"wizard-plan\"><summary>Plan du guide</summary><ol class=\"wizard-plan-steps\">%s</ol></details></div>",
                 Components.progress(context.steps().isEmpty() ? 0 : (number - 1) * 100 / context.steps().size()), stepper(context, step));
-        Html content = Html.concat(bar, heading, Components.notice(notice), body, step == Step.SUMMARY || documentScreen ? Html.EMPTY : footer(context, step));
+        Html content = Html.concat(bar, heading, Components.notice(notice), toSort(context, step), body, step == Step.SUMMARY ? Html.EMPTY : footer(context, step));
         Html layout = Html.of("<div class=\"wizard wizard-linear\"><div class=\"wizard-body\">%s</div></div>", content);
         return Layout.page(step.title() + " · Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), layout);
     }
@@ -132,94 +130,135 @@ final class WizardPages {
     // ---- 1. Documents ----
 
     /**
-     * Phase 1 du guide : les documents, un par ecran. « Je l'ai » ouvre ici meme l'import de ce document (prompt,
-     * reponse de l'IA a coller, apercu a cocher) ; « Pas sous la main » ou « Pas concerne » passe au suivant. Aucun
-     * lien ne saute vers une autre etape : les categories viennent ensuite, dans l'ordre.
+     * Phase 1 du guide : reunir les documents, puis les donner tous a l'IA avec un prompt universel. Sa reponse rejoint
+     * la pile « A trier » ; rien n'entre dans le budget. Le tri se fait ensuite, categorie par categorie (phase 2).
      */
     static Html documents(WizardController.Context context) {
         List<Documents.Document> documents = Documents.forViewer(context.admin());
         long ready = documents.stream().filter(document -> isReady(context, document)).count();
-        Documents.Document current = currentDocument(context);
-        int percent = documents.isEmpty() ? 100 : (int) (ready * 100 / documents.size());
-        Html progress = Html.of("<div class=\"doc-progress\"><span>%s</span>%s</div>",
-                current == null ? ready + " document" + (ready > 1 ? "s" : "") + " sur " + documents.size() + " rassemblé" + (ready > 1 ? "s" : "")
-                        : "Document " + (documents.indexOf(current) + 1) + " sur " + documents.size() + " · " + current.group(),
-                Components.progress(current == null ? 100 : (documents.indexOf(current) * 100 / documents.size())));
-        Html plan = Html.of("<details class=\"wizard-plan\"><summary>Liste des documents (%s sur %s)</summary><ol class=\"doc-plan\">%s</ol></details>", ready, documents.size(),
-                documents.stream().map(document -> Html.of("<li class=\"%s\"><a href=\"/assistant/documents?doc=%s\">%s</a></li>", isReady(context, document) ? "have" : "",
-                        document.id(), document.label())).collect(Html.joining()));
-        if (current == null) {
-            return Html.concat(progress, Components.card("Documents terminés", null, Html.EMPTY, Html.of("""
-                    <p>%s document%s sur %s rassemblé%s ou déjà dans Patria. La suite du guide reprend chaque catégorie (revenus, dépenses, prêts, épargne…) :
-                    vous y retrouvez ce qui a été importé, à vérifier, compléter ou supprimer.</p>""", ready, ready > 1 ? "s" : "", documents.size(), ready > 1 ? "s" : "")),
-                    plan);
-        }
-        boolean auto = current.auto().test(context.snapshot());
-        WizardRepository.DocumentStatus status = context.documents().get(current.id());
-        boolean have = auto || status == WizardRepository.DocumentStatus.HAVE;
-        String back = "/assistant/documents?doc=" + current.id();
-        Html state = auto ? Html.raw("<span class=\"badge paid\">Déjà dans Patria</span>")
-                : status == WizardRepository.DocumentStatus.HAVE ? Html.raw("<span class=\"badge paid\">Je l'ai</span>")
-                : status == WizardRepository.DocumentStatus.NOT_CONCERNED ? Html.raw("<span class=\"badge\">Pas concerné</span>") : Html.EMPTY;
-        Html choices = Html.of("<div class=\"doc-choices\">%s%s%s</div>",
-                docButton(context, current, "HAVE", have ? "Importer à nouveau" : "Je l'ai", have ? "secondary" : ""),
-                docButton(context, current, "", "Pas sous la main", "secondary"),
-                docButton(context, current, "NOT_CONCERNED", "Pas concerné", "quiet"));
-        Html importArea = have ? Html.of("<section class=\"doc-import\" id=\"import\">%s</section>", importFor(context, current, back)) : Html.EMPTY;
-        int index = documents.indexOf(current);
-        Html previous = index == 0 ? Html.raw("<a class=\"button secondary\" href=\"/assistant\">← Guide</a>")
-                : Html.of("<a class=\"button secondary\" href=\"/assistant/documents?doc=%s\">← Précédent</a>", documents.get(index - 1).id());
-        Html next = Html.of("<a class=\"button\" href=\"/assistant/documents?doc=%s\">Suivant →</a>", Documents.after(current.id(), documents));
-        return Html.concat(progress,
-                Html.of("""
-                        <section class="card doc-screen"><p class="eyebrow">%s</p><h2>%s %s</h2><p class="help">%s</p>%s%s</section>""",
-                        current.group(), current.label(), state, current.where(), choices, importArea),
-                Html.of("<div class=\"wizard-footer\">%s<div class=\"wizard-next\">%s</div></div>", previous, next), plan);
+        Html groups = documents.stream().map(Documents.Document::group).distinct().map(group -> Html.of("<h3 class=\"wizard-group\">%s</h3><ul class=\"doc-list\">%s</ul>",
+                group, documents.stream().filter(document -> document.group().equals(group)).map(document -> documentRow(context, document)).collect(Html.joining())))
+                .collect(Html.joining());
+        Map<ImportInbox.Type, Long> pile = context.inbox().stream().collect(java.util.stream.Collectors.groupingBy(ImportInbox.Item::type,
+                () -> new java.util.EnumMap<>(ImportInbox.Type.class), java.util.stream.Collectors.counting()));
+        Html pileCard = Components.card("Pile « À trier »", context.inbox().size(), Html.EMPTY, pile.isEmpty()
+                ? Html.raw("<p class=\"muted\">Vide pour l'instant. Après l'envoi de la réponse de l'IA, ses lignes attendent ici que vous les triiez.</p>")
+                : Html.of("<ul class=\"pile\">%s</ul><p class=\"muted\">Rien n'est encore dans votre budget : chaque ligne se valide ou se refuse à l'étape indiquée, avec « Suivant ».</p>",
+                pile.entrySet().stream().map(entry -> Html.of("<li><b>%s</b> %s <span class=\"muted\">→ étape « %s »</span></li>", entry.getValue(),
+                        entry.getKey().label().toLowerCase(java.util.Locale.FRENCH), entry.getKey().step().title())).collect(Html.joining())));
+        Html give = Html.of("""
+                <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s%s%s
+                <label>Réponse de l'IA (toutes les lignes, vous pouvez coller en plusieurs fois)<textarea name="texte" rows="12"
+                placeholder="REVENU;Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;"></textarea></label>
+                <div class="form-actions"><button type="submit">Ajouter à la pile « À trier »</button></div></form>""",
+                Components.csrfField(context.csrf()), modeField(context),
+                Components.localAiInput("tout|" + context.visibility().people().stream().map(person -> person.name() + (person.isAccount() ? "*" : ""))
+                        .collect(java.util.stream.Collectors.joining(","))));
+        return Html.concat(
+                explain("Deux temps. D'abord, donnez tous vos documents à l'IA d'un coup : tout ce qu'elle trouve (même en trop) attend dans la pile « À trier ». "
+                        + "Ensuite, « Suivant » passe chaque catégorie : vous validez ou refusez ses lignes, puis complétez à la main."),
+                Components.card("1. Réunissez vos documents", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()),
+                        Html.concat(Components.progress(documents.isEmpty() ? 0 : (int) (ready * 100 / documents.size())),
+                                Html.of("<details class=\"doc-checklist\"%s><summary>Liste des documents utiles</summary>%s</details>",
+                                        Html.raw(context.inbox().isEmpty() ? " open" : ""), groups))),
+                Html.of("<div id=\"import\">%s</div>", Components.card("2. Donnez-les tous à l'IA", null, Html.EMPTY,
+                        Html.concat(Components.llmPrompt("prompt-universel", ImportInbox.prompt(context.visibility().people())), give))),
+                pileCard);
     }
 
-    /** Document affiche : celui demande ({@code ?doc=}), sinon le premier a traiter ; {@code null} une fois au bout. */
-    static Documents.Document currentDocument(WizardController.Context context) {
-        List<Documents.Document> documents = Documents.forViewer(context.admin());
-        String wanted = context.document();
-        if ("fin".equals(wanted)) return null;
-        return documents.stream().filter(document -> document.id().equals(wanted)).findFirst()
-                .orElse(documents.stream().filter(document -> !isReady(context, document)).findFirst().orElse(null));
+    /** Un document de la liste : coche automatique, « J'ai ce document » ou « Pas concerne », sans quitter l'etape. */
+    static Html documentRow(WizardController.Context context, Documents.Document document) {
+        boolean auto = document.auto().test(context.snapshot());
+        WizardRepository.DocumentStatus status = context.documents().get(document.id());
+        String css = auto || status == WizardRepository.DocumentStatus.HAVE ? "have" : status == WizardRepository.DocumentStatus.NOT_CONCERNED ? "na" : "missing";
+        Html actions = auto ? Html.raw("<span class=\"badge paid\">Déjà dans Patria</span>")
+                : status != null ? Html.concat(Html.of("<span class=\"badge%s\">%s</span>", status == WizardRepository.DocumentStatus.HAVE ? " paid" : "",
+                status == WizardRepository.DocumentStatus.HAVE ? "Je l'ai" : "Pas concerné"), docButton(context, document, "", "Annuler", "quiet"))
+                : Html.concat(docButton(context, document, "HAVE", "Je l'ai", "secondary"), docButton(context, document, "NOT_CONCERNED", "Pas concerné", "quiet"));
+        return Html.of("<li class=\"doc %s\" id=\"doc-%s\"><span class=\"doc-mark\" aria-hidden=\"true\">%s</span><div><b>%s</b><span class=\"help\">%s</span></div>"
+                + "<div class=\"doc-actions\">%s</div></li>", css, document.id(), css.equals("have") ? "✓" : css.equals("na") ? "–" : "", document.label(), document.where(), actions);
     }
 
-    /** Import propre a un document, dans son ecran : retour au meme document apres l'apercu. */
-    static Html importFor(WizardController.Context context, Documents.Document document, String back) {
-        String kind = Documents.importKind(document.id());
-        Html warning = Components.localAi() ? Html.raw("<p class=\"notice success\"><b>IA locale</b> : déposez le document, il est analysé sur votre serveur.</p>")
-                : Html.EMPTY;
-        if (kind == null) {
-            Step step = Documents.next(document.id());
-            return Html.of("<p>Ce document se saisit à l'étape « %s », plus loin dans le guide : gardez-le sous la main.</p>",
-                    step == null ? "Récapitulatif" : step.title());
-        }
-        return switch (kind) {
-            case "revenus" -> Html.concat(warning, fr.patria.household.HouseholdPages.importForm(context.visibility().people(), back, context.csrf()));
-            case "bourse" -> Html.concat(warning, context.brokerImport().apply(back));
-            case "echeancier" -> loanImport(context, back);
-            default -> Html.concat(warning, Components.llmPrompt("prompt-doc-" + document.id(), fr.patria.budget.ExpenseCsv.llmPrompt()), Html.of("""
-                    <form method="post" action="/administration/depenses/import" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="%s">%s
-                    <label>Réponse de l'IA<textarea name="texte" rows="10"></textarea></label>
-                    <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form>""",
-                    Components.csrfField(context.csrf()), back, Components.localAiInput("depenses")));
-        };
+    /**
+     * Phase 2 : les lignes de la pile qui se trient a cette etape (depenses de logement, d'impots ou les autres ;
+     * revenus ; virements ; epargne et bourse). Cochees par defaut, sauf doublon possible ou depense resiliee.
+     */
+    static Html toSort(WizardController.Context context, Step step) {
+        List<ImportInbox.Item> items = context.inbox().stream().filter(item -> belongs(item, step)).toList();
+        if (items.isEmpty()) return Html.EMPTY;
+        List<Person> people = context.visibility().people();
+        Html rows = items.stream().map(item -> {
+            String what;
+            boolean checked = true;
+            String group;
+            try {
+                switch (item.type()) {
+                    case DEPENSE -> {
+                        ImportInbox.Expense expense = ImportInbox.expense(item.line(), people, context.snapshot().items());
+                        what = expense.item().label() + " · " + expense.item().category().label() + " · " + fr.patria.ui.Format.euro(expense.item().amount()) + " "
+                                + expense.item().frequency().label().toLowerCase(java.util.Locale.FRENCH)
+                                + (expense.person() == null ? "" : " · " + people.stream().filter(p -> p.id() == expense.person()).map(Person::name).findFirst().orElse(""))
+                                + (expense.hints().isEmpty() ? "" : " · " + String.join(", ", expense.hints())) + (expense.duplicate() ? " · déjà saisie" : "");
+                        checked = !expense.duplicate() && expense.hints().stream().noneMatch(hint -> hint.equals("Doublon possible") || hint.equals("Résilié"));
+                        group = expense.item().category().label();
+                    }
+                    case REVENU -> {
+                        fr.patria.household.IncomeCsv.Row row = ImportInbox.income(item.line(), people, context.snapshot().incomes());
+                        what = row.person() + " · " + row.income().label() + " · " + fr.patria.ui.Format.euro(row.income().amount()) + " "
+                                + row.income().frequency().label().toLowerCase(java.util.Locale.FRENCH) + (row.duplicate() ? " · déjà saisi" : "");
+                        checked = !row.duplicate();
+                        group = row.income().kind().label();
+                    }
+                    case VIREMENT -> {
+                        ImportInbox.Transfer transfer = ImportInbox.transfer(item.line(), people);
+                        what = memberName(people, transfer.from()) + " → " + memberName(people, transfer.to()) + " · " + transfer.label() + " · " + fr.patria.ui.Format.euro(transfer.amount())
+                                + " " + transfer.frequency().label().toLowerCase(java.util.Locale.FRENCH);
+                        group = "Virements";
+                    }
+                    case EPARGNE -> {
+                        ImportInbox.Account account = ImportInbox.account(item.line(), people);
+                        what = account.name() + " (" + account.kind().label() + ") · " + memberName(people, account.person()) + " · solde " + fr.patria.ui.Format.euro(account.balance())
+                                + (account.monthly() == null ? "" : " · versement " + fr.patria.ui.Format.euro(account.monthly()) + " par mois");
+                        group = "Placements";
+                    }
+                    default -> {
+                        ImportInbox.Position position = ImportInbox.position(item.line());
+                        what = position.row().label() + " (" + position.row().code() + ") · " + fr.patria.ui.Format.number(position.row().quantity(), 6) + " parts · "
+                                + fr.patria.ui.Format.euro(position.row().cost()) + " · compte « " + position.account() + " »";
+                        group = "Bourse";
+                    }
+                }
+            } catch (fr.patria.common.ValidationException exception) {
+                what = item.line() + " — " + exception.getMessage();
+                checked = false;
+                group = "À vérifier";
+            }
+            return Html.of("""
+                    <li><input type="hidden" name="vu_%s" value="on"><label class="check"><input type="checkbox" name="garder_%s" value="on"%s data-import-row \
+                    data-groups="c:%s"> %s</label></li>""", item.id(), item.id(), Html.raw(checked ? " checked" : ""), group, what);
+        }).collect(Html.joining());
+        return Html.of("""
+                <section class="card section to-sort" id="a-trier"><div class="section-title"><h2>À trier</h2><span class="badge">%s</span></div>
+                <p class="muted">Trouvé par l'IA dans vos documents. Cochez ce qui est juste : « Valider » l'enregistre ; ce qui n'est pas coché est écarté.
+                Les montants se corrigent ensuite dans la liste « Déjà saisies ».</p>
+                <div class="import-pickers" data-import-pickers><div class="pick-row"><span class="pick-label">Sélection</span>\
+                <button type="button" class="pick" data-import-all="on">Tout</button><button type="button" class="pick" data-import-all="off">Rien</button></div>\
+                <p class="import-count" data-import-count aria-live="polite"></p></div>
+                <form method="post" action="/assistant/tri">%s%s<input type="hidden" name="etape" value="%s"><ul class="plain-list sort-list">%s</ul>
+                <div class="form-actions"><button type="submit">Valider la sélection</button></div></form></section>""",
+                items.size(), Components.csrfField(context.csrf()), modeField(context), step.path(), rows);
     }
 
-    /** Echeancier d'un pret : une zone par bien ; sans bien, il se saisit a l'etape Biens puis Prets. */
-    private static Html loanImport(WizardController.Context context, String back) {
-        if (context.snapshot().properties().isEmpty()) {
-            return Html.raw("<p>Le prêt se rattache à un bien : créez le bien à l'étape « Biens immobiliers », puis importez l'échéancier à l'étape « Prêts ».</p>");
-        }
-        Html forms = context.snapshot().properties().stream().map(property -> Html.of("""
-                <form method="post" action="/assistant/prets/%s" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="%s">
-                <h3>%s</h3><label>Nom du prêt<input name="name" maxlength="100" required placeholder="Prêt principal, prêt à taux zéro…"></label>%s
-                <label>Réponse de l'IA (lignes de l'échéancier)<textarea name="texte" rows="10"></textarea></label>
-                <div class="form-actions"><button type="submit">Importer ce prêt</button></div></form>""",
-                property.id(), Components.csrfField(context.csrf()), back, property.name(), Components.localAiInput("echeancier"))).collect(Html.joining());
-        return Html.concat(Components.llmPrompt("prompt-doc-pret", fr.patria.loan.CsvScheduleParser.llmPrompt()), forms);
+    private static boolean belongs(ImportInbox.Item item, Step step) {
+        if (item.type() != ImportInbox.Type.DEPENSE) return item.type().step() == step;
+        String category = item.line().split(";", -1).length > 1 ? ImportInbox.normalize(item.line().split(";", -1)[1]) : "";
+        boolean housing = category.equals(ImportInbox.normalize(fr.patria.budget.Category.HOUSING.label())) || category.equals("housing");
+        boolean taxes = category.equals(ImportInbox.normalize(fr.patria.budget.Category.TAXES.label())) || category.equals("taxes");
+        return step == (housing ? Step.HOUSING : taxes ? Step.TAXES : Step.FIXED);
+    }
+
+    private static String memberName(List<Person> people, long id) {
+        return people.stream().filter(person -> person.id() == id).map(Person::name).findFirst().orElse("?");
     }
 
     static boolean isReady(WizardController.Context context, Documents.Document document) {

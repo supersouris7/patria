@@ -51,7 +51,7 @@ public final class WizardController {
     /** Depots du foyer utilises par l'assistant. */
     public record Stores(HouseholdRepository household, BudgetRepository items, ShareRepository shares, PropertyRepository properties,
                          LoanRepository loans, ExpenseRepository charges, RentRepository rents, WizardRepository progress,
-                         fr.patria.household.HealthScopeRepository healthScope, fr.patria.savings.SavingsController savings) {
+                         fr.patria.household.HealthScopeRepository healthScope, fr.patria.savings.SavingsController savings, ImportInbox inbox) {
     }
 
     static final String REVIEW = "revue";
@@ -85,6 +85,8 @@ public final class WizardController {
             }
         }
         router.userPost("/assistant/documents/coche", this::checkDocument);
+        router.userPost("/assistant/documents/importer", this::importAll);
+        router.userPost("/assistant/tri", this::sort);
         router.userPost("/assistant/revenus/ajouter", this::addIncome);
         router.userPost("/assistant/logement/ajouter", request -> addExpenses(request, Step.HOUSING, List.of(Checklist.RENT), false));
         router.userPost("/assistant/depenses/ajouter", request -> addExpenses(request, Step.FIXED, Checklist.FIXED, true));
@@ -255,19 +257,15 @@ public final class WizardController {
     record Context(boolean admin, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
                    Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
                    java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings,
-                   String document, java.util.function.Function<String, fr.patria.ui.Html> brokerImport) {
+                   List<ImportInbox.Item> inbox) {
         String mode() {
             return review ? "?mode=" + REVIEW : "";
         }
 
-        /** Etape suivante : la suivante dans l'ordre en revue, sinon la premiere non faite ni passee apres celle-ci. */
+        /** Etape suivante : toujours celle juste apres, meme deja faite (« Suivant » ne saute rien). */
         Step next(Step current) {
             int index = steps.indexOf(current);
-            for (int i = index + 1; i < steps.size(); i++) {
-                Step step = steps.get(i);
-                if (review || step == Step.SUMMARY || !progress.containsKey(step)) return step;
-            }
-            return Step.SUMMARY;
+            return index >= 0 && index + 1 < steps.size() ? steps.get(index + 1) : Step.SUMMARY;
         }
 
         Step previous(Step current) {
@@ -300,7 +298,7 @@ public final class WizardController {
                 stores.healthScope().scope(request.viewer(), people),
                 request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
                 () -> stores.savings().wizardPanel(request, Step.SAVINGS.path()),
-                request.query("doc"), back -> stores.savings().wizardBrokerImport(request, back));
+                stores.inbox().pending(owner(request)));
     }
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */
@@ -331,6 +329,79 @@ public final class WizardController {
         return Response.invalid(render(request, step, Notice.error(exception.getMessage()), request.form().values()));
     }
 
+    // ---- Pile « A trier » ----
+
+    /** Phase 1 : la reponse de l'IA (tous les documents) rejoint la pile ; rien n'entre dans le budget. */
+    private Response importAll(Request request) {
+        try {
+            String answer = new String(request.form().uploadedText("csv", "Réponse de l'IA"), java.nio.charset.StandardCharsets.UTF_8);
+            ImportInbox.Added added = stores.inbox().add(owner(request), answer, Visibility.of(request.viewer(), stores.household().people()).people(),
+                    LocalDate.now(clock));
+            String summary = added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
+                    : added.total() + " ligne" + (added.total() > 1 ? "s" : "") + " ajoutée" + (added.total() > 1 ? "s" : "") + " à la pile « À trier » ("
+                    + added.counts().entrySet().stream().map(entry -> entry.getValue() + " " + entry.getKey().label().toLowerCase(java.util.Locale.FRENCH))
+                    .collect(java.util.stream.Collectors.joining(", ")) + ").";
+            String errors = added.errors().isEmpty() ? "" : " Ignorées (illisibles) : " + String.join(" ; ", added.errors());
+            Notice notice = added.errors().isEmpty() ? Notice.success(summary) : Notice.error(summary + errors);
+            return Response.page(render(request, Step.DOCUMENTS, notice, Map.of()));
+        } catch (ValidationException exception) {
+            return invalid(request, Step.DOCUMENTS, exception);
+        }
+    }
+
+    /** Phase 2 : les lignes cochees sont validees (enregistrees), les autres lignes affichees sont refusees. */
+    private Response sort(Request request) {
+        String path = request.form().raw("etape");
+        Step step = java.util.Arrays.stream(Step.values()).filter(candidate -> candidate.path().equals(path)).findFirst()
+                .orElseThrow(() -> new ValidationException("Étape inconnue."));
+        Context context = context(request);
+        List<Long> shown = new java.util.ArrayList<>();
+        List<String> problems = new java.util.ArrayList<>();
+        int accepted = 0;
+        for (ImportInbox.Item item : context.inbox()) {
+            if (!"on".equals(request.form().raw("vu_" + item.id()))) continue;
+            shown.add(item.id());
+            if (!"on".equals(request.form().raw("garder_" + item.id()))) continue;
+            try {
+                accept(request, context, item);
+                accepted++;
+            } catch (ValidationException exception) {
+                problems.add(exception.getMessage());
+                shown.remove(item.id());
+            }
+        }
+        stores.inbox().remove(owner(request), shown);
+        Notice notice = problems.isEmpty() ? Notice.success(accepted + " ligne" + (accepted > 1 ? "s" : "") + " validée" + (accepted > 1 ? "s" : "")
+                + ", " + (shown.size() - accepted) + " refusée" + (shown.size() - accepted > 1 ? "s" : "") + ".")
+                : Notice.error("Certaines lignes restent à trier : " + String.join(" ; ", problems));
+        return Response.page(render(request, step, notice, Map.of()));
+    }
+
+    private void accept(Request request, Context context, ImportInbox.Item item) {
+        List<Person> people = context.visibility().people();
+        switch (item.type()) {
+            case DEPENSE -> {
+                ImportInbox.Expense expense = ImportInbox.expense(item.line(), people, List.of());
+                Map<Long, Integer> shares = expense.person() == null ? Map.of() : Shares.only(expense.person(), stores.household().people());
+                stores.items().insertAll(List.of(new BudgetRepository.NewExpense(expense.item(), context.visibility().normalize(shares))));
+            }
+            case REVENU -> stores.household().addIncome(ImportInbox.income(item.line(), people, List.of()).income());
+            case VIREMENT -> {
+                ImportInbox.Transfer transfer = ImportInbox.transfer(item.line(), people);
+                stores.household().addTransfer(new Transfer(0, transfer.from(), transfer.to(), transfer.label(), transfer.amount(), transfer.frequency(),
+                        transfer.start(), transfer.end()));
+            }
+            case EPARGNE -> {
+                ImportInbox.Account account = ImportInbox.account(item.line(), people);
+                stores.savings().importAccount(request, account.person(), account.kind(), account.name(), account.balance(), account.date(), account.monthly());
+            }
+            case BOURSE -> {
+                ImportInbox.Position position = ImportInbox.position(item.line());
+                stores.savings().importPosition(request, position.account(), position.row());
+            }
+        }
+    }
+
     // ---- Documents ----
 
     private Response checkDocument(Request request) {
@@ -343,9 +414,7 @@ public final class WizardController {
             default -> throw new ValidationException("Choix invalide.");
         };
         stores.progress().setDocument(owner(request), id, status);
-        // Le guide reste sur les documents, un par un : « Je l'ai » ouvre l'import de ce document ici meme ; sinon le suivant.
-        if (status == WizardRepository.DocumentStatus.HAVE) return Response.redirect("/assistant/documents?doc=" + id + "#import");
-        return Response.redirect("/assistant/documents?doc=" + Documents.after(id, Documents.forViewer(request.viewer().realEstate())));
+        return back(request, Step.DOCUMENTS, "doc-" + id);
     }
 
     // ---- Membres, revenus, virements ----

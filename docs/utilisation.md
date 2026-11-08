@@ -75,7 +75,12 @@ Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » pro
 
 ### Le parcours guidé
 
-Le Guide de saisie se suit avec **Précédent / Suivant** ; le plan complet reste dans « Plan du guide », replié. Il commence par **vos documents, un par écran** (bulletins de salaire, relevés, contrats, échéanciers, export de courtier…) : « Je l'ai » ouvre l'import de ce document dans le même écran, « Pas sous la main » ou « Pas concerné » passe au suivant. Viennent ensuite les catégories (revenus, logement, dépenses, prêts, épargne…), où l'on retrouve ce qui a été importé pour le vérifier, le supprimer ou le compléter. Les documents importables : relevés et contrats (dépenses), bulletins et attestations (revenus), échéancier (prêt), export de courtier (lignes de bourse).
+Le Guide de saisie se suit avec **Précédent / Suivant** (toujours l'étape juste après, sans rien sauter) ; le plan complet reste dans « Plan du guide », replié. Il se fait en deux temps :
+
+1. **Vos documents** : réunissez-les (liste à cocher), puis donnez-les **tous** à votre IA avec le **prompt universel**. Elle renvoie une ligne par élément trouvé, avec son type (`REVENU`, `DEPENSE`, `VIREMENT`, `EPARGNE`, `BOURSE`). Collez la réponse, en une ou plusieurs fois : tout attend dans la pile **« À trier »**, même en trop. **Rien n'entre dans le budget à ce stade.**
+2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.
+
+Les échéanciers de prêts immobiliers restent à part, à l'étape Prêts (un prompt dédié, rattaché au bien).
 
 1. **Copiez le prompt** dans votre assistant IA avec le document (relevés de tous les comptes, 12 mois si possible). L'IA demande d'abord ce qui manque, puis liste ce qu'elle trouve.
 2. **Collez sa réponse** dans le champ prévu (plus besoin de fichier ; les balises de code sont retirées). Un fichier CSV reste accepté.

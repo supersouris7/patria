@@ -83,6 +83,10 @@ public final class App implements AutoCloseable {
                 case "echeancier" -> fr.patria.loan.CsvScheduleParser.llmPrompt();
                 case "bourse" -> fr.patria.savings.PositionCsv.llmPrompt();
                 case "revenus" -> fr.patria.household.IncomeCsv.llmPrompt(kind.contains("|") ? java.util.List.of(kind.substring(kind.indexOf('|') + 1).split(",")) : java.util.List.of());
+                // Prompt universel du guide : « tout|Paul,Camille,Compte joint* » (* : compte joint).
+                case "tout" -> fr.patria.wizard.ImportInbox.prompt(java.util.Arrays.stream(kind.contains("|") ? kind.substring(kind.indexOf('|') + 1).split(",") : new String[0])
+                        .filter(name -> !name.isBlank()).map(name -> new fr.patria.household.Person(0, name.replace("*", ""),
+                                name.endsWith("*") ? fr.patria.household.Person.Kind.ACCOUNT : fr.patria.household.Person.Kind.PERSON)).toList());
                 default -> fr.patria.budget.ExpenseCsv.llmPrompt();
             }, document));
             Sessions sessions = new Sessions(config.clock());

@@ -9,7 +9,7 @@ import java.util.Optional;
  * biens, prets, charges, repartition) ; un utilisateur ne voit que celles qui concernent ses propres lignes.
  */
 public enum Step {
-    DOCUMENTS("documents", "Documents à rassembler", "La liste des papiers utiles, à cocher au fur et à mesure.", false),
+    DOCUMENTS("documents", "Vos documents", "Réunissez vos documents et donnez-les tous à l'IA : ce qu'elle trouve attend dans la pile « À trier ».", false),
     MEMBERS("membres", "Membres du foyer", "Les personnes du budget, et le compte joint s'il y en a un.", true),
     INCOMES("revenus", "Revenus", "Salaires, primes, pensions, allocations : ce qui rentre chaque mois.", false),
     HOUSING("logement", "Logement", "Locataire, propriétaire ou les deux : loyer payé et charges du logement.", false),

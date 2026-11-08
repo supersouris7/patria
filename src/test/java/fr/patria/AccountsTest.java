@@ -402,51 +402,69 @@ class AccountsTest {
     }
 
     @Test
-    void guideLeadsFromADocumentToItsImportAndBack() throws Exception {
+    void guideImportsEverythingFirstThenSortsEachCategory() throws Exception {
         Visitor admin = admin();
         Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
         assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
-        assertEquals("/assistant/documents?doc=statements#import", post(manager, "/assistant/documents/coche", "document=statements&status=HAVE").headers()
-                .firstValue("Location").orElseThrow(), "« J'ai ce document » ouvre l'import dans l'écran du document, sans changer d'étape");
-        String screen = get(manager, "/assistant/documents?doc=statements").body();
-        assertTrue(screen.contains("Document ") && screen.contains("name=\"retour\" value=\"/assistant/documents?doc=statements\"") && screen.contains("name=\"texte\""));
-        assertTrue(post(manager, "/assistant/documents/coche", "document=statements&status=").headers().firstValue("Location").orElseThrow()
-                .startsWith("/assistant/documents?doc="), "« Pas sous la main » passe au document suivant");
-        assertEquals("/assistant/documents?doc=brokerage#import", post(manager, "/assistant/documents/coche", "document=brokerage&status=HAVE").headers().firstValue("Location").orElseThrow());
-        assertTrue(get(manager, "/assistant/documents?doc=brokerage").body().contains("Créez d'abord le compte"), "sans PEA : le créer ici");
-        HttpResponse<String> fromDocument = post(manager, "/administration/revenus/import", "retour=" + java.net.URLEncoder.encode("/assistant/documents?doc=payslips",
-                java.nio.charset.StandardCharsets.UTF_8) + "&texte=" + java.net.URLEncoder.encode("Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;", java.nio.charset.StandardCharsets.UTF_8));
-        assertEquals(200, fromDocument.statusCode(), fromDocument.body());
-        Matcher incomes = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(fromDocument.body());
-        assertTrue(incomes.find());
-        assertEquals("/assistant/documents?doc=payslips&ok=importe", post(manager, "/administration/revenus/import/valider", "contenu=" + incomes.group(1)
-                + "&importer_1=on&retour=" + java.net.URLEncoder.encode("/assistant/documents?doc=payslips", java.nio.charset.StandardCharsets.UTF_8))
-                .headers().firstValue("Location").orElseThrow(), "revenu importé, retour au même document");
-        assertTrue(get(manager, "/administration/revenus").body().replaceAll("[\\s\\u00a0\\u202f]", "").contains("2450"), "revenu importé");
-        HttpResponse<String> preview = post(manager, "/administration/depenses/import", "retour=/assistant/depenses&texte="
-                + java.net.URLEncoder.encode("```csv\nNetflix;Télécom et abonnements;13,49;Mensuel;01/01/2026;;Abonnement\n```", java.nio.charset.StandardCharsets.UTF_8));
-        assertEquals(200, preview.statusCode(), preview.body());
-        Matcher content = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(preview.body());
-        assertTrue(content.find() && preview.body().contains("name=\"retour\" value=\"/assistant/depenses\""));
-        assertEquals("/assistant/depenses?ok=importe", post(manager, "/administration/depenses/import/valider", "contenu=" + content.group(1)
-                + "&choix=1&importer_1=on&retour=/assistant/depenses").headers().firstValue("Location").orElseThrow(), "retour au guide");
-        String step = get(manager, "/assistant/depenses").body();
-        assertTrue(step.contains("Déjà saisies") && step.contains("Netflix") && step.contains("/depense/1/supprimer?retour=/assistant/depenses"));
-        assertEquals("/assistant/depenses", post(manager, "/depense/1/supprimer?retour=/assistant/depenses", "").headers().firstValue("Location").orElseThrow());
+        assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Compte+joint&kind=ACCOUNT").statusCode());
+        String documents = get(manager, "/assistant/documents").body();
+        assertTrue(documents.contains("prompt-universel") && documents.contains("REVENU;personne") && documents.contains("Pile"), "phase 1 : un prompt pour tout");
+        String answer = """
+                ```csv
+                REVENU;Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;
+                DEPENSE;Netflix;Télécom et abonnements;13,49;Mensuel;01/01/2026;;Paul;Abonnement
+                DEPENSE;Disney+;Télécom et abonnements;9,99;Mensuel;01/01/2026;;;Doublon possible
+                DEPENSE;Loyer;Logement;900;Mensuel;01/01/2026;;;
+                VIREMENT;Paul;Compte joint;Participation;600;Mensuel;01/01/2026;
+                EPARGNE;Paul;PEA;PEA;100;31/10/2026;
+                BOURSE;PEA;AI.PA;Air Liquide;5;780
+                n'importe quoi
+                ```""";
+        HttpResponse<String> added = post(manager, "/assistant/documents/importer", "texte=" + java.net.URLEncoder.encode(answer, java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(200, added.statusCode());
+        assertTrue(added.body().contains("7 lignes ajoutées à la pile"), added.body().replaceAll("(?s).*?(<p class=\"notice.{0,400}).*", "$1"));
+        assertTrue(get(manager, "/administration/depenses").body().contains("Aucune dépense") || !get(manager, "/administration/depenses").body().contains("Netflix"),
+                "rien n'entre dans le budget avant validation");
+        assertEquals("/assistant/revenus", location(post(manager, "/assistant/documents/terminer", "")), "Suivant : l'étape juste après");
+        assertEquals("/assistant/logement", location(post(manager, "/assistant/revenus/terminer", "")));
+        assertEquals("/assistant/revenus", location(post(manager, "/assistant/documents/terminer", "")), "même déjà faite, l'étape suivante n'est pas sautée");
 
-        // Epargne dans le guide : placement, versement programme (repris au budget), lignes collees
-        assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=PEA&name=PEA&balance=0&retour=/assistant/epargne").statusCode());
-        assertEquals(303, post(manager, "/epargne/compte/1/versement", "montant=150&frequence=MONTHLY&retour=/assistant/epargne").statusCode());
-        assertTrue(get(manager, "/administration/depenses").body().contains("Versement PEA"), "versement repris dans le budget");
-        HttpResponse<String> positions = post(manager, "/epargne/compte/1/import", "retour=/assistant/epargne&texte=CW8.PA%3BETF+Monde%3B2%3B900");
-        assertEquals(200, positions.statusCode(), positions.body());
-        Matcher encoded = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(positions.body());
-        assertTrue(encoded.find());
-        assertEquals("/assistant/epargne?ok=importe#compte-1", post(manager, "/epargne/compte/1/import/valider", "contenu=" + encoded.group(1)
-                + "&importer_1=on&retour=/assistant/epargne").headers().firstValue("Location").orElseThrow());
+        String incomes = get(manager, "/assistant/revenus").body();
+        assertTrue(incomes.contains("À trier") && incomes.contains("Paul · Salaire"));
+        assertTrue(sort(manager, "/assistant/revenus", incomes, true).contains("1 ligne validée"));
+        assertTrue(get(manager, "/administration/revenus").body().contains("Salaire"));
+
+        String fixed = get(manager, "/assistant/depenses").body();
+        assertTrue(fixed.contains("Netflix") && fixed.contains("Disney+") && !fixed.contains("Loyer ·"), "le loyer se trie à l'étape Logement");
+        Matcher disney = Pattern.compile("name=\"garder_(\\d+)\" value=\"on\" data-import-row data-groups=\"c:[^\"]*\">[^<]*Disney").matcher(fixed);
+        assertTrue(disney.find(), "doublon possible décoché d'avance");
+        assertTrue(sort(manager, "/assistant/depenses", fixed, false).contains("1 ligne validée, 1 refusée"));
+        String expenses = get(manager, "/administration/depenses").body();
+        assertTrue(expenses.contains("Netflix") && !expenses.contains("Disney"));
+        assertTrue(get(manager, "/assistant/logement").body().contains("Loyer ·"));
+
         String savings = get(manager, "/assistant/epargne").body();
-        assertTrue(savings.contains("ETF Monde") && savings.contains("Versement programmé : 150"), "étape du guide complète");
-        String page = get(manager, "/epargne").body();
-        assertTrue(page.contains("savings-chart") && page.contains("data-regulated-rates"), "graphique et taux par défaut");
+        assertTrue(sort(manager, "/assistant/epargne", savings, true).contains("2 lignes validées"), "le PEA puis sa ligne de bourse");
+        assertTrue(get(manager, "/epargne").body().contains("Air Liquide"));
+        assertTrue(sort(manager, "/assistant/virements", get(manager, "/assistant/virements").body(), true).contains("1 ligne validée"));
+        assertTrue(sort(manager, "/assistant/logement", get(manager, "/assistant/logement").body(), false).contains("1 ligne validée"));
+        assertTrue(get(manager, "/assistant/documents").body().contains("Vide pour l"), "pile vidée");
+    }
+
+    /** Envoie le tri d'une etape : chaque ligne affichee, cochee seulement si elle l'est (ou toutes si {@code all}). */
+    private String sort(Visitor visitor, String step, String page, boolean all) throws Exception {
+        StringBuilder form = new StringBuilder("etape=" + step);
+        Matcher rows = Pattern.compile("name=\"garder_(\\d+)\" value=\"on\"( checked)?").matcher(page);
+        while (rows.find()) {
+            form.append("&vu_").append(rows.group(1)).append("=on");
+            if (all || rows.group(2) != null) form.append("&garder_").append(rows.group(1)).append("=on");
+        }
+        HttpResponse<String> response = post(visitor, "/assistant/tri", form.toString());
+        assertEquals(200, response.statusCode());
+        return response.body();
+    }
+
+    private static String location(HttpResponse<String> response) {
+        return response.headers().firstValue("Location").orElse("");
     }
 }

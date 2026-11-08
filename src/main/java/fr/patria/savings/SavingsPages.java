@@ -296,24 +296,6 @@ final class SavingsPages {
         return Html.of("<div id=\"import\">%s%s%s</div>", accounts(overview, today, back, csrf), hint, addAccount(people, back, csrf));
     }
 
-    /**
-     * Import d'un export de courtier depuis l'ecran d'un document du guide : une zone par PEA ou compte-titres, ou, s'il
-     * n'y en a pas encore, le formulaire pour le creer ici.
-     */
-    static Html brokerImport(Savings.Overview overview, List<Person> people, String back, String csrf) {
-        List<Savings.Line> accounts = overview.lines().stream().filter(line -> line.account().kind().stocks()).toList();
-        if (accounts.isEmpty()) {
-            return Html.concat(Html.raw("<p>Créez d'abord le compte qui détient ces titres (type « PEA » ou « Compte-titres ») ; la zone d'import apparaîtra ensuite ici.</p>"),
-                    addAccount(people, back, csrf));
-        }
-        Html forms = accounts.stream().map(line -> Html.of("""
-                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s
-                <label>Réponse de l'IA pour « %s » (lignes code;nom;quantité;prix de revient)<textarea name="texte" rows="10"></textarea></label>
-                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form>""",
-                line.account().id(), token(csrf, back), Components.localAiInput("bourse"), line.account().name())).collect(Html.joining());
-        return Html.concat(Components.llmPrompt("prompt-bourse-guide", PositionCsv.llmPrompt()), forms);
-    }
-
     static Html addAccount(List<Person> people, String back, String csrf) {
         if (people.isEmpty()) return Html.EMPTY;
         List<Components.Option> owners = people.stream().map(person -> new Components.Option(String.valueOf(person.id()), person.name())).toList();

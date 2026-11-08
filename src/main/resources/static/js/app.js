@@ -410,7 +410,7 @@ document.querySelectorAll('.metric').forEach((tile) => {
   const refresh = () => {
     const checked = rows.filter(box => box.checked).length;
     const count = pickers.querySelector("[data-import-count]");
-    if (count) count.textContent = checked + " dépense" + (checked > 1 ? "s" : "") + " sur " + rows.length + " seront importées.";
+    if (count) count.textContent = checked + " ligne" + (checked > 1 ? "s" : "") + " cochée" + (checked > 1 ? "s" : "") + " sur " + rows.length + ".";
     rows.forEach(box => {
       const state = box.closest("tr")?.querySelector("[data-import-state]");
       if (state) {

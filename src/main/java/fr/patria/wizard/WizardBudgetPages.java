@@ -5,7 +5,6 @@ import static fr.patria.wizard.WizardPages.*;
 
 import fr.patria.budget.BudgetItem;
 import fr.patria.budget.Category;
-import fr.patria.budget.ExpenseCsv;
 import fr.patria.common.Frequency;
 import fr.patria.household.Income;
 import fr.patria.household.IncomeKind;
@@ -160,16 +159,7 @@ final class WizardBudgetPages {
     }
 
     static Html fixed(WizardController.Context context, Map<String, String> values) {
-        Html quick = Html.of("""
-                <section class="help-block wizard-import" id="import"><h3>Importer avec l'IA vos relevés bancaires et contrats</h3>
-                <ol class="steps"><li><b>Copiez le prompt</b> dans votre assistant IA avec vos relevés (tous les comptes, 12 mois si possible) et vos contrats.
-                Il vous dit d'abord ce qui manque, puis liste les dépenses en les marquant (abonnement, télécom, doublon possible…).</li>
-                <li><b>Collez sa réponse</b> ci-dessous, puis cochez dans l'aperçu ce que vous gardez.</li>
-                <li><b>Revenez ici</b> : les lignes importées s'affichent dans « Déjà saisies », à supprimer ou compléter à la main.</li></ol>%s
-                <form method="post" action="/administration/depenses/import" class="stack" enctype="multipart/form-data">%s<input type="hidden" name="retour" value="/assistant/depenses">%s
-                <label>Réponse de l'IA<textarea name="texte" rows="10" placeholder="Mutuelle;Santé;35,69;Mensuel;01/01/2026;;Santé"></textarea></label>
-                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></section>""",
-                Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()), Components.csrfField(context.csrf()), Components.localAiInput("depenses"));
+        Html quick = Html.raw("<p class=\"muted\">D'autres documents à donner à l'IA ? Revenez à l'étape « Documents » : ses lignes rejoindront la pile à trier.</p>");
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "
                         + "d'un paiement et sa fréquence : Patria calcule les 12 prochains mois. Inutile de saisir ce que Patria reprend de l'immobilier "

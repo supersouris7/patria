@@ -63,7 +63,7 @@ public final class PositionCsv {
         return rows;
     }
 
-    static boolean isIsin(String code) {
+    public static boolean isIsin(String code) {
         return code.matches("[A-Z]{2}[A-Z0-9]{9}\\d");
     }
 

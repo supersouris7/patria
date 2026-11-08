@@ -154,3 +154,10 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .doc-choices form { margin: 0; }
 .doc-import { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
 .doc-screen { padding: 20px 24px; }
+/* Pile « A trier » du guide */
+.pile { list-style: none; margin: 0 0 8px; padding: 0; }
+.pile li { padding: 3px 0; }
+.to-sort { border-color: #2f6f9f; }
+.sort-list li { border-bottom: 1px solid var(--line); padding: 6px 0; }
+.sort-list .check { align-items: flex-start; display: flex; gap: 8px; }
+.doc-checklist summary { cursor: pointer; font-weight: 650; margin: 6px 0; }

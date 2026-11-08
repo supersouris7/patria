@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 17;
+    public static final int LATEST = 18;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -53,6 +53,7 @@ public final class Migrations {
             if (version < 15) toVersion15(connection);
             if (version < 16) toVersion16(connection);
             if (version < 17) toVersion17(connection);
+            if (version < 18) toVersion18(connection);
             return null;
         });
     }
@@ -407,6 +408,21 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 17);
+    }
+
+    /** Version 18 : pile « A trier » du guide (lignes trouvees par l'IA, en attente de validation par leur auteur). */
+    private static void toVersion18(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE import_inbox (
+                        id INTEGER PRIMARY KEY,
+                        owner TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        line TEXT NOT NULL,
+                        created_on TEXT NOT NULL
+                    )""");
+        }
+        setUserVersion(connection, 18);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

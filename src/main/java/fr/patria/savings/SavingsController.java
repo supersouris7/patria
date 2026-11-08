@@ -214,10 +214,25 @@ public final class SavingsController {
         return SavingsPages.wizard(snapshot(request, java.util.Set.of()), visibility.people(), LocalDate.now(clock), back, request.csrf());
     }
 
-    /** Import d'un export de courtier dans l'ecran d'un document du guide. */
-    public fr.patria.ui.Html wizardBrokerImport(Request request, String back) {
-        Visibility visibility = Visibility.of(request.viewer(), household.people());
-        return SavingsPages.brokerImport(snapshot(request, java.util.Set.of()).overview(), visibility.people(), back, request.csrf());
+    /** Placement valide depuis la pile « A trier » du guide (avec son versement programme eventuel). */
+    public void importAccount(Request request, long person, SavingsKind kind, String name, BigDecimal balance, LocalDate date, BigDecimal monthly) {
+        if (!request.viewer().sees(person)) throw new ValidationException("Membre non accessible.");
+        LocalDate today = LocalDate.now(clock);
+        long id = savings.addAccount(new SavingsRepository.Account(0, person, kind, name, balance, date == null || date.isAfter(today) ? today : date, null, null));
+        if (monthly != null && monthly.signum() > 0) {
+            long item = budget.insert(new fr.patria.budget.BudgetItem(0, "Versement " + name, fr.patria.budget.Category.TRANSFER, monthly, fr.patria.common.Frequency.MONTHLY,
+                    today, null), fr.patria.household.Shares.only(person, household.people()));
+            savings.setContribution(id, new SavingsRepository.Contribution(monthly, fr.patria.common.Frequency.MONTHLY, today, item));
+        }
+    }
+
+    /** Ligne de bourse validee depuis la pile : sur le PEA ou compte-titres de ce nom (ISIN converti si possible). */
+    public void importPosition(Request request, String accountName, PositionCsv.Row row) {
+        SavingsRepository.Account account = savings.accounts().stream()
+                .filter(candidate -> candidate.kind().stocks() && request.viewer().sees(candidate.personId()) && candidate.name().equalsIgnoreCase(accountName.strip()))
+                .findFirst().orElseThrow(() -> new ValidationException("validez d'abord le compte « " + accountName + " » (Épargne) pour " + row.label()));
+        String symbol = PositionCsv.isIsin(row.code()) ? feeds.resolve(row.code()).orElse(row.code()) : row.symbol();
+        savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, row.label(), row.quantity(), row.cost(), null));
     }
 
     /** Nombre de placements et de lignes de bourse visibles (coches automatiques du guide). */

@@ -75,7 +75,7 @@ final class HouseholdSite implements AutoCloseable {
                 budgetItems, feeds, clock);
         savings.register(router);
         WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard,
-                healthScope, savings), clock);
+                healthScope, savings, new fr.patria.wizard.ImportInbox(database)), clock);
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
         healthPreferences = new HealthRepository(database);

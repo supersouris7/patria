@@ -88,40 +88,6 @@ final class Documents {
             new Document("transport", "Déplacements", "L'abonnement de transport, le contrat de leasing ou LOA, la carte de péage",
                     "Montant mensuel ; carburant et péages : une moyenne sur quelques relevés.", false, data -> data.hasItem(Category.TRANSPORT)));
 
-    /** Etape du guide qui exploite ce document (import par l'IA ou saisie), ou {@code null}. */
-    static Step next(String id) {
-        return switch (id) {
-            case "payslips", "benefits" -> Step.INCOMES;
-            case "tax-notice" -> Step.TAXES;
-            case "lease" -> Step.HOUSING;
-            case "deed" -> Step.PROPERTIES;
-            case "amortization" -> Step.LOANS;
-            case "property-tax", "condo", "home-insurance", "rental-lease" -> Step.CHARGES;
-            case "brokerage", "savings-statements" -> Step.SAVINGS;
-            default -> Step.FIXED;
-        };
-    }
-
-    /** Document suivant dans la liste, ou {@code fin} apres le dernier. */
-    static String after(String id, List<Document> documents) {
-        for (int index = 0; index < documents.size() - 1; index++) {
-            if (documents.get(index).id().equals(id)) return documents.get(index + 1).id();
-        }
-        return "fin";
-    }
-
-    /** Import propose pour ce document : depenses, revenus, echeancier, bourse ; {@code null} : saisie a une etape du guide. */
-    static String importKind(String id) {
-        return switch (id) {
-            case "payslips", "benefits" -> "revenus";
-            case "amortization" -> "echeancier";
-            case "brokerage" -> "bourse";
-            case "statements", "credits", "tax-notice", "lease", "energy", "telecom", "subscriptions", "health", "insurance", "childcare", "school",
-                 "transport" -> "depenses";
-            default -> null;
-        };
-    }
-
     static List<Document> forViewer(boolean admin) {
         return ALL.stream().filter(document -> admin || !document.adminOnly()).toList();
     }
