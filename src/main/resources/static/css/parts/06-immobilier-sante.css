@@ -83,3 +83,17 @@ a.health-tile:hover, a.health-tile:focus-visible { border-color: var(--line-stro
 .simulate-link { display: block; font-size: .85rem; font-weight: 600; margin-top: 2px; white-space: nowrap; }
 .notice.info { background: #10212f; border-color: #24506f; color: var(--text-soft); font-weight: 400; line-height: 1.5; }
 .notice.info b { color: #9fd3ff; }
+
+/* Apercu de l'import : choix des lignes */
+.import-pickers { margin: 0 0 14px; }
+.pick-row { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.pick-label { color: var(--muted, #8b98a5); font-size: .75rem; font-weight: 700; letter-spacing: .06em; min-width: 92px; text-transform: uppercase; }
+.pick { background: transparent; border: 1px solid #2c3a48; border-radius: 999px; color: inherit; cursor: pointer; font-size: .85rem; font-weight: 600; padding: 4px 12px; }
+.pick b { color: #8fb8dc; margin-left: 2px; }
+.pick.active { background: #13304a; border-color: #2f6f9f; }
+.pick-row .pick.active::before { content: "✓ "; }
+tr .badge { white-space: nowrap; }
+.import-count { font-weight: 650; margin: 8px 0 0; }
+.import-pick { align-items: center; display: inline-flex; gap: 6px; white-space: nowrap; }
+.import-hints { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.import-hints .badge.warn { background: #2a2312; border-color: #6b5520; color: #f3d38a; }

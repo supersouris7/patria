@@ -26,10 +26,25 @@ public final class ExpenseCsv {
     /** L'apercu renvoie le contenu dans un formulaire, limite a 64 Ko une fois encode. */
     static final int MAX_BYTES = 45_000;
     static final int COLUMNS = 6;
+    /** Repères proposes a l'IA (7e colonne facultative), pour trier l'apercu par type de detection. */
+    public static final List<String> HINTS = List.of("Abonnement", "Télécom", "Streaming", "Énergie", "Assurance", "Santé", "Crédit", "Impôt",
+            "Enfants", "Transport", "Ponctuel", "Hausse récente", "Doublon possible", "Résilié", "À vérifier");
     private static final DateTimeFormatter FRENCH_DATE = DateTimeFormatter.ofPattern("d/M/uuuu").withResolverStyle(java.time.format.ResolverStyle.STRICT);
 
-    /** Une ligne du fichier : la depense lue, ou l'erreur qui l'empeche. {@code duplicate} : deja saisie, elle sera ignoree. */
-    public record Row(int line, BudgetItem item, String error, boolean duplicate) {
+    /**
+     * Une ligne du fichier : la depense lue, ou l'erreur qui l'empeche. {@code duplicate} : deja saisie, elle sera
+     * ignoree. {@code hints} : reperes de la 7e colonne (abonnement, doublon possible...), pour choisir quoi importer.
+     */
+    public record Row(int line, BudgetItem item, String error, boolean duplicate, List<String> hints) {
+        public Row(int line, BudgetItem item, String error, boolean duplicate) {
+            this(line, item, error, duplicate, List.of());
+        }
+
+        /** Coche par defaut dans l'apercu : tout, sauf un doublon possible ou une depense deja resiliee. */
+        public boolean suggested() {
+            return hints.stream().noneMatch(hint -> hint.equals("Doublon possible") || hint.equals("Résilié"));
+        }
+
         public boolean valid() {
             return error == null;
         }
@@ -62,13 +77,14 @@ public final class ExpenseCsv {
                 if (rows.isEmpty() && looksLikeHeader(values)) {
                     throw new ValidationException("Cette ligne ressemble à un en-tête : supprimez-la, le fichier commence directement par les dépenses.");
                 }
-                if (values.size() < COLUMNS - 1 || values.size() > COLUMNS) {
-                    throw new ValidationException(values.size() + " colonne" + (values.size() > 1 ? "s" : "") + " au lieu de 6 : libellé;catégorie;montant;fréquence;début;fin.");
+                if (values.size() < COLUMNS - 1 || values.size() > COLUMNS + 1) {
+                    throw new ValidationException(values.size() + " colonne" + (values.size() > 1 ? "s" : "")
+                            + " au lieu de 6 : libellé;catégorie;montant;fréquence;début;fin (et des repères facultatifs en 7e colonne).");
                 }
                 BudgetItem item = item(values);
                 boolean duplicate = seen.stream().anyMatch(other -> same(other, item));
                 seen.add(item);
-                rows.add(new Row(number, item, null, duplicate));
+                rows.add(new Row(number, item, null, duplicate, hints(cell(values, COLUMNS))));
             } catch (ValidationException exception) {
                 rows.add(new Row(number, null, exception.getMessage(), false));
             }
@@ -84,20 +100,43 @@ public final class ExpenseCsv {
         String categories = Category.selectable().stream().map(Category::label).collect(java.util.stream.Collectors.joining(", "));
         String frequencies = java.util.Arrays.stream(Frequency.values()).map(Frequency::label).collect(java.util.stream.Collectors.joining(", "));
         return """
-                Tu prépares un fichier CSV à importer dans Patria, une application de budget du foyer. À partir du ou des documents joints \
-                (relevés bancaires, avis d'imposition, échéanciers, contrats, factures), liste les dépenses du foyer.
+                Tu m'aides à préparer l'import de mes dépenses dans Patria, une application de budget du foyer. Tu travailles en deux temps.
+
+                ÉTAPE 1 — Rassembler les documents (avant tout fichier)
+                Regarde ce que je t'ai joint, puis demande-moi, en une seule liste à cocher, ce qui manque parmi :
+                - relevés de TOUS les comptes (comptes personnels, compte joint), idéalement 12 mois, au moins 3 ;
+                - échéanciers et contrats : électricité, gaz, eau, box internet, forfaits mobiles, assurances (auto, habitation, scolaire, \
+                emprunteur), mutuelle, crédits à la consommation, crèche ou garde, cantine, transports ;
+                - dernier avis d'impôt sur le revenu et prélèvement à la source ;
+                - abonnements payés par carte ou via le téléphone (App Store, Google Play), souvent absents des prélèvements.
+                Plus il y a de documents, plus la détection est complète. Attends que je réponde « c'est tout » (ou que j'ajoute des \
+                documents) avant l'étape 2.
+
+                ÉTAPE 2 — Détecter le maximum et produire le fichier
+                Repère toutes les dépenses qui reviennent (même tous les 2, 3, 6 ou 12 mois), les gros paiements annuels (assurances, \
+                impôts), et les paiements ponctuels importants. Je choisirai moi-même quoi importer : propose largement plutôt que d'oublier.
 
                 Format, à respecter strictement :
                 - une ligne par dépense, SANS ligne d'en-tête ;
-                - 6 colonnes séparées par un point-virgule, dans cet ordre : libellé;catégorie;montant;fréquence;début;fin
+                - 7 colonnes séparées par un point-virgule, dans cet ordre : libellé;catégorie;montant;fréquence;début;fin;repères
                 - libellé : court et clair (ex. « Mutuelle », « Électricité EDF »), sans point-virgule ;
                 - catégorie : exactement l'une de : %s ;
                 - montant : montant d'un seul prélèvement, en euros, positif, virgule décimale, sans symbole € ni espace (ex. 35,69) ;
                 - fréquence : exactement l'une de : %s ;
                 - début : date du premier prélèvement, au format JJ/MM/AAAA ;
-                - fin : date du dernier prélèvement au format JJ/MM/AAAA, ou vide si la dépense continue (la ligne finit alors par « ; »).
+                - fin : date du dernier prélèvement au format JJ/MM/AAAA, ou vide si la dépense continue ;
+                - repères : zéro, un ou plusieurs mots parmi %s, séparés par des virgules (ou vide).
 
-                Exemple : Mutuelle;Santé;35,69;Mensuel;01/01/2026;
+                Exemples :
+                Mutuelle;Santé;35,69;Mensuel;01/01/2026;;Santé
+                Forfait mobile;Télécom et abonnements;19,99;Mensuel;05/01/2026;;Abonnement,Télécom
+                Netflix;Télécom et abonnements;13,49;Mensuel;12/01/2026;;Abonnement,Streaming,Doublon possible
+
+                Repères à poser :
+                - Doublon possible : deux services qui font la même chose (deux plateformes vidéo, deux box, deux assurances pour le même risque) ;
+                - Hausse récente : le montant a augmenté sur la période (indique l'ancien montant dans la liste à vérifier) ;
+                - Résilié : le prélèvement s'est arrêté (mets aussi la date de fin) ;
+                - Ponctuel : paiement unique ; À vérifier : montant, fréquence ou nature incertains.
 
                 Règles :
                 - regroupe les prélèvements qui se répètent en une seule ligne avec la bonne fréquence, pas une ligne par mois ;
@@ -105,17 +144,30 @@ public final class ExpenseCsv {
                 - n'inclus pas les virements entre comptes du foyer, l'épargne, les remboursements reçus, ni ce que Patria reprend déjà \
                 de l'immobilier : mensualités des prêts immobiliers, taxe foncière, taxe d'habitation, charges de copropriété, assurance des biens ;
                 - %d lignes au plus ;
-                - n'invente rien : si une information manque ou est incertaine, fais au mieux et signale la ligne après le fichier.
+                - n'invente rien : si une information manque ou est incertaine, mets le repère « À vérifier ».
 
                 Confidentialité, à respecter strictement :
                 - ne recopie jamais une donnée qui identifie une personne ou un compte : nom, prénom, adresse, e-mail, téléphone, IBAN ou RIB, \
                 numéro de compte ou de carte, numéro fiscal, numéro de sécurité sociale, numéro de contrat ou de client, référence de prélèvement (RUM) ;
                 - libellés génériques : « Mutuelle », « Électricité », « Crédit auto » ; garde au plus la marque (« EDF », « Netflix »), jamais une référence ;
                 - ignore ce qui n'a pas de rapport avec les dépenses (santé, situation familiale, soldes, autres comptes) ;
-                - n'écris rien d'autre que le fichier et la liste des lignes à vérifier : pas de résumé des documents.
+                - n'écris rien d'autre que la liste de l'étape 1, puis le fichier et la liste des lignes à vérifier : pas de résumé des documents.
 
-                Réponse : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis la liste courte des lignes à vérifier.
-                """.formatted(categories, frequencies, MAX_LINES);
+                Réponse de l'étape 2 : le contenu CSV dans un bloc de code (ou un fichier .csv en UTF-8 à télécharger), puis, en quelques \
+                lignes, ce que tu as détecté par repère (ex. « 3 abonnements télécom, 1 doublon possible ») et les lignes à vérifier.
+                """.formatted(categories, frequencies, String.join(", ", HINTS), MAX_LINES);
+    }
+
+    /** Reperes de la 7e colonne, ramenes a la liste connue (casse et accents ignores) ; les autres sont gardes tels quels. */
+    static List<String> hints(String raw) {
+        List<String> result = new ArrayList<>();
+        for (String part : raw.split("[,|/]")) {
+            String hint = part.trim();
+            if (hint.isEmpty() || hint.length() > 40) continue;
+            String known = HINTS.stream().filter(candidate -> normalize(candidate).equals(normalize(hint))).findFirst().orElse(hint);
+            if (!result.contains(known) && result.size() < 5) result.add(known);
+        }
+        return List.copyOf(result);
     }
 
     /** Modele a telecharger : deux exemples, sans en-tete. */

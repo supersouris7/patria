@@ -400,3 +400,46 @@ document.querySelectorAll('.metric').forEach((tile) => {
     help.open = !help.open;
   });
 });
+
+// Apercu de l'import : cases par ligne, boutons « Tout », « Rien » et par type (categorie ou repere de l'IA).
+(() => {
+  const pickers = document.querySelector("[data-import-pickers]");
+  if (!pickers) return;
+  const rows = [...document.querySelectorAll("[data-import-row]")];
+  const inGroup = (box, group) => (box.dataset.groups || "").split("|").includes(group);
+  const refresh = () => {
+    const checked = rows.filter(box => box.checked).length;
+    const count = pickers.querySelector("[data-import-count]");
+    if (count) count.textContent = checked + " dépense" + (checked > 1 ? "s" : "") + " sur " + rows.length + " seront importées.";
+    rows.forEach(box => {
+      const state = box.closest("tr")?.querySelector("[data-import-state]");
+      if (state) {
+        state.textContent = box.checked ? "À importer" : "Ignorée";
+        state.classList.toggle("paid", box.checked);
+      }
+    });
+    pickers.querySelectorAll("[data-import-group]").forEach(button => {
+      const members = rows.filter(box => inGroup(box, button.dataset.importGroup));
+      button.setAttribute("aria-pressed", String(members.length > 0 && members.every(box => box.checked)));
+      button.classList.toggle("active", members.length > 0 && members.every(box => box.checked));
+    });
+    const submit = document.querySelector("[data-import-submit]");
+    if (submit) {
+      submit.disabled = checked === 0;
+      submit.textContent = checked === 0 ? "Rien à importer" : "Importer " + checked + " dépense" + (checked > 1 ? "s" : "");
+    }
+  };
+  pickers.addEventListener("click", event => {
+    const all = event.target.closest("[data-import-all]");
+    const group = event.target.closest("[data-import-group]");
+    if (all) rows.forEach(box => { box.checked = all.dataset.importAll === "on"; });
+    if (group) {
+      const members = rows.filter(box => inGroup(box, group.dataset.importGroup));
+      const on = !members.every(box => box.checked);
+      members.forEach(box => { box.checked = on; });
+    }
+    if (all || group) refresh();
+  });
+  rows.forEach(box => box.addEventListener("change", refresh));
+  refresh();
+})();

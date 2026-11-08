@@ -312,8 +312,11 @@ class AppTest {
         // tout le fichier pour William, sauf Internet à parts égales
         Matcher content = Pattern.compile("name=\"contenu\" value=\"([^\"]+)\"").matcher(preview.body());
         assertTrue(content.find());
+        assertTrue(preview.body().contains("data-import-group=\"c:Télécom et abonnements\""), "un bouton par type");
+        assertTrue(preview.body().contains("name=\"importer_2\""), "une case par ligne");
+        // Avec les cases : seules les lignes cochees sont importees (ici, Protection juridique est ignoree)
         HttpResponse<String> saved = post("/administration/depenses/import/valider", "csrf=" + csrf + "&contenu=" + content.group(1)
-                + "&attribution=" + people.get("William") + "&attribution_3=egal");
+                + "&choix=1&importer_1=on&importer_3=on&attribution=" + people.get("William") + "&attribution_3=egal");
         assertEquals("/administration/depenses?ok=importe", saved.headers().firstValue("Location").orElseThrow());
         String expenses = get("/administration/depenses").body();
         assertTrue(expenses.contains("William 100\u00a0%"), expenses);
@@ -321,7 +324,8 @@ class AppTest {
         assertTrue(!get("/budget?personne=" + people.get("Lou")).body().contains("Objectif Santé"));
 
         // reimporter ne cree pas de doublon ; une ligne fausse bloque tout ; un en-tete est refuse
-        assertTrue(upload("/administration/depenses/import", csrf, "", csv).body().contains("Toutes ces dépenses sont déjà saisies"));
+        assertTrue(!expenses.contains("Protection juridique"), "ligne décochée : ignorée");
+        assertTrue(upload("/administration/depenses/import", csrf, "", csv).body().contains("1 dépense à importer, 2 déjà saisies"));
         HttpResponse<String> wrong = upload("/administration/depenses/import", csrf, "", csv + "Gaz;Chauffage;50;Mensuel;01/01/2026;\n");
         assertEquals(400, wrong.statusCode());
         assertTrue(wrong.body().contains("Catégorie « Chauffage » inconnue."), wrong.body());

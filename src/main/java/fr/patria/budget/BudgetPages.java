@@ -356,6 +356,44 @@ final class BudgetPages {
      * Apercu d'un import : chaque ligne lue et ses erreurs ; confirmation seulement si tout est valide. Avec plusieurs
      * personnes, on choisit a qui reviennent les depenses : pour tout le fichier, puis ligne par ligne si besoin.
      */
+    /** Groupes d'une ligne pour les boutons de choix : sa categorie et ses reperes. */
+    private static String groupsOf(ExpenseCsv.Row row) {
+        List<String> groups = new java.util.ArrayList<>();
+        groups.add("c:" + row.item().category().label());
+        row.hints().forEach(hint -> groups.add("r:" + hint));
+        return String.join("|", groups);
+    }
+
+    /**
+     * Choisir quoi importer : tout, rien, ou un type d'un clic (« Télécom (3) », « Doublon possible (1) ») ; le
+     * bouton coche le groupe, ou le decoche s'il est deja entierement coche.
+     */
+    private static Html pickers(List<ExpenseCsv.Row> rows) {
+        // Reperes qui disent quelque chose de plus que la categorie (les autres feraient doublon avec elle).
+        List<String> detections = List.of("Abonnement", "Télécom", "Streaming", "Ponctuel", "Hausse récente", "Doublon possible", "Résilié", "À vérifier");
+        java.util.Map<String, Integer> found = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Integer> categories = new java.util.LinkedHashMap<>();
+        rows.stream().filter(ExpenseCsv.Row::fresh).forEach(row -> {
+            row.hints().stream().filter(detections::contains).forEach(hint -> found.merge(hint, 1, Integer::sum));
+            categories.merge(row.item().category().label(), 1, Integer::sum);
+        });
+        Html detected = detections.stream().filter(found::containsKey).map(hint -> pill("r:" + hint, hint, found.get(hint))).collect(Html.joining());
+        Html byCategory = categories.entrySet().stream().map(entry -> pill("c:" + entry.getKey(), entry.getKey(), entry.getValue())).collect(Html.joining());
+        return Html.of("""
+                <div class="import-pickers" data-import-pickers><p class="muted">Cochez ce que vous voulez importer. Un bouton coche tout un type d'un clic, \
+                ou le décoche s'il est déjà coché (ex. ignorer les abonnements télécom). Les doublons possibles et les dépenses résiliées sont décochés \
+                d'avance.</p>
+                <div class="pick-row"><span class="pick-label">Sélection</span><button type="button" class="pick" data-import-all="on">Tout</button>\
+                <button type="button" class="pick" data-import-all="off">Rien</button></div>%s
+                <div class="pick-row"><span class="pick-label">Catégories</span>%s</div>
+                <p class="import-count" data-import-count aria-live="polite"></p></div>""",
+                found.isEmpty() ? Html.EMPTY : Html.of("<div class=\"pick-row\"><span class=\"pick-label\">Détections</span>%s</div>", detected), byCategory);
+    }
+
+    private static Html pill(String group, String label, int count) {
+        return Html.of("<button type=\"button\" class=\"pick\" data-import-group=\"%s\" aria-pressed=\"false\">%s <b>%s</b></button>", group, label, count);
+    }
+
     static Html importPreview(List<ExpenseCsv.Row> rows, String content, List<Person> people, Map<String, String> choices, String csrf) {
         boolean shared = people.size() >= 2;
         long errors = rows.stream().filter(row -> !row.valid()).count();
@@ -371,12 +409,20 @@ final class BudgetPages {
             Html owner = !shared ? Html.EMPTY : cell(row.fresh() && confirmable
                     ? ownerSelect("attribution_" + row.line(), "Comme ci-dessus", people, choices.getOrDefault("attribution_" + row.line(), ""), formId)
                     : Html.text(Format.DASH));
-            return Html.of("<tr><td>%s</td>%s%s%s%s%s%s<td>%s</td></tr>", row.line(), cell(item.label()), cell(item.category().label()),
+            Html pick = row.fresh() && confirmable ? Html.of("""
+                    <label class="import-pick"><input type="checkbox" name="importer_%s" value="on" form="%s" data-import-row data-groups="%s"%s \
+                    aria-label="Importer %s"> %s</label>""", row.line(), formId, groupsOf(row), Html.raw(row.suggested() ? " checked" : ""), item.label(), row.line())
+                    : Html.text(String.valueOf(row.line()));
+            Html hints = row.hints().isEmpty() ? Html.EMPTY : Html.of("<span class=\"import-hints\">%s</span>",
+                    row.hints().stream().map(hint -> Html.of("<span class=\"badge%s\">%s</span>", Html.raw(hint.equals("Doublon possible") || hint.equals("À vérifier")
+                            || hint.equals("Hausse récente") ? " warn" : ""), hint)).collect(Html.joining()));
+            return Html.of("<tr><td>%s</td><td>%s%s</td>%s%s%s%s%s<td>%s</td></tr>", pick, item.label(), hints, cell(item.category().label()),
                     number(item.amount(), euro(item.amount())), cell(item.frequency().label()),
                     cell(item.end() == null ? "depuis " + Format.date(item.start()) : Format.date(item.start()) + " → " + Format.date(item.end())), owner,
-                    row.duplicate() ? Html.raw("<span class=\"badge\">Déjà saisie, ignorée</span>") : Html.raw("<span class=\"badge paid\">À importer</span>"));
+                    row.duplicate() ? Html.raw("<span class=\"badge\">Déjà saisie, ignorée</span>")
+                            : confirmable ? Html.raw("<span class=\"badge paid\" data-import-state>À importer</span>") : Html.raw("<span class=\"badge paid\">À importer</span>"));
         }).collect(Html.joining());
-        List<String> columns = new java.util.ArrayList<>(List.of("Ligne", "Dépense", "Catégorie", "#Montant", "Fréquence", "Période"));
+        List<String> columns = new java.util.ArrayList<>(List.of(confirmable ? "Importer" : "Ligne", "Dépense", "Catégorie", "#Montant", "Fréquence", "Période"));
         if (shared) columns.add("Attribuée à");
         columns.add("État");
         String summary = fresh + " dépense" + (fresh > 1 ? "s" : "") + " à importer"
@@ -394,10 +440,12 @@ final class BudgetPages {
                 before = Html.of("<div class=\"import-owner\">%s<p class=\"muted\">Pour tout le fichier ; une ligne peut avoir son propre choix dans le tableau. "
                         + "Modifiable ensuite dans chaque dépense.</p></div>", ownerSelect("attribution", null, people, choices.getOrDefault("attribution", ""), formId));
             }
+            before = Html.concat(before, pickers(rows));
             String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             actions = Html.of("<form id=\"%s\" method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
-                    + "<a class=\"button secondary\" href=\"/administration/depenses\">Annuler</a><button type=\"submit\">Importer %s</button></form>",
-                    formId, Components.csrfField(csrf), encoded, fresh + " dépense" + (fresh > 1 ? "s" : ""));
+                    + "<input type=\"hidden\" name=\"choix\" value=\"1\"><a class=\"button secondary\" href=\"/administration/depenses\">Annuler</a>"
+                    + "<button type=\"submit\" data-import-submit>Importer la sélection</button></form>",
+                    formId, Components.csrfField(csrf), encoded);
         }
         Html page = Html.concat(Components.backLink("/administration/depenses", "Dépenses"),
                 Components.heading("Gestion", "Aperçu de l'import", summary, Html.EMPTY),

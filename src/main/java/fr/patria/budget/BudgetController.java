@@ -225,7 +225,13 @@ public final class BudgetController {
             if (!rows.stream().allMatch(ExpenseCsv.Row::valid)) return Response.invalid(BudgetPages.importPreview(rows, content, people, Map.of(), request.csrf()));
             Map<String, String> form = request.form().values();
             Map<Long, Integer> all = owner(form.getOrDefault("attribution", ""), people, false);
-            List<BudgetRepository.NewExpense> fresh = rows.stream().filter(ExpenseCsv.Row::fresh).map(row -> {
+            // Apercu avec cases : seules les lignes cochees sont importees.
+            boolean chosen = form.containsKey("choix");
+            if (chosen && rows.stream().filter(ExpenseCsv.Row::fresh).noneMatch(row -> "on".equals(form.get("importer_" + row.line())))) {
+                return Response.invalid(BudgetPages.importPreview(rows, content, people, form, request.csrf()));
+            }
+            List<BudgetRepository.NewExpense> fresh = rows.stream().filter(ExpenseCsv.Row::fresh)
+                    .filter(row -> !chosen || "on".equals(form.get("importer_" + row.line()))).map(row -> {
                 String own = form.getOrDefault("attribution_" + row.line(), "");
                 return new BudgetRepository.NewExpense(row.item(), visibility.normalize(own.isEmpty() ? all : owner(own, people, true)));
             }).toList();

@@ -161,9 +161,16 @@ final class WizardBudgetPages {
 
     static Html fixed(WizardController.Context context, Map<String, String> values) {
         Html quick = Html.of("""
-                <details class="help-block"><summary>Plus rapide : tout importer avec vos relevés bancaires</summary>
-                <p class="muted">L'IA est facultative. Si vous l'utilisez, caviardez et vérifiez d'abord les copies de vos relevés et contrats. Joignez uniquement ces copies avec le prompt : elle renvoie un fichier
-                à importer dans <a href="/administration/depenses">Gérer → Dépenses → Importer</a>. Revenez ensuite ici : les lignes importées apparaîtront cochées.</p>%s</details>""",
+                <details class="help-block"><summary>Plus rapide : tout détecter à partir de vos relevés bancaires</summary>
+                <ol class="steps">
+                <li><b>Rassemblez le plus de documents possible</b> : relevés de tous les comptes (12 mois si possible, 3 au minimum), contrats et
+                échéanciers (énergie, box, mobiles, assurances, mutuelle, crédits, garde), avis d'impôt. Caviardez et vérifiez les copies.</li>
+                <li><b>Copiez le prompt</b> dans votre IA avec ces copies. Elle vous dit d'abord ce qui manque, puis détecte un maximum de dépenses
+                et les marque : abonnement, télécom, doublon possible, hausse récente, résilié, à vérifier…</li>
+                <li><b>Importez le fichier</b> dans <a href="/administration/depenses">Gérer → Dépenses → Importer</a>. L'aperçu vous laisse tout
+                choisir : une case par dépense, et un bouton par type pour garder ou ignorer d'un clic (ex. tous les abonnements télécom).
+                Revenez ensuite ici : les lignes importées apparaîtront cochées.</li></ol>
+                <p class="muted">L'IA est facultative : vous pouvez aussi remplir la liste ci-dessous à la main.</p>%s</details>""",
                 Components.llmPrompt("prompt-depenses-assistant", ExpenseCsv.llmPrompt()));
         return Html.concat(explain("Une dépense fixe revient au même rythme et presque au même montant : abonnements, énergie, assurances, garde d'enfants, "
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "

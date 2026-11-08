@@ -85,7 +85,7 @@ Dans ce bloc, dépliez **« Préparer, caviarder et contrôler les documents ici
 4. Cochez la vérification de **chaque page**, puis lancez **Contrôler avant partage**. Indiquez si besoin les noms, adresses ou autres informations à rechercher (un par ligne, uniquement en mémoire dans le navigateur). Le contrôle recherche les identifiants courants et ces mots dans le texte PDF non entièrement masqué.
 5. Corrigez les points signalés et relancez le contrôle. Si aucun point n'est trouvé et que toutes les pages sont analysables, Patria indique : **« Le document semble ne plus contenir de données sensibles, à relire de votre côté. »** Ce n'est pas une garantie d'anonymat. Sans OCR, les images et scans reçoivent un avertissement de contrôle incomplet, jamais ce message rassurant. En cas de contrôle incomplet ou d'alerte, une confirmation de relecture supplémentaire est nécessaire pour télécharger.
 6. Téléchargez `document-caviarde.pdf`, ouvrez cette copie et relisez-la avant de l'envoyer. Toute modification de zone annule le contrôle et la validation de la page ; modifier les mots recherchés annule le contrôle.
-7. Copiez le prompt et joignez **uniquement la copie caviardée**, jamais l'original. Vérifiez le CSV généré avant import.
+7. Copiez le prompt et joignez **uniquement la copie caviardée**, jamais l'original. L'IA demande d'abord les documents qui manquent (relevés de tous les comptes sur 12 mois, contrats, avis d'impôt), puis détecte un maximum de dépenses. Vérifiez le CSV généré avant import.
 
 Le PDF est reconstruit à partir des pixels caviardés : le texte caché, les métadonnées d'origine, annotations, formulaires, liens et pièces jointes ne sont pas recopiés. Cela supprime aussi la recherche et l'accessibilité du texte ; l'IA doit pouvoir lire des images. Les annotations ne sont pas rendues : vérifiez qu'aucune information utile n'a disparu. L'original reste intact sur votre appareil.
 
@@ -111,12 +111,13 @@ Assurance emprunteur;Crédits;17,68;Mensuel;01/01/2026;05/09/2042
 ```
 
 - Fin facultative, vide ou absente : sans fin. Dates `31/01/2026` ou `2026-01-31`.
+- 7e colonne facultative, **repères** séparés par des virgules : Abonnement, Télécom, Streaming, Ponctuel, Hausse récente, Doublon possible, Résilié, À vérifier, etc. Le prompt IA les fait remplir.
 - Catégorie/fréquence : libellés de l'application sans sensibilité aux accents ou majuscules, ou codes (`HEALTH`, `MONTHLY`).
 - Montants avec virgule ou point, espaces et symbole euro acceptés.
 - Point-virgule recommandé ; virgule possible si les montants n'en contiennent pas. Guillemets autour des libellés acceptés ; maximum 500 lignes.
 - Modèle téléchargeable et prompt IA disponibles. La copie automatique du prompt nécessite HTTPS ou localhost ; sinon sélection du texte pour Ctrl+C.
 
-L'aperçu permet de choisir la répartition pour tout le fichier puis ligne par ligne. Une erreur bloque l'import sans rien enregistrer. Une dépense déjà saisie (mêmes libellé, montant, fréquence et début) est ignorée pour éviter les doublons. Chaque ligne enregistrée reste modifiable dans son formulaire.
+L'aperçu a une case par dépense, et des boutons « Tout », « Rien », par détection (ex. Télécom, Doublon possible) et par catégorie pour garder ou ignorer un groupe d'un clic ; les doublons possibles et les dépenses résiliées sont décochés d'avance. Seules les lignes cochées sont importées. L'aperçu permet aussi de choisir la répartition pour tout le fichier puis ligne par ligne. Une erreur bloque l'import sans rien enregistrer. Une dépense déjà saisie (mêmes libellé, montant, fréquence et début) est ignorée pour éviter les doublons. Chaque ligne enregistrée reste modifiable dans son formulaire.
 
 ### Échéanciers de prêts CSV
 

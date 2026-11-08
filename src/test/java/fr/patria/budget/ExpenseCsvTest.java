@@ -43,7 +43,7 @@ class ExpenseCsvTest {
                 + "Box;Télécom et abonnements;30;Hebdo;2026-01-01;\n"
                 + "Taxe;Impôts et taxes;30;Annuel;31/02/2026;\n"
                 + "Auto;Transport;30;Annuel;2026-03-01;2026-01-01\n"
-                + "Trop;Santé;3;Mensuel;2026-01-01;;100\n";
+                + "Trop;Santé;3;Mensuel;2026-01-01;;Abonnement;100\n";
         List<ExpenseCsv.Row> rows = ExpenseCsv.parse(csv, List.of(existing));
         assertTrue(rows.get(0).valid() && rows.get(0).duplicate());
         assertEquals("Catégorie « Chauffage » inconnue.", rows.get(1).error());
@@ -52,7 +52,7 @@ class ExpenseCsvTest {
         assertTrue(rows.get(3).error().startsWith("Fréquence"));
         assertTrue(rows.get(4).error().startsWith("Début"), "31 février refusé");
         assertEquals("La fin précède le début.", rows.get(5).error());
-        assertTrue(rows.get(6).error().startsWith("7 colonnes"));
+        assertTrue(rows.get(6).error().startsWith("8 colonnes"));
     }
 
     @Test
@@ -68,5 +68,18 @@ class ExpenseCsvTest {
         List<ExpenseCsv.Row> rows = ExpenseCsv.parse(ExpenseCsv.template(), List.of());
         assertEquals(2, rows.size());
         assertTrue(rows.stream().allMatch(ExpenseCsv.Row::valid));
+    }
+
+    @Test
+    void readsOptionalHintsAndLeavesPossibleDuplicatesUnchecked() {
+        String csv = "Forfait mobile;Télécom et abonnements;19,99;Mensuel;05/01/2026;;abonnement, TELECOM\n"
+                + "Disney+;Télécom et abonnements;9,99;Mensuel;12/01/2026;;Streaming,Doublon possible\n"
+                + "Mutuelle;Santé;35,69;Mensuel;01/01/2026;\n";
+        List<ExpenseCsv.Row> rows = ExpenseCsv.parse(csv, List.of());
+        assertEquals(List.of("Abonnement", "Télécom"), rows.get(0).hints(), "repères ramenés à la liste connue");
+        assertTrue(rows.get(0).suggested());
+        assertTrue(!rows.get(1).suggested(), "doublon possible : décoché d'avance");
+        assertEquals(List.of(), rows.get(2).hints(), "6 colonnes toujours acceptées");
+        assertTrue(ExpenseCsv.llmPrompt().contains("ÉTAPE 1") && ExpenseCsv.llmPrompt().contains("Doublon possible"));
     }
 }
