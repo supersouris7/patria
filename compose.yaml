@@ -8,5 +8,13 @@ services:
     volumes:
       - patrimoine_data:/data
     restart: unless-stopped
+    # Durcissement : systeme de fichiers en lecture seule (seuls /data et /tmp s'ecrivent), aucun privilege ajoute.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 volumes:
   patrimoine_data:

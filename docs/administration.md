@@ -224,6 +224,24 @@ Testez d'abord sur une installation **isolée**, avec son propre volume, sans ut
 
 Si la clé manque ou diffère : arrêtez, remettez la bonne clé, puis `docker compose up -d --force-recreate patria`. Ne recréez pas une base vide pour contourner le problème. N'utilisez pas une ancienne version de Patria sur une base déjà migrée vers un schéma plus récent.
 
+## Sécurité de l'image et du conteneur
+
+L'image finale part de `cgr.dev/chainguard/glibc-dynamic` (Wolfi) : seulement la glibc et les certificats, **sans shell ni gestionnaire de paquets**, reconstruite chaque jour avec les correctifs ; Java est réduit aux modules utiles (`jlink`). Elle tourne sous l'utilisateur 10001 (le même qu'avant : les volumes existants restent lisibles). Sans shell, `docker exec … sh` n'est plus possible. Pour diagnostiquer : `docker logs patria` ; copier un fichier avec `docker cp patria:/data/<fichier> .` ; ou lancer un conteneur d'outils qui partage les espaces du conteneur, sans le modifier : `docker run --rm -it --pid=container:patria --network=container:patria busybox`. Les sauvegardes et la restauration (copie du volume `/data`) ne changent pas.
+
+Le `compose.yaml` durcit le conteneur ; reprenez ces lignes si vous utilisez votre propre fichier (Portainer…) :
+
+```yaml
+    read_only: true          # seuls /data (volume) et /tmp s'écrivent
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+```
+
+Derrière un proxy HTTPS qui transmet `X-Forwarded-Proto: https`, Patria envoie aussi `Strict-Transport-Security` (un an).
+
 ## Mise à jour et supervision
 
 Après une sauvegarde externe vérifiée :

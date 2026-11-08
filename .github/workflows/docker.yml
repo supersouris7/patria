@@ -22,9 +22,10 @@ jobs:
       stable: ${{ steps.channel.outputs.stable }}
       commit: ${{ steps.channel.outputs.commit }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - run: python3 -m unittest discover -s tests -p 'test_docker_publish.py'
       - id: channel
         env:
@@ -35,42 +36,125 @@ jobs:
     needs: publication
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publication.outputs.commit }}
-      - uses: actions/setup-java@v5
+          persist-credentials: false
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
       - run: mvn --batch-mode verify
 
-  docker:
+  # Controle avant toute publication : image amd64 et arm64 construites, demarrees sur des donnees de test (chiffrement,
+  # en-tetes, utilisateur non root) et analysees par Trivy. Rien n'est publie si un controle echoue.
+  verify:
     needs: [publication, test]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    env:
+      # Trivy officiel fige par empreinte (aucune action tierce executee avec les secrets).
+      TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publication.outputs.commit }}
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+          persist-credentials: false
+      # Outils de controle pris dans la revision du workflow : une ancienne version republiee (stable_tag) n'a pas
+      # forcement ces fichiers.
+      - uses: actions/checkout@v7
+        with:
+          path: ci-tools
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/smoke_image.py
+            .trivyignore
+          sparse-checkout-cone-mode: false
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Construire l'image à contrôler
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          platforms: ${{ matrix.platform }}
+          tags: patria-controle:ci
+          build-args: |
+            GIT_COMMIT=${{ needs.publication.outputs.commit }}
+            APP_VERSION=${{ needs.publication.outputs.stable == 'true' && needs.publication.outputs.tag || '' }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+      - name: Démarrer l'image sur des données de test
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          # Version anterieure a ce controle (republication d'un ancien tag) : test sans durcissement ni en-tetes recents.
+          legacy=""
+          [ -f scripts/smoke_image.py ] || legacy="--legacy"
+          python3 ci-tools/scripts/smoke_image.py patria-controle:ci --platform "$PLATFORM" $legacy
+      - name: Analyse Trivy (rapport complet)
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          mkdir -p trivy
+          name="$(echo "$PLATFORM" | tr '/' '-')"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work "$TRIVY_IMAGE" image \
+            --quiet --ignorefile ci-tools/.trivyignore --format json --output "trivy/$name.json" patria-controle:ci
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work "$TRIVY_IMAGE" image \
+            --quiet --ignorefile ci-tools/.trivyignore --format table --output "trivy/$name.txt" patria-controle:ci
+          cat "trivy/$name.txt" >> "$GITHUB_STEP_SUMMARY"
+      - name: Conserver le rapport
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trivy-${{ strategy.job-index }}
+          path: trivy/
+          retention-days: 90
+      # Bloquant : seules les vulnerabilites CRITIQUES ou ELEVEES qui ont un correctif disponible. Une vulnerabilite sans
+      # correctif reste visible dans le rapport ; toute exception passe par .trivyignore, justifiee.
+      - name: Seuil Trivy (critiques et élevées corrigeables)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work "$TRIVY_IMAGE" image \
+            --quiet --ignorefile ci-tools/.trivyignore --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 patria-controle:ci
+
+  docker:
+    needs: [publication, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.publication.outputs.commit }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
+          # SBOM et provenance attaches a l'image : Docker Scout et les utilisateurs voient les composants exacts.
+          sbom: true
+          provenance: mode=max
           build-args: |
             GIT_COMMIT=${{ needs.publication.outputs.commit }}
             APP_VERSION=${{ needs.publication.outputs.stable == 'true' && needs.publication.outputs.tag || '' }}
           platforms: linux/amd64,linux/arm64
+          cache-from: |
+            type=gha,scope=linux/amd64
+            type=gha,scope=linux/arm64
           tags: |
             supersouris7/patria:${{ needs.publication.outputs.tag }}
           labels: |
             org.opencontainers.image.version=${{ needs.publication.outputs.tag }}
             org.opencontainers.image.revision=${{ needs.publication.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
   latest:
     needs: [publication, docker]
@@ -82,9 +166,11 @@ jobs:
       group: patria-docker-latest
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

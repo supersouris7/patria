@@ -447,11 +447,12 @@ final class BudgetPages {
             }
             before = Html.concat(before, pickers(rows));
             String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            // Valeurs echappees par Html.of : rien de ce qui vient du formulaire n'est insere tel quel.
             actions = Html.of("<form id=\"%s\" method=\"post\" action=\"/administration/depenses/import/valider\" class=\"form-actions\">%s<input type=\"hidden\" name=\"contenu\" value=\"%s\">"
-                    + "<input type=\"hidden\" name=\"choix\" value=\"1\">" + (back == null ? "" : "<input type=\"hidden\" name=\"retour\" value=\"" + back + "\">")
-                    + "<a class=\"button secondary\" href=\"" + (back == null ? "/administration/depenses" : back) + "\">Annuler</a>"
+                    + "<input type=\"hidden\" name=\"choix\" value=\"1\">%s<a class=\"button secondary\" href=\"%s\">Annuler</a>"
                     + "<button type=\"submit\" data-import-submit>Importer la sélection</button></form>",
-                    formId, Components.csrfField(csrf), encoded);
+                    formId, Components.csrfField(csrf), encoded, back == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back),
+                    back == null ? "/administration/depenses" : back);
         }
         Html page = Html.concat(back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Retour au guide"),
                 Components.heading("Gestion", "Aperçu de l'import", summary, Html.EMPTY),

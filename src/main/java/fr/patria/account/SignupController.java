@@ -22,6 +22,9 @@ public final class SignupController extends AccountSupport {
     /** Au-dela, les nouvelles demandes sont refusees (protection contre l'envoi en masse). */
     static final int PENDING_LIMIT = 30;
     private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    /** Au plus 3 demandes par adresse IP et par heure (formulaire public). */
+    static final int PER_ADDRESS = 3;
+    private final java.util.Map<String, java.util.List<LocalDateTime>> recent = new java.util.concurrent.ConcurrentHashMap<>();
 
     public SignupController(AccountSupport.Stores stores) {
         super(stores);
@@ -47,6 +50,17 @@ public final class SignupController extends AccountSupport {
         if (!"form".equals(accounts.signupMode())) return Response.redirect("/inscription");
         // Champ invisible : rempli seulement par les robots.
         if (!request.form().raw("site").isBlank()) return Response.page(page("form", Notice.success("Demande envoyée à l'administrateur.")));
+        LocalDateTime now = LocalDateTime.now(clock);
+        java.util.List<LocalDateTime> sent = recent.compute(request.clientAddress(), (address, times) -> {
+            java.util.List<LocalDateTime> kept = new java.util.ArrayList<>(times == null ? java.util.List.of() : times);
+            kept.removeIf(time -> time.isBefore(now.minusHours(1)));
+            return kept;
+        });
+        if (sent.size() >= PER_ADDRESS) {
+            return new Response.Page(429, page("form", Notice.error("Trop de demandes depuis cette adresse : réessayez dans une heure.")));
+        }
+        sent.add(now);
+        if (recent.size() > 10_000) recent.clear();
         try {
             String name = request.form().requiredText("name", "Votre nom", 60);
             String login = login(request.form().raw("login"));

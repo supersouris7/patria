@@ -28,7 +28,7 @@ IA locale facultative (module `ai`) : `LocalAi` appelle le serveur Ollama régl�
 
 ## Publication Docker Hub
 
-Un seul workflow : [`.github/workflows/docker.yml`](../.github/workflows/docker.yml), à modifier dans le dépôt (pas dans Portainer). Docker Hub est conservé ; aucun deuxième pipeline GHCR n'est nécessaire. Secrets GitHub requis : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (jeton d'accès Docker Hub en lecture et écriture).
+Un seul workflow : [`.github/workflows/docker.yml`](../.github/workflows/docker.yml) (tests Java, contrôle amd64/arm64 et Trivy, puis publication), à modifier dans le dépôt (pas dans Portainer). Docker Hub est conservé ; aucun deuxième pipeline GHCR n'est nécessaire. Secrets GitHub requis : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (jeton d'accès Docker Hub en lecture et écriture).
 
 | Déclencheur | Images publiées après tests Java et navigateur |
 |---|---|
@@ -71,3 +71,13 @@ python3 -m unittest discover -s tests -p 'test_docker_publish.py'
 GitHub → Settings → General → Danger Zone → Change repository visibility ne sert que si le dépôt est encore privé. Vérifiez l'historique et les fichiers avant publication : `.gitignore` ne retire aucun ancien secret. Si un secret a déjà été envoyé, révoquez-le avant toute correction de l'historique. Un scan automatique sans alerte ne garantit pas l'absence de données personnelles. La visibilité des images Docker Hub se règle séparément de celle du dépôt GitHub.
 
 Le pied de page affiche version et commit. La CI fournit `GIT_COMMIT` comme argument Docker ; en local, utilisez `-Dgit.commit=...` comme ci-dessus. `KOFI_URL=https://ko-fi.com/<nom>` configure le lien de soutien, une valeur vide le masque.
+
+## Vulnérabilités (CVE) et contrôle des images
+
+- **Image** : base Wolfi `cgr.dev/chainguard/glibc-dynamic` figée par son empreinte (7 paquets, sans shell) ; bibliothèque native de SQLite extraite dans `/app/native` pour un `/tmp` non exécutable. Détail et mesures : [audit de sécurité](audit-securite.md).
+- **CI** (`.github/workflows/docker.yml`, job `verify`, avant toute publication, pour amd64 et arm64) : construction, `scripts/smoke_image.py` (démarrage durci, chiffrement, en-têtes, utilisateur non root), puis Trivy (image officielle figée par empreinte). Rapport complet (JSON et tableau) gardé 90 jours en artefact et affiché dans le résumé du job. **Bloquant** : vulnérabilité critique ou élevée avec un correctif disponible. Les vulnérabilités sans correctif restent visibles dans le rapport sans bloquer. Exception : `.trivyignore`, avec justification et preuve.
+- **Ancienne version republiée** (`stable_tag`) : les outils de contrôle viennent de la révision du workflow ; une image antérieure à ces contrôles est testée en mode `--legacy` (sans lecture seule ni nouveaux en-têtes).
+- **Localement** : `docker build -t patria:test . && python3 scripts/smoke_image.py patria:test`, puis `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2 image patria:test`.
+- **Mises à jour** : Dependabot (`.github/dependabot.yml`) propose chaque semaine l'empreinte de l'image de base, les actions GitHub et les dépendances Maven, en pull request.
+- **Corriger** : le plus souvent une nouvelle construction suffit (base Wolfi et Java 21 repris à leur dernière version) ; sinon monter la dépendance dans `pom.xml`.
+- **En-têtes HTTP** posés par `web/Router` : CSP stricte (aucun script en ligne, `frame-ancestors 'none'`), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, HSTS en HTTPS ; cookies `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS. Formulaire public de demande de compte : 3 demandes par adresse et par heure, 30 en attente au plus.

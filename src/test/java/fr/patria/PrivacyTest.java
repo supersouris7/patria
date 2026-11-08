@@ -140,6 +140,11 @@ class PrivacyTest {
         ollama.start();
         try (App ignored = start(null)) {
             assertFalse(get(null, "/aide/caviardage").statusCode() == 200, "outil de caviardage retiré");
+            HttpResponse<String> login = get(null, "/connexion");
+            assertEquals("DENY", login.headers().firstValue("X-Frame-Options").orElseThrow());
+            assertTrue(login.headers().firstValue("Permissions-Policy").orElseThrow().contains("camera=()"));
+            assertEquals("same-origin", login.headers().firstValue("Cross-Origin-Opener-Policy").orElseThrow());
+            assertTrue(login.headers().firstValue("Strict-Transport-Security").isEmpty(), "HSTS seulement en HTTPS");
             Visitor admin = TestAccounts.admin(client, base);
             Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             String expenses = get(manager, "/administration/depenses").body();

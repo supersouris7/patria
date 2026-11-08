@@ -260,6 +260,14 @@ public final class Router implements HttpHandler {
         headers.set("Cache-Control", "no-store");
         headers.set("X-Content-Type-Options", "nosniff");
         headers.set("Referrer-Policy", "same-origin");
+        headers.set("X-Frame-Options", "DENY");
+        headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()");
+        headers.set("Cross-Origin-Opener-Policy", "same-origin");
+        headers.set("Cross-Origin-Resource-Policy", "same-origin");
+        // HTTPS (derriere le proxy) : le navigateur n'essaiera plus le HTTP pendant un an.
+        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) {
+            headers.set("Strict-Transport-Security", "max-age=31536000");
+        }
         switch (response) {
             case Response.Page page -> {
                 headers.set("Content-Type", "text/html; charset=utf-8");

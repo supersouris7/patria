@@ -359,6 +359,8 @@ class AccountsTest {
         assertEquals(303, post(admin, "/administration/demandes/reglage", "mode=form").statusCode());
         assertEquals(200, post(null, "/inscription", "name=Lou&login=lou&message=Bonjour").statusCode());
         assertEquals(400, post(null, "/inscription", "name=Lou&login=lou").statusCode(), "identifiant déjà demandé");
+        assertEquals(200, post(null, "/inscription", "name=Max&login=max").statusCode());
+        assertEquals(429, post(null, "/inscription", "name=Zoe&login=zoe").statusCode(), "au plus 3 demandes par adresse et par heure");
         String requests = get(admin, "/administration/demandes").body();
         assertTrue(requests.contains("Lou") && requests.contains("Bonjour"));
         Matcher id = Pattern.compile("/administration/demandes/(\\d+)/accepter").matcher(requests);

@@ -1,0 +1,3 @@
+# Exceptions Trivy, chacune justifiee (CVE, paquet, raison, date de revision). Aucune pour l'instant.
+# Ne jamais ajouter une CVE ici pour faire passer une publication : seulement une vulnerabilite non applicable a Patria,
+# avec la preuve (avis du mainteneur, Debian Security Tracker, avis Chainguard...).

@@ -1,6 +1,6 @@
-.env
-data/
-.git
-.github
-target
-*.md
+# Liste blanche : seuls le pom.xml et les sources entrent dans le contexte de construction (jamais .env, bases
+# SQLite, sauvegardes, graphes ou fichiers locaux).
+*
+!pom.xml
+!src/
+src/test/
