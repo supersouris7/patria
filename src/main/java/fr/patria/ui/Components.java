@@ -260,8 +260,27 @@ public final class Components {
                 <p class="notice warning ai-warning"><b>Attention aux données que vous confiez à une IA commerciale.</b> Elle reçoit tout ce que vous lui \
                 envoyez : noms, adresses, IBAN, numéros de compte, montants. Selon ses conditions, elle peut les conserver ou s'en servir pour s'entraîner. \
                 N'envoyez que ce que vous acceptez de partager : retirez vous-même les informations sensibles, désactivez l'historique et l'entraînement \
-                dans ses réglages, ou préférez un modèle local. <a href="/confidentialite">En savoir plus</a></p>""");
+                dans ses réglages, ou préférez un modèle local. <a href="/confidentialite">En savoir plus</a></p>""" + AI_SETTINGS);
     }
+
+    /** Reglages conseilles dans l'assistant IA (ChatGPT, Claude, Gemini, Le Chat) avant d'y envoyer un document. */
+    public static final String AI_SETTINGS = """
+            <details class="ai-settings"><summary>Bien régler votre assistant IA avant d'envoyer (2 minutes)</summary><ol>
+            <li><b>Utilisez une conversation temporaire</b> : « Discussion temporaire » (ChatGPT, Gemini), conversation « incognito » (Claude). Elle n'apparaît \
+            pas dans l'historique et, selon le service, n'est pas utilisée pour l'entraînement.</li>
+            <li><b>Refusez l'entraînement sur vos conversations</b> : ChatGPT → Paramètres → Contrôle des données → « Améliorer le modèle pour tout le monde » \
+            désactivé ; Claude → Paramètres → Confidentialité → « Aider à améliorer Claude » désactivé ; Gemini → « Activité dans les applications Gemini » \
+            désactivée ; Le Chat → paramètres de confidentialité, entraînement désactivé.</li>
+            <li><b>Ne rendez jamais la conversation publique</b> : pas de lien « Partager », pas d'option « rendre visible » ou « découvrable » ; des \
+            conversations partagées ont déjà été retrouvées par des moteurs de recherche. Vérifiez et supprimez vos liens existants (ChatGPT → Paramètres → \
+            Contrôle des données → Liens partagés).</li>
+            <li><b>Désactivez la mémoire</b> (ChatGPT → Personnalisation → Mémoire ; équivalents ailleurs) pour que l'assistant ne retienne pas votre \
+            situation financière d'une conversation à l'autre.</li>
+            <li><b>Effacez après usage</b> : une fois les lignes copiées dans Patria, supprimez la conversation et les fichiers joints, et videz l'historique \
+            si besoin. Le service peut encore garder une copie quelque temps (souvent jusqu'à 30 jours) selon ses conditions.</li>
+            <li><b>Envoyez le moins possible</b> : retirez ou masquez noms, adresse, IBAN et numéros avant d'envoyer ; une copie partielle du relevé suffit souvent.</li>
+            </ol><p class="muted small">Les noms des menus changent souvent : cherchez l'équivalent dans les réglages de votre assistant. Le plus sûr reste \
+            une IA locale, où rien ne sort.</p></details>""";
 
     /** Import : un fichier CSV, les lignes collees (reponse d'une IA) dans {@code texte}, ou le document pour l'IA locale. */
     public static Html importInput(String label, String name, String kind) {

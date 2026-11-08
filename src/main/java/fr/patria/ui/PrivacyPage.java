@@ -60,12 +60,14 @@ public final class PrivacyPage {
                         <li><b>Attention aux données confiées à une IA commerciale</b> : elle reçoit tout ce que vous lui envoyez (nom, adresse, IBAN,
                         numéros de compte, numéro fiscal, montants) et peut, selon ses conditions, le conserver ou s'en servir pour s'entraîner. Retirez
                         vous-même ce que vous ne voulez pas partager. Avec une IA locale installée par l'administrateur, le document est analysé sur votre serveur : rien ne sort.</li>
+                        <li><b>Réglez l'assistant avant d'envoyer</b> : conversation temporaire, entraînement refusé, aucun lien de partage public, mémoire désactivée,
+                        conversation effacée après usage. Le détail est ci-dessous.</li>
                         <li><b>Vérifiez les conditions du service</b> et désactivez l'entraînement si possible. Une conversation temporaire ne garantit pas
                         l'absence de conservation : les règles du fournisseur s'appliquent.</li>
                         <li><b>Préférez un modèle local</b> si vous en avez un (Ollama, LM Studio…) : rien ne quitte votre ordinateur.</li>
                         <li><b>Le prompt demande des libellés génériques</b> (« Mutuelle », pas « Mutuelle n° 123456 »), mais ne protège pas un original déjà
                         envoyé. Les montants, dates et libellés transmis peuvent encore identifier une personne.</li>
-                        <li><b>Vérifiez l'aperçu</b> : Patria montre chaque ligne avant de l'enregistrer.</li></ol>""")),
+                        <li><b>Vérifiez l'aperçu</b> : Patria montre chaque ligne avant de l'enregistrer.</li></ol>""" + Components.AI_SETTINGS)),
                 Components.card("Effacer des données", null, Html.EMPTY, Html.raw("""
                         <ul class="plain-list privacy-list">
                         <li>Supprimer une ligne, un bien ou un membre le retire de la base active ; des copies peuvent subsister dans les sauvegardes,

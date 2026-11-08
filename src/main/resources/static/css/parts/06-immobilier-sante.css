@@ -124,3 +124,5 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .ai-warning { font-weight: 400; line-height: 1.5; }
 .local-ai { background: #10212f; border: 1px solid #24506f; border-radius: var(--radius-small); margin: 8px 0; padding: 10px 12px; }
 .local-ai input[type=file] { display: block; margin-top: 6px; }
+.ai-settings { margin: -6px 0 12px; }
+.ai-settings ol { line-height: 1.5; margin: 8px 0; padding-left: 1.3rem; }

@@ -144,6 +144,7 @@ class PrivacyTest {
             Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             String expenses = get(manager, "/administration/depenses").body();
             assertTrue(expenses.contains("Copier le prompt IA") && expenses.contains("Attention aux données que vous confiez à une IA commerciale"));
+            assertTrue(expenses.contains("Utilisez une conversation temporaire") && expenses.contains("Ne rendez jamais la conversation publique"), "réglages conseillés");
             assertFalse(expenses.contains("name=\"document\""), "pas d'IA locale par défaut");
 
             assertEquals(303, post(admin, "/administration/securite/ia", "ia=on&url=http%3A%2F%2F127.0.0.1%3A" + ollama.getAddress().getPort() + "&modele=qwen2.5%3A3b")

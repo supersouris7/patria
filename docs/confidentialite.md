@@ -39,6 +39,19 @@ L'IA est facultative : les CSV peuvent être préparés manuellement. Patria ne 
 
 **Attention aux données confiées à une IA commerciale** : elle reçoit tout ce que vous lui envoyez (noms, adresses, IBAN, numéros de compte, montants) et, selon ses conditions, peut les conserver ou s'en servir pour s'entraîner. Retirez vous-même les informations sensibles, désactivez l'historique et l'entraînement, ou préférez un modèle local. Patria rappelle cet avertissement à côté de chaque prompt. Avec une **IA locale** (Ollama installé par l'administrateur à côté de Patria), le document est analysé sur votre serveur : rien ne sort de l'installation. Un prompt qui demande des libellés génériques ne retire rien du document transmis.
 
+### Régler l'assistant IA avant d'envoyer
+
+Les noms des menus changent souvent ; cherchez l'équivalent dans votre assistant.
+
+1. **Conversation temporaire** : « Discussion temporaire » (ChatGPT, Gemini), conversation « incognito » (Claude). Elle n'apparaît pas dans l'historique et, selon le service, n'entraîne pas le modèle.
+2. **Entraînement refusé** : ChatGPT → Paramètres → Contrôle des données → « Améliorer le modèle pour tout le monde » désactivé ; Claude → Paramètres → Confidentialité → « Aider à améliorer Claude » désactivé ; Gemini → « Activité dans les applications Gemini » désactivée ; Le Chat → paramètres de confidentialité.
+3. **Jamais de partage public** : pas de lien « Partager » ni d'option « rendre visible / découvrable » ; des conversations partagées ont déjà été indexées par des moteurs de recherche. Vérifiez et supprimez vos liens existants (ChatGPT → Contrôle des données → Liens partagés).
+4. **Mémoire désactivée** (ChatGPT → Personnalisation → Mémoire ; équivalents ailleurs) : l'assistant ne retient pas votre situation financière.
+5. **Effacer après usage** : supprimez la conversation et les fichiers joints une fois les lignes copiées dans Patria ; le service peut garder une copie quelque temps (souvent jusqu'à 30 jours).
+6. **Envoyer le moins possible** : masquez noms, adresse, IBAN et numéros ; une partie du relevé suffit souvent.
+
+Le plus sûr reste une IA locale (voir le guide d'administration) : rien ne sort.
+
 ## Protections à configurer
 
 - **HTTPS** protège le trajet navigateur–serveur, pas les fichiers du disque. Nécessaire pour un accès distant ; l'avertissement HTTP ne sécurise pas la connexion.
