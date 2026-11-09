@@ -296,7 +296,10 @@ class AccountsTest {
         String first = get(manager, "/administration/revenus").body();
         assertTrue(first.contains("Paul") && !first.contains("Martine"));
 
-        Visitor martine = account(admin, "martine", "Martine", "", 2, "access=on&whole=on&estate=on");
+        // Martine rejoint le foyer Martin, invitée par son gestionnaire (membre Martine, totaux et immobilier)
+        assertEquals(303, post(manager, "/foyer/choisir", "foyer=2").statusCode());
+        Visitor martine = TestAccounts.join(client, base, post(manager, "/foyer/invitations", "membre=2&whole=on&estate=on").body(), "martine", "Martine", "");
+        assertEquals(303, post(manager, "/foyer/choisir", "foyer=1").statusCode());
         assertFalse(get(martine, "/").body().contains("name=\"foyer\""), "un seul foyer : pas de sélecteur");
         assertEquals(200, get(martine, "/immobilier").statusCode(), "immobilier ouvert");
         assertEquals(403, post(martine, "/foyer/choisir", "foyer=1").statusCode(), "foyer non ouvert");
