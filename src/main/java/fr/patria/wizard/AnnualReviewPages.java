@@ -26,7 +26,7 @@ final class AnnualReviewPages {
     /** Progression secondaire du Previsionnel ; le detail reste dans le guide. */
     static Html progress(int percent, int finished, int total, Step next, String csrf) {
         return Html.of("""
-                <section class="setup-progress" aria-label="Configuration du foyer"><details><summary>Configuration terminée à %s %%</summary>\
+                <section class="setup-progress" aria-label="Configuration du foyer"><details><summary>Guide de saisie : %s %% des étapes faites</summary>\
                 <p>%s étape%s sur %s faite%s ou passée%s. Prochaine : %s.</p>\
                 <div class="setup-progress-actions"><a class="button secondary" href="/assistant">Continuer la configuration</a>\
                 <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit">Masquer cet encart</button></form></div></details></section>""".replace("%%", "%"),

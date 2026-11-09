@@ -23,9 +23,9 @@ final class SavingsPages {
     }
 
     /** Un mois du graphique : epargne disponible, long terme et bourse. */
-    record Bar(java.time.YearMonth month, BigDecimal available, BigDecimal longTerm, BigDecimal stocks) {
+    record Bar(java.time.YearMonth month, BigDecimal available, BigDecimal longTerm) {
         BigDecimal total() {
-            return available.add(longTerm).add(stocks);
+            return available.add(longTerm);
         }
     }
 
@@ -55,19 +55,52 @@ final class SavingsPages {
                 .orElse("revenus à saisir");
         BigDecimal months = plan.coverMonths();
         String cushionTone = plan.spending().signum() == 0 ? "" : months.compareTo(BigDecimal.ONE) < 0 ? "negative" : months.compareTo(BigDecimal.valueOf(3)) < 0 ? "warning" : "positive";
+        Savings.Overview saved = only(overview, false);
         Html tiles = Components.metrics(4,
-                tile("Épargne totale", "Soldes et valeur des lignes de bourse.", euroWhole(overview.total()), "accent",
-                        overview.stocks().signum() == 0 ? null : "dont bourse " + euroWhole(overview.stocks())),
+                tile("Épargne totale", "Comptes, livrets, assurance-vie, PER et PEL. La bourse a sa propre page.", euroWhole(saved.total()), "accent",
+                        overview.stocks().signum() == 0 ? null : "hors bourse (" + euroWhole(overview.stocks()) + ")"),
                 tile("Précaution", "Disponible tout de suite (comptes, livrets). Repère : 3 à 6 mois de dépenses.", euroWhole(overview.available()), cushionTone,
                         plan.spending().signum() == 0 ? null : Format.number(months, 1) + " mois de dépenses"),
                 tile("Inflation", "Hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
                 tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
                         snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
-        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Livrets, placements et bourse du foyer.", Html.raw(PIGGY)),
-                Components.notice(notice), tiles, accounts(overview, today, null, csrf), addAccount(people, null, csrf), planCard(snapshot, csrf), chart(bars),
+        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.raw(PIGGY)),
+                Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf, false), planCard(snapshot, csrf), chart(bars),
                 Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
                         Format.date(RegulatedRates.CHECKED)));
         return Layout.page("Épargne · Patria", Layout.Section.SAVINGS, csrf, content);
+    }
+
+    /** Page Bourse : PEA, comptes-titres et cryptos au cours du jour, separes de l'epargne (risque de perte, horizon long). */
+    static Html stocks(SavingsController.Snapshot snapshot, List<Person> people, LocalDate today, Notice notice, String csrf) {
+        Savings.Overview portfolio = only(snapshot.overview(), true);
+        BigDecimal cost = portfolio.positions().stream().map(line -> line.position().cost()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal gain = portfolio.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
+        String tone = tone(gain);
+        Html tiles = Components.metrics(4,
+                tile("Valeur du portefeuille", "Lignes au cours du jour, plus les liquidités des comptes.", euroWhole(portfolio.total()), "accent",
+                        Format.plural(portfolio.lines().size(), "compte", "comptes")),
+                tile("Plus-value latente", "Valeur des lignes − ce qu'elles ont coûté. Rien n'est gagné ou perdu avant la vente.", Format.signedEuroWhole(gain), tone, null),
+                tile("Performance", "Plus-value latente ÷ prix de revient des lignes.", cost.signum() == 0 ? "—"
+                        : Format.signedPercent(gain.multiply(BigDecimal.valueOf(100)).divide(cost, 1, java.math.RoundingMode.HALF_UP)), tone, "depuis l'achat"),
+                tile("Lignes", "Actions, ETF et cryptos détenus.", String.valueOf(portfolio.positions().size()), "", null));
+        Html content = Html.concat(Components.heading("Vos placements en bourse", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", Html.EMPTY),
+                Components.notice(notice), tiles, accounts(portfolio, today, null, csrf), addAccount(people, null, csrf, true),
+                Html.raw("<p class=\"muted small\">Cours Yahoo Finance, en différé. Valeur indicative : un placement en bourse peut perdre de la valeur. "
+                        + "Pas un conseil en investissement.</p>"));
+        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, content);
+    }
+
+    private static String tone(BigDecimal value) {
+        return value.signum() > 0 ? "positive" : value.signum() < 0 ? "negative" : "";
+    }
+
+    /** Les seuls comptes de bourse ({@code stocks}) ou d'epargne, totaux recalcules. */
+    private static Savings.Overview only(Savings.Overview overview, boolean stocks) {
+        List<Savings.Line> lines = overview.lines().stream().filter(line -> line.account().kind().stocks() == stocks).toList();
+        BigDecimal total = lines.stream().map(Savings.Line::value).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal gain = lines.stream().flatMap(line -> line.positions().stream()).map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new Savings.Overview(lines, total, stocks ? BigDecimal.ZERO : overview.available(), stocks ? total : BigDecimal.ZERO, stocks ? gain : BigDecimal.ZERO);
     }
 
     /** Tuile dont la valeur est mise en couleur ({@code tone} : positive, negative, warning, accent). */
@@ -110,8 +143,11 @@ final class SavingsPages {
         if (overview.isEmpty()) {
             return Components.card("Comptes", 0, Html.EMPTY, Html.raw("<p class=\"empty\">Aucun placement pour l'instant.</p>"));
         }
+        // Page Bourse : liquidites et plus-value a la place du taux et des interets.
+        boolean market = overview.lines().stream().allMatch(line -> line.account().kind().stocks());
         Html rows = overview.lines().stream().map(line -> {
             SavingsRepository.Account account = line.account();
+            BigDecimal gain = line.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal ceiling = account.kind().ceiling();
             int fill = ceiling == null || account.kind().stocks() ? -1
                     : line.balance().multiply(BigDecimal.valueOf(100)).divide(ceiling, 0, java.math.RoundingMode.HALF_UP).min(BigDecimal.valueOf(100)).intValue();
@@ -121,17 +157,25 @@ final class SavingsPages {
                             contribution.frequency() == fr.patria.common.Frequency.MONTHLY ? "mois" : contribution.frequency().label().toLowerCase(java.util.Locale.FRENCH)),
                     fill < 0 ? Html.EMPTY : Html.of("<span class=\"ceiling\" title=\"%s du plafond\"><i style=\"width:%s\"></i></span>", fill + " %", fill + "%"));
             Html main = Html.of("""
-                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s</small>%s</td><td class="num"><b>%s</b></td><td class="num">%s</td><td class="num positive">%s</td><td class="actions">%s</td></tr>""",
+                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s</small>%s</td><td class="num"><b>%s</b></td><td class="num">%s</td><td class="num %s">%s</td><td class="actions">%s</td></tr>""",
                     account.id(), account.name(), account.kind().label(), line.owner(), badges, euroWhole(line.value()),
-                    line.rate() == null ? "—" : Format.percent(line.rate()), line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
+                    market ? euroWhole(line.balance()) : line.rate() == null ? "—" : Format.percent(line.rate()),
+                    market ? tone(gain) : "positive",
+                    market ? Format.signedEuroWhole(gain) : line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
                     manage(line, back, csrf));
             return account.kind().stocks() ? Html.concat(main, positions(line, back, csrf)) : main;
         }).collect(Html.joining());
         BigDecimal interest = overview.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Html footer = Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num positive\">+%s</th><th></th></tr>", euroWhole(overview.total()), euroWhole(interest));
+        BigDecimal cash = overview.lines().stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal gains = overview.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Html footer = market
+                ? Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th class=\"num\">%s</th><th class=\"num %s\">%s</th><th></th></tr>", euroWhole(overview.total()),
+                euroWhole(cash), tone(gains), Format.signedEuroWhole(gains))
+                : Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num positive\">+%s</th><th></th></tr>", euroWhole(overview.total()), euroWhole(interest));
         return Components.card("Comptes", overview.lines().size(), Html.EMPTY,
-                Html.of("<div class=\"table-wrap\"><table class=\"data savings-table\"><thead><tr><th>Placement</th><th class=\"num\">Valeur</th><th class=\"num\">Taux</th>"
-                        + "<th class=\"num\">Intérêts / an</th><th></th></tr></thead><tbody>%s</tbody><tfoot>%s</tfoot></table></div>", rows, footer));
+                Html.of("<div class=\"table-wrap\"><table class=\"data savings-table\"><thead><tr><th>Placement</th><th class=\"num\">Valeur</th><th class=\"num\">%s</th>"
+                        + "<th class=\"num\">%s</th><th></th></tr></thead><tbody>%s</tbody><tfoot>%s</tfoot></table></div>", market ? "Liquidités" : "Taux",
+                        market ? "Plus-value" : "Intérêts / an", rows, footer));
     }
 
     /** Lignes de bourse d'un PEA ou compte-titres : tableau aligne, plus-values en couleur, ajout et import replies. */
@@ -141,7 +185,7 @@ final class SavingsPages {
                 <tr><td>%s <code>%s</code></td><td class="num">%s</td><td class="num" title="%s">%s</td><td class="num">%s</td><td class="num %s">%s</td>\
                 <td><form method="post" action="/epargne/ligne/%s/supprimer" class="inline-form">%s<button class="link-button" type="submit" aria-label="Supprimer %s">×</button></form></td></tr>""",
                 position.position().label(), position.position().symbol(), Format.number(position.position().quantity(), 4), position.priceSource(), Format.euro(position.price()),
-                euroWhole(position.value()), position.gain().signum() >= 0 ? "positive" : "negative", Format.signedEuroWhole(position.gain()),
+                euroWhole(position.value()), tone(position.gain()), Format.signedEuroWhole(position.gain()),
                 position.position().id(), token(csrf, back), position.position().label())).collect(Html.joining());
         Html table = line.positions().isEmpty() ? Html.EMPTY : Html.of("""
                 <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Cours</th><th class="num">Valeur</th>\
@@ -228,7 +272,7 @@ final class SavingsPages {
             double x = left + index * slot + (slot - barWidth) / 2;
             double y = 8 + plot;
             String month = Format.month(bar.month());
-            for (Object[] part : new Object[][]{{bar.available(), "available", "Disponible"}, {bar.stocks(), "stocks", "Bourse"}, {bar.longTerm(), "long", "Long terme"}}) {
+            for (Object[] part : new Object[][]{{bar.available(), "available", "Disponible"}, {bar.longTerm(), "long", "Long terme"}}) {
                 BigDecimal value = (BigDecimal) part[0];
                 if (value.signum() <= 0) continue;
                 double h = plot * value.doubleValue() / top.doubleValue();
@@ -241,15 +285,14 @@ final class SavingsPages {
                         escape(Format.shortMonth(bar.month()) + " " + String.format("%02d", bar.month().getYear() % 100))));
             }
         }
-        Html rows = bars.stream().filter(bar -> bar.total().signum() > 0).map(bar -> Html.of("<tr><td>%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td></tr>",
-                Format.month(bar.month()), euroWhole(bar.available()), euroWhole(bar.stocks()), euroWhole(bar.longTerm()), euroWhole(bar.total()))).collect(Html.joining());
+        Html rows = bars.stream().filter(bar -> bar.total().signum() > 0).map(bar -> Html.of("<tr><td>%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td></tr>",
+                Format.month(bar.month()), euroWhole(bar.available()), euroWhole(bar.longTerm()), euroWhole(bar.total()))).collect(Html.joining());
         return Components.card("Historique de l'épargne", null, Html.EMPTY, Html.of("""
-                <ul class="chart-legend"><li><i class="available"></i>Disponible (comptes, livrets)</li><li><i class="stocks"></i>Bourse (PEA, comptes-titres)</li>\
-                <li><i class="long"></i>Long terme (assurance-vie, PER, PEL)</li></ul>
+                <ul class="chart-legend"><li><i class="available"></i>Disponible (comptes, livrets)</li><li><i class="long"></i>Long terme (assurance-vie, PER, PEL)</li></ul>
                 <svg class="savings-chart" viewBox="0 0 %s %s" role="img" aria-label="Épargne des 24 derniers mois, par type">%s</svg>
                 <p class="muted small">Mois sans relevé : dernier solde connu.</p>
                 <details><summary>Voir les valeurs</summary>%s</details>""", width, height, Html.raw(svg.toString()),
-                Components.table(List.of("Mois", "#Disponible", "#Bourse", "#Long terme", "#Total"), rows, false, false)));
+                Components.table(List.of("Mois", "#Disponible", "#Long terme", "#Total"), rows, false, false)));
     }
 
     private static BigDecimal niceCeiling(BigDecimal max) {
@@ -305,19 +348,25 @@ final class SavingsPages {
     }
 
     static Html addAccount(List<Person> people, String back, String csrf) {
+        return addAccount(people, back, csrf, null);
+    }
+
+    /** {@code stocks} : seulement les comptes de bourse (vrai), seulement l'epargne (faux), ou tous (null, guide). */
+    private static Html addAccount(List<Person> people, String back, String csrf, Boolean stocks) {
         if (people.isEmpty()) return Html.EMPTY;
         List<Components.Option> owners = people.stream().map(person -> new Components.Option(String.valueOf(person.id()), person.name())).toList();
-        List<Components.Option> kinds = Arrays.stream(SavingsKind.values()).map(kind -> new Components.Option(kind.name(), kind.label())).toList();
+        List<Components.Option> kinds = Arrays.stream(SavingsKind.values()).filter(kind -> stocks == null || kind.stocks() == stocks)
+                .map(kind -> new Components.Option(kind.name(), kind.label())).toList();
         List<Html> fields = new ArrayList<>(List.of(Components.select("Membre", "person", owners, owners.getFirst().value()),
-                Html.concat(Components.select("Type", "kind", kinds, SavingsKind.LIVRET_A.name()), Html.of("<span hidden data-regulated-rates=\"%s\"></span>", regulatedRates())),
+                Html.concat(Components.select("Type", "kind", kinds, kinds.getFirst().value()), Html.of("<span hidden data-regulated-rates=\"%s\"></span>", regulatedRates())),
                 Components.input(Input.of("Nom", "name", Field.TEXT).maxLength(60).placeholder("Livret A de la Banque Postale"), Map.of()),
                 Components.input(Input.of("Solde actuel", "balance", Field.MONEY).required(), Map.of()),
                 Components.input(Input.of("Taux annuel (%)", "rate", Field.TEXT).maxLength(6).placeholder("1,7")
                         .help("Rempli d'office pour un livret réglementé (taux officiel) ; à saisir pour une assurance-vie ou un livret bancaire"), Map.of()),
                 Components.input(Input.of("Date d'ouverture", "opened_on", Field.DATE).help("Utile pour un PEA (5 ans)"), Map.of())));
         fields.add(Components.input(Input.of("Versement mensuel (facultatif)", "montant", Field.MONEY).help("Virement programmé : le solde avancera tout seul"), Map.of()));
-        return Components.disclosure("Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
+        return Components.disclosure(Boolean.TRUE.equals(stocks) ? "Ajouter un compte de bourse" : "Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
                         : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), Components.fields(3, fields.toArray(Html[]::new))),
-                "Ajouter le placement"), back != null);
+                Boolean.TRUE.equals(stocks) ? "Ajouter le compte" : "Ajouter le placement"), back != null);
     }
 }

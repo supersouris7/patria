@@ -386,7 +386,11 @@ class AccountsTest {
         assertEquals(303, post(manager, "/epargne/compte/2/ligne", "symbol=cw8.pa&label=ETF+Monde&quantity=2&cost=1000&price=550").statusCode());
         assertEquals(400, post(manager, "/epargne/compte/1/ligne", "symbol=AI.PA&quantity=1&cost=100").statusCode(), "pas de bourse sur un livret");
         String page = get(manager, "/epargne").body();
-        assertTrue(page.contains("Livret A de Paul") && page.contains("CW8.PA") && page.contains("épargne de sécurité"), page);
+        assertTrue(page.contains("Livret A de Paul") && !page.contains("CW8.PA") && page.contains("épargne de sécurité"), page);
+        String stocks = get(manager, "/bourse").body();
+        assertTrue(stocks.contains("CW8.PA") && !stocks.contains("Livret A de Paul"), "bourse séparée de l'épargne");
+        String wealth = get(manager, "/patrimoine").body().replaceAll("[\\s\\u00a0\\u202f]", "");
+        assertTrue(wealth.contains("Patrimoinenet") && wealth.contains("2500€") && wealth.contains("1200€"), "bilan des actifs : livret et bourse");
         assertTrue(page.contains("2,5\u00a0%"), "taux du LEP dans le plan");
         assertEquals(303, post(manager, "/epargne/compte/1", "balance=3000").statusCode());
         assertTrue(get(manager, "/epargne").body().replaceAll("[\\s\\u00a0\\u202f]", "").contains("3000€"));
@@ -445,7 +449,7 @@ class AccountsTest {
 
         String savings = get(manager, "/assistant/epargne").body();
         assertTrue(sort(manager, "/assistant/epargne", savings, true).contains("2 lignes validées"), "le PEA puis sa ligne de bourse");
-        assertTrue(get(manager, "/epargne").body().contains("Air Liquide"));
+        assertTrue(get(manager, "/bourse").body().contains("Air Liquide"), "la bourse a sa propre page");
         assertTrue(sort(manager, "/assistant/virements", get(manager, "/assistant/virements").body(), true).contains("1 ligne validée"));
         assertTrue(sort(manager, "/assistant/logement", get(manager, "/assistant/logement").body(), false).contains("1 ligne validée"));
         assertTrue(get(manager, "/assistant/documents").body().contains("Vide pour l"), "pile vidée");

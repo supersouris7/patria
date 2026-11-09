@@ -66,7 +66,7 @@ public final class Components {
 
     public static Html label(String label, String hint) {
         return hint == null ? Html.of("<span class=\"metric-label\">%s</span>", label)
-                : Html.of("<details class=\"metric-help\"><summary class=\"metric-label\">%s <span aria-hidden=\"true\">?</span></summary><p>%s</p></details>", label, hint);
+                : Html.of("<details class=\"metric-help\"><summary class=\"metric-label\">%s <span class=\"help-dot\" aria-hidden=\"true\">i</span></summary><p>%s</p></details>", label, hint);
     }
 
     /** Rangee de tuiles sur 3 ou 4 colonnes. */

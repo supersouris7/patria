@@ -66,7 +66,7 @@ button.danger:hover { background: var(--danger-deep); color: #fff; }
 .negative { color: var(--danger); }
 
 /* ---- Estimation ---- */
-.hero { background: linear-gradient(135deg, #132235, var(--surface) 60%); margin-bottom: 12px; padding: 24px 26px 20px; }
+.hero { background: linear-gradient(135deg, var(--hero-start), var(--surface) 60%); margin-bottom: 12px; padding: 24px 26px 20px; }
 .hero-head { align-items: flex-start; display: flex; gap: 16px; justify-content: space-between; margin-bottom: 18px; }
 .hero-value { display: block; font-size: clamp(2rem, 5vw, 2.9rem); font-variant-numeric: tabular-nums; line-height: 1.15; margin: 6px 0 4px; }
 .hero .muted { font-size: .85rem; }
@@ -138,7 +138,7 @@ td a:hover { text-decoration: underline; }
 td small { color: var(--muted); display: block; font-size: .78rem; }
 .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 thead th.num { white-space: normal; }
-tbody tr:hover td { background: rgb(255 255 255 / 2%); }
+tbody tr:hover td { background: var(--hover); }
 tr.highlight td { background: var(--blue-tint); }
 tfoot td { border-top: 1px solid var(--line-strong); color: var(--text); font-weight: 750; }
 td.actions { text-align: right; white-space: nowrap; }
@@ -206,10 +206,10 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 .admin-nav a.active { background: var(--surface-raised); color: var(--text); }
 /* ---- Messages ---- */
 .notice { border: 1px solid; border-radius: var(--radius-small); font-size: .9rem; font-weight: 650; margin: 0 0 16px; padding: 11px 14px; }
-.notice.error { background: #29161b; border-color: #67313a; color: #ffadb4; }
-.notice.warning { background: #2a2312; border-color: #6b5520; color: #f3d38a; }
-.notice.warning a { color: #ffe3a3; font-weight: 750; margin-left: 4px; }
-.notice.success { background: #132619; border-color: #2d6337; color: var(--success); }
+.notice.error { background: var(--err-bg); border-color: var(--err-line); color: var(--err-text); }
+.notice.warning { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-text); }
+.notice.warning a { color: var(--warn-strong); font-weight: 750; margin-left: 4px; }
+.notice.success { background: var(--ok-bg); border-color: var(--ok-line); color: var(--success); }
 
 /* ---- Connexion ---- */
 .login-page { display: grid; min-height: 100vh; padding: 20px; place-items: center; }
@@ -219,11 +219,19 @@ input:focus, select:focus { border-color: var(--blue); outline: 3px solid rgb(58
 /* Budget : choix Previsionnel / Moyen a gauche du choix du compte */
 .budget-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 16px; }
 .budget-bar .scope-tabs { margin: 0; }
-.segmented { background: #0d141b; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; padding: 3px; }
-.segmented a { border-radius: 999px; color: var(--text-soft, #b7c3cf); font-weight: 650; padding: 6px 16px; text-decoration: none; }
-.segmented a.active { background: #1d6fd1; color: #fff; }
+.segmented { background: var(--segmented-bg); border: 1px solid var(--line); border-radius: 999px; display: inline-flex; padding: 3px; }
+.segmented a { border-radius: 999px; color: var(--text-soft); font-weight: 650; padding: 6px 16px; text-decoration: none; }
+.segmented a.active { background: var(--blue-deep); color: #fff; }
 /* Zones de texte (reponse d'une IA a coller, mots, messages) : meme style que les champs, pleine largeur */
 textarea { background: var(--input); border: 1px solid var(--line-strong); border-radius: var(--radius-small); box-sizing: border-box; color: var(--text);
   display: block; font: inherit; font-size: .95rem; margin-top: 6px; padding: 10px 12px; resize: vertical; width: 100%; }
 textarea:focus { border-color: var(--blue); outline: 3px solid rgb(58 168 255 / 18%); outline-offset: 0; }
 textarea[name="texte"] { font: .85rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-height: 12rem; white-space: pre; overflow-x: auto; }
+
+/* Aide des tuiles : un petit « i » cercle au lieu d'un point d'interrogation. */
+.help-dot { align-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--muted); display: inline-flex; font: 700 .62rem/1 Georgia, serif;
+    height: 14px; justify-content: center; letter-spacing: 0; margin-left: 4px; text-transform: none; vertical-align: 1px; width: 14px; }
+.metric-help > summary:hover .help-dot { border-color: var(--blue); color: var(--blue); }
+.button.small, button.small { font-size: .85rem; min-height: 34px; padding: 6px 12px; }
+.health-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.health-actions form { border: 0; margin: 0; padding: 0; }

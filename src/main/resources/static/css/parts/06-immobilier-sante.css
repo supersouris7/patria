@@ -3,7 +3,7 @@
 /* ---- Ventes du secteur : repartition et plan (palette validee : series-1 / series-2) ---- */
 .sales-histogram .bar { fill: var(--series-1); }
 .sales-histogram .hit { fill: transparent; }
-.sales-histogram .hit:hover { fill: rgb(255 255 255 / 5%); }
+.sales-histogram .hit:hover { fill: var(--hover-strong); }
 .sales-histogram .median { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1.5; }
 .sales-histogram .yours, .plan .home { stroke: var(--series-2); stroke-linecap: round; stroke-width: 2.5; }
 .chart .marker-label { fill: var(--text-soft); font-size: 12px; font-weight: 700; }
@@ -80,22 +80,22 @@ a.health-tile:hover, a.health-tile:focus-visible { border-color: var(--line-stro
 
 /* Mes biens : invitation a simuler un prix de vente */
 .simulate-hint { margin-bottom: 1rem; }
-.notice.info { background: #10212f; border-color: #24506f; color: var(--text-soft); font-weight: 400; line-height: 1.5; }
-.notice.info b { color: #9fd3ff; }
+.notice.info { background: var(--info-bg); border-color: var(--info-line); color: var(--text-soft); font-weight: 400; line-height: 1.5; }
+.notice.info b { color: var(--accent-text); }
 
 /* Apercu de l'import : choix des lignes */
 .import-pickers { margin: 0 0 14px; }
 .pick-row { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-.pick-label { color: var(--muted, #8b98a5); font-size: .75rem; font-weight: 700; letter-spacing: .06em; min-width: 92px; text-transform: uppercase; }
-.pick { background: transparent; border: 1px solid #2c3a48; border-radius: 999px; color: inherit; cursor: pointer; font-size: .85rem; font-weight: 600; padding: 4px 12px; }
-.pick b { color: #8fb8dc; margin-left: 2px; }
-.pick.active { background: #13304a; border-color: #2f6f9f; }
+.pick-label { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; min-width: 92px; text-transform: uppercase; }
+.pick { background: transparent; border: 1px solid var(--line-strong); border-radius: 999px; color: inherit; cursor: pointer; font-size: .85rem; font-weight: 600; padding: 4px 12px; }
+.pick b { color: var(--accent-text); margin-left: 2px; }
+.pick.active { background: var(--blue-tint); border-color: var(--info-line); }
 .pick-row .pick.active::before { content: "✓ "; }
 tr .badge { white-space: nowrap; }
 .import-count { font-weight: 650; margin: 8px 0 0; }
 .import-pick { align-items: center; display: inline-flex; gap: 6px; white-space: nowrap; }
 .import-hints { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.import-hints .badge.warn { background: #2a2312; border-color: #6b5520; color: #f3d38a; }
+.import-hints .badge.warn { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-text); }
 
 /* Epargne : actions en ligne dans le tableau des comptes, lignes de bourse */
 .inline-form { align-items: center; display: inline-flex; gap: 6px; margin: 0 6px 0 0; vertical-align: middle; }
@@ -103,13 +103,13 @@ tr .badge { white-space: nowrap; }
 .inline-form button { padding: 6px 10px; }
 tr.positions td { padding-top: 0; }
 tr.positions li { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
-tr.positions .link-button { background: none; border: 0; color: var(--muted, #8b98a5); cursor: pointer; font-size: 1.1rem; padding: 0 4px; }
+tr.positions .link-button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 0 4px; }
 
 /* Epargne : graphique empile (bleu disponible, orange bourse, aqua long terme ; palette validee daltonisme) */
 .savings-chart { display: block; height: auto; max-width: 100%; width: 100%; }
-.savings-chart .grid { stroke: #24303c; stroke-width: 1; }
-.savings-chart .axis { fill: #8b98a5; font-size: 11px; }
-.savings-chart .seg { stroke: #111820; stroke-width: 2; }
+.savings-chart .grid { stroke: var(--line); stroke-width: 1; }
+.savings-chart .axis { fill: var(--muted); font-size: 11px; }
+.savings-chart .seg { stroke: var(--surface); stroke-width: 2; }
 .savings-chart .seg:hover { opacity: .85; }
 .seg.available, .chart-legend i.available { fill: #3987e5; background: #3987e5; }
 .seg.stocks, .chart-legend i.stocks { fill: #d95926; background: #d95926; }
@@ -119,9 +119,9 @@ tr.positions .link-button { background: none; border: 0; color: var(--muted, #8b
 tr.contribution td { border-top: 0; font-size: .9rem; padding-top: 0; }
 tr.contribution details { display: inline-block; margin-left: 8px; }
 .wizard-import h3 { margin-top: 0; }
-.danger-link { color: #ff8a8a; }
+.danger-link { color: var(--err-text); }
 .ai-warning { font-weight: 400; line-height: 1.5; }
-.local-ai { background: #10212f; border: 1px solid #24506f; border-radius: var(--radius-small); margin: 8px 0; padding: 10px 12px; }
+.local-ai { background: var(--info-bg); border: 1px solid var(--info-line); border-radius: var(--radius-small); margin: 8px 0; padding: 10px 12px; }
 .local-ai input[type=file] { display: block; margin-top: 6px; }
 .ai-settings { margin: -6px 0 12px; }
 .ai-settings ol { line-height: 1.5; margin: 8px 0; padding-left: 1.3rem; }
@@ -154,11 +154,11 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .wizard-linear { display: block; max-width: 920px; margin: 0 auto; }
 .wizard-bar { margin: 0 0 14px; }
 .wizard-plan { margin-top: 8px; }
-.wizard-plan summary { color: var(--text-soft, #b7c3cf); cursor: pointer; font-size: .9rem; }
+.wizard-plan summary { color: var(--text-soft); cursor: pointer; font-size: .9rem; }
 .wizard-plan-steps, .doc-plan { columns: 2 220px; font-size: .9rem; margin: 8px 0; padding-left: 1.4rem; }
 .wizard-plan-steps a, .doc-plan a { color: inherit; }
-.doc-plan li.have a::after { content: " ✓"; color: #6fd39a; }
-.doc-progress { color: var(--text-soft, #b7c3cf); font-size: .9rem; margin-bottom: 14px; }
+.doc-plan li.have a::after { content: " ✓"; color: var(--success); }
+.doc-progress { color: var(--text-soft); font-size: .9rem; margin-bottom: 14px; }
 .doc-progress span { display: block; margin-bottom: 6px; }
 .doc-screen h2 { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 6px; }
 .doc-choices { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 4px; }
@@ -168,53 +168,53 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 /* Pile « A trier » du guide */
 .pile { list-style: none; margin: 0 0 8px; padding: 0; }
 .pile li { padding: 3px 0; }
-.to-sort { border-color: #2f6f9f; }
+.to-sort { border-color: var(--info-line); }
 .sort-list li { border-bottom: 1px solid var(--line); padding: 6px 0; }
 .sort-list .check { align-items: flex-start; display: flex; gap: 8px; }
 .doc-checklist summary { cursor: pointer; font-weight: 650; margin: 6px 0; }
 
 /* Epargne : valeurs en couleur, tableaux alignes, menu Gerer par compte */
-.metric strong.accent { color: #7cc4ff; }
-.metric strong.warning, b.warning { color: #f3c969; }
+.metric strong.accent { color: var(--accent-text); }
+.metric strong.warning, b.warning { color: var(--warn-text); }
 .savings-table td, .savings-table th { vertical-align: middle; }
 .savings-table td:first-child small { display: block; }
 .savings-table td.actions { text-align: right; width: 1%; white-space: nowrap; }
 .savings-table .badge { margin: 4px 6px 0 0; }
-.positive-badge { background: #10301f; border-color: #1f6b43; color: #7ddc9f; }
-.ceiling { background: #1c2733; border-radius: 99px; display: inline-block; height: 6px; margin-top: 6px; vertical-align: middle; width: 90px; }
+.positive-badge { background: var(--ok-bg); border-color: var(--ok-line); color: var(--success); }
+.ceiling { background: var(--track); border-radius: 99px; display: inline-block; height: 6px; margin-top: 6px; vertical-align: middle; width: 90px; }
 .ceiling i { background: #3987e5; border-radius: 99px; display: block; height: 100%; }
 .row-menu { position: relative; }
 .row-menu > summary { border: 1px solid var(--line-strong); border-radius: var(--radius-small); cursor: pointer; display: inline-block; font-size: .85rem;
   font-weight: 650; list-style: none; padding: 5px 12px; }
 .row-menu > summary::-webkit-details-marker { display: none; }
-.row-menu-body { background: #111a23; border: 1px solid var(--line-strong); border-radius: var(--radius-small); box-shadow: 0 12px 30px rgb(0 0 0 / 45%);
+.row-menu-body { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-small); box-shadow: 0 12px 30px rgb(0 0 0 / 45%);
   display: grid; gap: 10px; padding: 14px; position: absolute; right: 0; text-align: left; top: calc(100% + 6px); width: min(420px, 90vw); z-index: 20; }
 .row-menu-body .row-form { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; }
 .positions-table { margin: 4px 0 8px; width: 100%; }
 .positions-table td, .positions-table th { font-size: .9rem; padding: 6px 8px; }
 .position-tools { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .plan-goal { font-size: 1.05rem; margin: 0 0 12px; }
-.plan-goal.done b { color: #7ddc9f; }
-.savings-table + * , .data td small { color: var(--text-soft, #8b98a5); }
+.plan-goal.done b { color: var(--success); }
+.savings-table + * , .data td small { color: var(--text-soft); }
 /* Guide : barre de progression en segments, liste de documents a cocher */
 .wizard-progress ol { display: grid; gap: 4px; grid-auto-columns: 1fr; grid-auto-flow: column; list-style: none; margin: 0; padding: 0; }
-.wizard-progress li { background: #223040; border-radius: 99px; height: 8px; }
+.wizard-progress li { background: var(--track); border-radius: 99px; height: 8px; }
 .wizard-progress li.done { background: #2fa36b; }
-.wizard-progress li.skipped { background: #5b6875; }
+.wizard-progress li.skipped { background: var(--muted); }
 .wizard-progress li.current { background: #3a9cff; box-shadow: 0 0 0 2px rgb(58 156 255 / 30%); }
 .wizard-progress p { margin: 8px 0 0; }
 .doc-checklist fieldset { border: 0; margin: 0 0 10px; padding: 0; }
-.doc-checklist legend { color: #7cc4ff; font-size: .78rem; font-weight: 750; letter-spacing: .06em; margin-bottom: 4px; text-transform: uppercase; }
+.doc-checklist legend { color: var(--accent-text); font-size: .78rem; font-weight: 750; letter-spacing: .06em; margin-bottom: 4px; text-transform: uppercase; }
 .doc-checklist .check { display: flex; gap: 8px; padding: 3px 0; }
 .positions-table th { font-size: .72rem; letter-spacing: .06em; }
 
 /* Guide : ou trouver chaque document, banque par banque */
 .howto-search { align-items: end; display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; }
 .howto-search label { flex: 1 1 280px; }
-.howto-result { background: #121a24; border: 1px solid #243244; border-radius: 8px; margin-bottom: 8px; padding: 8px 12px; }
+.howto-result { background: var(--surface-raised); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; padding: 8px 12px; }
 .howto-result ol { margin: 6px 0 0; padding-left: 20px; }
 .howto-list { align-items: start; display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: 6px; }
-.howto-list details { background: #121a24; border: 1px solid #243244; border-radius: 8px; padding: 6px 10px; }
+.howto-list details { background: var(--surface-raised); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
 .howto-list summary { cursor: pointer; font-weight: 650; }
 .howto-list ol { margin: 6px 0 2px; padding-left: 20px; }
 .howto-list li { font-size: .86rem; margin: 2px 0; }
@@ -222,3 +222,21 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 /* Tableau des biens : le nom du bien est un bouton, pour qu'on voie qu'il ouvre la fiche */
 .property-button { font-weight: 650; padding: 6px 12px; white-space: nowrap; }
 .property-button::after { content: " ›"; opacity: .7; }
+
+/* Patrimoine : barre de repartition des actifs, actifs et passifs cote a cote */
+.wealth-bar { border-radius: 99px; display: flex; gap: 2px; height: 14px; margin: 4px 0 12px; overflow: hidden; }
+.wealth-bar i { min-width: 4px; }
+.chart-legend li i[class^="series-"] { border-radius: 3px; display: inline-block; height: 10px; margin-right: 6px; width: 10px; }
+.wealth-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.wealth-grid .card { margin: 0; }
+.wealth-table td small { display: block; }
+.wealth-table td a { color: var(--text); font-weight: 650; text-decoration: none; }
+.wealth-table td a:hover { color: var(--blue); }
+
+/* Telephone : les tableaux d'epargne et de bourse gardent l'essentiel, sans defilement horizontal */
+@media (max-width: 640px) {
+    .savings-table > * > tr > :nth-child(3), .savings-table > * > tr > :nth-child(4) { display: none; }
+    .positions-table th:nth-child(3), .positions-table td:nth-child(3) { display: none; }
+    .page-heading .piggy { display: none; }
+    .position-tools { flex-direction: column; }
+}

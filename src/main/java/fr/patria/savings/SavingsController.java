@@ -42,15 +42,16 @@ public final class SavingsController {
     }
 
     public void register(Router router) {
-        router.userGet("/epargne", request -> Response.page(page(request, request.confirmation())));
+        router.userGet("/epargne", request -> Response.page(page(request, request.confirmation(), false)));
+        router.userGet("/bourse", request -> Response.page(page(request, request.confirmation(), true)));
         router.userPost("/epargne/compte", this::addAccount);
         router.userPost("/epargne/compte/{id}", request -> {
             SavingsRepository.Account account = editable(request);
             try {
                 savings.updateBalance(account.id(), request.form().amount("balance", "Solde"), LocalDate.now(clock));
-                return done(request, "enregistre", "compte-" + account.id());
+                return done(request, "enregistre", "compte-" + account.id(), account.kind().stocks());
             } catch (ValidationException exception) {
-                return Response.invalid(page(request, Notice.error(exception.getMessage())));
+                return Response.invalid(page(request, Notice.error(exception.getMessage()), account.kind().stocks()));
             }
         });
         router.userPost("/epargne/compte/{id}/versement", this::setContribution);
@@ -58,7 +59,7 @@ public final class SavingsController {
             SavingsRepository.Account account = editable(request);
             if (account.contribution() != null && account.contribution().item() != null) budget.deleteWithShares(account.contribution().item());
             savings.deleteAccount(account.id());
-            return done(request, "supprime", null);
+            return done(request, "supprime", null, account.kind().stocks());
         });
         router.userPost("/epargne/compte/{id}/ligne", this::addPosition);
         router.userPost("/epargne/compte/{id}/import", this::previewPositions);
@@ -68,7 +69,7 @@ public final class SavingsController {
                     .orElseThrow(() -> new NotFoundException("Ligne introuvable", "Cette ligne n'existe pas."));
             editable(request, position.accountId());
             savings.deletePosition(position.id());
-            return done(request, "supprime", "compte-" + position.accountId());
+            return done(request, "supprime", "compte-" + position.accountId(), true);
         });
         router.userPost("/epargne/plan", request -> {
             String lep = request.form().raw("lep");
@@ -80,9 +81,18 @@ public final class SavingsController {
     }
 
     /** Apres une action : retour a l'etape du guide d'ou elle vient ({@code retour}), sinon a la page Epargne. */
-    private static Response done(Request request, String ok, String anchor) {
+    private static Response done(Request request, String ok, String anchor, boolean stocks) {
         String back = back(request);
-        return Response.redirect(fr.patria.web.LocalPath.withOk(back != null ? back : "/epargne", ok) + (anchor == null ? "" : "#" + anchor));
+        return Response.redirect(fr.patria.web.LocalPath.withOk(back != null ? back : stocks ? "/bourse" : "/epargne", ok) + (anchor == null ? "" : "#" + anchor));
+    }
+
+    /** Formulaire d'ajout de compte en erreur : retour a la page Bourse pour un PEA ou un compte-titres. */
+    private static boolean stocksForm(FormData form) {
+        try {
+            return SavingsKind.parse(form.raw("kind")).stocks();
+        } catch (RuntimeException unknown) {
+            return false;
+        }
     }
 
     static String back(Request request) {
@@ -110,9 +120,9 @@ public final class SavingsController {
             } else {
                 savings.setContribution(account.id(), null);
             }
-            return done(request, "enregistre", "compte-" + account.id());
+            return done(request, "enregistre", "compte-" + account.id(), account.kind().stocks());
         } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error(exception.getMessage())));
+            return Response.invalid(page(request, Notice.error(exception.getMessage()), account.kind().stocks()));
         }
     }
 
@@ -127,7 +137,7 @@ public final class SavingsController {
             List<PositionCsv.Row> rows = PositionCsv.parse(content, savings.positions().stream().filter(position -> position.accountId() == account.id()).toList(), feeds::resolve);
             return Response.page(SavingsPages.importPreview(account, rows, content, back(request), request.csrf()));
         } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error("Import impossible. " + exception.getMessage())));
+            return Response.invalid(page(request, Notice.error("Import impossible. " + exception.getMessage()), true));
         }
     }
 
@@ -144,9 +154,9 @@ public final class SavingsController {
                 added++;
             }
             if (added == 0) throw new ValidationException("Cochez au moins une ligne à importer.");
-            return done(request, "importe", "compte-" + account.id());
+            return done(request, "importe", "compte-" + account.id(), true);
         } catch (IllegalArgumentException exception) {
-            return Response.invalid(page(request, Notice.error("Import impossible : contenu illisible, recommencez.")));
+            return Response.invalid(page(request, Notice.error("Import impossible : contenu illisible, recommencez."), true));
         }
     }
 
@@ -179,16 +189,17 @@ public final class SavingsController {
         return new Snapshot(overview, plan, inflation, power, lep, holders);
     }
 
-    private fr.patria.ui.Html page(Request request, Notice notice) {
+    private fr.patria.ui.Html page(Request request, Notice notice, boolean stocks) {
         Visibility visibility = Visibility.of(request.viewer(), household.people());
         Snapshot snapshot = snapshot(request, java.util.Set.of());
         LocalDate today = LocalDate.now(clock);
         // Historique : le solde du mois en cours de chaque placement visible (graphique de l'epargne).
         snapshot.overview().lines().forEach(line -> savings.recordHistory(line.account().id(), java.time.YearMonth.from(today), line.value()));
-        return SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf());
+        return stocks ? SavingsPages.stocks(snapshot, visibility.people(), today, notice, request.csrf())
+                : SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf());
     }
 
-    /** 24 derniers mois, empiles : disponible, long terme, bourse (dernier solde connu reporte d'un mois sur l'autre). */
+    /** 24 derniers mois, empiles : disponible et long terme, hors bourse (dernier solde connu reporte d'un mois sur l'autre). */
     List<SavingsPages.Bar> history(Snapshot snapshot, LocalDate today) {
         java.util.Map<Long, java.util.SortedMap<java.time.YearMonth, BigDecimal>> history = savings.history();
         List<SavingsPages.Bar> bars = new java.util.ArrayList<>();
@@ -197,16 +208,15 @@ public final class SavingsController {
             java.time.YearMonth month = current.minusMonths(back);
             BigDecimal available = BigDecimal.ZERO;
             BigDecimal longTerm = BigDecimal.ZERO;
-            BigDecimal stocks = BigDecimal.ZERO;
             for (Savings.Line line : snapshot.overview().lines()) {
+                if (line.account().kind().stocks()) continue;
                 java.util.SortedMap<java.time.YearMonth, BigDecimal> known = history.getOrDefault(line.account().id(), new java.util.TreeMap<>()).headMap(month.plusMonths(1));
                 if (known.isEmpty()) continue;
                 BigDecimal value = known.get(known.lastKey());
-                if (line.account().kind().stocks()) stocks = stocks.add(value);
-                else if (line.account().kind().available()) available = available.add(value);
+                if (line.account().kind().available()) available = available.add(value);
                 else longTerm = longTerm.add(value);
             }
-            bars.add(new SavingsPages.Bar(month, available, longTerm, stocks));
+            bars.add(new SavingsPages.Bar(month, available, longTerm));
         }
         return bars;
     }
@@ -265,11 +275,11 @@ public final class SavingsController {
                         LocalDate.now(clock), null), fr.patria.household.Shares.only(person, household.people()));
                 savings.setContribution(id, new SavingsRepository.Contribution(monthly, fr.patria.common.Frequency.MONTHLY, LocalDate.now(clock), item));
             }
-            return done(request, "enregistre", "compte-" + id);
+            return done(request, "enregistre", "compte-" + id, kind.stocks());
         } catch (NumberFormatException exception) {
-            return Response.invalid(page(request, Notice.error("Choisissez un membre.")));
+            return Response.invalid(page(request, Notice.error("Choisissez un membre."), stocksForm(form)));
         } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error(exception.getMessage())));
+            return Response.invalid(page(request, Notice.error(exception.getMessage()), stocksForm(form)));
         }
     }
 
@@ -284,9 +294,9 @@ public final class SavingsController {
             BigDecimal quantity = quantity(form.raw("quantity"));
             savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, label, quantity, form.amount("cost", "Prix de revient total"),
                     form.optionalAmount("price", "Cours saisi")));
-            return done(request, "enregistre", "compte-" + account.id());
+            return done(request, "enregistre", "compte-" + account.id(), account.kind().stocks());
         } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error(exception.getMessage())));
+            return Response.invalid(page(request, Notice.error(exception.getMessage()), account.kind().stocks()));
         }
     }
 

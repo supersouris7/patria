@@ -173,7 +173,14 @@ Sur la fiche du prêt : mensualité recalculée au taux du marché à capital/du
 
 Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (précision d'environ 0,3 point), comparaison indicative s'il reste moins de 10 ans ; assurance, garantie et frais de dossier exclus. Ce n'est pas une offre bancaire.
 
-## Épargne
+## Patrimoine
+
+La page **Patrimoine** est le bilan du foyer à la valeur du jour : les **actifs** (comptes et livrets, épargne long terme, bourse et cryptos, immobilier à sa valeur retenue), les **passifs** (capital restant dû des prêts immobiliers) et le **patrimoine net**, avec la répartition des actifs. Les crédits à la consommation n'y figurent pas : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui voit l'immobilier.
+
+## Épargne et Bourse
+
+L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur. La page Bourse affiche la valeur du portefeuille au cours du jour, la plus-value latente, la performance depuis l'achat, et pour chaque compte ses liquidités et sa plus-value.
+
 
 Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.
 
@@ -198,6 +205,10 @@ Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des co
 Guide de saisie → Revue annuelle : pour chaque revenu/dépense récurrente, nouveau montant et date d'effet, ou arrêt. L'ancien montant s'arrête la veille et la répartition est reprise. Avec l'accès Immobilier : taxe foncière de l'année et estimation ancienne des biens. Calendrier des mises à jour et rappel sur le Prévisionnel après un an.
 
 L'icône cœur ouvre le bilan : reste à vivre, déficit, endettement, épargne de précaution (3 à 6 mois), dépenses fixes, abonnements et salaires anciens ; estimations, occupation, rendement, dette et taux des prêts ; prélèvement à la source, foncier, loyers à déclarer et repère IFI. Chaque signal explique le problème et propose un lien ; il respecte les vues ouvertes à votre compte. Ce diagnostic est indicatif, pas un conseil fiscal ou financier.
+
+## Affichage
+
+Thème **clair** ou **sombre** : par défaut celui du système ; le bouton demi-cercle de l'en-tête passe de système à clair, puis sombre. Le choix est gardé sur l'appareil.
 
 ## Synthèses PDF
 

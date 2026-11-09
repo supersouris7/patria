@@ -495,3 +495,21 @@ document.querySelectorAll("[data-add-account]").forEach(select => {
     if (select.options.length <= 1) select.closest("label").hidden = true;
   });
 });
+
+// Theme : systeme → clair → sombre. Le cookie permet au serveur de rendre la bonne couleur des le chargement.
+document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+  const labels = { "": "système", light: "clair", dark: "sombre" };
+  const show = () => {
+    const label = "Thème : " + labels[document.documentElement.dataset.theme || ""];
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  };
+  show();
+  button.addEventListener("click", () => {
+    const next = { "": "light", light: "dark", dark: "" }[document.documentElement.dataset.theme || ""];
+    if (next) document.documentElement.dataset.theme = next;
+    else delete document.documentElement.dataset.theme;
+    document.cookie = "theme=" + next + "; path=/; max-age=" + (next ? 31536000 : 0) + "; SameSite=Lax";
+    show();
+  });
+});

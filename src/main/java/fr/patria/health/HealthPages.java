@@ -46,7 +46,7 @@ final class HealthPages {
                     domain.label(), domain.summary(), own.stream().map(check -> item(check, false, csrf)).collect(Html.joining()));
         }).collect(Html.joining());
         Html content = Html.concat(
-                Components.heading(owner, "Bilan de santé", "Un diagnostic automatique de vos finances, de vos biens et de vos impôts, à partir de ce qui est saisi.",
+                Components.heading(owner, "Bilan de santé", "Vos finances, vos biens et vos impôts passés en revue, à partir de ce qui est saisi.",
                         Components.pdfButton("/bilan.pdf")),
                 scope, tiles,
                 Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.BAD), priority("À traiter en priorité", Check.Level.BAD, checks, csrf)),
@@ -92,12 +92,12 @@ final class HealthPages {
 
     private static Html item(Check check, boolean ignored, String csrf) {
         Html action = !check.canIgnore() ? Html.EMPTY : Html.of("""
-                <form method="post" action="/bilan/%s">%s<input type="hidden" name="check" value="%s">
-                <button class="%s" type="submit">%s</button></form>""",
+                <form method="post" action="/bilan/%s" class="inline-form">%s<input type="hidden" name="check" value="%s">                <button class="%s small" type="submit">%s</button></form>""",
                 ignored ? "retablir" : "ignorer", Components.csrfField(csrf), check.token(), ignored ? "secondary" : "quiet", ignored ? "Rétablir" : "Ignorer pour moi");
-        return Html.of("<li class=\"health-item %s\"><span class=\"health-mark\" aria-label=\"%s\">%s</span><div><b>%s</b><p>%s</p>%s%s</div></li>",
-                css(check.level()), check.level().label(), check.level().mark(), check.title(), check.detail(),
-                check.link() == null ? Html.EMPTY : Html.of("<a href=\"%s\">%s →</a>", check.link(), check.linkLabel()), action);
+        Html link = check.link() == null ? Html.EMPTY : Html.of("<a class=\"button secondary small\" href=\"%s\">%s</a>", check.link(), check.linkLabel());
+        Html actions = link.isEmpty() && action.isEmpty() ? Html.EMPTY : Html.of("<div class=\"health-actions\">%s%s</div>", link, action);
+        return Html.of("<li class=\"health-item %s\"><span class=\"health-mark\" aria-label=\"%s\">%s</span><div><b>%s</b><p>%s</p>%s</div></li>",
+                css(check.level()), check.level().label(), check.level().mark(), check.title(), check.detail(), actions);
     }
 
     private static String css(Check.Level level) {

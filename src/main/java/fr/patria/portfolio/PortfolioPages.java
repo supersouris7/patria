@@ -48,7 +48,7 @@ final class PortfolioPages {
             case "biens" -> "Mes biens";
             case "prets" -> "Prêts";
             case "taxe-fonciere" -> "Taxe foncière";
-            default -> "Patrimoine";
+            default -> "Synthèse immobilière";
         };
         Html heading = Html.concat(Layout.estateNavigation(tab), Components.heading("Votre patrimoine immobilier", title, null,
                 overview.properties().isEmpty() || !tab.equals("patrimoine") ? Html.EMPTY : Components.pdfButton("/immobilier.pdf")));
@@ -65,10 +65,8 @@ final class PortfolioPages {
                 marketCell(summary.squareMeter()),
                 number(summary.debt(), euroWhole(summary.debt())))).collect(Html.joining());
         Html simulate = Html.raw("""
-                <p class="notice info simulate-hint"><b>Et si je vendais ?</b> Cliquez sur un bien pour ouvrir sa fiche. En haut, faites glisser le curseur
-                « Valeur retenue », ou choisissez un scénario (prudent, prix du marché, fourchette, optimiste) : Patria recalcule aussitôt ce qu'il vous
-                resterait après les frais de vente, la fiscalité et le remboursement du prêt, et votre gain réel. La valeur choisie devient celle du bien
-                dans votre patrimoine ; vous pouvez la changer à tout moment.</p>""");
+                <p class="notice info simulate-hint"><b>Et si je vendais ?</b> Ouvrez un bien et faites glisser « Valeur retenue » : Patria calcule ce qu'il \
+                vous resterait après frais, impôts et remboursement du prêt.</p>""");
         Html propertyTable = Html.of("<div id=\"biens\">%s%s</div>", simulate, Components.card("Biens", overview.properties().size(), Html.EMPTY,
                 Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, tab.equals("biens"))));
         Html loans = Html.of("<div id=\"prets\">%s%s</div>", loanTiles(overview),

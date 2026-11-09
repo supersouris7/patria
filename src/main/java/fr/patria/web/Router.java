@@ -146,6 +146,8 @@ public final class Router implements HttpHandler {
                 session = null;
             }
             String query = exchange.getRequestURI().getRawQuery();
+            // Theme choisi (cookie pose par app.js) : rendu des le serveur, sans clignotement ; sinon celui du systeme.
+            Layout.THEME.set(Layout.theme(cookie(exchange, "theme")));
             Layout.CHROME.set(chrome(viewer, session != null && !session.httpAcknowledged() && insecure(exchange), path + (query == null ? "" : "?" + query)));
             write(exchange, dispatch(exchange, path, session, viewer));
         } catch (ValidationException exception) {
@@ -161,6 +163,7 @@ public final class Router implements HttpHandler {
             write(exchange, new Response.Page(500, Layout.message("Erreur interne", "Une erreur est survenue.", csrf(session))));
         } finally {
             Layout.CHROME.remove();
+            Layout.THEME.remove();
             exchange.close();
         }
     }
@@ -307,11 +310,15 @@ public final class Router implements HttpHandler {
     }
 
     private static String cookie(HttpExchange exchange) {
+        return cookie(exchange, Sessions.COOKIE);
+    }
+
+    private static String cookie(HttpExchange exchange, String name) {
         String header = exchange.getRequestHeaders().getFirst("Cookie");
         if (header == null) return null;
         for (String part : header.split(";")) {
             String[] entry = part.trim().split("=", 2);
-            if (entry.length == 2 && entry[0].equals(Sessions.COOKIE)) return entry[1];
+            if (entry.length == 2 && entry[0].equals(name)) return entry[1];
         }
         return null;
     }

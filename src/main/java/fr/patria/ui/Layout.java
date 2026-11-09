@@ -5,7 +5,7 @@ import java.util.List;
 /** Squelette commun des pages : en-tete, navigation principale, contenu. */
 public final class Layout {
     /** Entree active de la navigation principale. */
-    public enum Section { HOME, BUDGET, REAL_ESTATE, SAVINGS, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
+    public enum Section { HOME, BUDGET, WEALTH, REAL_ESTATE, SAVINGS, STOCKS, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
 
     /** Foyer propose dans le selecteur de l'en-tete ; {@code managed} : la personne connectee en est gestionnaire. */
     public record Choice(long id, String name, boolean managed) {
@@ -73,6 +73,12 @@ public final class Layout {
     }
 
     public static final ThreadLocal<Chrome> CHROME = new ThreadLocal<>();
+    /** Theme force par la personne (« light » ou « dark ») ; vide : celui du systeme. */
+    public static final ThreadLocal<String> THEME = new ThreadLocal<>();
+
+    public static String theme(String cookie) {
+        return "light".equals(cookie) || "dark".equals(cookie) ? cookie : "";
+    }
 
     /** Groupes du menu d'administration : les comptes (tous les foyers), puis le contenu du foyer affiche. */
     public enum AdminGroup { ACCOUNTS, HOUSEHOLD }
@@ -121,6 +127,10 @@ public final class Layout {
         }
     }
 
+    /** Bascule de theme (systeme, clair, sombre), geree par app.js. */
+    private static final Html THEME_TOGGLE = Html.raw("<button class=\"quiet theme-toggle\" type=\"button\" data-theme-toggle aria-label=\"Thème : système\" title=\"Thème : système\">"
+            + "<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" "
+            + "stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 4a8 8 0 0 1 0 16z\" fill=\"currentColor\"/></svg></button>");
     private static final Html LOGOUT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/><path d=\"M16 17l5-5-5-5\"/><path d=\"M21 12H9\"/></svg>");
 
     private static final Html ACCOUNT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>");
@@ -178,7 +188,8 @@ public final class Layout {
                 <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="menu-only">Assistant</span><span class="nav-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
-        Html savings = navLink("/epargne", "Épargne", section == Section.SAVINGS);
+        Html savings = Html.concat(navLink("/patrimoine", "Patrimoine", section == Section.WEALTH), navLink("/epargne", "Épargne", section == Section.SAVINGS),
+                navLink("/bourse", "Bourse", section == Section.STOCKS));
         Html allLinks = administrator ? manage : Html.concat(budget, savings, estate, manage, follow);
         Html links = allLinks;
         // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
@@ -201,7 +212,7 @@ public final class Layout {
                 <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, health), links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, health), links, search(searchLinks), audience(chrome, csrf), Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
@@ -287,7 +298,7 @@ public final class Layout {
 
     public static Html estateNavigation(String active) {
         return Html.of("<nav class=\"estate-navigation\" aria-label=\"Navigation immobilière\">%s%s%s%s</nav>",
-                navLink("/immobilier", "Patrimoine", active.equals("patrimoine")),
+                navLink("/immobilier", "Synthèse", active.equals("patrimoine")),
                 navLink("/immobilier/biens", "Mes biens", active.equals("biens")),
                 navLink("/immobilier/prets", "Prêts", active.equals("prets")),
                 navLink("/immobilier/taxe-fonciere", "Taxe foncière", active.equals("taxe-fonciere")));
@@ -339,16 +350,22 @@ public final class Layout {
     public static Html message(String title, String text, String csrf) {
         return page(title + " · Patria", Section.NONE, csrf, Html.of("""
                 <section class="card empty-state"><h1>%s</h1><p class="muted">%s</p>
-                <a class="button secondary" href="/">Retour à la vue d'ensemble</a></section>""", title, text));
+                <a class="button secondary" href="/">Retour à l'accueil</a></section>""", title, text));
     }
 
     public static Html document(String title, String bodyClass, Html body) {
         return Html.of("""
-                <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-                <meta name="color-scheme" content="dark"><style>html,body{background:#0a0e13;color:#edf3f8}</style>
+                <!doctype html><html lang="fr"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="color-scheme" content="%s"><style>html,body{background:#0a0e13;color:#edf3f8}                @media (prefers-color-scheme: light){html:not([data-theme=dark]),html:not([data-theme=dark]) body{background:#f5f7fa;color:#14202c}}                html[data-theme=light],html[data-theme=light] body{background:#f5f7fa;color:#14202c}</style>
                 <title>%s</title><link rel="icon" type="image/png" href="%s"><link rel="stylesheet" href="%s"><script defer src="%s"></script></head>
                 <body class="%s">%s</body></html>""",
+                theme().isEmpty() ? Html.EMPTY : Html.of(" data-theme=\"%s\"", theme()), theme().isEmpty() ? "dark light" : theme(),
                 title, Assets.url("/images/patria-logo.png"), Assets.url("/css/patria.css"), Assets.url("/js/app.js"), bodyClass, body);
+    }
+
+    private static String theme() {
+        String theme = THEME.get();
+        return theme == null ? "" : theme;
     }
 
     public static Html brand() {

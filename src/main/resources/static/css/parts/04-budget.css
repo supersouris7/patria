@@ -30,11 +30,11 @@
 .chart .axis.deficit { fill: var(--danger); font-weight: 700; }
 .chart .income { stroke: var(--text); stroke-linecap: round; stroke-width: 2; }
 .chart .hit { fill: transparent; }
-.chart .hit:hover { fill: rgb(255 255 255 / 4%); }
+.chart .hit:hover { fill: var(--hover); }
 .chart .month-link { cursor: pointer; }
 .chart .month-link:focus-visible { outline: none; }
-.chart .month-link:focus-visible .hit { fill: rgb(255 255 255 / 6%); stroke: var(--blue); stroke-width: 2; }
-.month.highlight > summary { background: rgb(255 255 255 / 5%); }
+.chart .month-link:focus-visible .hit { fill: var(--hover-strong); stroke: var(--blue); stroke-width: 2; }
+.month.highlight > summary { background: var(--hover-strong); }
 .month-detail a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .month-detail a:hover { text-decoration-color: currentColor; }
 .tax-links { margin-top: 8px; }
@@ -84,7 +84,7 @@ tfoot small { font-weight: 400; }
 .month { border-top: 1px solid var(--line); }
 .month summary { cursor: pointer; list-style: none; padding: 11px 12px; }
 .month summary::-webkit-details-marker { display: none; }
-.month summary:hover { background: rgb(255 255 255 / 2%); }
+.month summary:hover { background: var(--hover); }
 .month-name::before { color: var(--muted); content: "▸"; display: inline-block; margin-right: 8px; transition: transform .15s; }
 .month[open] .month-name::before { transform: rotate(90deg); }
 .month[open] summary { background: var(--surface-raised); }
@@ -108,7 +108,7 @@ tfoot small { font-weight: 400; }
 .rank small { color: var(--muted); text-align: right; }
 .rank-group > summary { border-radius: var(--radius-small); cursor: pointer; list-style: none; margin: 0 -8px; padding: 6px 8px; }
 .rank-group > summary::-webkit-details-marker { display: none; }
-.rank-group > summary:hover { background: rgb(255 255 255 / 3%); }
+.rank-group > summary:hover { background: var(--hover); }
 .rank-group .rank-label::before { color: var(--muted); content: "▸"; display: inline-block; margin-right: 8px; transition: transform .15s; }
 .rank-group[open] .rank-label::before { transform: rotate(90deg); }
 .rank-detail { border-left: 2px solid var(--line); list-style: none; margin: 4px 0 10px 6px; padding: 0 0 0 16px; }
@@ -137,13 +137,13 @@ tfoot small { font-weight: 400; }
 }
 
 /* ---- Accueil : alertes regroupees ---- */
-.watch { background: var(--surface); border: 1px solid #6b5520; border-radius: var(--radius); margin-bottom: 16px; padding: 14px 20px; }
-.watch h2 { color: #f3d38a; font-size: .78rem; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+.watch { background: var(--surface); border: 1px solid var(--warn-line); border-radius: var(--radius); margin-bottom: 16px; padding: 14px 20px; }
+.watch h2 { color: var(--warn-text); font-size: .78rem; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
 .watch ul { list-style: none; margin: 0; padding: 0; }
 .watch li { color: var(--text-soft); font-size: .9rem; padding: 5px 0 5px 22px; position: relative; }
 .watch li::before { font-weight: 800; left: 0; position: absolute; }
-.watch li.warning::before { color: #f3d38a; content: "!"; left: 5px; }
-.watch li.serious { color: #ffadb4; font-weight: 650; }
+.watch li.warning::before { color: var(--warn-text); content: "!"; left: 5px; }
+.watch li.serious { color: var(--err-text); font-weight: 650; }
 .watch li.serious::before { color: var(--danger); content: "▲"; font-size: .75rem; top: 7px; }
 
 /* ---- Budget : foyer ou personne ---- */

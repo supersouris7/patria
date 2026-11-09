@@ -195,7 +195,7 @@ class PrivacyTest {
             Visitor gestion = manager;
             assertEquals("/assistant", location(post(gestion, "/bienvenue/terminer", "")), "le gestionnaire commence par le guide");
             String home = get(gestion, "/").body();
-            assertTrue(home.contains("Configuration terminée à 0 %"), "encadré de progression");
+            assertTrue(home.contains("Guide de saisie : 0 % des étapes faites"), "encadré de progression");
             assertEquals("/", location(post(gestion, "/assistant/encadre/ignorer", "")));
             assertFalse(get(gestion, "/").body().contains("Configuration terminée"), "ignoré");
         }

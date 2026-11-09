@@ -61,6 +61,11 @@ public final class HealthController {
             saveScope(request);
             return Response.redirect("/bilan?ok=enregistre");
         });
+        router.userGet("/patrimoine", request -> {
+            SavingsController.Snapshot saved = savings.snapshot(request, Set.of());
+            Portfolio.Overview estate = request.viewer().realEstate() ? portfolio.overview() : null;
+            return Response.page(WealthPages.page(saved.overview(), estate, request.csrf()));
+        });
         router.userPost("/bilan/ignorer", request -> change(request, true));
         router.userPost("/bilan/retablir", request -> change(request, false));
     }
