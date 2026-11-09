@@ -77,7 +77,7 @@ Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » pro
 
 Le Guide de saisie se suit avec **Précédent / Suivant** (toujours l'étape juste après, sans rien sauter) ; le plan complet reste dans « Plan du guide », replié. Il se fait en deux temps :
 
-1. **Vos documents** : réunissez-les (liste à cocher), puis donnez-les **tous** à votre IA avec le **prompt universel**. Elle renvoie une ligne par élément trouvé, avec son type (`REVENU`, `DEPENSE`, `VIREMENT`, `EPARGNE`, `BOURSE`). Collez la réponse, en une ou plusieurs fois : tout attend dans la pile **« À trier »**, même en trop. **Rien n'entre dans le budget à ce stade.**
+1. **Vos documents** : cochez dans la liste ceux que vous avez, puis donnez-les **tous** à votre IA avec le **prompt universel**. Elle renvoie une ligne par élément trouvé, avec son type (`REVENU`, `DEPENSE`, `VIREMENT`, `EPARGNE`, `BOURSE`). Collez la réponse, en une ou plusieurs fois : tout attend dans la pile **« À trier »**, même en trop. **Rien n'entre dans le budget à ce stade.**
 2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.
 
 Les échéanciers de prêts immobiliers restent à part, à l'étape Prêts (un prompt dédié, rattaché au bien).
@@ -182,7 +182,7 @@ Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, L
 - **Taux** : pré-rempli avec le taux officiel quand vous choisissez un livret réglementé.
 - **Versement programmé** : sur un placement, un montant et une fréquence font avancer le solde tout seul (plafond des livrets respecté) ; le versement apparaît dans le budget (Virements), donc dans le reste à vivre, sans gonfler l'objectif de précaution.
 - **Historique** : graphique en barres empilées des 24 derniers mois (disponible, bourse, long terme), rempli à chaque mise à jour et chaque mois.
-- **Tuiles** : épargne totale, épargne de précaution (en mois de dépenses), inflation sur 12 mois (INSEE) et **pouvoir d'achat** : l'évolution de vos revenus sur un an corrigée de l'inflation.
+- **Tuiles** : épargne totale, épargne de précaution (en mois de dépenses), inflation sur 12 mois (INSEE) et **pouvoir d'achat** : l'évolution de vos revenus sur un an corrigée de l'inflation (sans revenus connus il y a un an, à revenus constants face à l'inflation des 12 derniers mois).
 - **Plan d'épargne de sécurité** : objectif de précaution (6 mois de dépenses par défaut, réglable), ce qui manque, un versement mensuel conseillé (combler en un an sans dépasser la moitié du reste mensuel) et l'ordre de remplissage : LEP si vous y êtes éligible, Livret A, LDDS, puis le long terme. Indicatif, pas un conseil en investissement.
 
 Le **Bilan** audite l'épargne à chaque ouverture : précaution réelle, argent qui dort sur les comptes courants, plafonds atteints, LEP possible, livrets sous l'inflation, concentration sur une seule valeur, plus ou moins-values, PEA de moins de 5 ans, changement récent d'un taux, soldes de plus de 6 mois, pouvoir d'achat. En mode hors ligne, cours et inflation ne sont pas récupérés.

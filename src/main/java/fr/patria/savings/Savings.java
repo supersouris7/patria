@@ -166,21 +166,19 @@ public final class Savings {
             BigDecimal rate = RegulatedRates.at(kind, today).map(RegulatedRates.Rate::percent).orElse(null);
             BigDecimal put = left.min(room);
             String why = switch (kind) {
-                case LEP -> "Le mieux rémunéré des livrets" + ("oui".equals(lep) ? "" : ", si votre revenu fiscal le permet (" + euro(RegulatedRates.LEP_INCOME_ONE_PART)
-                        + " pour 1 part, + " + euro(RegulatedRates.LEP_INCOME_HALF_PART) + " par demi-part)") + ". Plafond " + euro(kind.ceiling()) + " par personne.";
-                case LIVRET_A -> "Disponible à tout moment, sans impôt. Plafond " + euro(kind.ceiling()) + " par personne.";
-                default -> "Mêmes avantages que le Livret A. Plafond " + euro(kind.ceiling()) + " par personne.";
+                case LEP -> "Le mieux rémunéré" + ("oui".equals(lep) ? "" : ", si revenu fiscal ≤ " + euro(RegulatedRates.LEP_INCOME_ONE_PART) + " (1 part)");
+                case LIVRET_A -> "Disponible, sans impôt";
+                default -> "Comme le Livret A";
             };
             if (put.signum() > 0) {
                 steps.add(new Step(kind.label(), put, rate, why));
                 left = left.subtract(put);
             } else if (missing.signum() > 0 && room.signum() == 0 && kind != SavingsKind.LEP) {
-                steps.add(new Step(kind.label(), BigDecimal.ZERO, rate, "Plafond atteint pour chacun : passez à l'étape suivante."));
+                steps.add(new Step(kind.label(), BigDecimal.ZERO, rate, "Plafond atteint"));
             }
         }
-        if (left.signum() > 0) steps.add(new Step("Autre livret bancaire", left, null, "Les livrets réglementés sont pleins : un livret bancaire garde l'argent disponible."));
-        steps.add(new Step("Long terme : assurance-vie, PEA", null, null,
-                "Une fois la précaution atteinte, l'épargne qui peut attendre 5 ans ou plus a plus de chances d'être rémunérée au-dessus de l'inflation, avec un risque de perte."));
+        if (left.signum() > 0) steps.add(new Step("Autre livret bancaire", left, null, "Livrets réglementés pleins"));
+        steps.add(new Step("Ensuite : assurance-vie, PEA", null, null, "5 ans et plus, avec un risque de perte"));
         return new Plan(spending, months, target, overview.available(), missing, monthly, margin, steps);
     }
 
@@ -196,18 +194,21 @@ public final class Savings {
     }
 
     /** Revenus mensuels (equivalent mensuel) a une date, l'an dernier, l'evolution et le pouvoir d'achat face a l'inflation. */
-    public record PurchasingPower(BigDecimal now, BigDecimal yearAgo, BigDecimal income, BigDecimal inflation, BigDecimal power) {
+    public record PurchasingPower(BigDecimal now, BigDecimal yearAgo, BigDecimal income, BigDecimal inflation, BigDecimal power, boolean estimated) {
     }
 
     public static Optional<PurchasingPower> purchasingPower(List<Income> incomes, LocalDate today, Optional<MarketFeeds.Inflation> inflation) {
         BigDecimal now = monthlyIncome(incomes, today);
         BigDecimal before = monthlyIncome(incomes, today.minusYears(1));
-        if (inflation.isEmpty() || now.signum() == 0 || before.signum() == 0) return Optional.empty();
+        if (inflation.isEmpty() || now.signum() == 0) return Optional.empty();
+        // Sans revenus connus il y a un an : memes revenus qu'aujourd'hui, face a l'inflation des 12 derniers mois.
+        boolean estimated = before.signum() == 0;
+        if (estimated) before = now;
         BigDecimal evolution = now.divide(before, 6, RoundingMode.HALF_UP).subtract(BigDecimal.ONE);
         BigDecimal prices = inflation.get().percent().divide(HUNDRED, 6, RoundingMode.HALF_UP);
         BigDecimal power = BigDecimal.ONE.add(evolution).divide(BigDecimal.ONE.add(prices), 6, RoundingMode.HALF_UP).subtract(BigDecimal.ONE);
         return Optional.of(new PurchasingPower(now, before, evolution.movePointRight(2).setScale(1, RoundingMode.HALF_UP), inflation.get().percent(),
-                power.movePointRight(2).setScale(1, RoundingMode.HALF_UP)));
+                power.movePointRight(2).setScale(1, RoundingMode.HALF_UP), estimated));
     }
 
     static BigDecimal monthlyIncome(List<Income> incomes, LocalDate date) {

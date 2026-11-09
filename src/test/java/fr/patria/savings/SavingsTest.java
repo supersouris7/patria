@@ -86,6 +86,10 @@ class SavingsTest {
         assertEquals(new BigDecimal("5.0"), power.income());
         assertEquals(new BigDecimal("1.5"), power.power(), "1,05 / 1,034 − 1");
         assertTrue(Savings.purchasingPower(incomes, TODAY, Optional.empty()).isEmpty());
+        Savings.PurchasingPower constant = Savings.purchasingPower(List.of(incomes.get(1)), TODAY,
+                Optional.of(new MarketFeeds.Inflation(new BigDecimal("3.4"), YearMonth.of(2026, 10)))).orElseThrow();
+        assertTrue(constant.estimated(), "sans revenu d'il y a un an : revenus supposés constants");
+        assertEquals(new BigDecimal("-3.3"), constant.power(), "1 / 1,034 − 1");
     }
 
     @Test

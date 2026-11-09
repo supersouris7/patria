@@ -77,10 +77,19 @@ final class WizardPages {
         Html heading = Components.heading("Guide · étape " + number + " sur " + context.steps().size() + (context.review() ? " · revue" : ""),
                 step.title(), step.summary(), Html.EMPTY);
         Html bar = Html.of("<div class=\"wizard-bar\">%s<details class=\"wizard-plan\"><summary>Plan du guide</summary><ol class=\"wizard-plan-steps\">%s</ol></details></div>",
-                Components.progress(context.steps().isEmpty() ? 0 : (number - 1) * 100 / context.steps().size()), stepper(context, step));
+                progressBar(context, step), stepper(context, step));
         Html content = Html.concat(bar, heading, Components.notice(notice), toSort(context, step), body, step == Step.SUMMARY ? Html.EMPTY : footer(context, step));
         Html layout = Html.of("<div class=\"wizard wizard-linear\"><div class=\"wizard-body\">%s</div></div>", content);
         return Layout.page(step.title() + " · Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), layout);
+    }
+
+    /** Barre de progression en segments : une case par etape (faite, passee, en cours, a venir), et l'etape en cours nommee. */
+    static Html progressBar(WizardController.Context context, Step current) {
+        Html segments = context.steps().stream().map(step -> Html.of("<li class=\"%s%s\" title=\"%s\"></li>", css(context, step), step == current ? " current" : "",
+                step.title())).collect(Html.joining());
+        long finished = context.steps().stream().filter(context.progress()::containsKey).count();
+        return Html.of("<div class=\"wizard-progress\"><ol aria-hidden=\"true\">%s</ol><p><b>Étape %s sur %s</b> · %s <span class=\"muted\">· %s faite%s</span></p></div>",
+                segments, context.steps().indexOf(current) + 1, context.steps().size(), current.title(), finished, finished > 1 ? "s" : "");
     }
 
     static Html stepper(WizardController.Context context, Step current) {
@@ -136,9 +145,6 @@ final class WizardPages {
     static Html documents(WizardController.Context context) {
         List<Documents.Document> documents = Documents.forViewer(context.admin());
         long ready = documents.stream().filter(document -> isReady(context, document)).count();
-        Html groups = documents.stream().map(Documents.Document::group).distinct().map(group -> Html.of("<h3 class=\"wizard-group\">%s</h3><ul class=\"doc-list\">%s</ul>",
-                group, documents.stream().filter(document -> document.group().equals(group)).map(document -> documentRow(context, document)).collect(Html.joining())))
-                .collect(Html.joining());
         Map<ImportInbox.Type, Long> pile = context.inbox().stream().collect(java.util.stream.Collectors.groupingBy(ImportInbox.Item::type,
                 () -> new java.util.EnumMap<>(ImportInbox.Type.class), java.util.stream.Collectors.counting()));
         Html pileCard = Components.card("Pile « À trier »", context.inbox().size(), Html.EMPTY, pile.isEmpty()
@@ -154,29 +160,22 @@ final class WizardPages {
                 Components.csrfField(context.csrf()), modeField(context),
                 Components.localAiInput("tout|" + context.visibility().people().stream().map(person -> person.name() + (person.isAccount() ? "*" : ""))
                         .collect(java.util.stream.Collectors.joining(","))));
+        Html checklist = Html.of("""
+                <form method="post" action="/assistant/documents/liste" class="doc-checklist">%s%s%s
+                <div class="form-actions"><button class="secondary" type="submit">Enregistrer la liste</button></div></form>""",
+                Components.csrfField(context.csrf()), modeField(context), documents.stream().map(Documents.Document::group).distinct().map(group -> Html.of(
+                        "<fieldset><legend>%s</legend>%s</fieldset>", group, documents.stream().filter(document -> document.group().equals(group)).map(document -> {
+                            boolean auto = document.auto().test(context.snapshot());
+                            boolean have = auto || context.documents().get(document.id()) == WizardRepository.DocumentStatus.HAVE;
+                            return Html.of("<label class=\"check\" title=\"%s\"><input type=\"checkbox\" name=\"doc_%s\" value=\"on\"%s%s> %s%s</label>", document.where(),
+                                    document.id(), Html.raw(have ? " checked" : ""), Html.raw(auto ? " disabled" : ""), document.label(),
+                                    auto ? Html.raw(" <span class=\"badge paid\">déjà dans Patria</span>") : Html.EMPTY);
+                        }).collect(Html.joining()))).collect(Html.joining()));
         return Html.concat(
-                explain("Deux temps. D'abord, donnez tous vos documents à l'IA d'un coup : tout ce qu'elle trouve (même en trop) attend dans la pile « À trier ». "
-                        + "Ensuite, « Suivant » passe chaque catégorie : vous validez ou refusez ses lignes, puis complétez à la main."),
-                Components.card("1. Réunissez vos documents", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()),
-                        Html.concat(Components.progress(documents.isEmpty() ? 0 : (int) (ready * 100 / documents.size())),
-                                Html.of("<details class=\"doc-checklist\"%s><summary>Liste des documents utiles</summary>%s</details>",
-                                        Html.raw(context.inbox().isEmpty() ? " open" : ""), groups))),
+                Components.card("1. Cochez les documents que vous avez", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()), checklist),
                 Html.of("<div id=\"import\">%s</div>", Components.card("2. Donnez-les tous à l'IA", null, Html.EMPTY,
                         Html.concat(Components.llmPrompt("prompt-universel", ImportInbox.prompt(context.visibility().people())), give))),
                 pileCard);
-    }
-
-    /** Un document de la liste : coche automatique, « J'ai ce document » ou « Pas concerne », sans quitter l'etape. */
-    static Html documentRow(WizardController.Context context, Documents.Document document) {
-        boolean auto = document.auto().test(context.snapshot());
-        WizardRepository.DocumentStatus status = context.documents().get(document.id());
-        String css = auto || status == WizardRepository.DocumentStatus.HAVE ? "have" : status == WizardRepository.DocumentStatus.NOT_CONCERNED ? "na" : "missing";
-        Html actions = auto ? Html.raw("<span class=\"badge paid\">Déjà dans Patria</span>")
-                : status != null ? Html.concat(Html.of("<span class=\"badge%s\">%s</span>", status == WizardRepository.DocumentStatus.HAVE ? " paid" : "",
-                status == WizardRepository.DocumentStatus.HAVE ? "Je l'ai" : "Pas concerné"), docButton(context, document, "", "Annuler", "quiet"))
-                : Html.concat(docButton(context, document, "HAVE", "Je l'ai", "secondary"), docButton(context, document, "NOT_CONCERNED", "Pas concerné", "quiet"));
-        return Html.of("<li class=\"doc %s\" id=\"doc-%s\"><span class=\"doc-mark\" aria-hidden=\"true\">%s</span><div><b>%s</b><span class=\"help\">%s</span></div>"
-                + "<div class=\"doc-actions\">%s</div></li>", css, document.id(), css.equals("have") ? "✓" : css.equals("na") ? "–" : "", document.label(), document.where(), actions);
     }
 
     /**
@@ -265,11 +264,6 @@ final class WizardPages {
         return document.auto().test(context.snapshot()) || context.documents().containsKey(document.id());
     }
 
-    static Html docButton(WizardController.Context context, Documents.Document document, String status, String label, String style) {
-        return Html.of("<form method=\"post\" action=\"/assistant/documents/coche\">%s%s<input type=\"hidden\" name=\"document\" value=\"%s\">"
-                        + "<input type=\"hidden\" name=\"status\" value=\"%s\"><button class=\"%s\" type=\"submit\">%s</button></form>",
-                Components.csrfField(context.csrf()), modeField(context), document.id(), status, style, label);
-    }
 
     // ---- 3. Revenus ----
 

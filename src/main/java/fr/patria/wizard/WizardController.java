@@ -84,8 +84,8 @@ public final class WizardController {
                 router.userPost(step.path() + "/terminer", done);
             }
         }
-        router.userPost("/assistant/documents/coche", this::checkDocument);
         router.userPost("/assistant/documents/importer", this::importAll);
+        router.userPost("/assistant/documents/liste", this::checkList);
         router.userPost("/assistant/tri", this::sort);
         router.userPost("/assistant/revenus/ajouter", this::addIncome);
         router.userPost("/assistant/logement/ajouter", request -> addExpenses(request, Step.HOUSING, List.of(Checklist.RENT), false));
@@ -329,6 +329,15 @@ public final class WizardController {
         return Response.invalid(render(request, step, Notice.error(exception.getMessage()), request.form().values()));
     }
 
+    /** Liste des documents : une case par document ; cochee = je l'ai, decochee = rien (ou plus) a signaler. */
+    private Response checkList(Request request) {
+        for (Documents.Document document : Documents.forViewer(request.viewer().realEstate())) {
+            boolean have = "on".equals(request.form().raw("doc_" + document.id()));
+            stores.progress().setDocument(owner(request), document.id(), have ? WizardRepository.DocumentStatus.HAVE : null);
+        }
+        return back(request, Step.DOCUMENTS, "import");
+    }
+
     // ---- Pile « A trier » ----
 
     /** Phase 1 : la reponse de l'IA (tous les documents) rejoint la pile ; rien n'entre dans le budget. */
@@ -404,18 +413,6 @@ public final class WizardController {
 
     // ---- Documents ----
 
-    private Response checkDocument(Request request) {
-        String id = request.form().raw("document");
-        if (Documents.ALL.stream().noneMatch(document -> document.id().equals(id))) throw new ValidationException("Document inconnu.");
-        String raw = request.form().raw("status");
-        WizardRepository.DocumentStatus status = raw.isEmpty() ? null : switch (raw) {
-            case "HAVE" -> WizardRepository.DocumentStatus.HAVE;
-            case "NOT_CONCERNED" -> WizardRepository.DocumentStatus.NOT_CONCERNED;
-            default -> throw new ValidationException("Choix invalide.");
-        };
-        stores.progress().setDocument(owner(request), id, status);
-        return back(request, Step.DOCUMENTS, "doc-" + id);
-    }
 
     // ---- Membres, revenus, virements ----
 

@@ -71,8 +71,8 @@ class WizardTest {
 
         // 1. Documents : coche manuelle, puis coche automatique
         assertTrue(get(admin, "/assistant/documents").body().contains("Les 3 derniers bulletins de salaire"));
-        assertEquals(303, post(admin, "/assistant/documents/coche", "document=statements&status=HAVE").statusCode());
-        assertTrue(get(admin, "/assistant/documents").body().contains("class=\"doc have\" id=\"doc-statements\""), "coche verte manuelle");
+        assertEquals(303, post(admin, "/assistant/documents/liste", "doc_statements=on").statusCode());
+        assertTrue(get(admin, "/assistant/documents").body().contains("name=\"doc_statements\" value=\"on\" checked"), "case cochée gardée");
         assertEquals("/assistant/revenus", location(post(admin, "/assistant/documents/terminer", "")), "étape suivante (les membres sont créés par l'administrateur)");
 
         // 2. Membres, 3. Revenus
@@ -82,7 +82,7 @@ class WizardTest {
         assertEquals(303, post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(400, post(admin, "/assistant/revenus/ajouter", "person=3&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode(),
                 "pas de revenu pour le compte joint ici : seulement les personnes ouvertes");
-        assertTrue(get(admin, "/assistant/documents").body().contains("class=\"doc have\" id=\"doc-payslips\""), "coche verte automatique : salaire saisi");
+        assertTrue(get(admin, "/assistant/documents").body().contains("name=\"doc_payslips\" value=\"on\" checked disabled"), "coche automatique : salaire saisi");
 
         // 8. Depenses fixes : listes a cocher
         HttpResponse<String> missing = post(admin, "/assistant/depenses/ajouter", "on_spotify=on&amount_netflix=13,49&frequency_netflix=MONTHLY&start_netflix=2026-01-01");
@@ -109,7 +109,7 @@ class WizardTest {
         assertEquals(303, post(admin, "/assistant/charges/1", "kind=PROPERTY_TAX&year=2026&amount=900").statusCode());
         assertEquals(303, post(admin, "/assistant/occupation/1", "kind=RENTAL&monthly=650&start=2020-02-01").statusCode());
         String documents = get(admin, "/assistant/documents").body();
-        assertTrue(documents.contains("class=\"doc have\" id=\"doc-amortization\"") && documents.contains("class=\"doc have\" id=\"doc-property-tax\""));
+        assertTrue(documents.contains("name=\"doc_amortization\" value=\"on\" checked disabled") && documents.contains("name=\"doc_property-tax\" value=\"on\" checked disabled"));
 
         // Progression : passer, reprendre, revue
         assertEquals("/assistant/logement", location(post(admin, "/assistant/revenus/passer", "")), "étape passée, suivante à faire");

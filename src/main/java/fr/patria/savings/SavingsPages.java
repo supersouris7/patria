@@ -31,60 +31,64 @@ final class SavingsPages {
 
     /** Tirelire rose (illustration decorative, sans texte) : une piece tombe dans la fente. */
     static final String PIGGY = """
-            <svg class="piggy" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
-            <circle class="coin" cx="62" cy="10" r="8"/><text class="coin-mark" x="62" y="14" text-anchor="middle">€</text>
-            <ellipse class="body" cx="58" cy="56" rx="40" ry="28"/>
-            <path class="ear" d="M34 34 L40 20 L50 31 Z"/>
-            <rect class="slot" x="50" y="29" width="18" height="4" rx="2"/>
-            <rect class="leg" x="30" y="76" width="10" height="14" rx="4"/><rect class="leg" x="70" y="76" width="10" height="14" rx="4"/>
-            <ellipse class="snout" cx="98" cy="58" rx="10" ry="9"/>
-            <circle class="nostril" cx="95" cy="57" r="1.8"/><circle class="nostril" cx="101" cy="57" r="1.8"/>
-            <circle class="eye" cx="82" cy="46" r="3"/>
-            <path class="tail" d="M18 52 q-8 -4 -4 -10 q4 -5 7 1"/>
+            <svg class="piggy" viewBox="0 0 128 104" aria-hidden="true" focusable="false">
+            <defs><linearGradient id="piggy-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc8dd"/><stop offset="1" stop-color="#f28db5"/></linearGradient></defs>
+            <g class="coin"><circle cx="64" cy="14" r="10"/><text x="64" y="18.5" text-anchor="middle">€</text></g>
+            <path class="tail" d="M20 60 c-9 -2 -10 -12 -3 -13 c5 0 5 7 0 8"/>
+            <rect class="leg" x="34" y="78" width="13" height="18" rx="6"/><rect class="leg" x="76" y="78" width="13" height="18" rx="6"/>
+            <path class="ear" d="M42 40 Q44 22 60 34 Z"/>
+            <rect x="18" y="34" width="88" height="54" rx="27" fill="url(#piggy-body)"/>
+            <rect class="slot" x="54" y="36" width="20" height="5" rx="2.5"/>
+            <circle class="cheek" cx="88" cy="68" r="7"/>
+            <rect class="snout" x="98" y="52" width="18" height="20" rx="8"/>
+            <ellipse class="nostril" cx="104" cy="62" rx="1.8" ry="2.6"/><ellipse class="nostril" cx="110" cy="62" rx="1.8" ry="2.6"/>
+            <circle class="eye" cx="86" cy="52" r="3.6"/><circle class="eye-light" cx="87.3" cy="50.7" r="1.2"/>
             </svg>""";
 
     static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf) {
         Savings.Overview overview = snapshot.overview();
         Savings.Plan plan = snapshot.plan();
         String inflation = snapshot.inflation().map(value -> Format.signedPercent(value.percent())).orElse(offline ? "Hors ligne" : "…");
-        String inflationSub = snapshot.inflation().map(value -> "sur 12 mois, " + Format.month(value.month()) + " (INSEE)").orElse(offline ? "mode hors ligne" : "chargement…");
+        String inflationSub = snapshot.inflation().map(value -> "sur 12 mois · INSEE").orElse(offline ? "mode hors ligne" : "chargement…");
         String power = snapshot.power().map(value -> Format.signedPercent(value.power())).orElse("—");
-        String powerSub = snapshot.power().map(value -> "revenus " + Format.signedPercent(value.income()) + " en un an, prix " + Format.signedPercent(value.inflation()))
-                .orElse("revenus d'il y a un an inconnus ou inflation indisponible");
+        String powerSub = snapshot.power().map(value -> value.estimated() ? "à revenus constants" : "revenus " + Format.signedPercent(value.income()) + " en un an")
+                .orElse("revenus à saisir");
+        BigDecimal months = plan.coverMonths();
+        String cushionTone = plan.spending().signum() == 0 ? "" : months.compareTo(BigDecimal.ONE) < 0 ? "negative" : months.compareTo(BigDecimal.valueOf(3)) < 0 ? "warning" : "positive";
         Html tiles = Components.metrics(4,
-                Components.tile("Épargne totale", "Somme des soldes saisis et de la valeur des lignes de bourse.", euroWhole(overview.total()),
+                tile("Épargne totale", "Soldes et valeur des lignes de bourse.", euroWhole(overview.total()), "accent",
                         overview.stocks().signum() == 0 ? null : "dont bourse " + euroWhole(overview.stocks())),
-                Components.tile("Épargne de précaution", "Argent disponible tout de suite : comptes courants et livrets. Repère : 3 à 6 mois de dépenses.",
-                        euroWhole(overview.available()), plan.spending().signum() == 0 ? null : Format.number(plan.coverMonths(), 1) + " mois de dépenses"),
-                Components.tile("Inflation", "Hausse des prix sur 12 mois, indice des prix à la consommation de l'INSEE.", inflation, inflationSub),
-                Components.tile("Pouvoir d'achat", "Évolution de vos revenus sur un an, corrigée de l'inflation. Positif : vos revenus progressent plus vite que les prix.",
-                        power, powerSub));
-        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Livrets, assurance-vie, PEA et comptes-titres de chacun, avec un plan pour sécuriser le foyer.",
-                        Html.raw(PIGGY)),
+                tile("Précaution", "Disponible tout de suite (comptes, livrets). Repère : 3 à 6 mois de dépenses.", euroWhole(overview.available()), cushionTone,
+                        plan.spending().signum() == 0 ? null : Format.number(months, 1) + " mois de dépenses"),
+                tile("Inflation", "Hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
+                tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
+                        snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
+        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Livrets, placements et bourse du foyer.", Html.raw(PIGGY)),
                 Components.notice(notice), tiles, chart(bars), planCard(snapshot, csrf), accounts(overview, today, null, csrf), addAccount(people, null, csrf),
-                Html.of("<p class=\"muted small\">Taux des livrets réglementés : %s, vérifiés le %s. Cours de bourse : Yahoo Finance, en euros, rafraîchis toutes les heures. "
-                        + "Indicatif : ce n'est pas un conseil en investissement.</p>", RegulatedRates.SOURCE, Format.date(RegulatedRates.CHECKED)));
+                Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
+                        Format.date(RegulatedRates.CHECKED)));
         return Layout.page("Épargne · Patria", Layout.Section.SAVINGS, csrf, content);
+    }
+
+    /** Tuile dont la valeur est mise en couleur ({@code tone} : positive, negative, warning, accent). */
+    private static Html tile(String label, String hint, String value, String tone, String sub) {
+        return Html.of("<article class=\"metric\">%s<strong class=\"%s\">%s</strong>%s</article>", Components.label(label, hint), tone, value,
+                sub == null ? Html.EMPTY : Html.of("<small>%s</small>", sub));
     }
 
     private static Html planCard(SavingsController.Snapshot snapshot, String csrf) {
         Savings.Plan plan = snapshot.plan();
         Html summary;
         if (plan.spending().signum() == 0) {
-            summary = Html.raw("<p class=\"muted\">Saisissez vos dépenses (Gérer → Dépenses) : l'objectif se calcule à partir de vos dépenses mensuelles.</p>");
+            summary = Html.raw("<p class=\"muted\">Saisissez vos dépenses pour calculer l'objectif.</p>");
         } else if (plan.missing().signum() == 0) {
-            summary = Html.of("<p class=\"notice success\">Objectif atteint : %s de côté pour %s mois de dépenses (%s). La suite peut viser le long terme.</p>",
-                    euroWhole(plan.available()), plan.months(), euroWhole(plan.target()));
+            summary = Html.of("<p class=\"plan-goal done\"><b>Objectif atteint</b> · %s pour %s mois de dépenses</p>", euroWhole(plan.available()), plan.months());
         } else {
-            summary = Html.of("""
-                    <p>Objectif : <b>%s</b> (%s mois de dépenses à %s). Vous avez %s : il manque <b>%s</b>.
-                    %s</p>""", euroWhole(plan.target()), plan.months(), euroWhole(plan.spending()), euroWhole(plan.available()), euroWhole(plan.missing()),
-                    plan.monthly().signum() > 0 ? Html.of("Versement conseillé : <b>%s par mois</b> (environ un an, sans dépasser la moitié de ce qui vous reste chaque mois).",
-                            euroWhole(plan.monthly()))
-                            : Html.raw("Votre budget ne dégage pas de reste chaque mois : commencez par le Prévisionnel et le Bilan."));
+            summary = Html.of("<p class=\"plan-goal\">Objectif <b>%s</b> · il manque <b class=\"negative\">%s</b>%s</p>", euroWhole(plan.target()), euroWhole(plan.missing()),
+                    plan.monthly().signum() > 0 ? Html.of(" · versez <b class=\"positive\">%s par mois</b>", euroWhole(plan.monthly())) : Html.EMPTY);
         }
-        Html rows = plan.steps().stream().map(step -> Html.of("<tr><td><b>%s</b></td><td class=\"num\">%s</td><td class=\"num\">%s</td><td>%s</td></tr>", step.where(),
-                step.amount() == null ? "—" : euroWhole(step.amount()), step.rate() == null ? "—" : Format.percent(step.rate()), step.why())).collect(Html.joining());
+        Html rows = plan.steps().stream().map(step -> Html.of("<tr><td><b>%s</b><small>%s</small></td><td class=\"num\">%s</td><td class=\"num\">%s</td></tr>", step.where(),
+                step.why(), step.amount() == null ? "—" : euroWhole(step.amount()), step.rate() == null ? "—" : Format.percent(step.rate()))).collect(Html.joining());
         String lep = snapshot.lep();
         Html settings = Html.of("""
                 <form method="post" action="/epargne/plan" class="row-form">%s%s%s<button class="secondary" type="submit">Recalculer</button></form>""",
@@ -94,8 +98,7 @@ final class SavingsPages {
                 Components.select("Objectif de précaution", "mois", List.of(new Components.Option("3", "3 mois"), new Components.Option("4", "4 mois"),
                         new Components.Option("6", "6 mois"), new Components.Option("9", "9 mois"), new Components.Option("12", "12 mois")), String.valueOf(plan.months())));
         return Html.of("<div id=\"plan\">%s</div>", Components.card("Plan d'épargne de sécurité", null, Html.EMPTY, Html.concat(summary,
-                Html.raw("<p class=\"muted\">Ordre de remplissage conseillé : d'abord une épargne disponible et sans risque, puis le long terme.</p>"),
-                Components.table(List.of("Où", "#Montant", "#Taux", "Pourquoi"), rows, false, false), settings)));
+                Components.table(List.of("Dans l'ordre", "#Montant", "#Taux"), rows, false, false), settings)));
     }
 
     /** Jeton CSRF et, depuis le guide, la page ou revenir apres l'action. */
@@ -105,82 +108,83 @@ final class SavingsPages {
 
     static Html accounts(Savings.Overview overview, LocalDate today, String back, String csrf) {
         if (overview.isEmpty()) {
-            return Components.card("Comptes", 0, Html.EMPTY, Html.raw("<p class=\"empty\">Aucun placement saisi. Ajoutez vos livrets, assurances-vie et PEA ci-dessous.</p>"));
+            return Components.card("Comptes", 0, Html.EMPTY, Html.raw("<p class=\"empty\">Aucun placement pour l'instant.</p>"));
         }
         Html rows = overview.lines().stream().map(line -> {
             SavingsRepository.Account account = line.account();
             BigDecimal ceiling = account.kind().ceiling();
-            String fill = ceiling == null || account.kind().stocks() ? "" : " · " + account.balance().multiply(BigDecimal.valueOf(100)).divide(ceiling, 0, java.math.RoundingMode.HALF_UP)
-                    + " % du plafond";
-            Html update = Html.of("""
-                    <form method="post" action="/epargne/compte/%s" class="inline-form">%s<input name="balance" inputmode="decimal" value="%s" aria-label="Nouveau solde de %s" size="9">\
-                    <button class="secondary" type="submit">Mettre à jour</button></form>""", account.id(), token(csrf, back), account.balance().toPlainString(), account.name());
-            Html delete = Html.of("""
-                    <form method="post" action="/epargne/compte/%s/supprimer" class="inline-form" data-confirm="Supprimer « %s » et ses lignes ?">%s\
-                    <button class="danger" type="submit">Supprimer</button></form>""", account.id(), account.name(), token(csrf, back));
+            int fill = ceiling == null || account.kind().stocks() ? -1
+                    : line.balance().multiply(BigDecimal.valueOf(100)).divide(ceiling, 0, java.math.RoundingMode.HALF_UP).min(BigDecimal.valueOf(100)).intValue();
+            SavingsRepository.Contribution contribution = account.contribution();
+            Html badges = Html.concat(
+                    contribution == null ? Html.EMPTY : Html.of("<span class=\"badge positive-badge\" title=\"Versement programmé\">+%s / %s</span>", euroWhole(contribution.amount()),
+                            contribution.frequency() == fr.patria.common.Frequency.MONTHLY ? "mois" : contribution.frequency().label().toLowerCase(java.util.Locale.FRENCH)),
+                    fill < 0 ? Html.EMPTY : Html.of("<span class=\"ceiling\" title=\"%s du plafond\"><i style=\"width:%s\"></i></span>", fill + " %", fill + "%"));
             Html main = Html.of("""
-                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s%s</small></td><td class="num">%s<small>solde du %s</small></td><td class="num">%s</td><td class="num">%s</td><td>%s%s</td></tr>""",
-                    account.id(), account.name(), account.kind().label(), line.owner(), fill, euroWhole(line.value()), Format.date(account.balanceDate()),
-                    line.rate() == null ? "—" : Format.percent(line.rate()), line.yearlyInterest() == null ? "—" : euroWhole(line.yearlyInterest()), update, delete);
-            Html contribution = contribution(line, back, csrf);
-            return account.kind().stocks() ? Html.concat(main, contribution, positions(line, back, csrf)) : Html.concat(main, contribution);
+                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s</small>%s</td><td class="num"><b>%s</b></td><td class="num">%s</td><td class="num positive">%s</td><td class="actions">%s</td></tr>""",
+                    account.id(), account.name(), account.kind().label(), line.owner(), badges, euroWhole(line.value()),
+                    line.rate() == null ? "—" : Format.percent(line.rate()), line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
+                    manage(line, back, csrf));
+            return account.kind().stocks() ? Html.concat(main, positions(line, back, csrf)) : main;
         }).collect(Html.joining());
-        Html footer = Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num\">%s</th><th></th></tr>", euroWhole(overview.total()),
-                euroWhole(overview.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add)));
+        BigDecimal interest = overview.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Html footer = Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num positive\">+%s</th><th></th></tr>", euroWhole(overview.total()), euroWhole(interest));
         return Components.card("Comptes", overview.lines().size(), Html.EMPTY,
-                Components.table(List.of("Placement", "#Valeur", "#Taux", "#Intérêts / an", ""), rows, footer, false, false));
+                Html.of("<div class=\"table-wrap\"><table class=\"data savings-table\"><thead><tr><th>Placement</th><th class=\"num\">Valeur</th><th class=\"num\">Taux</th>"
+                        + "<th class=\"num\">Intérêts / an</th><th></th></tr></thead><tbody>%s</tbody><tfoot>%s</tfoot></table></div>", rows, footer));
     }
 
-    /** Lignes de bourse d'un PEA ou compte-titres, et le formulaire d'ajout. */
+    /** Lignes de bourse d'un PEA ou compte-titres : tableau aligne, plus-values en couleur, ajout et import replies. */
     private static Html positions(Savings.Line line, String back, String csrf) {
         long account = line.account().id();
         Html rows = line.positions().stream().map(position -> Html.of("""
-                <li><b>%s</b> <code>%s</code> · %s × %s (%s) = <b>%s</b> · <span class="%s">%s</span>\
-                <form method="post" action="/epargne/ligne/%s/supprimer" class="inline-form">%s<button class="link-button" type="submit" aria-label="Supprimer %s">×</button></form></li>""",
-                position.position().label(), position.position().symbol(), position.position().quantity().toPlainString(), Format.euro(position.price()), position.priceSource(),
-                euroWhole(position.value()), position.gain().signum() >= 0 ? "positive" : "negative", Format.signedEuroWhole(position.gain()) + " de plus-value",
+                <tr><td>%s <code>%s</code></td><td class="num">%s</td><td class="num" title="%s">%s</td><td class="num">%s</td><td class="num %s">%s</td>\
+                <td><form method="post" action="/epargne/ligne/%s/supprimer" class="inline-form">%s<button class="link-button" type="submit" aria-label="Supprimer %s">×</button></form></td></tr>""",
+                position.position().label(), position.position().symbol(), Format.number(position.position().quantity(), 4), position.priceSource(), Format.euro(position.price()),
+                euroWhole(position.value()), position.gain().signum() >= 0 ? "positive" : "negative", Format.signedEuroWhole(position.gain()),
                 position.position().id(), token(csrf, back), position.position().label())).collect(Html.joining());
+        Html table = line.positions().isEmpty() ? Html.EMPTY : Html.of("""
+                <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Cours</th><th class="num">Valeur</th>\
+                <th class="num">Plus-value</th><th></th></tr></thead><tbody>%s</tbody></table>""", rows);
         Html paste = Html.of("""
-                <details><summary>Importer les lignes depuis l'export du courtier (Trade Republic, Boursorama…)</summary>%s
-                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s<label>Réponse de l'IA (lignes code;nom;quantité;prix de revient)
+                <details><summary>Importer l'export du courtier</summary>%s
+                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s<label>Réponse de l'IA
                 <textarea name="texte" rows="10" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label>
                 <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></details>""",
                 Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), account, token(csrf, back), Components.localAiInput("bourse"));
         Html add = Html.of("""
                 <details><summary>Ajouter une ligne</summary><form method="post" action="/epargne/compte/%s/ligne" class="stack">%s%s
-                <p class="muted small">Code Yahoo Finance : le symbole suivi de la place, par ex. AI.PA (Air Liquide, Paris), CW8.PA (ETF MSCI World). Le cours du jour
-                est récupéré automatiquement ; sinon saisissez-le.</p><div class="form-actions"><button type="submit">Ajouter la ligne</button></div></form></details>""",
+                <div class="form-actions"><button type="submit">Ajouter</button></div></form></details>""",
                 account, token(csrf, back), Components.fields(3,
-                        Components.input(Input.of("Code Yahoo Finance", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
-                        Components.input(Input.of("Nom", "label", Field.TEXT).maxLength(60).placeholder("Air Liquide"), Map.of()),
+                        Components.input(Input.of("Code (ex. AI.PA)", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
+                        Components.input(Input.of("Nom", "label", Field.TEXT).maxLength(60), Map.of()),
                         Components.input(Input.of("Quantité", "quantity", Field.NUMBER).required(), Map.of()),
                         Components.input(Input.of("Prix de revient total", "cost", Field.MONEY).required(), Map.of()),
-                        Components.input(Input.of("Cours (facultatif)", "price", Field.MONEY).help("Vide : cours du jour"), Map.of())));
-        return Html.of("<tr class=\"positions\"><td colspan=\"5\"><ul class=\"plain-list\">%s</ul>%s%s</td></tr>", rows, paste, add);
+                        Components.input(Input.of("Cours (vide : du jour)", "price", Field.MONEY), Map.of())));
+        return Html.of("<tr class=\"positions\"><td colspan=\"5\">%s<div class=\"position-tools\">%s%s</div></td></tr>", table, paste, add);
     }
 
-    /** Versement programme : resume s'il existe, formulaire pour le poser ou le changer. */
-    private static Html contribution(Savings.Line line, String back, String csrf) {
+    /** Menu « Gerer » d'un compte : nouveau solde, versement programme, suppression. */
+    private static Html manage(Savings.Line line, String back, String csrf) {
         SavingsRepository.Account account = line.account();
         SavingsRepository.Contribution current = account.contribution();
-        Html summary = current == null ? Html.raw("<span class=\"muted\">Pas de versement programmé.</span>") : Html.of("""
-                <span><b>Versement programmé : %s</b> (%s, depuis le %s)%s · repris dans le budget (Virements).</span>""",
-                euroWhole(current.amount()), current.frequency().label().toLowerCase(java.util.Locale.FRENCH), Format.date(current.start()),
-                line.added().signum() > 0 ? " · " + Format.signedEuroWhole(line.added()) + " ajoutés depuis le solde du " + Format.date(account.balanceDate()) : "");
         List<Components.Option> frequencies = Arrays.stream(fr.patria.common.Frequency.values()).filter(frequency -> frequency != fr.patria.common.Frequency.ONCE)
                 .map(frequency -> new Components.Option(frequency.name(), frequency.label())).toList();
-        Html form = Html.of("""
-                <details><summary>%s</summary><form method="post" action="/epargne/compte/%s/versement" class="row-form">%s
-                <label>Montant<input name="montant" inputmode="decimal" value="%s" required size="8"></label>%s
-                <label>Premier versement<input name="debut" type="date" value="%s"></label><button class="secondary" type="submit">Enregistrer</button></form>%s</details>""",
-                current == null ? "Programmer un versement" : "Modifier le versement", account.id(), token(csrf, back),
-                current == null ? "" : current.amount().toPlainString(),
+        return Html.of("""
+                <details class="row-menu"><summary>Gérer</summary><div class="row-menu-body">
+                <form method="post" action="/epargne/compte/%s" class="row-form">%s<label>Solde du jour<input name="balance" inputmode="decimal" value="%s"></label>\
+                <button class="secondary" type="submit">Mettre à jour</button></form>
+                <form method="post" action="/epargne/compte/%s/versement" class="row-form">%s<label>Versement programmé<input name="montant" inputmode="decimal" value="%s"></label>%s\
+                <button class="secondary" type="submit">Enregistrer</button></form>%s
+                <form method="post" action="/epargne/compte/%s/supprimer" data-confirm="Supprimer « %s » et ses lignes ?">%s<button class="danger" type="submit">Supprimer le compte</button></form>
+                </div></details>""",
+                account.id(), token(csrf, back), line.balance().toPlainString(),
+                account.id(), token(csrf, back), current == null ? "" : current.amount().toPlainString(),
                 Components.select("Fréquence", "frequence", frequencies, current == null ? "MONTHLY" : current.frequency().name()),
-                current == null ? "" : current.start().toString(),
                 current == null ? Html.EMPTY : Html.of("""
-                        <form method="post" action="/epargne/compte/%s/versement" class="inline-form">%s<input type="hidden" name="supprimer" value="1">\
-                        <button class="danger" type="submit">Arrêter le versement</button></form>""", account.id(), token(csrf, back)));
-        return Html.of("<tr class=\"contribution\"><td colspan=\"5\">%s %s</td></tr>", summary, form);
+                        <form method="post" action="/epargne/compte/%s/versement">%s<input type="hidden" name="supprimer" value="1"><button class="quiet" type="submit">Arrêter le versement</button></form>""",
+                        account.id(), token(csrf, back)),
+                account.id(), account.name(), token(csrf, back));
     }
 
     /** Taux officiels du jour, pour pre-remplir le champ taux selon le type choisi ({@code KIND=taux;...}). */
@@ -240,7 +244,7 @@ final class SavingsPages {
                 <ul class="chart-legend"><li><i class="available"></i>Disponible (comptes, livrets)</li><li><i class="stocks"></i>Bourse (PEA, comptes-titres)</li>\
                 <li><i class="long"></i>Long terme (assurance-vie, PER, PEL)</li></ul>
                 <svg class="savings-chart" viewBox="0 0 %s %s" role="img" aria-label="Épargne des 24 derniers mois, par type">%s</svg>
-                <p class="muted small">Un mois sans relevé reprend le dernier solde connu. L'historique se remplit à chaque mise à jour et chaque mois.</p>
+                <p class="muted small">Mois sans relevé : dernier solde connu.</p>
                 <details><summary>Voir les valeurs</summary>%s</details>""", width, height, Html.raw(svg.toString()),
                 Components.table(List.of("Mois", "#Disponible", "#Bourse", "#Long terme", "#Total"), rows, false, false)));
     }

@@ -125,18 +125,19 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .local-ai input[type=file] { display: block; margin-top: 6px; }
 .ai-settings { margin: -6px 0 12px; }
 .ai-settings ol { line-height: 1.5; margin: 8px 0; padding-left: 1.3rem; }
-/* Tirelire rose de la page Epargne */
-.piggy { height: 84px; width: 105px; flex: none; }
-.piggy .body, .piggy .leg, .piggy .ear { fill: #f6a5c4; }
-.piggy .ear { fill: #ec86ad; }
-.piggy .snout { fill: #ec86ad; }
-.piggy .nostril { fill: #b8466f; }
-.piggy .eye { fill: #2a1a22; }
-.piggy .slot { fill: #b8466f; }
-.piggy .tail { fill: none; stroke: #ec86ad; stroke-width: 3; stroke-linecap: round; }
-.piggy .coin { fill: #f2c94c; stroke: #c99a1e; stroke-width: 1.5; animation: piggy-coin 2.4s ease-in 1; }
-.piggy .coin-mark { fill: #8a6400; font: 700 10px system-ui, sans-serif; }
-@keyframes piggy-coin { from { transform: translateY(-14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* Tirelire rose de la page Epargne (style plat ; la piece et son € tombent ensemble) */
+.piggy { filter: drop-shadow(0 6px 14px rgb(242 141 181 / 25%)); flex: none; height: 92px; width: 114px; }
+.piggy .leg, .piggy .ear, .piggy .snout { fill: #f28db5; }
+.piggy .ear { fill: #e9799f; }
+.piggy .cheek { fill: #ff6f9f; opacity: .35; }
+.piggy .nostril, .piggy .slot { fill: #b84d78; }
+.piggy .eye { fill: #2b1b24; }
+.piggy .eye-light { fill: #fff; }
+.piggy .tail { fill: none; stroke: #e9799f; stroke-linecap: round; stroke-width: 3.5; }
+.piggy .coin circle { fill: #f6cf57; stroke: #d6a92b; stroke-width: 2; }
+.piggy .coin text { fill: #8a6400; font: 800 12px system-ui, sans-serif; }
+.piggy .coin { animation: piggy-coin 1.6s cubic-bezier(.5, 0, .7, 1) .3s both; }
+@keyframes piggy-coin { 0% { opacity: 0; transform: translateY(-16px); } 30% { opacity: 1; } 100% { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .piggy .coin { animation: none; } }
 
 /* Guide lineaire : barre de progression, plan replie, un document par ecran */
@@ -161,3 +162,38 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .sort-list li { border-bottom: 1px solid var(--line); padding: 6px 0; }
 .sort-list .check { align-items: flex-start; display: flex; gap: 8px; }
 .doc-checklist summary { cursor: pointer; font-weight: 650; margin: 6px 0; }
+
+/* Epargne : valeurs en couleur, tableaux alignes, menu Gerer par compte */
+.metric strong.accent { color: #7cc4ff; }
+.metric strong.warning, b.warning { color: #f3c969; }
+.savings-table td, .savings-table th { vertical-align: middle; }
+.savings-table td:first-child small { display: block; }
+.savings-table td.actions { text-align: right; width: 1%; white-space: nowrap; }
+.savings-table .badge { margin: 4px 6px 0 0; }
+.positive-badge { background: #10301f; border-color: #1f6b43; color: #7ddc9f; }
+.ceiling { background: #1c2733; border-radius: 99px; display: inline-block; height: 6px; margin-top: 6px; vertical-align: middle; width: 90px; }
+.ceiling i { background: #3987e5; border-radius: 99px; display: block; height: 100%; }
+.row-menu { position: relative; }
+.row-menu > summary { border: 1px solid var(--line-strong); border-radius: var(--radius-small); cursor: pointer; display: inline-block; font-size: .85rem;
+  font-weight: 650; list-style: none; padding: 5px 12px; }
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu-body { background: #111a23; border: 1px solid var(--line-strong); border-radius: var(--radius-small); box-shadow: 0 12px 30px rgb(0 0 0 / 45%);
+  display: grid; gap: 10px; padding: 14px; position: absolute; right: 0; text-align: left; top: calc(100% + 6px); width: min(420px, 90vw); z-index: 20; }
+.row-menu-body .row-form { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; }
+.positions-table { margin: 4px 0 8px; width: 100%; }
+.positions-table td, .positions-table th { font-size: .9rem; padding: 6px 8px; }
+.position-tools { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.plan-goal { font-size: 1.05rem; margin: 0 0 12px; }
+.plan-goal.done b { color: #7ddc9f; }
+.savings-table + * , .data td small { color: var(--text-soft, #8b98a5); }
+/* Guide : barre de progression en segments, liste de documents a cocher */
+.wizard-progress ol { display: grid; gap: 4px; grid-auto-columns: 1fr; grid-auto-flow: column; list-style: none; margin: 0; padding: 0; }
+.wizard-progress li { background: #223040; border-radius: 99px; height: 8px; }
+.wizard-progress li.done { background: #2fa36b; }
+.wizard-progress li.skipped { background: #5b6875; }
+.wizard-progress li.current { background: #3a9cff; box-shadow: 0 0 0 2px rgb(58 156 255 / 30%); }
+.wizard-progress p { margin: 8px 0 0; }
+.doc-checklist fieldset { border: 0; margin: 0 0 10px; padding: 0; }
+.doc-checklist legend { color: #7cc4ff; font-size: .78rem; font-weight: 750; letter-spacing: .06em; margin-bottom: 4px; text-transform: uppercase; }
+.doc-checklist .check { display: flex; gap: 8px; padding: 3px 0; }
+.positions-table th { font-size: .72rem; letter-spacing: .06em; }
