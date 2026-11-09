@@ -19,7 +19,7 @@ class PresentationJourneyTest {
             var admin = TestAccounts.admin(client, base);
             var manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
             String users = TestAccounts.get(client, base, admin, "/administration/utilisateurs").body();
-            before(users, "<h2>Utilisateurs", "<summary>Créer un compte de connexion");
+            before(users, "<h2>Inscriptions", "<h2>Comptes");
             String households = TestAccounts.get(client, base, admin, "/administration/foyers").body();
             assertTrue(households.contains("<details><summary><b>"), "les details du foyer ne sont pas tous deployes");
             assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());

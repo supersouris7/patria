@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** E-mails : reglage par l'administrateur, demande d'inscription confirmee, e-mail exige a la premiere connexion, mot de passe oublie. */
+/** E-mails : reglage par l'administrateur, inscription et invitation avec e-mail confirme, mot de passe oublie. */
 class MailTest {
     @TempDir
     Path directory;
@@ -86,6 +86,7 @@ class MailTest {
         try (ServerSocket smtp = fakeSmtp(); App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK))) {
             String base = "http://127.0.0.1:" + app.port();
             TestAccounts.Visitor admin = TestAccounts.admin(client, base);
+            TestAccounts.Visitor manager = TestAccounts.manager(client, base);
             assertFalse(TestAccounts.get(client, base, null, "/connexion").body().contains("Mot de passe oublié"), "sans envoi réglé, pas de lien");
             TestAccounts.post(client, base, admin, "/administration/securite/email", "host=127.0.0.1&port=" + smtp.getLocalPort()
                     + "&securite=NONE&expediteur=patria%40test.fr&adresse=" + base + "&exiger=on");
@@ -93,25 +94,29 @@ class MailTest {
             assertTrue(mails.poll(10, TimeUnit.SECONDS).contains("fonctionne"), "e-mail de test");
             assertTrue(TestAccounts.get(client, base, null, "/connexion").body().contains("Mot de passe oublié"));
 
-            // Demande d'inscription : invisible pour l'administrateur tant que l'e-mail n'est pas confirme
-            TestAccounts.post(client, base, admin, "/administration/demandes/reglage", "mode=form");
-            assertEquals(400, TestAccounts.post(client, base, null, "/inscription", "name=Lea&login=lea&message=").statusCode(), "e-mail exigé");
-            assertTrue(TestAccounts.post(client, base, null, "/inscription", "name=Lea&login=lea&email=lea%40test.fr&message=").body().contains("Presque fini"));
-            assertFalse(TestAccounts.get(client, base, admin, "/administration/demandes").body().contains("lea@test.fr"));
-            assertTrue(TestAccounts.get(client, base, null, link()).body().contains("E-mail confirmé"));
-            assertTrue(TestAccounts.get(client, base, admin, "/administration/demandes").body().contains("lea"), "demande visible une fois confirmée");
-
-            // Compte cree par l'administrateur : e-mail a confirmer avant tout, puis double authentification proposee
-            HttpResponse<String> created = TestAccounts.post(client, base, admin, "/administration/utilisateurs", "login=paul&name=Paul&password=provisoire1&email=paul%40test.fr");
-            long id = Long.parseLong(TestAccounts.location(created).replaceAll(".*/utilisateur/(\\d+).*", "$1"));
-            TestAccounts.post(client, base, admin, "/administration/utilisateur/" + id + "/foyer/1", "access=on&all=on");
-            TestAccounts.Visitor first = TestAccounts.login(client, base, "paul", "provisoire1");
-            assertEquals("/compte/securiser", TestAccounts.location(TestAccounts.post(client, base, first, "/compte/mot-de-passe",
-                    "current=provisoire1&password=paulpasse1&confirm=paulpasse1")));
-            assertEquals("/compte/email", TestAccounts.location(TestAccounts.get(client, base, first, "/")), "rien d'autre avant l'e-mail");
-            assertTrue(TestAccounts.post(client, base, first, "/compte/email", "email=paul%40test.fr").body().contains("Lien envoyé"));
+            // Inscription libre : e-mail exige, compte et foyer crees, e-mail a confirmer avant tout, puis 2FA proposee
+            TestAccounts.post(client, base, admin, "/administration/inscriptions", "mode=open");
+            assertEquals(400, TestAccounts.post(client, base, null, "/inscription", "name=Lea&login=lea&password=leapasse1&confirm=leapasse1").statusCode(), "e-mail exigé");
+            HttpResponse<String> signed = TestAccounts.post(client, base, null, "/inscription",
+                    "name=Lea&login=lea&email=lea%40test.fr&password=leapasse1&confirm=leapasse1&foyer=Foyer+Lea");
+            assertEquals("/compte/securiser", TestAccounts.location(signed));
+            TestAccounts.Visitor lea = new TestAccounts.Visitor(signed.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0], "", 0);
+            assertEquals("/compte/email", TestAccounts.location(TestAccounts.get(client, base, lea, "/")), "rien d'autre avant l'e-mail");
             assertEquals("/compte/securiser", TestAccounts.location(TestAccounts.get(client, base, null, link())), "e-mail confirmé, puis la double authentification");
+            assertEquals(200, TestAccounts.get(client, base, lea, "/foyer").statusCode(), "gestionnaire de son foyer");
+
+            // Invitation par e-mail : le gestionnaire du foyer 1 invite Paul, qui cree son compte depuis le lien recu
+            assertTrue(TestAccounts.post(client, base, manager, "/foyer/invitations", "membre=nouveau&name=Paul&email=paul%40test.fr&whole=on").body()
+                    .contains("Invitation envoyée"));
+            String invitation = link().replaceAll(".*jeton=", "");
+            HttpResponse<String> joined = TestAccounts.post(client, base, null, "/invitation", "jeton=" + invitation
+                    + "&name=Paul&login=paul&email=paul%40test.fr&password=paulpasse1&confirm=paulpasse1");
+            TestAccounts.Visitor first = new TestAccounts.Visitor(joined.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0], "", 0);
+            assertEquals("/compte/email", TestAccounts.location(TestAccounts.get(client, base, first, "/")));
+            assertEquals("/compte/securiser", TestAccounts.location(TestAccounts.get(client, base, null, link())));
             assertEquals(200, TestAccounts.get(client, base, first, "/").statusCode(), "accès ouvert");
+            assertEquals(400, TestAccounts.post(client, base, null, "/invitation", "jeton=" + invitation
+                    + "&name=Autre&login=autre&email=a%40test.fr&password=autrepasse1&confirm=autrepasse1").statusCode(), "invitation à usage unique");
 
             // Mot de passe oublie : meme reponse pour un inconnu, lien a usage unique, sessions fermees
             assertTrue(TestAccounts.post(client, base, null, "/connexion/oubli", "compte=inconnu").body().contains("Si un compte correspond"));

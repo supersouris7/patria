@@ -80,8 +80,8 @@ final class WelcomePages {
                 <li><b>Des dépenses partagées</b> : chaque ligne se répartit entre les membres (parts égales, ou 60 / 40…).</li>
                 <li><b>Chacun ne voit que ce qui le concerne</b> : un compte par personne, avec ses propres lignes. Les totaux du foyer,
                 l'immobilier ou la gestion complète s'ouvrent seulement si on le décide.</li>
-                <li><b>Le compte administrateur n'ouvre aucune finance dans l'interface</b> : il crée les comptes et règle les droits. Les accès sont visibles
-                avec l'icône jaune « qui voit quoi ». L'exploitant du serveur peut techniquement lire les données : choisissez un hébergeur de confiance.</li>
+                <li><b>Le gestionnaire du foyer invite chacun et règle qui voit quoi</b> (Gérer → Mon foyer et les droits). Les accès sont visibles
+                avec l'icône « qui voit quoi » ; l'administrateur ne voit aucune finance. L'exploitant du serveur peut techniquement lire les données : choisissez un hébergeur de confiance.</li>
                 </ul>""");
     }
 

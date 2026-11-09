@@ -51,7 +51,7 @@ public final class SessionViewers {
         String notice = state.get().twoFactorRemovedOn() == null ? null : "L'administrateur a retiré votre double authentification le "
                 + state.get().twoFactorRemovedOn().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". Si ce n'est pas vous qui l'avez demandé, "
                 + "changez votre mot de passe et réactivez-la dans Mon compte.";
-        Viewer.Rights rights = Viewer.Rights.user(access.wholeHousehold(), access.members(), access.realEstate());
+        Viewer.Rights rights = Viewer.Rights.user(access.wholeHousehold(), access.members(), access.realEstate(), access.manager());
         return Optional.of(new Viewer(user.id(), user.name(), new Viewer.Household(access.householdId(), access.householdName(), access.realEstate()), households,
                 rights, new Viewer.Signals(state.get().mustChangePassword(), audience, notice, emailToConfirm(user.id()))));
     }

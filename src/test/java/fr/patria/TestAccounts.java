@@ -37,15 +37,71 @@ final class TestAccounts {
         return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    private static final Pattern LINK = Pattern.compile("invitation\\?jeton=([A-Za-z0-9_-]+)");
+    private static final Pattern BOX = Pattern.compile("name=\"(u\\d+_[a-z]+(?:_\\d+)?)\" value=\"on\"[^>]*?( checked)?>");
+    /** Gestionnaire de chaque foyer, par installation de test ({@code base}). */
+    private static final java.util.Map<String, Visitor> MANAGERS = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
-     * Ajoute un membre au foyer {@code household} (seul l'administrateur le peut), puis, si {@code visitor} est donne,
-     * lui coche tout ce foyer dans le tableau des droits. Renvoie la reponse de l'ajout.
+     * Ajoute un membre au foyer {@code household} par son gestionnaire, puis, si {@code visitor} est donne, lui coche
+     * tout ce foyer dans le tableau des droits. Renvoie la reponse de l'ajout.
      */
     static HttpResponse<String> member(HttpClient client, String base, Visitor visitor, long household, String form) throws Exception {
-        Visitor admin = admin(client, base);
-        HttpResponse<String> added = post(client, base, admin, "/administration/foyers/" + household + "/membres", form.contains("kind=") ? form : form + "&kind=PERSON");
-        if (visitor != null) assertEquals(303, post(client, base, admin, "/administration/utilisateur/" + visitor.id() + "/foyer/" + household, "access=on&all=on").statusCode());
+        Visitor manager = managerOf(client, base, household);
+        HttpResponse<String> added = post(client, base, manager, "/foyer/membres", form.contains("kind=") ? form : form + "&kind=PERSON");
+        if (visitor != null && visitor.id() != manager.id()) {
+            java.util.Set<String> checked = checkedRights(client, base, manager);
+            for (String name : allBoxes(client, base, manager)) if (name.startsWith("u" + visitor.id() + "_") && !name.endsWith("_manager")) checked.add(name);
+            assertEquals(303, post(client, base, manager, "/foyer/droits", String.join("&", checked.stream().map(name -> name + "=on").toList())).statusCode());
+        }
         return added;
+    }
+
+    /** Cases cochees du tableau des droits du foyer affiche par ce gestionnaire. */
+    static java.util.Set<String> checkedRights(HttpClient client, String base, Visitor manager) throws Exception {
+        java.util.Set<String> checked = new java.util.LinkedHashSet<>();
+        Matcher box = BOX.matcher(get(client, base, manager, "/foyer").body());
+        while (box.find()) if (box.group(2) != null) checked.add(box.group(1));
+        return checked;
+    }
+
+    private static java.util.Set<String> allBoxes(HttpClient client, String base, Visitor manager) throws Exception {
+        java.util.Set<String> all = new java.util.LinkedHashSet<>();
+        Matcher box = BOX.matcher(get(client, base, manager, "/foyer").body());
+        while (box.find()) all.add(box.group(1));
+        return all;
+    }
+
+    /** Gestionnaire du foyer {@code household} : « gestion » pour le foyer 1, cree au besoin par un lien de gestion de l'administrateur. */
+    static Visitor managerOf(HttpClient client, String base, long household) throws Exception {
+        Visitor known = MANAGERS.get(base + "#" + household);
+        // Un port peut resservir d'un test a l'autre : la session gardee doit encore ouvrir ce foyer.
+        if (known != null && get(client, base, known, "/foyer").statusCode() == 200) return known;
+        String login = household == 1 ? "gestion" : "gestion" + household;
+        String page = post(client, base, admin(client, base), "/administration/foyers/" + household + "/lien", "").body();
+        Visitor manager = join(client, base, page, login, household == 1 ? "Gestion" : "Gestion " + household, "");
+        MANAGERS.put(base + "#" + household, manager);
+        return manager;
+    }
+
+    /** Cree le compte {@code login} avec le lien d'invitation trouve dans {@code page} ; mot de passe {@code login + "-motdepasse"}. */
+    static Visitor join(HttpClient client, String base, String page, String login, String name, String householdName) throws Exception {
+        Matcher link = LINK.matcher(page);
+        assertTrue(link.find(), page);
+        String password = login + "-motdepasse";
+        HttpResponse<String> created = post(client, base, null, "/invitation", "jeton=" + link.group(1) + "&name=" + name.replace(" ", "+") + "&login=" + login
+                + "&password=" + password + "&confirm=" + password + (householdName.isEmpty() ? "" : "&foyer=" + householdName.replace(" ", "+")));
+        assertEquals(303, created.statusCode(), created.body());
+        Visitor visitor = login(client, base, login, password);
+        return new Visitor(visitor.cookie(), visitor.csrf(), userId(client, base, login));
+    }
+
+    /** Identifiant d'un compte, lu dans la liste des utilisateurs de l'administrateur. */
+    static long userId(HttpClient client, String base, String login) throws Exception {
+        Matcher row = Pattern.compile("<code>" + Pattern.quote(login) + "</code>.*?/administration/utilisateur/(\\d+)", Pattern.DOTALL)
+                .matcher(get(client, base, admin(client, base), "/administration/utilisateurs").body());
+        assertTrue(row.find(), "compte " + login);
+        return Long.parseLong(row.group(1));
     }
 
     /** Connexion ; un mot de passe provisoire est remplace par {@code password + "-final"}... sauf si {@code keep}. */
@@ -84,30 +140,47 @@ final class TestAccounts {
     }
 
     /**
-     * Cree le compte {@code login} (nom {@code name}), lui donne ces droits sur le foyer {@code household}
-     * ({@code access} : formulaire de droits, ex. {@code access=on&manager=on}), se connecte et choisit son mot de
-     * passe : {@code login + "-motdepasse"}.
+     * Cree le compte {@code login} (nom {@code name}) par invitation du gestionnaire du foyer {@code household}, puis
+     * lui donne ces droits ({@code access} : {@code access=on} et {@code all}, {@code whole}, {@code estate},
+     * {@code member_<id>}) ; mot de passe {@code login + "-motdepasse"}.
      */
     static Visitor account(HttpClient client, String base, Visitor admin, String login, String name, long household, String access) throws Exception {
         return account(client, base, admin, login, name, "", household, access);
     }
 
-    /** Comme {@link #account(HttpClient, String, Visitor, String, String, long, String)}, {@code extra} s'ajoutant a la creation (ex. {@code membre=1%3A1}). */
+    /** Comme {@link #account(HttpClient, String, Visitor, String, String, long, String)} ; {@code extra} {@code membre=<foyer>:<membre|nouveau>} : le membre qu'il est. */
     static Visitor account(HttpClient client, String base, Visitor admin, String login, String name, String extra, long household, String access) throws Exception {
-        HttpResponse<String> created = post(client, base, admin, "/administration/utilisateurs", "login=" + login + "&name=" + name + "&password=provisoire1"
-                + (extra.isEmpty() ? "" : "&" + extra));
-        String location = created.headers().firstValue("Location").orElseThrow(() -> new AssertionError(created.body()));
-        long id = Long.parseLong(location.replaceAll(".*/utilisateur/(\\d+).*", "$1"));
-        if (access != null) assertEquals(303, post(client, base, admin, "/administration/utilisateur/" + id + "/foyer/" + household, access).statusCode());
-        Visitor first = login(client, base, login, "provisoire1");
-        String password = login + "-motdepasse";
-        assertEquals(303, post(client, base, first, "/compte/mot-de-passe", "current=provisoire1&password=" + password + "&confirm=" + password).statusCode());
-        Visitor visitor = login(client, base, login, password);
-        return new Visitor(visitor.cookie(), visitor.csrf(), id);
+        Visitor manager = managerOf(client, base, household);
+        // « gestion » est le gestionnaire cree avec le foyer : il voit et gere deja tout.
+        if (login.equals(household == 1 ? "gestion" : "gestion" + household)) return manager;
+        String member = "aucun";
+        Matcher chosen = Pattern.compile("membre=\\d+(?:%3A|:)(\\w+)").matcher(extra);
+        if (chosen.find()) member = chosen.group(1);
+        // Invite avec les totaux (pour qu'il ait acces au foyer), puis regle ses cases exactes.
+        String page = post(client, base, manager, "/foyer/invitations", "membre=" + member + "&name=" + name.replace(" ", "+") + "&whole=on").body();
+        Visitor visitor = join(client, base, page, login, name, "");
+        if (access != null || member.equals("aucun") || member.matches("\\d+|nouveau")) {
+            java.util.Set<String> checked = checkedRights(client, base, manager);
+            String prefix = "u" + visitor.id() + "_";
+            java.util.Set<String> previous = new java.util.LinkedHashSet<>(checked);
+            checked.removeIf(box -> box.startsWith(prefix) && !box.endsWith("_manager"));
+            java.util.List<String> parameters = access == null ? java.util.List.of() : java.util.Arrays.asList(access.split("&"));
+            for (String box : allBoxes(client, base, manager)) {
+                if (!box.startsWith(prefix) || box.endsWith("_manager")) continue;
+                String right = box.substring(prefix.length());
+                // Le membre qu'il est reste coche ; le reste suit {@code access}.
+                boolean own = right.startsWith("member_") && (right.equals("member_" + member) || member.equals("nouveau") && previous.contains(box));
+                if (own || parameters.contains("access=on") && (parameters.contains("all=on") || parameters.contains(right + "=on"))) checked.add(box);
+            }
+            assertEquals(303, post(client, base, manager, "/foyer/droits", String.join("&", checked.stream().map(box -> box + "=on").toList())).statusCode());
+            Visitor fresh = login(client, base, login, login + "-motdepasse");
+            visitor = new Visitor(fresh.cookie(), fresh.csrf(), visitor.id());
+        }
+        return visitor;
     }
 
-    /** Gestionnaire du foyer principal : il saisit tout. */
+    /** Gestionnaire du foyer principal : il gere le foyer et voit tout. */
     static Visitor manager(HttpClient client, String base) throws Exception {
-        return account(client, base, admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
+        return managerOf(client, base, 1);
     }
 }

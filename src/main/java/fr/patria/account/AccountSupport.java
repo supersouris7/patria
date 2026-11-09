@@ -50,14 +50,20 @@ public abstract class AccountSupport {
         log.audit(LocalDateTime.now(clock), ADMIN, action, household, user, detail);
     }
 
-    /** Compte actif choisi dans une liste ({@code compte} : son identifiant). */
-    protected User chosenUser(String raw) {
-        try {
-            return accounts.user(Long.parseLong(raw.trim())).filter(User::active)
-                    .orElseThrow(() -> new ValidationException("Choisissez un compte actif."));
-        } catch (NumberFormatException exception) {
-            throw new ValidationException("Choisissez un compte.");
-        }
+    /**
+     * Lien absolu d'une invitation : l'adresse publique reglee par l'administrateur (Securite → E-mail), sinon celle
+     * de la page affichee (lien a transmettre soi-meme).
+     */
+    protected String link(fr.patria.web.Request request, String path) {
+        AccountRepository.Mail mail = accounts.mail();
+        if (!mail.publicUrl().isBlank()) return Mails.link(mail, path);
+        String host = request.header("Host");
+        return (request.isHttps() ? "https://" : "http://") + (host == null ? "localhost" : host) + path;
+    }
+
+    /** Action faite par quelqu'un d'autre que l'administrateur (gestionnaire, personne invitee). */
+    protected void audit(String actor, String action, Long household, Long user, String detail) {
+        log.audit(LocalDateTime.now(clock), actor, action, household, user, detail);
     }
 
     protected Household household(long id) {
@@ -71,14 +77,6 @@ public abstract class AccountSupport {
         }
         if (login.equalsIgnoreCase(adminLogin)) throw new ValidationException("Cet identifiant est celui de l'administrateur.");
         return login;
-    }
-
-    /** Droits lus dans le formulaire d'acces d'un utilisateur ; {@code null} si « Accès » est decoche. */
-    protected Access access(User user, Household household, Map<String, String> form) {
-        if (!"on".equals(form.get("access"))) return null;
-        Access access = access(user, household, form, "");
-        if (!access.any()) throw new ValidationException("Cochez au moins un accès dans « " + household.name() + " » : un membre, les totaux ou l'immobilier.");
-        return access;
     }
 
     /**

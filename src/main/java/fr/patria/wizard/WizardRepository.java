@@ -127,17 +127,4 @@ public final class WizardRepository {
         return new Summary(done, skipped, steps.size(), next, reviewedOn(owner));
     }
 
-    /**
-     * Passage a la version ou l'administrateur ne voit plus les foyers : sa progression (« admin ») passe au compte qui
-     * reprend le foyer, sauf si ce compte en a deja une.
-     */
-    public void transferFromAdministrator(long userId) {
-        String owner = "user:" + userId;
-        database.transaction(connection -> {
-            if (!Sql.list(connection, "SELECT 1 FROM wizard_steps WHERE owner = ? LIMIT 1", row -> row.getInt(1), owner).isEmpty()) return null;
-            Sql.update(connection, "UPDATE wizard_steps SET owner = ? WHERE owner = 'admin'", owner);
-            Sql.update(connection, "UPDATE wizard_documents SET owner = ? WHERE owner = 'admin'", owner);
-            return null;
-        });
-    }
 }

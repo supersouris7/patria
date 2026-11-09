@@ -9,10 +9,15 @@ import java.util.Set;
  * @param wholeHousehold totaux du foyer et reglages communs (les lignes des membres non coches y sont masquees)
  * @param members        membres accessibles (personnes ou comptes joints)
  * @param realEstate     biens, prets, apports et repartition
+ * @param manager        gere le foyer : membres, droits de chacun, invitations (ce qu'il voit reste ses propres cases)
  */
-public record Access(long userId, long householdId, String householdName, boolean wholeHousehold, Set<Long> members, boolean realEstate) {
+public record Access(long userId, long householdId, String householdName, boolean wholeHousehold, Set<Long> members, boolean realEstate, boolean manager) {
     public Access {
         members = members == null ? Set.of() : Set.copyOf(members);
+    }
+
+    public Access(long userId, long householdId, String householdName, boolean wholeHousehold, Set<Long> members, boolean realEstate) {
+        this(userId, householdId, householdName, wholeHousehold, members, realEstate, false);
     }
 
     /** Au moins une case cochee. */

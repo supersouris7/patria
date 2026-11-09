@@ -115,7 +115,7 @@ public final class AuthController {
         if (request.session() != null || sessions.find(request.cookie(Sessions.COOKIE)).isPresent()) return Response.redirect("/");
         Notice notice = request.query("bloque") != null ? Notice.error("Trop de tentatives. Réessayez dans quelques minutes.")
                 : request.query("erreur") != null ? Notice.error("Identifiant ou mot de passe incorrect.")
-                : request.query("sans-foyer") != null ? Notice.error("Aucun foyer n'est ouvert pour ce compte. Demandez à l'administrateur.")
+                : request.query("sans-foyer") != null ? Notice.error("Aucun foyer n'est ouvert pour ce compte : demandez une invitation au gestionnaire de votre foyer.")
                 : request.query("expire") != null ? Notice.error("Délai dépassé : reconnectez-vous.")
                 : request.query("reinitialise") != null ? Notice.success("Mot de passe changé : connectez-vous avec le nouveau.")
                 : request.query("deconnecte") != null ? Notice.success("Vous êtes déconnecté.") : null;

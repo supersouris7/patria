@@ -522,7 +522,7 @@ final class BudgetPages {
                 + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading,
-                    Components.emptyState("Une seule personne dans le foyer", "La répartition sert à partir de deux personnes : demandez à l'administrateur d'en ajouter une.",
+                    Components.emptyState("Une seule personne dans le foyer", "La répartition sert à partir de deux personnes : demandez au gestionnaire du foyer d'en ajouter une.",
                             Html.EMPTY)));
         }
         if (properties.isEmpty()) {

@@ -10,11 +10,11 @@ Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures 
 
 ## Qui peut consulter
 
-- **Utilisateur** : seulement ce que l'administrateur lui coche dans le tableau des droits (membres, totaux du foyer, immobilier), pas les autres foyers sans accès ; lignes partagées avec un membre non coché en lecture seule.
-- **Compte administrateur** : comptes, noms des membres, droits, avancement de configuration sans montants et sécurité ; aucune finance dans l'interface avec ce compte. Il peut cependant créer un compte et lui ouvrir des droits.
+- **Utilisateur** : seulement ce que le gestionnaire de son foyer lui coche dans le tableau des droits (membres, totaux du foyer, immobilier), pas les autres foyers sans accès ; lignes partagées avec un membre non coché en lecture seule. Un gestionnaire règle aussi ses propres cases.
+- **Compte administrateur** : comptes, foyers, noms des membres, gestionnaires et sécurité ; aucune finance dans l'interface avec ce compte. Il ne crée aucun compte et ne règle pas les droits ; il peut seulement inviter à créer un nouveau foyer, ou confier un foyer **sans gestionnaire** (lien de gestion, nomination) : l'accès apparaît alors dans « qui voit quoi » et au journal.
 - **Exploitant du serveur** : accès technique aux fichiers, mémoire et clé ; il peut lire les données ou modifier le programme et les journaux. L'isolation applicative n'est pas une protection contre lui.
 
-« Qui voit quoi » expose les accès et leurs changements aux comptes du foyer ; le journal des droits en garde la trace. Les mots de passe provisoires sont changés avant toute autre page. Ces mécanismes améliorent la transparence, sans constituer un journal inviolable ni une garantie contre l'hébergeur.
+« Qui voit quoi » expose les accès et leurs changements aux comptes du foyer ; le journal des droits en garde la trace. Un mot de passe réinitialisé par l'administrateur est changé avant toute autre page. Ces mécanismes améliorent la transparence, sans constituer un journal inviolable ni une garantie contre l'hébergeur.
 
 ## Appels extérieurs
 

@@ -23,7 +23,7 @@ import org.mindrot.jbcrypt.BCrypt;
  */
 public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
-    private static final int LATEST = 5;
+    private static final int LATEST = 6;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
     /** Cout de bcrypt : 12 ; la propriete systeme {@code patria.bcrypt.cost} l'abaisse pour les tests (4 a 31). */
     private static final int COST = Math.clamp(Integer.getInteger("patria.bcrypt.cost", 12), 4, 31);
@@ -169,6 +169,29 @@ public final class AccountRepository {
                 statement.execute("PRAGMA user_version = 5");
             }
         }
+        if (version < 6) {
+            // Les foyers se gerent eux-memes : invitations envoyees par un gestionnaire (ou par l'administrateur pour un
+            // nouveau foyer ou un foyer sans gestionnaire). Seule l'empreinte du lien est gardee.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("""
+                        CREATE TABLE invitations (
+                            id INTEGER PRIMARY KEY,
+                            token_hash TEXT NOT NULL UNIQUE,
+                            household_id INTEGER REFERENCES households(id) ON DELETE CASCADE,
+                            member_id INTEGER,
+                            member_name TEXT,
+                            whole_household INTEGER NOT NULL,
+                            real_estate INTEGER NOT NULL,
+                            manager INTEGER NOT NULL,
+                            email TEXT,
+                            created_by TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            expires_at TEXT NOT NULL,
+                            used_by INTEGER
+                        )""");
+                statement.execute("PRAGMA user_version = 6");
+            }
+        }
     }
 
     // ---- Foyers ----
@@ -225,26 +248,6 @@ public final class AccountRepository {
 
     public boolean loginTaken(String login) {
         return database.query(connection -> !Sql.list(connection, "SELECT id FROM users WHERE login = ? COLLATE NOCASE", row -> row.getLong(1), login).isEmpty());
-    }
-
-    public long createUser(String login, String name, String password, LocalDate today) {
-        return createUser(login, name, password, today, null, false);
-    }
-
-    /**
-     * Compte cree par l'administrateur : mot de passe a changer a la premiere connexion, double authentification
-     * proposee ensuite ; {@code confirmEmail} : e-mail a confirmer avant d'aller plus loin (reglage de l'administrateur).
-     */
-    public long createUser(String login, String name, String password, LocalDate today, String email, boolean confirmEmail) {
-        checkPassword(password);
-        return database.transaction(connection -> {
-            if (!Sql.list(connection, "SELECT id FROM users WHERE login = ?", row -> row.getLong(1), login).isEmpty()) {
-                throw new ValidationException("L'identifiant « " + login + " » est déjà pris.");
-            }
-            return Sql.insert(connection, """
-                    INSERT INTO users (login, name, password_hash, created_on, must_change_password, password_set_by_admin_on, email, must_confirm_email, offer_two_factor)
-                    VALUES (?, ?, ?, ?, 1, ?, ?, ?, 1) RETURNING id""", login, name, hash(password), today, today, email, confirmEmail ? 1 : 0);
-        });
     }
 
     // ---- E-mail des comptes ----
@@ -394,10 +397,10 @@ public final class AccountRepository {
             Sql.list(connection, "SELECT household_id, person_id FROM user_members WHERE user_id = ? ORDER BY person_id",
                     row -> members.computeIfAbsent(row.getLong(1), key -> new LinkedHashSet<>()).add(row.getLong(2)), userId);
             return Sql.list(connection, """
-                    SELECT a.household_id, h.name, a.whole_household, a.real_estate FROM user_households a
+                    SELECT a.household_id, h.name, a.whole_household, a.real_estate, a.manager FROM user_households a
                     JOIN households h ON h.id = a.household_id WHERE a.user_id = ? ORDER BY h.id""",
                     row -> new Access(userId, row.getLong(1), row.getString(2), row.getInt(3) == 1, members.getOrDefault(row.getLong(1), Set.of()),
-                            row.getInt(4) == 1), userId);
+                            row.getInt(4) == 1, row.getInt(5) == 1), userId);
         });
     }
 
@@ -405,9 +408,9 @@ public final class AccountRepository {
     public void setAccess(long userId, long householdId, Access access) {
         database.transaction(connection -> {
             Sql.update(connection, "DELETE FROM user_households WHERE user_id = ? AND household_id = ?", userId, householdId);
-            if (access != null && access.any()) {
-                Sql.update(connection, "INSERT INTO user_households (user_id, household_id, whole_household, real_estate) VALUES (?, ?, ?, ?)",
-                        userId, householdId, access.wholeHousehold() ? 1 : 0, access.realEstate() ? 1 : 0);
+            if (access != null && (access.any() || access.manager())) {
+                Sql.update(connection, "INSERT INTO user_households (user_id, household_id, whole_household, real_estate, manager) VALUES (?, ?, ?, ?, ?)",
+                        userId, householdId, access.wholeHousehold() ? 1 : 0, access.realEstate() ? 1 : 0, access.manager() ? 1 : 0);
                 for (long person : access.members()) {
                     Sql.update(connection, "INSERT INTO user_members (user_id, household_id, person_id) VALUES (?, ?, ?)", userId, householdId, person);
                 }
@@ -424,12 +427,12 @@ public final class AccountRepository {
                     row -> members.computeIfAbsent(row.getLong(1), key -> new LinkedHashSet<>()).add(row.getLong(2)), householdId);
             Map<User, Access> result = new LinkedHashMap<>();
             Sql.list(connection, """
-                    SELECT u.*, a.whole_household, a.real_estate, h.name AS household_name FROM user_households a
+                    SELECT u.*, a.whole_household, a.real_estate, a.manager, h.name AS household_name FROM user_households a
                     JOIN users u ON u.id = a.user_id JOIN households h ON h.id = a.household_id
                     WHERE a.household_id = ? ORDER BY u.name COLLATE NOCASE, u.login""", row -> {
                 User user = user(row);
                 return result.put(user, new Access(user.id(), householdId, row.getString("household_name"), row.getInt("whole_household") == 1,
-                        members.getOrDefault(user.id(), Set.of()), row.getInt("real_estate") == 1));
+                        members.getOrDefault(user.id(), Set.of()), row.getInt("real_estate") == 1, row.getInt("manager") == 1));
             }, householdId);
             return result;
         });
@@ -441,29 +444,97 @@ public final class AccountRepository {
     }
 
     /**
-     * Le role de gestionnaire n'existe plus : un ancien gestionnaire garde exactement ce qu'il voyait (tous les membres,
-     * les totaux et l'immobilier), en cases cochees. Appele au demarrage ; sans effet ensuite.
+     * Passage aux foyers geres par leurs gestionnaires (une fois) : un compte qui voyait tout un foyer (tous ses
+     * membres, les totaux et l'immobilier) en devient gestionnaire. Les autres droits ne changent pas.
      */
-    public void retireManagers(java.util.function.LongFunction<List<Long>> householdMembers) {
-        List<long[]> managers = database.query(connection -> Sql.list(connection, "SELECT user_id, household_id FROM user_households WHERE manager = 1",
-                row -> new long[]{row.getLong(1), row.getLong(2)}));
-        for (long[] manager : managers) {
-            List<Long> people = householdMembers.apply(manager[1]);
-            database.transaction(connection -> {
-                Sql.update(connection, "UPDATE user_households SET manager = 0, whole_household = 1, real_estate = 1 WHERE user_id = ? AND household_id = ?",
-                        manager[0], manager[1]);
-                for (long person : people) {
-                    Sql.update(connection, "INSERT OR IGNORE INTO user_members (user_id, household_id, person_id) VALUES (?, ?, ?)", manager[0], manager[1], person);
+    public void promoteManagers(java.util.function.LongFunction<List<Long>> householdMembers) {
+        if (!database.query(connection -> Sql.list(connection, "SELECT 1 FROM settings WHERE key = 'managers_promoted'", row -> 1)).isEmpty()) return;
+        for (Household household : households()) {
+            Set<Long> everyone = new LinkedHashSet<>(householdMembers.apply(household.id()));
+            accessesTo(household.id()).forEach((user, access) -> {
+                if (access.wholeHousehold() && access.realEstate() && access.members().containsAll(everyone)) {
+                    database.query(connection -> Sql.update(connection, "UPDATE user_households SET manager = 1 WHERE user_id = ? AND household_id = ?",
+                            user.id(), household.id()));
                 }
-                return null;
             });
         }
+        database.query(connection -> Sql.update(connection, "INSERT INTO settings (key, value) VALUES ('managers_promoted', 'on')"));
     }
 
-    // ---- Demandes de compte ----
+    /** Le compte gere-t-il ce foyer (membres, droits, invitations) ? */
+    public boolean isManager(long userId, long householdId) {
+        return database.query(connection -> !Sql.list(connection, "SELECT 1 FROM user_households WHERE user_id = ? AND household_id = ? AND manager = 1",
+                row -> 1, userId, householdId).isEmpty());
+    }
 
-    /** Une demande envoyee depuis la page de connexion. */
-    public record AccountRequest(long id, String name, String login, String message, String createdAt, String email) {
+    // ---- Invitations ----
+
+    /**
+     * Une invitation en attente : rejoindre {@code householdId} (ou creer son propre foyer si nul) avec ces droits ;
+     * {@code memberId} : membre du foyer deja existant, sinon un membre {@code memberName} est cree a l'arrivee.
+     */
+    public record Invitation(long id, Long householdId, Long memberId, String memberName, boolean wholeHousehold, boolean realEstate, boolean manager,
+                             String email, String createdBy, String expiresAt) {
+    }
+
+    /** Enregistre une invitation valable {@code days} jours ; renvoie le lien secret (seule son empreinte est gardee). */
+    public String createInvitation(Invitation invitation, java.time.LocalDateTime now, int days) {
+        String token = randomToken();
+        database.query(connection -> Sql.insert(connection, """
+                INSERT INTO invitations (token_hash, household_id, member_id, member_name, whole_household, real_estate, manager, email, created_by, created_at, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", sha256(token), invitation.householdId(), invitation.memberId(), invitation.memberName(),
+                invitation.wholeHousehold() ? 1 : 0, invitation.realEstate() ? 1 : 0, invitation.manager() ? 1 : 0, invitation.email(), invitation.createdBy(),
+                now.toString(), now.plusDays(days).toString()));
+        return token;
+    }
+
+    /** Invitation valide (non utilisee, non expiree) pour ce lien. */
+    public Optional<Invitation> invitation(String token, java.time.LocalDateTime now) {
+        if (token == null || token.isBlank() || token.length() > 100) return Optional.empty();
+        return database.query(connection -> Sql.list(connection, "SELECT * FROM invitations WHERE token_hash = ? AND used_by IS NULL AND expires_at > ?",
+                AccountRepository::invitation, sha256(token), now.toString())).stream().findFirst();
+    }
+
+    /** Invitations en attente d'un foyer ({@code null} : celles de l'administrateur pour de nouveaux foyers). */
+    public List<Invitation> pendingInvitations(Long householdId, java.time.LocalDateTime now) {
+        return database.query(connection -> householdId == null
+                ? Sql.list(connection, "SELECT * FROM invitations WHERE household_id IS NULL AND used_by IS NULL AND expires_at > ? ORDER BY id", AccountRepository::invitation, now.toString())
+                : Sql.list(connection, "SELECT * FROM invitations WHERE household_id = ? AND used_by IS NULL AND expires_at > ? ORDER BY id", AccountRepository::invitation,
+                householdId, now.toString()));
+    }
+
+    /** Invitation utilisee (a usage unique) ; faux si elle l'etait deja. */
+    public boolean useInvitation(long id, long userId) {
+        return database.query(connection -> Sql.update(connection, "UPDATE invitations SET used_by = ? WHERE id = ? AND used_by IS NULL", userId, id)) > 0;
+    }
+
+    /** Annule une invitation en attente de ce foyer ({@code null} : invitation de l'administrateur). */
+    public void cancelInvitation(long id, Long householdId) {
+        database.query(connection -> householdId == null
+                ? Sql.update(connection, "DELETE FROM invitations WHERE id = ? AND household_id IS NULL AND used_by IS NULL", id)
+                : Sql.update(connection, "DELETE FROM invitations WHERE id = ? AND household_id = ? AND used_by IS NULL", id, householdId));
+    }
+
+    private static Invitation invitation(ResultSet row) throws SQLException {
+        long household = row.getLong("household_id");
+        Long householdId = row.wasNull() ? null : household;
+        long member = row.getLong("member_id");
+        Long memberId = row.wasNull() ? null : member;
+        return new Invitation(row.getLong("id"), householdId, memberId, row.getString("member_name"), row.getInt("whole_household") == 1,
+                row.getInt("real_estate") == 1, row.getInt("manager") == 1, row.getString("email"), row.getString("created_by"), row.getString("expires_at"));
+    }
+
+    /** Compte cree par la personne elle-meme (inscription, invitation) : mot de passe choisi, rien a changer. */
+    public long registerUser(String login, String name, String password, LocalDate today, String email, boolean confirmEmail) {
+        checkPassword(password);
+        return database.transaction(connection -> {
+            if (!Sql.list(connection, "SELECT id FROM users WHERE login = ? COLLATE NOCASE", row -> row.getLong(1), login).isEmpty()) {
+                throw new ValidationException("L'identifiant « " + login + " » est déjà pris : choisissez-en un autre.");
+            }
+            return Sql.insert(connection, """
+                    INSERT INTO users (login, name, password_hash, created_on, must_change_password, email, email_verified, must_confirm_email, offer_two_factor)
+                    VALUES (?, ?, ?, ?, 0, ?, 0, ?, 1) RETURNING id""", login, name, hash(password), today, email, confirmEmail ? 1 : 0);
+        });
     }
 
     /** Ce que la page de connexion propose : {@code "message"} (demander a l'administrateur) ou {@code "form"}. */
@@ -487,9 +558,14 @@ public final class AccountRepository {
         });
     }
 
+    /**
+     * Qui peut creer un compte : {@code open} (tout le monde, son propre foyer), {@code invite} (sur invitation d'un
+     * gestionnaire ou de l'administrateur, par defaut) ou {@code closed} (personne). Les anciens reglages valent « invite ».
+     */
     public String signupMode() {
-        return database.query(connection -> Sql.list(connection, "SELECT value FROM settings WHERE key = 'signup_mode'", row -> row.getString(1)))
-                .stream().findFirst().orElse("message");
+        String mode = database.query(connection -> Sql.list(connection, "SELECT value FROM settings WHERE key = 'signup_mode'", row -> row.getString(1)))
+                .stream().findFirst().orElse("invite");
+        return mode.equals("open") || mode.equals("closed") ? mode : "invite";
     }
 
     public void setSignupMode(String mode) {
@@ -497,38 +573,7 @@ public final class AccountRepository {
                 "INSERT INTO settings (key, value) VALUES ('signup_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", mode));
     }
 
-    /** Demandes a traiter : celles dont l'e-mail est confirme (ou envoyees sans confirmation). */
-    public List<AccountRequest> requests() {
-        return database.query(connection -> Sql.list(connection, "SELECT id, name, login, message, created_at, email FROM account_requests WHERE confirmed = 1 ORDER BY id",
-                row -> new AccountRequest(row.getLong(1), row.getString(2), row.getString(3), row.getString(4), row.getString(5), row.getString(6))));
-    }
-
-    /** Lien de confirmation suivi : la demande devient visible par l'administrateur. Faux si le lien est inconnu ou deja utilise. */
-    public boolean confirmRequest(String token) {
-        if (token == null || token.isBlank() || token.length() > 100) return false;
-        return database.query(connection -> Sql.update(connection, "UPDATE account_requests SET confirmed = 1, token_hash = NULL WHERE token_hash = ? AND confirmed = 0",
-                sha256(token))) > 0;
-    }
-
     /** Enregistre une demande ; refusee (faux) au-dela de {@code limit} demandes en attente ou si l'identifiant est deja demande. */
-    public boolean addRequest(String name, String login, String message, String createdAt, int limit) {
-        return addRequest(name, login, message, createdAt, limit, null, null);
-    }
-
-    /** {@code token} non nul : demande en attente de confirmation de l'e-mail, invisible pour l'administrateur jusque-la. */
-    public boolean addRequest(String name, String login, String message, String createdAt, int limit, String email, String token) {
-        return database.transaction(connection -> {
-            // Demande jamais confirmee : oubliee apres un jour (elle ne bloque pas les autres).
-            Sql.update(connection, "DELETE FROM account_requests WHERE confirmed = 0 AND created_at < ?", java.time.LocalDateTime.parse(createdAt).minusDays(1).toString());
-            long pending = Sql.list(connection, "SELECT COUNT(*) FROM account_requests", row -> row.getLong(1)).getFirst();
-            boolean taken = !Sql.list(connection, "SELECT 1 FROM account_requests WHERE login = ? COLLATE NOCASE", row -> 1, login).isEmpty();
-            if (pending >= limit || taken) return false;
-            Sql.update(connection, "INSERT INTO account_requests (name, login, message, created_at, email, confirmed, token_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    name, login, message, createdAt, email, token == null ? 1 : 0, token == null ? null : sha256(token));
-            return true;
-        });
-    }
-
     // ---- Envoi d'e-mails (reglage de l'administrateur) ----
 
     /** Serveur d'envoi, adresse publique de Patria (liens des e-mails) et confirmation exigee des nouveaux comptes. */
@@ -562,10 +607,6 @@ public final class AccountRepository {
             }
             return null;
         });
-    }
-
-    public void deleteRequest(long id) {
-        database.query(connection -> Sql.update(connection, "DELETE FROM account_requests WHERE id = ?", id));
     }
 
     // ---- Accueil de la premiere connexion ----

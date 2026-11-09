@@ -57,9 +57,12 @@ class PrivacyTest {
         // Installation existante en clair, avec une copie avant migration : tout est chiffre au demarrage avec la cle.
         try (App ignored = start(null)) {
             Visitor admin = TestAccounts.admin(client, base);
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Foyer+Martin").statusCode());
-            Visitor manager = TestAccounts.account(client, base, admin, "gestion", "Gestion", 1, "access=on&all=on");
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&all=on").statusCode());
+            Visitor manager = TestAccounts.manager(client, base);
+            // Second foyer : lien « créer son foyer » de l'administrateur, accepté par le gestionnaire.
+            var link = java.util.regex.Pattern.compile("jeton=([A-Za-z0-9_-]+)").matcher(TestAccounts.post(client, base, admin, "/administration/foyers/lien", "").body());
+            assertTrue(link.find());
+            assertEquals(303, TestAccounts.post(client, base, manager, "/invitation/rejoindre", "jeton=" + link.group(1) + "&foyer=Foyer+Martin").statusCode());
+            assertEquals(303, TestAccounts.post(client, base, manager, "/foyer/choisir", "foyer=1").statusCode());
             assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
         }
         assertTrue(Encryption.isPlain(main));

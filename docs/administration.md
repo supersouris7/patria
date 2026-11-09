@@ -156,29 +156,42 @@ Sécurité → **E-mail** : serveur SMTP de votre fournisseur (Brevo, OVH, Gmail
 
 Après le premier mot de passe, chaque nouveau compte se voit **proposer la double authentification** (« Activer maintenant » ou « Plus tard »).
 
-## Créer les accès
+## Comptes, foyers et droits
 
-Le compte administrateur ne voit aucune donnée financière **dans l'interface**. Il est le seul à créer les foyers, leurs membres et les comptes, et à régler les droits. Pour votre budget personnel, créez aussi un compte utilisateur.
+Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et ne voit aucune donnée financière dans l'interface : il supervise et dépanne. Le même fonctionnement sert à l'auto-hébergement familial et à une installation dans le cloud ; seul le réglage des inscriptions change.
 
-1. Administration → Foyers → Nouveau foyer (le foyer principal existe déjà).
-2. Dans la carte du foyer, ajoutez ses membres (personnes, puis compte joint). Le « × » d'un membre le supprime.
-3. Utilisateurs → Nouvel utilisateur : choisissez le membre représenté et un mot de passe provisoire d'au moins 8 caractères.
-4. Dans la carte du foyer, tableau **Qui voit quoi** : une ligne par compte du foyer (« Ajouter un compte à ce foyer » en ajoute un), une colonne par membre, puis **Totaux du foyer** et **Immobilier**. Cochez ce que chacun voit, puis « Enregistrer les droits ».
+**Comment on crée un compte.** Toujours par la personne elle-même, de deux façons :
 
-Chaque case donne l'accès complet (voir et modifier) :
+1. **Inscription** (« Créer un compte » sur la page de connexion, si les inscriptions sont ouvertes) : prénom, identifiant, mot de passe, e-mail (exigé et confirmé si vous l'avez réglé), nom du foyer. Patria crée le compte **et son foyer**, avec un membre à son nom ; la personne en est **gestionnaire**.
+2. **Invitation** : un lien valable 7 jours, à usage unique. La personne crée son compte depuis ce lien (ou, si elle en a déjà un, se connecte et l'accepte). Deux sortes de liens :
+   - le **gestionnaire d'un foyer** invite à le rejoindre (Gérer → Mon foyer et les droits → Inviter quelqu'un), en choisissant le membre du budget (existant, nouveau à son prénom, ou aucun) et les droits de départ ; l'e-mail part tout seul si l'envoi est réglé, sinon il transmet le lien ;
+   - l'**administrateur** invite à **créer son foyer** (Foyers → « Inviter une personne à créer son foyer »), ou à **reprendre un foyer sans gestionnaire** (« Créer un lien de gestion »).
 
-- **Un membre** : ses revenus, dépenses et virements. Une ligne partagée avec un membre non coché reste visible, en lecture seule.
-- **Totaux du foyer** : le total de tous les membres (les lignes des membres non cochés y apparaissent « Ligne masquée ») et les réglages communs (Guide de saisie, impôts du foyer).
-- **Immobilier** : biens, prêts, apports, charges et répartition.
-- Aucune case : le compte n'a pas accès au foyer.
+**Réglage des inscriptions** (Utilisateurs → Inscriptions) :
 
-La page d'un utilisateur résume ses droits dans chaque foyer, avec un lien vers le tableau. Le rôle de « gestionnaire » des versions précédentes n'existe plus : au démarrage, un ancien gestionnaire reçoit toutes les cases de son foyer, que vous pouvez ensuite décocher.
+| Réglage | Qui peut créer un compte | Pour |
+|---|---|---|
+| **Sur invitation** (par défaut) | les invités d'un gestionnaire, et vos liens « créer son foyer » | auto-hébergement familial |
+| **Ouvertes** | tout le monde (son propre foyer), plus les invitations | installation ouverte au public, dans le cloud |
+| **Fermées** | personne, sauf vos liens « créer son foyer » | geler une installation |
 
-**Demandes de compte.** Le lien « Créer un compte » de la page de connexion affiche, au choix (Administration → Demandes de compte), un simple message « demandez à l'administrateur » ou un formulaire (nom, identifiant souhaité, message). Les demandes arrivent sur cette même page : « Créer le compte » avec un mot de passe provisoire, ou « Supprimer ». Au plus 30 demandes restent en attente.
+Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un piège à robots. Pour une installation ouverte, réglez l'envoi d'e-mails et cochez « Exiger un e-mail confirmé ».
 
-Les mots de passe provisoires doivent être changés à la connexion suivante. Désactivation, suppression de compte ou réinitialisation déconnectent les sessions concernées. Les changements de droits sont journalisés et visibles dans « qui voit quoi ».
+**Le gestionnaire** (un ou plusieurs par foyer) règle, dans Gérer → Mon foyer et les droits :
 
-**Migration depuis une version où l'administrateur saisissait le budget :** les données restent présentes. Foyers propose les foyers auxquels aucun compte n'a accès : confiez-les à un compte existant ou créez votre compte personnel. Ce compte reçoit toutes les cases et reprend la progression du guide de saisie.
+- les **membres du budget** (personnes, comptes joints ; un enfant peut être un membre sans compte) ;
+- le tableau **Qui voit quoi** : une ligne par compte, une colonne par membre, puis **Totaux du foyer**, **Immobilier** et **Gestionnaire**. Chaque case donne l'accès complet (voir et modifier) : un membre, ses lignes (une ligne partagée avec un membre non coché reste en lecture seule) ; les totaux, le total de tous les membres (lignes masquées comprises) et les réglages communs ; l'immobilier, biens, prêts, apports, charges et répartition. Aucune case : plus d'accès ;
+- les **invitations** en attente (annulables) et le nom du foyer.
+
+Être gestionnaire ne change pas ce qu'on voit : il coche aussi ses propres cases et peut choisir de ne pas voir tout le foyer. Il reste toujours au moins un gestionnaire. Chacun voit le résumé de ce tableau dans l'icône « i » de l'en-tête, avec les changements récents ; tout est inscrit au journal.
+
+**L'administrateur** :
+
+- **supervise** : Foyers (membres, comptes, gestionnaires, sans aucun montant) et Utilisateurs (foyers et rôle de chacun) ;
+- **dépanne** : réinitialiser un mot de passe (provisoire, à changer à la connexion suivante), retirer une double authentification, désactiver ou supprimer un compte, nommer un gestionnaire parmi les comptes d'un foyer qui n'en a plus, ou créer un lien de gestion ;
+- **règle le serveur** : inscriptions, Sécurité, e-mail, IA locale ; supprime un foyer abandonné (sa base est mise de côté).
+
+**Passage à cette version :** les comptes et les droits existants ne changent pas. Au premier démarrage, un compte qui voyait **tout** un foyer (tous ses membres, les totaux et l'immobilier) en devient gestionnaire. Un foyer sans gestionnaire est signalé dans Foyers, avec « Nommer gestionnaire » et « Créer un lien de gestion ». Les anciennes « demandes de compte » ne sont plus utilisées (elles restent dans la base) ; l'ancien réglage vaut « sur invitation ».
 
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
 

@@ -120,17 +120,6 @@ final class HouseholdSites implements HouseholdDirectory {
     }
 
     @Override
-    public Progress progress(long householdId, long userId, boolean manager) {
-        fr.patria.wizard.WizardRepository.Summary summary = site(householdId).wizard.summary(userId, manager);
-        return new Progress(summary.done(), summary.skipped(), summary.total(), summary.next(), summary.reviewedOn());
-    }
-
-    @Override
-    public void transferFromAdministrator(long householdId, long userId) {
-        site(householdId).wizard.transferFromAdministrator(userId);
-    }
-
-    @Override
     public void forgetUser(long userId) {
         for (Household household : accounts.households()) {
             HouseholdSite site = site(household.id());

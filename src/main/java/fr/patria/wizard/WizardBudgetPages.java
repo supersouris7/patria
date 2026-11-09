@@ -46,7 +46,7 @@ final class WizardBudgetPages {
                     Components.card("Revenus", null, Html.EMPTY, Html.raw(context.admin()
                             ? "<p class=\"empty\">Aucune personne dans le foyer : ajoutez-en à l'étape Membres.</p>"
                             : "<p class=\"empty\">Aucune personne ne vous est ouverte (seulement un compte joint, ou aucune vue) : passez cette étape, "
-                            + "ou demandez à l'administrateur de vous ouvrir votre vue.</p>")));
+                            + "ou demandez au gestionnaire du foyer de vous ouvrir votre vue.</p>")));
         }
         Html cards = open.stream().map(person -> {
             List<Income> incomes = context.snapshot().incomes().stream().filter(income -> income.personId() == person.id()).toList();

@@ -32,18 +32,6 @@ public interface HouseholdDirectory {
     /** Efface definitivement une base mise de cote (et ses fichiers de journal). */
     void purge(String name);
 
-    /** Avancement du guide de saisie d'un compte dans un foyer : etapes, jamais de donnee saisie. */
-    record Progress(int done, int skipped, int total, String next, java.time.LocalDate reviewedOn) {
-        public int percent() {
-            return total == 0 ? 100 : (done + skipped) * 100 / total;
-        }
-    }
-
-    Progress progress(long householdId, long userId, boolean realEstate);
-
-    /** La progression de l'administrateur dans ce foyer passe a ce compte (reprise du foyer). */
-    void transferFromAdministrator(long householdId, long userId);
-
     /** Cree et initialise la base d'un nouveau foyer. */
     void created(Household household);
 

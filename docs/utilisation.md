@@ -6,11 +6,11 @@ Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et su
 
 ## Première connexion
 
-L'administrateur de l'installation crée votre compte et les accès à votre foyer. Sans compte, le lien « Créer un compte » de la page de connexion explique comment le lui demander. Changez le mot de passe provisoire dès la première connexion. Quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
+Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Patria propose ensuite la double authentification, puis quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
 
-Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. L'**administrateur** gère l'installation, les membres, les comptes et les droits, pas les finances dans l'interface.
+Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Le **gestionnaire** d'un foyer (un ou plusieurs) gère ses membres, invite les autres et règle qui voit quoi (Gérer → Mon foyer et les droits). L'**administrateur** supervise l'installation et dépanne les comptes, sans voir les finances.
 
-- L'administrateur coche, pour chaque compte, les membres auxquels il a accès, les **totaux du foyer** et l'**immobilier**. Chaque case donne l'accès complet : voir et modifier.
+- Le gestionnaire coche, pour chaque compte, les membres auxquels il a accès, les **totaux du foyer**, l'**immobilier** et s'il est **gestionnaire**. Chaque case donne l'accès complet : voir et modifier. Un gestionnaire règle aussi ses propres cases (il peut choisir de ne pas tout voir).
 - Une ligne partagée avec un membre auquel vous n'avez pas accès est en lecture seule. Dans les totaux du foyer, les lignes de ces membres apparaissent « Ligne masquée ».
 - Les totaux du foyer donnent aussi les réglages communs ; l'immobilier, les biens, prêts, apports et la répartition.
 - L'icône jaune « qui voit quoi », à côté du foyer, indique les accès et leurs changements récents. Cela ne protège pas contre l'exploitant du serveur : [limites de confidentialité](confidentialite.md).
@@ -37,7 +37,7 @@ L'icône étincelles ouvre un parcours guidé :
 
 Chaque étape explique le chiffre attendu et ce que Patria reprend déjà, pour éviter les doublons. Les étapes non pertinentes peuvent être passées. « Reprendre » saute les étapes faites ou passées ; « Tout revoir » les affiche avec les données existantes ; « Recommencer à zéro » efface **la progression, pas les données**. La progression est propre au compte. Les lignes déjà saisies ne sont pas recréées ; les saisies par personne restent proposées avec l'existant.
 
-Chacun dispose des étapes correspondant à ses droits ; les biens, prêts et répartitions demandent l'accès Immobilier. Les membres sont créés par l'administrateur. Le bandeau de progression du Prévisionnel permet de reprendre la configuration ou de masquer ce rappel.
+Chacun dispose des étapes correspondant à ses droits ; les biens, prêts et répartitions demandent l'accès Immobilier. Les membres sont créés par le gestionnaire du foyer. Le bandeau de progression du Prévisionnel permet de reprendre la configuration ou de masquer ce rappel.
 
 ## Budget : ce qui rentre, ce qui sort, ce qui reste
 

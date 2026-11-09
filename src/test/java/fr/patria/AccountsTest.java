@@ -79,29 +79,29 @@ class AccountsTest {
         assertEquals(403, post(admin, "/administration/depenses", "label=Intrus" + expense).statusCode());
         String households = get(admin, "/administration/foyers").body();
         assertTrue(households.contains("Camille") && !households.contains("Yoga") && !households.contains("2 000"), "les membres, pas les montants");
-        assertTrue(households.contains("Avancement de la configuration") && households.contains("Qui voit quoi"));
+        assertTrue(households.contains("Gestion · gestionnaire") && !households.contains("Qui voit quoi"), "supervision, pas de réglage des droits");
 
-        HttpResponse<String> created = post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1");
-        assertEquals("/administration/utilisateur/2?ok=utilisateur", created.headers().firstValue("Location").orElseThrow());
-        assertEquals(400, post(admin, "/administration/utilisateurs", "login=PAUL&name=Autre&password=motdepasse1").statusCode(), "identifiant déjà pris");
-        assertEquals(400, post(admin, "/administration/utilisateurs", "login=admin&name=X&password=motdepasse1").statusCode(), "identifiant de l'administrateur");
-        assertEquals(400, post(admin, "/administration/utilisateurs", "login=court&name=X&password=1234").statusCode(), "mot de passe trop court");
-        assertEquals("/connexion?sans-foyer", post(null, "/connexion", "login=paul&password=motdepasse1").headers().firstValue("Location").orElseThrow(),
-                "aucun foyer ouvert");
-        assertEquals(400, post(admin, "/administration/utilisateur/2/foyer/1", "access=on").statusCode(), "au moins une vue");
-        assertEquals(303, post(admin, "/administration/utilisateur/2/foyer/1", "access=on&member_1=on&member_3=on").statusCode());
-        assertEquals(403, post(manager, "/administration/utilisateur/2/foyer/1", "access=on&all=on").statusCode(), "seul l'administrateur règle les droits");
-
-        // Mot de passe provisoire : a changer avant toute autre page
+        // L'administrateur ne cree plus de compte : Paul arrive par l'invitation du gestionnaire, lie au membre Paul
+        assertEquals(405, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1").statusCode(), "plus de création par l'administrateur");
+        assertEquals(400, post(manager, "/foyer/invitations", "membre=aucun&name=X").statusCode(), "sans membre ni case : accès à rien");
+        java.util.regex.Matcher link = java.util.regex.Pattern.compile("jeton=([A-Za-z0-9_-]+)").matcher(post(manager, "/foyer/invitations", "membre=1").body());
+        assertTrue(link.find());
+        String token = link.group(1);
+        assertTrue(get(null, "/invitation?jeton=" + token).body().contains("rejoindre le foyer « Mon foyer »"));
+        assertEquals(400, post(null, "/invitation", "jeton=" + token + "&name=Paul&login=admin&password=motdepasse1&confirm=motdepasse1").statusCode(), "identifiant de l'administrateur");
+        assertEquals(400, post(null, "/invitation", "jeton=" + token + "&name=Paul&login=paul&password=1234&confirm=1234").statusCode(), "mot de passe trop court");
+        assertEquals(400, post(null, "/invitation", "jeton=" + token + "&name=Paul&login=paul&password=motdepasse1&confirm=autre1234").statusCode(), "confirmation");
+        assertEquals("/compte/securiser", post(null, "/invitation", "jeton=" + token + "&name=Paul&login=paul&password=motdepasse1&confirm=motdepasse1")
+                .headers().firstValue("Location").orElseThrow(), "compte créé, double authentification proposée");
+        assertEquals(400, post(null, "/invitation", "jeton=" + token + "&name=Autre&login=autre&password=motdepasse1&confirm=motdepasse1").statusCode(), "lien à usage unique");
+        // Le gestionnaire ajoute le compte joint a ce que voit Paul
+        java.util.Set<String> rights = TestAccounts.checkedRights(client, base, manager);
+        rights.add("u2_member_3");
+        assertEquals(303, post(manager, "/foyer/droits", String.join("&", rights.stream().map(box -> box + "=on").toList())).statusCode());
         assertEquals("/connexion?erreur", post(null, "/connexion", "login=paul&password=mauvais1").headers().firstValue("Location").orElseThrow());
-        HttpResponse<String> first = post(null, "/connexion", "login=paul&password=motdepasse1");
-        assertEquals("/compte/nouveau-mot-de-passe", first.headers().firstValue("Location").orElseThrow());
         Visitor paul = login("paul", "motdepasse1");
-        assertEquals("/compte/nouveau-mot-de-passe", get(paul, "/").headers().firstValue("Location").orElseThrow(), "rien d'autre avant");
-        assertTrue(get(paul, "/compte/nouveau-mot-de-passe").body().contains("choisi par l'administrateur le 15/06/2026"));
-        assertEquals(400, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=motdepasse1&confirm=motdepasse1").statusCode(), "un autre mot de passe");
-        assertEquals("/compte/securiser", post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=paulpasse1&confirm=paulpasse1")
-                .headers().firstValue("Location").orElseThrow(), "double authentification proposée après le premier mot de passe");
+        assertEquals(403, post(paul, "/foyer/droits", "u2_member_2=on").statusCode(), "seul le gestionnaire règle les droits");
+        assertEquals(403, get(paul, "/foyer").statusCode());
         assertTrue(get(paul, "/compte/securiser").body().contains("Activer maintenant"));
         assertEquals("/bienvenue", post(paul, "/compte/securiser/plus-tard", "").headers().firstValue("Location").orElseThrow(), "plus tard : l'accueil");
 
@@ -115,7 +115,7 @@ class AccountsTest {
         assertTrue(home.contains("Gestion et vous avez accès aux informations de Paul"));
         assertTrue(home.contains("accès aux informations du compte joint « Compte joint »"));
         assertFalse(home.contains("informations de Camille"), "pas les membres qu'il ne voit pas");
-        assertTrue(home.contains("Paul : accès ouvert (Paul, Compte joint)") && home.contains("audience-dot"), "changement récent signalé");
+        assertTrue(home.contains("Paul : accès modifié (Paul, Compte joint)") && home.contains("audience-dot"), "changement récent signalé");
         assertEquals(303, post(paul, "/acces/vu", "suite=%2F").statusCode());
         assertFalse(get(paul, "/").body().contains("audience-dot"), "lu");
         assertTrue(get(paul, "/?personne=2").body().contains("Budget de Paul"), "vue de Camille refusée : retour à Paul");
@@ -127,7 +127,7 @@ class AccountsTest {
                 "/administration/securite"}) {
             assertEquals(403, get(paul, reserved).statusCode(), reserved);
         }
-        assertTrue(post(paul, "/administration/membres", "name=Intrus&kind=PERSON").statusCode() >= 400, "seul l'administrateur ajoute des membres");
+        assertEquals(403, post(paul, "/foyer/membres", "name=Intrus&kind=PERSON").statusCode(), "seul le gestionnaire ajoute des membres");
 
         String expenses = get(paul, "/administration/depenses").body();
         assertTrue(expenses.contains("Club de Paul") && expenses.contains("href=\"/depense/1\""), "sa dépense, modifiable");
@@ -154,10 +154,10 @@ class AccountsTest {
         assertEquals(400, post(paul, "/administration/virements", "from=2&to=3&amount=300&frequency=MONTHLY&start=2026-01-01").statusCode());
 
         // Mot de passe : le changer ferme les autres sessions de l'utilisateur
-        Visitor otherDevice = login("paul", "paulpasse1");
+        Visitor otherDevice = login("paul", "motdepasse1");
         assertEquals(400, post(paul, "/compte/mot-de-passe", "current=faux&password=nouveau123&confirm=nouveau123").statusCode());
-        assertEquals(400, post(paul, "/compte/mot-de-passe", "current=paulpasse1&password=nouveau123&confirm=autre1234").statusCode());
-        assertEquals(303, post(paul, "/compte/mot-de-passe", "current=paulpasse1&password=nouveau123&confirm=nouveau123").statusCode());
+        assertEquals(400, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=autre1234").statusCode());
+        assertEquals(303, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=nouveau123&confirm=nouveau123").statusCode());
         assertEquals(200, get(paul, "/").statusCode(), "la session qui a changé le mot de passe reste ouverte");
         assertEquals(303, get(otherDevice, "/").statusCode(), "les autres sessions sont fermées");
 
@@ -175,7 +175,7 @@ class AccountsTest {
         // Journal : connexions et droits sur la page Securite
         String security = get(admin, "/administration/securite").body();
         assertTrue(security.contains("Connexions échouées") && security.contains("<code>paul</code>"), "échec de paul listé");
-        assertTrue(security.contains("Paul : accès ouvert (Paul, Compte joint)") && security.contains("réinitialisé"), "journal des droits");
+        assertTrue(security.contains("Paul : accès modifié (Paul, Compte joint)") && security.contains("réinitialisé"), "journal des droits");
         assertTrue(security.contains("Réseau local"), "adresse locale, sans localisation");
         assertTrue(security.contains("provisoire, à changer"));
 
@@ -187,65 +187,82 @@ class AccountsTest {
     }
 
     @Test
-    void householdFirstThenItsMembersThenAnAccountLinkedToAMember() throws Exception {
+    void aNewHouseholdStartsWithItsManagerWhoInvitesItsMembers() throws Exception {
         Visitor admin = admin();
-        assertEquals("/administration/foyers?ok=foyer#foyer-2", post(admin, "/administration/foyers", "name=Foyer+Martin").headers().firstValue("Location").orElseThrow());
+        Visitor martine = TestAccounts.join(client, base, post(admin, "/administration/foyers/lien", "").body(), "martine", "Martine", "Foyer Martin");
         String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("id=\"foyer-2\"") && households.contains("Ajoutez ses membres"), "foyer vide : étapes à suivre");
-        assertEquals(303, post(admin, "/administration/foyers/2/membres", "name=Martine&kind=PERSON").statusCode(), "membre ajouté depuis la page Foyers");
-        assertTrue(get(admin, "/administration/foyers").body().contains(">Martine<"));
+        assertTrue(households.contains("id=\"foyer-2\"") && households.contains("Martine · gestionnaire"), "nouveau foyer et son gestionnaire");
+        assertTrue(households.contains("<span class=\"badge\">Martine</span>"), "membre créé à son nom");
         assertEquals(403, post(admin, "/foyer/choisir", "foyer=2").statusCode(), "l'administrateur n'ouvre pas les foyers");
-        assertTrue(get(admin, "/administration/utilisateurs?membre=2:1").body().contains("<option value=\"2:1\" selected>"), "membre présélectionné");
+        assertEquals(200, get(martine, "/foyer").statusCode(), "elle gère son foyer");
 
-        Visitor martine = account(admin, "martine", "Martine", "membre=2%3A1", 2, null);
-        account(admin, "jules", "Jules", "membre=2%3Anouveau", 2, null);
-        String after = get(admin, "/administration/foyers").body();
-        assertTrue(after.contains(">Jules<") && after.contains("u2_member_"), "membre créé au nom de l'utilisateur, comptes listés");
-        assertTrue(get(martine, "/").body().contains("Budget de Martine"), "voit sa vue sans autre réglage");
-        assertTrue(post(martine, "/administration/membres", "name=Intrus&kind=PERSON").statusCode() >= 400, "seul l'administrateur ajoute des membres");
-        assertEquals(400, post(admin, "/administration/utilisateurs", "login=x1&name=X&password=motdepasse1&membre=2%3A99").statusCode(), "membre inconnu");
+        assertEquals(303, post(martine, "/foyer/membres", "name=Jules&kind=PERSON").statusCode());
+        Visitor jules = TestAccounts.join(client, base, post(martine, "/foyer/invitations", "membre=2").body(), "jules", "Jules", "");
+        assertTrue(get(jules, "/").body().contains("Budget de Jules"), "voit sa vue sans autre réglage");
+        assertEquals(403, post(jules, "/foyer/membres", "name=Intrus&kind=PERSON").statusCode(), "seul le gestionnaire ajoute des membres");
+        TestAccounts.join(client, base, post(martine, "/foyer/invitations", "membre=nouveau&name=L%C3%A9o&estate=on").body(), "leo", "Leo", "");
+        assertTrue(get(martine, "/foyer").body().contains("Léo"), "membre créé à l'arrivée de l'invité");
+        assertEquals(400, post(martine, "/foyer/invitations", "membre=99").statusCode(), "membre inconnu");
     }
 
+
     @Test
-    void anExistingInstallationIsHandedOverToAPersonalAccount() throws Exception {
+    void aHouseholdWithoutManagerIsRepairedByTheAdministrator() throws Exception {
         Visitor admin = admin();
-        assertEquals(303, post(admin, "/administration/foyers/1/membres", "name=William&kind=PERSON").statusCode());
         String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("sans aucun accès") && households.contains("Créer le compte et lui confier"), "reprise proposée");
-        assertEquals(400, post(admin, "/administration/foyers/reprise", "name=William&login=william&password=provisoire1").statusCode(), "au moins un foyer");
-        assertEquals("/administration/utilisateur/1?ok=reprise",
-                post(admin, "/administration/foyers/reprise", "foyer_1=on&name=William&login=william&password=provisoire1").headers().firstValue("Location").orElseThrow());
+        assertTrue(households.contains("Sans gestionnaire") && households.contains("Créer un lien de gestion"), "dépannage proposé");
+        Visitor william = TestAccounts.join(client, base, post(admin, "/administration/foyers/1/lien", "").body(), "william", "William", "");
         assertFalse(get(admin, "/administration/foyers").body().contains("sans gestionnaire"));
-        Visitor william = login("william", "provisoire1");
-        assertEquals(303, post(william, "/compte/mot-de-passe", "current=provisoire1&password=williampasse1&confirm=williampasse1").statusCode());
-        william = login("william", "williampasse1");
-        assertEquals(200, get(william, "/administration/biens").statusCode(), "gestionnaire : il saisit tout");
+        assertEquals(400, post(admin, "/administration/foyers/1/lien", "").statusCode(), "foyer géré : l'administrateur ne peut pas s'y ouvrir d'accès");
+        assertEquals(200, get(william, "/administration/biens").statusCode(), "gestionnaire repris : il voit tout");
         assertTrue(get(william, "/").body().contains("Vous voyez les totaux du foyer"));
+
+        // Il reste toujours un gestionnaire ; s'il disparait, l'administrateur en nomme un parmi les comptes du foyer
+        Visitor paul = TestAccounts.join(client, base, post(william, "/foyer/invitations", "membre=nouveau&name=Paul&whole=on").body(), "paul", "Paul", "");
+        assertEquals(400, post(william, "/foyer/droits", "u" + paul.id() + "_whole=on").statusCode(), "au moins un gestionnaire");
+        assertEquals(303, post(admin, "/administration/utilisateur/" + william.id() + "/supprimer", "").statusCode());
+        assertTrue(get(admin, "/administration/foyers").body().contains("sans gestionnaire"));
+        assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=" + paul.id()).statusCode());
+        paul = login("paul", "paul-motdepasse");
+        assertEquals(200, get(paul, "/foyer").statusCode(), "nommé gestionnaire");
     }
 
-    @Test
-    void anExistingAccountReceivesHouseholdsAndRights() throws Exception {
-        Visitor admin = admin();
-        assertEquals(303, post(admin, "/administration/foyers", "name=Foyer+Martin").statusCode());
-        Visitor paul = account(admin, "paul", "Paul", "", 1, "access=on&whole=on");
-        assertTrue(get(admin, "/administration/foyers").body().contains("Lui confier ces foyers"), "reprise par un compte existant proposée");
-        assertEquals("/administration/foyers?ok=acces", post(admin, "/administration/foyers/reprise", "foyer_1=on&compte=" + paul.id())
-                .headers().firstValue("Location").orElseThrow());
-        assertEquals(200, get(paul, "/administration/biens").statusCode(), "tous les droits du foyer principal");
 
-        // Depuis le tableau des droits d'un foyer : cases cochees par compte
-        assertEquals(303, post(admin, "/administration/foyers/2/droits", "u" + paul.id() + "_all=on").statusCode());
-        assertTrue(get(paul, "/administration/revenus").body().contains("name=\"foyer\""), "deux foyers : sélecteur dans Gérer");
-        Visitor camille = account(admin, "camille", "Camille", "", 1, "access=on&whole=on");
-        assertEquals(303, post(admin, "/administration/foyers/1/droits", "u" + camille.id() + "_all=on&u" + paul.id() + "_whole=on").statusCode());
+    @Test
+    void managerSetsEachAccountsRightsIndependently() throws Exception {
+        Visitor admin = admin();
+        Visitor manager = TestAccounts.manager(client, base);
+        Visitor paul = account(admin, "paul", "Paul", "", 1, "access=on&whole=on");
+        Visitor camille = account(admin, "camille", "Camille", "", 1, "access=on&whole=on&estate=on");
         assertEquals(200, get(camille, "/administration/biens").statusCode(), "immobilier coché");
-        assertEquals(403, get(paul, "/administration/biens").statusCode(), "immobilier décoché : ses autres cases restent");
-        assertEquals(200, get(paul, "/").statusCode());
-        assertEquals(303, post(admin, "/administration/utilisateur/" + paul.id() + "/foyer/1", "access=on&all=on").statusCode());
-        assertEquals(200, get(camille, "/administration/biens").statusCode(), "les droits de chacun sont indépendants");
-        assertEquals(200, get(paul, "/administration/biens").statusCode());
+        assertEquals(403, get(paul, "/administration/biens").statusCode(), "immobilier non coché");
+
+        // Paul devient gestionnaire aussi : il règle les droits, sans voir davantage
+        java.util.Set<String> rights = TestAccounts.checkedRights(client, base, manager);
+        rights.add("u" + paul.id() + "_manager");
+        assertEquals(303, post(manager, "/foyer/droits", String.join("&", rights.stream().map(box -> box + "=on").toList())).statusCode());
+        paul = login("paul", "paul-motdepasse");
+        assertEquals(200, get(paul, "/foyer").statusCode());
+        assertEquals(403, get(paul, "/administration/biens").statusCode(), "gérer n'est pas voir");
+        java.util.Set<String> none = new java.util.LinkedHashSet<>(rights);
+        none.removeIf(box -> box.endsWith("_manager"));
+        assertEquals(400, post(manager, "/foyer/droits", String.join("&", none.stream().map(box -> box + "=on").toList())).statusCode(), "toujours un gestionnaire");
+
+        // Un gestionnaire peut choisir de ne pas voir les totaux du foyer
+        java.util.Set<String> discreet = TestAccounts.checkedRights(client, base, manager);
+        discreet.remove("u" + manager.id() + "_whole");
+        assertEquals(303, post(manager, "/foyer/droits", String.join("&", discreet.stream().map(box -> box + "=on").toList())).statusCode());
+        assertFalse(TestAccounts.checkedRights(client, base, manager).contains("u" + manager.id() + "_whole"));
+        assertEquals(200, get(manager, "/foyer").statusCode(), "il gère toujours");
+
+        // Un compte existant crée un second foyer avec un lien de l'administrateur
+        Matcher link = Pattern.compile("jeton=([A-Za-z0-9_-]+)").matcher(post(admin, "/administration/foyers/lien", "").body());
+        assertTrue(link.find());
+        assertEquals(303, post(paul, "/invitation/rejoindre", "jeton=" + link.group(1) + "&foyer=Foyer+Paul").statusCode());
+        assertTrue(get(paul, "/administration/revenus").body().contains("name=\"foyer\""), "deux foyers : sélecteur dans Gérer");
         assertTrue(get(admin, "/administration/securite").body().contains("Paul : accès modifié"), "journal");
     }
+
 
     @Test
     void aValidAccountDoesNotResetTheFailuresOfItsAddress() throws Exception {
@@ -262,17 +279,19 @@ class AccountsTest {
     @Test
     void householdsAreSeparateAndSelectable() throws Exception {
         Visitor admin = admin();
-        assertEquals("/administration/foyers?ok=foyer#foyer-2", post(admin, "/administration/foyers", "name=Foyer+Martin").headers().firstValue("Location").orElseThrow());
+        Visitor manager = TestAccounts.manager(client, base);
+        Matcher link = Pattern.compile("jeton=([A-Za-z0-9_-]+)").matcher(post(admin, "/administration/foyers/lien", "").body());
+        assertTrue(link.find());
+        assertEquals(303, post(manager, "/invitation/rejoindre", "jeton=" + link.group(1) + "&foyer=Foyer+Martin").statusCode(), "second foyer, géré par le même compte");
         assertTrue(Files.exists(directory.resolve("foyer-2.sqlite3")), "une base par foyer");
         assertTrue(Files.exists(directory.resolve(App.ACCOUNTS_FILE)));
-        Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
-        assertEquals(303, post(admin, "/administration/utilisateur/1/foyer/2", "access=on&all=on").statusCode());
+        assertEquals(303, post(manager, "/foyer/choisir", "foyer=1").statusCode());
 
         assertEquals(303, TestAccounts.member(client, base, manager, 1, "name=Paul&kind=PERSON").statusCode());
         assertTrue(get(manager, "/administration/revenus").body().contains("name=\"foyer\""), "sélecteur de foyer dans Gérer à partir de deux foyers");
         assertEquals(303, post(manager, "/foyer/choisir", "foyer=2").statusCode());
-        assertFalse(get(manager, "/administration/revenus").body().contains("Paul"), "foyer Martin : ses propres membres");
-        assertEquals(303, TestAccounts.member(client, base, manager, 2, "name=Martine&kind=PERSON").statusCode());
+        assertFalse(get(manager, "/administration/revenus").body().contains(">Paul<"), "foyer Martin : ses propres membres");
+        assertEquals(303, post(manager, "/foyer/membres", "name=Martine&kind=PERSON").statusCode());
         assertEquals(303, post(manager, "/foyer/choisir", "foyer=1").statusCode());
         String first = get(manager, "/administration/revenus").body();
         assertTrue(first.contains("Paul") && !first.contains("Martine"));
@@ -323,19 +342,21 @@ class AccountsTest {
 
         // Tableau des droits : William voit son membre, le compte joint et les totaux ; pas Pascaline, pas l'immobilier
         Visitor william = account(admin, "william", "William", "", 1, "access=on&member_1=on");
-        String table = get(admin, "/administration/foyers").body();
+        String table = get(manager, "/foyer").body();
         assertTrue(table.contains("rights-table") && table.contains("name=\"u" + william.id() + "_member_2\""), "une ligne par compte, une case par membre");
-        assertEquals("/administration/foyers?ok=acces#foyer-1", post(admin, "/administration/foyers/1/droits",
-                "u" + manager.id() + "_all=on&u" + william.id() + "_member_1=on&u" + william.id() + "_member_3=on&u" + william.id() + "_whole=on")
+        java.util.Set<String> rights = TestAccounts.checkedRights(client, base, manager);
+        rights.add("u" + william.id() + "_member_3");
+        rights.add("u" + william.id() + "_whole");
+        assertEquals("/foyer?ok=acces#droits", post(manager, "/foyer/droits", String.join("&", rights.stream().map(box -> box + "=on").toList()))
                 .headers().firstValue("Location").orElseThrow());
-        assertTrue(get(admin, "/administration/utilisateur/" + william.id()).body().contains("Voit et modifie : William, Compte joint"));
+        assertTrue(get(admin, "/administration/utilisateur/" + william.id()).body().contains("William, Compte joint"), "l'administrateur voit qui voit quoi");
         String lines = get(william, "/administration/depenses").body();
         assertTrue(lines.contains("Club de William") && lines.contains("Courses communes"), "ses lignes et les lignes partagées");
         assertFalse(lines.contains("Yoga de Pascaline"), "pas celles d'un membre non coché");
         String home = get(william, "/").body();
         assertTrue(home.contains("Ligne masquée") && !home.contains("Yoga"), "les totaux restent justes sans le détail");
         assertEquals(403, get(william, "/immobilier").statusCode(), "immobilier non coché");
-        assertTrue(post(william, "/administration/membres", "name=Intrus&kind=PERSON").statusCode() >= 400, "seul l'administrateur ajoute des membres");
+        assertEquals(403, post(william, "/foyer/membres", "name=Intrus&kind=PERSON").statusCode(), "seul le gestionnaire ajoute des membres");
 
         // Bilan : par défaut son membre et les comptes joints, puis le choix enregistré
         String health = get(william, "/bilan").body();
@@ -345,34 +366,38 @@ class AccountsTest {
         assertEquals(303, post(william, "/assistant/bilan/enregistrer", "membre_1=on&membre_3=on").statusCode());
         assertTrue(get(william, "/assistant/bilan").body().contains("membre_3"), "étape du guide");
 
-        // Une ligne vide retire l'accès ; un membre supprimé par l'administrateur n'est plus coché pour personne
-        assertEquals(303, post(admin, "/administration/foyers/1/droits", "u" + manager.id() + "_all=on").statusCode());
+        // Une ligne vide retire l'accès ; un membre supprimé par le gestionnaire n'est plus coché pour personne
+        java.util.Set<String> without = TestAccounts.checkedRights(client, base, manager);
+        without.removeIf(box -> box.startsWith("u" + william.id() + "_"));
+        assertEquals(303, post(manager, "/foyer/droits", String.join("&", without.stream().map(box -> box + "=on").toList())).statusCode());
         assertTrue(get(william, "/").headers().firstValue("Location").orElseThrow().startsWith("/connexion"), "plus aucun accès : déconnecté");
-        assertEquals(303, post(admin, "/administration/foyers/1/membre/2/supprimer", "").statusCode());
-        assertFalse(get(admin, "/administration/foyers").body().contains("u" + manager.id() + "_member_2\" value=\"on\" aria-label=\"Gestion : Pascaline\" checked"));
+        assertEquals(303, post(manager, "/foyer/membre/2/supprimer", "").statusCode());
+        assertFalse(get(manager, "/foyer").body().contains("_member_2\""), "plus de colonne pour le membre supprimé");
     }
 
     @Test
-    void accountRequestsReachTheAdministrator() throws Exception {
+    void signupIsOpenOnInvitationOrClosed() throws Exception {
         Visitor admin = admin();
         assertTrue(get(null, "/connexion").body().contains("href=\"/inscription\""));
-        assertTrue(get(null, "/inscription").body().contains("Demandez-lui de vous créer un compte"), "par défaut : un simple message");
-        assertEquals(303, post(null, "/inscription", "name=Lou&login=lou").statusCode(), "sans formulaire : retour au message");
-        assertEquals(303, post(admin, "/administration/demandes/reglage", "mode=form").statusCode());
-        assertEquals(200, post(null, "/inscription", "name=Lou&login=lou&message=Bonjour").statusCode());
-        assertEquals(400, post(null, "/inscription", "name=Lou&login=lou").statusCode(), "identifiant déjà demandé");
-        assertEquals(200, post(null, "/inscription", "name=Max&login=max").statusCode());
-        assertEquals(429, post(null, "/inscription", "name=Zoe&login=zoe").statusCode(), "au plus 3 demandes par adresse et par heure");
-        String requests = get(admin, "/administration/demandes").body();
-        assertTrue(requests.contains("Lou") && requests.contains("Bonjour"));
-        Matcher id = Pattern.compile("/administration/demandes/(\\d+)/accepter").matcher(requests);
-        assertTrue(id.find());
-        HttpResponse<String> created = post(admin, "/administration/demandes/" + id.group(1) + "/accepter", "password=provisoire1");
-        assertTrue(created.headers().firstValue("Location").orElseThrow().startsWith("/administration/utilisateur/"));
-        assertFalse(get(admin, "/administration/demandes").body().contains("Bonjour"), "demande traitée");
-        assertEquals("/connexion?sans-foyer", post(null, "/connexion", "login=lou&password=provisoire1").headers().firstValue("Location").orElseThrow(),
-                "compte créé ; ses droits se cochent ensuite dans le tableau du foyer");
+        assertTrue(get(null, "/inscription").body().contains("sur invitation"), "par défaut : sur invitation");
+        assertEquals("/inscription", TestAccounts.location(post(null, "/inscription", "name=Lou&login=lou&password=loupasse1&confirm=loupasse1")), "pas d'inscription libre");
+        assertEquals(303, post(admin, "/administration/inscriptions", "mode=open").statusCode());
+        assertEquals("/compte/securiser", TestAccounts.location(post(null, "/inscription", "name=Lou&login=lou&password=loupasse1&confirm=loupasse1&foyer=Foyer+Lou")));
+        Visitor lou = login("lou", "loupasse1");
+        assertTrue(get(lou, "/foyer").body().contains("Foyer Lou"), "gestionnaire de son propre foyer");
+        assertEquals(400, post(null, "/inscription", "name=Autre&login=LOU&password=autrepasse1&confirm=autrepasse1").statusCode(), "identifiant déjà pris");
+        assertEquals(303, post(null, "/inscription", "name=Bot&login=robot&password=robotpasse1&confirm=robotpasse1&site=spam").statusCode());
+        assertEquals("/connexion?erreur", TestAccounts.location(post(null, "/connexion", "login=robot&password=robotpasse1")), "robot ignoré");
+        for (int i = 0; i < 3; i++) post(null, "/inscription", "name=X&login=x" + i + "&password=xpassword1&confirm=xpassword1");
+        assertEquals(400, post(null, "/inscription", "name=Y&login=y9&password=ypassword1&confirm=ypassword1").statusCode(), "au plus 5 comptes par adresse et par heure");
+
+        // Fermées : plus d'inscription ni d'invitation de gestionnaire ; le lien « créer son foyer » de l'administrateur reste
+        assertEquals(303, post(admin, "/administration/inscriptions", "mode=closed").statusCode());
+        assertTrue(get(null, "/inscription").body().contains("fermées"));
+        assertEquals(400, post(lou, "/foyer/invitations", "membre=nouveau&name=Max&whole=on").statusCode());
+        assertTrue(post(admin, "/administration/foyers/lien", "").body().contains("invitation?jeton="));
     }
+
 
     @Test
     void savingsBelongToAMemberAndFeedTheBilan() throws Exception {

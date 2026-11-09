@@ -26,15 +26,20 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      * @param members        membres accessibles : leurs lignes sont visibles et modifiables
      * @param realEstate     biens, prets, apports et repartition : consultation et modification
      */
-    public record Rights(boolean wholeHousehold, Set<Long> members, boolean realEstate) {
-        public static final Rights NONE = new Rights(false, Set.of(), false);
+    public record Rights(boolean wholeHousehold, Set<Long> members, boolean realEstate, boolean manager) {
+        public static final Rights NONE = new Rights(false, Set.of(), false, false);
 
         public Rights {
             members = members == null ? Set.of() : Set.copyOf(members);
         }
 
         public static Rights user(boolean wholeHousehold, Set<Long> members, boolean realEstate) {
-            return new Rights(wholeHousehold, members, realEstate);
+            return new Rights(wholeHousehold, members, realEstate, false);
+        }
+
+        /** {@code manager} : gere le foyer (membres, droits, invitations), sans changer ce qu'il voit. */
+        public static Rights user(boolean wholeHousehold, Set<Long> members, boolean realEstate, boolean manager) {
+            return new Rights(wholeHousehold, members, realEstate, manager);
         }
     }
 
@@ -79,6 +84,11 @@ public record Viewer(Long userId, String name, Household household, List<Househo
 
     public boolean realEstate() {
         return rights.realEstate();
+    }
+
+    /** Gestionnaire du foyer affiche : membres, droits et invitations. */
+    public boolean householdManager() {
+        return rights.manager();
     }
 
     public boolean mustChangePassword() {

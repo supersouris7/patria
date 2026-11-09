@@ -92,7 +92,7 @@ public final class Visibility {
     public Map<Long, Integer> normalize(Map<Long, Integer> parsed) {
         List<Person> open = people();
         if (open.size() == people.size()) return parsed;
-        if (open.isEmpty()) throw new ValidationException("Aucune vue de membre ne vous est ouverte : demandez à l'administrateur.");
+        if (open.isEmpty()) throw new ValidationException("Aucune vue de membre ne vous est ouverte : demandez au gestionnaire du foyer.");
         if (parsed.values().stream().mapToInt(Integer::intValue).sum() > 0) return parsed;
         List<Person> sharing = open.stream().filter(person -> !person.isAccount()).toList();
         if (sharing.isEmpty()) sharing = open;

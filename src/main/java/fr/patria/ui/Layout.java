@@ -25,8 +25,12 @@ public final class Layout {
          * @param administrator administrateur de l'application (foyers, utilisateurs)
          * @param manages       gestion complete du foyer affiche (utilisateur gestionnaire)
          * @param realEstate    consultation des biens du foyer
+         * @param householdManager gestionnaire du foyer affiche (membres, droits, invitations)
          */
-        public record Person(String name, boolean administrator, boolean manages, boolean realEstate) {
+        public record Person(String name, boolean administrator, boolean manages, boolean realEstate, boolean householdManager) {
+            public Person(String name, boolean administrator, boolean manages, boolean realEstate) {
+                this(name, administrator, manages, realEstate, false);
+            }
         }
 
         /**
@@ -53,6 +57,10 @@ public final class Layout {
 
         public boolean realEstate() {
             return person.realEstate();
+        }
+
+        public boolean householdManager() {
+            return person.householdManager();
         }
 
         public boolean insecure() {
@@ -86,15 +94,15 @@ public final class Layout {
     public enum AdminGroup { ACCOUNTS, HOUSEHOLD }
 
     /** Qui voit une rubrique d'administration. */
-    enum Who { ADMINISTRATOR, ESTATE, EVERYONE }
+    enum Who { ADMINISTRATOR, ESTATE, MANAGER, EVERYONE }
 
     /** Rubriques de l'administration, affichees en navigation laterale, par groupe, pour ceux qui peuvent les ouvrir. */
     public enum AdminSection {
         SECURITY(AdminGroup.ACCOUNTS, "/administration/securite", "Sécurité", Who.ADMINISTRATOR),
         HOUSEHOLDS(AdminGroup.ACCOUNTS, "/administration/foyers", "Foyers", Who.ADMINISTRATOR),
         USERS(AdminGroup.ACCOUNTS, "/administration/utilisateurs", "Utilisateurs", Who.ADMINISTRATOR),
-        REQUESTS(AdminGroup.ACCOUNTS, "/administration/demandes", "Demandes de compte", Who.ADMINISTRATOR),
         ACCOUNT(AdminGroup.ACCOUNTS, "/compte", "Mon compte", Who.EVERYONE),
+        HOUSEHOLD(AdminGroup.HOUSEHOLD, "/foyer", "Mon foyer et les droits", Who.MANAGER),
         INCOMES(AdminGroup.HOUSEHOLD, "/administration/revenus", "Revenus", Who.EVERYONE),
         EXPENSES(AdminGroup.HOUSEHOLD, "/administration/depenses", "Dépenses", Who.EVERYONE),
         TRANSFERS(AdminGroup.HOUSEHOLD, "/administration/virements", "Virements", Who.EVERYONE),
@@ -124,6 +132,7 @@ public final class Layout {
             return switch (who) {
                 case ADMINISTRATOR -> false;
                 case ESTATE -> chrome.manages();
+                case MANAGER -> chrome.householdManager();
                 case EVERYONE -> true;
             };
         }
@@ -258,8 +267,8 @@ public final class Layout {
         return Html.of("""
                 <details class="audience" name="navigation"><summary aria-label="%s" title="%s">%s%s</summary><div class="audience-panel" role="dialog" aria-label="Qui voit quoi">\
                 <p class="eyebrow">Qui voit quoi · %s</p>%s<ul class="audience-lines">%s</ul>\
-                <p class="muted small">L'administrateur crée les comptes et règle ces accès ; son compte administrateur ne voit aucune donnée financière dans l'interface. S'il ouvrait un accès,
-                y compris à un compte à lui, il apparaîtrait ici.</p></div></details>""",
+                <p class="muted small">Les gestionnaires du foyer règlent ces accès ; tout accès ouvert, même à un nouveau compte, apparaît ici.
+                L'administrateur ne voit aucune donnée financière dans l'interface.</p></div></details>""",
                 label, label, INFO_ICON, chrome.changes().isEmpty() ? Html.EMPTY : Html.raw("<span class=\"audience-dot\" aria-hidden=\"true\"></span>"),
                 householdName(chrome), changes, lines);
     }

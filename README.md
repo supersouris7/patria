@@ -38,7 +38,7 @@ Pour les données de marché, Patria transmet une adresse ou commune à l'API Ad
 
 Les imports proposent un prompt à copier dans un assistant IA, dont la réponse se colle dans Patria ; Patria ne lui envoie rien. Attention aux données confiées à une IA commerciale. Avec une IA locale facultative (Ollama installé à côté), le document déposé est analysé sur votre serveur : rien ne sort.
 
-Le compte administrateur ne consulte pas les finances dans l'interface ; chaque compte voit seulement ce que l'administrateur lui coche dans le tableau des droits du foyer. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
+Chacun crée son compte (inscription ou invitation) ; le gestionnaire de chaque foyer règle qui voit quoi, et le compte administrateur supervise sans consulter les finances dans l'interface. **L'exploitant du serveur peut techniquement lire les données** : choisissez un hébergeur de confiance. [Détails et limites](docs/confidentialite.md).
 
 ## Repères, pas conseil financier
 

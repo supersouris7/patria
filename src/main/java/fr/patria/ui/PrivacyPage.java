@@ -40,14 +40,16 @@ public final class PrivacyPage {
                         <li>Les synthèses PDF sont fabriquées sur le serveur : rien n'est envoyé pour les produire.</li></ul>""")),
                 Components.card("Qui voit quoi", null, Html.EMPTY, Html.raw("""
                         <ul class="plain-list privacy-list">
-                        <li><b>Chacun ne voit que ce que l'administrateur lui a coché</b> dans le tableau des droits du foyer : les membres dont il voit
-                        et modifie les lignes, et, seulement si on les lui ouvre, les totaux du foyer et l'immobilier. Il ne voit pas les autres foyers.</li>
-                        <li><b>L'administrateur</b> crée les foyers et les comptes, règle les droits et surveille la sécurité. Il <b>ne voit aucune donnée
-                        financière dans l'interface avec son compte administrateur</b> : ni revenus, ni dépenses, ni biens.</li>
-                        <li><b>Transparence</b> : comme il crée les comptes, l'administrateur pourrait s'en créer un et se l'ouvrir. Chaque accès est donc
-                        visible par les comptes du foyer (icône jaune « qui voit quoi » à côté du foyer, avec les changements récents), et inscrit au
-                        journal. Un mot de passe choisi par l'administrateur (création, réinitialisation) doit être changé à la connexion suivante, et
-                        Patria le signale. Ce journal n'est pas une protection contre une personne qui contrôle le serveur et pourrait le modifier.</li>
+                        <li><b>Chacun ne voit que ce que le gestionnaire du foyer lui a coché</b> dans le tableau des droits : les membres dont il voit
+                        et modifie les lignes, et, seulement si on les lui ouvre, les totaux du foyer et l'immobilier. Il ne voit pas les autres foyers.
+                        Le gestionnaire règle aussi ses propres cases : gérer le foyer ne l'oblige pas à tout voir.</li>
+                        <li><b>Chacun crée son compte</b> : par inscription (son propre foyer) ou par l'invitation d'un gestionnaire. <b>L'administrateur</b>
+                        supervise les comptes, règle les inscriptions et surveille la sécurité ; il <b>ne crée aucun compte et ne voit aucune donnée
+                        financière</b> dans l'interface.</li>
+                        <li><b>Transparence</b> : chaque accès est visible par les comptes du foyer (icône « qui voit quoi » de l'en-tête, avec les
+                        changements récents) et inscrit au journal. Un mot de passe réinitialisé par l'administrateur doit être changé à la connexion
+                        suivante, et Patria le signale. Ce journal n'est pas une protection contre une personne qui contrôle le serveur et pourrait le
+                        modifier.</li>
                         <li><b>Limite</b> : la personne qui a la main sur le serveur (fichiers, mémoire, clé de chiffrement) peut techniquement tout lire.
                         Confiez l'hébergement à quelqu'un de confiance.</li></ul>""")),
                 Components.card("Ce qui sort du serveur", null, Html.EMPTY, external),

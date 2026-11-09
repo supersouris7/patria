@@ -40,8 +40,10 @@ class NavigationJourneyTest {
                 assertEquals(403, TestAccounts.get(client, base, restricted, "/immobilier/" + tab).statusCode());
             }
             assertTrue(TestAccounts.get(client, base, reader, "/immobilier/biens").body().contains("data-filter"));
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/foyers", "name=Second").statusCode());
-            assertEquals(303, TestAccounts.post(client, base, admin, "/administration/utilisateur/" + manager.id() + "/foyer/2", "access=on&all=on").statusCode());
+            // Un second foyer : lien « créer son foyer » de l'administrateur, accepté par le compte existant.
+            var link = java.util.regex.Pattern.compile("jeton=([A-Za-z0-9_-]+)").matcher(TestAccounts.post(client, base, admin, "/administration/foyers/lien", "").body());
+            assertTrue(link.find());
+            assertEquals(303, TestAccounts.post(client, base, manager, "/invitation/rejoindre", "jeton=" + link.group(1) + "&foyer=Second").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/foyer/choisir", "foyer=2").statusCode());
             assertEquals(303, TestAccounts.post(client, base, manager, "/bien", "name=SECRET_FOYER_2&kind=HOUSE").statusCode());
             assertTrue(TestAccounts.get(client, base, manager, "/navigation/biens").body().contains("SECRET_FOYER_2"));

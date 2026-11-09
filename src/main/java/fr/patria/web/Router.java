@@ -178,7 +178,7 @@ public final class Router implements HttpHandler {
     /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
     private static Layout.Chrome chrome(Viewer viewer, boolean insecure, String location) {
         if (viewer == null) return null;
-        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.realEstate(), viewer.realEstate()),
+        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.realEstate(), viewer.realEstate(), viewer.householdManager()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
                 new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.notice()),
                 location);
@@ -237,8 +237,8 @@ public final class Router implements HttpHandler {
             if (viewer != null && viewer.isAdministrator()) {
                 // L'administrateur ne voit aucune donnee des foyers : son accueil est l'administration des comptes.
                 if (method.equals("GET") && (path.equals("/") || path.equals("/administration"))) return Response.redirect("/administration/foyers");
-                throw new ForbiddenException("L'administrateur gère les comptes, les foyers et les droits, mais ne voit pas les données des foyers. "
-                        + "Pour votre propre budget, créez-vous un compte utilisateur.");
+                throw new ForbiddenException("L'administrateur supervise les comptes et les foyers, mais ne voit pas leurs données. "
+                        + "Pour votre propre budget, créez-vous un compte personnel (Foyers → « Inviter une personne à créer son foyer »).");
             }
             if (viewer != null) return households.router(viewer.household().id()).dispatch(exchange, path, session, viewer);
             String query = exchange.getRequestURI().getRawQuery();

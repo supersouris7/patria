@@ -69,7 +69,7 @@ public final class App implements AutoCloseable {
                 LOG.warning("Double authentification de l'administrateur retirée (ADMIN_2FA_RESET) : retirez cette variable de la configuration.");
             }
             HouseholdSites sites = new HouseholdSites(config, accounts);
-            accounts.retireManagers(household -> sites.members(household).stream().map(fr.patria.account.HouseholdDirectory.Member::id).toList());
+            accounts.promoteManagers(household -> sites.members(household).stream().map(fr.patria.account.HouseholdDirectory.Member::id).toList());
             // Avec une cle, toutes les bases sont ouvertes (donc chiffrees) des le demarrage, pas a la premiere visite.
             if (config.encryptionKey() != null) accounts.households().forEach(household -> sites.site(household.id()));
             else sites.site(accounts.households().getFirst().id());
@@ -103,7 +103,8 @@ public final class App implements AutoCloseable {
                     locator, config.clock());
             new fr.patria.account.HouseholdsController(stores).register(router);
             new fr.patria.account.UsersController(stores).register(router);
-            new fr.patria.account.SignupController(stores).register(router);
+            new fr.patria.account.JoinController(stores).register(router);
+            new fr.patria.account.HouseholdController(stores).register(router);
             new fr.patria.account.MyAccountController(stores).register(router);
             new fr.patria.account.PasswordResetController(stores).register(router);
             Path dataDirectory = config.databasePath().toAbsolutePath().getParent();
