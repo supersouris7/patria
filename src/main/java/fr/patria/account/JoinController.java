@@ -125,9 +125,9 @@ public final class JoinController extends AccountSupport {
             // Comme un membre ajoute a la main : les gestionnaires le voient (ils peuvent decocher ensuite).
             accounts.accessesTo(household.id()).forEach((manager, rights) -> {
                 if (!rights.manager()) return;
-                Set<Long> members = new LinkedHashSet<>(rights.members());
-                members.add(member);
-                accounts.setAccess(manager.id(), household.id(), new Access(manager.id(), household.id(), household.name(), rights.wholeHousehold(), members,
+                Set<Long> visible = new LinkedHashSet<>(rights.members());
+                visible.add(member);
+                accounts.setAccess(manager.id(), household.id(), new Access(manager.id(), household.id(), household.name(), rights.wholeHousehold(), visible,
                         rights.realEstate(), true));
             });
         } else if (invitation.manager()) {
