@@ -183,7 +183,7 @@ form.stack > .card { margin-bottom: 0; }
 .section > h2 + p { margin-top: 8px; }
 .section > .form-grid + p { font-size: .85rem; margin: 16px 0 0; }
 .section > h2 + .form-grid, .section > h2 + .stack { margin-top: 16px; }
-.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 .inline-form { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
 label { color: var(--text-soft); display: block; font-size: .82rem; font-weight: 700; }
 label input, label select { display: block; margin-top: 6px; }

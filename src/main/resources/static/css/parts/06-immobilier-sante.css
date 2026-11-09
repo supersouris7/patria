@@ -251,3 +251,4 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .positions-table td small { color: var(--muted); display: block; font-size: .78rem; }
 fieldset.target { border: 1px solid var(--line); border-radius: var(--radius-small); margin: 6px 0; padding: 10px 14px; }
 fieldset.target legend { color: var(--accent-text); font-size: .78rem; font-weight: 750; letter-spacing: .06em; padding: 0 6px; text-transform: uppercase; }
+.form-actions > label.check { flex-basis: 100%; margin-bottom: 4px; }

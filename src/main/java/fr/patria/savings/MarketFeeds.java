@@ -43,6 +43,8 @@ public final class MarketFeeds {
     private static final Duration RETRY = Duration.ofMinutes(30);
     private static final Logger LOG = Logger.getLogger(MarketFeeds.class.getName());
     private static final Pattern SYMBOL = Pattern.compile("[A-Za-z0-9.^=-]{1,20}");
+    /** Places de cotation en euros, par ordre de preference pour un epargnant francais. */
+    private static final java.util.List<String> EURO_PLACES = java.util.List.of(".PA", ".AS", ".DE", ".F", ".MI", ".MC", ".BR", ".VI", ".LS", ".IR");
 
     /** Cours d'une valeur et sa devise. */
     public record Quote(BigDecimal price, String currency) {
@@ -159,7 +161,10 @@ public final class MarketFeeds {
         if (offline || isin == null || !isin.matches("[A-Z]{2}[A-Z0-9]{9}\\d")) return Optional.empty();
         try {
             Matcher symbol = Pattern.compile("\"symbol\"\\s*:\\s*\"([A-Za-z0-9.^=-]{1,20})\"").matcher(source.fetch(SEARCH_URL.formatted(isin)));
-            return symbol.find() ? Optional.of(symbol.group(1).toUpperCase(java.util.Locale.ROOT)) : Optional.empty();
+            java.util.List<String> found = new java.util.ArrayList<>();
+            while (symbol.find()) found.add(symbol.group(1).toUpperCase(java.util.Locale.ROOT));
+            // Une cotation en euros (Paris, Amsterdam, Francfort, Milan…) evite la conversion de devise et colle au relevé du courtier.
+            return found.stream().filter(code -> EURO_PLACES.stream().anyMatch(code::endsWith)).findFirst().or(() -> found.stream().findFirst());
         } catch (IOException | RuntimeException exception) {
             LOG.log(Level.INFO, "Code de " + isin + " introuvable", exception);
             return Optional.empty();

@@ -155,6 +155,9 @@ final class WizardPages {
                 <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s%s%s
                 <label>Réponse de l'IA (toutes les lignes, vous pouvez coller en plusieurs fois)<textarea name="texte" rows="12"
                 placeholder="REVENU;Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;"></textarea></label>
+                <label>Ou, sans IA, l'export de vos opérations bancaires (CSV, OFX ou QIF, trois mois ou plus)<input name="csv" type="file" accept=".csv,.ofx,.qif,.txt">
+                <small class="muted">Proposé par la plupart des banques dans la liste des opérations (« Exporter » ou « Télécharger mes opérations »). Patria y repère
+                les prélèvements et revenus qui reviennent chaque mois avec le même montant ; les dépenses variables (courses, carburant) se saisissent ensuite.</small></label>
                 <div class="form-actions"><button type="submit">Ajouter à la pile « À trier »</button></div></form>""",
                 Components.csrfField(context.csrf()), modeField(context),
                 Components.localAiInput("tout|" + context.visibility().people().stream().map(person -> person.name() + (person.isAccount() ? "*" : ""))

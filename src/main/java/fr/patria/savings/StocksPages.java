@@ -177,7 +177,7 @@ final class StocksPages {
     }
 
     /** Apercu : une case par titre ; le compte de destination voyage avec le contenu jusqu'a la validation. */
-    static Html preview(String accountName, List<PositionCsv.Row> rows, String content, Target target, String csrf) {
+    static Html preview(String accountName, List<PositionCsv.Row> rows, String content, Target target, BigDecimal cash, String csrf) {
         long fresh = rows.stream().filter(PositionCsv.Row::fresh).count();
         Html body = rows.stream().map(row -> row.valid() ? Html.of("<tr><td>%s</td><td>%s</td><td><code>%s</code>%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td>%s</td></tr>",
                 row.fresh() ? Html.of("<input type=\"checkbox\" name=\"importer_%s\" value=\"on\" form=\"positions-import\" checked aria-label=\"Importer %s\">", row.line(), row.label())
@@ -194,8 +194,10 @@ final class StocksPages {
         Html actions = fresh == 0 ? Html.raw("<p class=\"muted\">Rien de nouveau à importer.</p>") : Html.of("""
                 <form id="positions-import" method="post" action="/bourse/importer/valider" class="form-actions">%s<input type="hidden" name="contenu" value="%s">\
                 <input type="hidden" name="compte" value="%s"><input type="hidden" name="compte_type" value="%s"><input type="hidden" name="compte_nom" value="%s">\
-                <input type="hidden" name="titulaire" value="%s"><a class="button secondary" href="/bourse/importer">Annuler</a><button type="submit">Importer la sélection</button></form>""",
-                Components.csrfField(csrf), encoded, target.account(), target.type(), target.name(), target.holder());
+                <input type="hidden" name="titulaire" value="%s">%s<a class="button secondary" href="/bourse/importer">Annuler</a><button type="submit">Importer la sélection</button></form>""",
+                Components.csrfField(csrf), encoded, target.account(), target.type(), target.name(), target.holder(), cash == null ? Html.EMPTY : Html.of("""
+                        <input type="hidden" name="especes" value="%s"><label class="check"><input type="checkbox" name="maj_especes" value="on" checked> Espèces du compte : \
+                        %s d'après le relevé (versements − achats + ventes, dividendes, frais et impôts)</label>""", cash.toPlainString(), Format.euro(cash)));
         return Layout.page("Aperçu de l'import · Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(Components.backLink("/bourse/importer", "Importer un relevé"),
                 Components.heading("Bourse", "Aperçu de l'import", Format.plural(fresh, "titre", "titres") + " vers « " + accountName + " ». Les lignes en erreur sont ignorées.",
                         Html.EMPTY),

@@ -117,9 +117,11 @@ public final class StocksController {
         FormData form = request.form();
         List<Savings.Line> lines = portfolio(request).lines();
         try {
-            String raw = new String(form.uploadedText("csv", "Fichier du courtier ou réponse de l'IA"), StandardCharsets.UTF_8);
+            String raw = fr.patria.common.CsvText.decode(form.uploadedText("csv", "Fichier du courtier ou réponse de l'IA"));
             // Export de courtier : converti ici, l'apercu ne transporte que les titres cumules.
-            String content = BrokerExport.toLines(raw.startsWith("﻿") ? raw.substring(1) : raw).orElse(raw);
+            String text = raw.startsWith("\uFEFF") ? raw.substring(1) : raw;
+            String content = BrokerExport.toLines(text).orElse(raw);
+            BigDecimal cash = BrokerExport.cash(text).orElse(null);
             StocksPages.Target target = new StocksPages.Target(form.raw("compte"), form.raw("compte_type"),
                     form.raw("compte_nom").isBlank() ? form.raw("courtier").strip() : form.raw("compte_nom").strip(), form.raw("titulaire"));
             String name;
@@ -134,7 +136,7 @@ public final class StocksController {
                 current = savings.positions().stream().filter(position -> position.accountId() == account.id()).toList();
             }
             List<PositionCsv.Row> rows = PositionCsv.parse(content, current, feeds::resolve);
-            return Response.page(StocksPages.preview(name, rows, content, target, request.csrf()));
+            return Response.page(StocksPages.preview(name, rows, content, target, cash, request.csrf()));
         } catch (ValidationException exception) {
             return Response.invalid(StocksPages.importForm(lines, holders(request), null, Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
         }
@@ -155,6 +157,10 @@ public final class StocksController {
                 added++;
             }
             if (added == 0) throw new ValidationException("Cochez au moins un titre à importer.");
+            if ("on".equals(form.raw("maj_especes")) && !form.raw("especes").isBlank()) {
+                BigDecimal cash = fr.patria.common.CsvText.number(form.raw("especes"));
+                if (cash != null) savings.updateBalance(account.id(), cash.max(BigDecimal.ZERO), LocalDate.now(clock));
+            }
             return Response.redirect("/bourse?ok=importe#compte-" + account.id());
         } catch (ValidationException exception) {
             return Response.invalid(StocksPages.importForm(portfolio(request).lines(), holders(request), null, Notice.error(exception.getMessage()), request.csrf()));

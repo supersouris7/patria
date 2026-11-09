@@ -346,9 +346,19 @@ public final class WizardController {
     /** Phase 1 : la reponse de l'IA (tous les documents) rejoint la pile ; rien n'entre dans le budget. */
     private Response importAll(Request request) {
         try {
-            String answer = new String(request.form().uploadedText("csv", "Réponse de l'IA"), java.nio.charset.StandardCharsets.UTF_8);
-            ImportInbox.Added added = stores.inbox().add(owner(request), answer, Visibility.of(request.viewer(), stores.household().people()).people(),
-                    LocalDate.now(clock));
+            String answer = fr.patria.common.CsvText.decode(request.form().uploadedText("csv", "Réponse de l'IA ou export bancaire"));
+            List<Person> people = Visibility.of(request.viewer(), stores.household().people()).people();
+            // Export d'operations bancaires (CSV, OFX, QIF) : les operations regulieres deviennent des lignes, sans IA.
+            java.util.Optional<List<BankStatement.Transaction>> statement = BankStatement.read(answer);
+            if (statement.isPresent()) {
+                List<String> lines = BankStatement.recurring(statement.get(), people.stream().filter(person -> !person.isAccount()).findFirst().orElse(null));
+                if (lines.isEmpty()) {
+                    throw new ValidationException(statement.get().size() + " opérations lues, mais aucune ne revient chaque mois avec le même montant. "
+                            + "Prenez un export d'au moins trois mois.");
+                }
+                answer = String.join("\n", lines);
+            }
+            ImportInbox.Added added = stores.inbox().add(owner(request), answer, people, LocalDate.now(clock));
             String summary = added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
                     : added.total() + " ligne" + (added.total() > 1 ? "s" : "") + " ajoutée" + (added.total() > 1 ? "s" : "") + " à la pile « À trier » ("
                     + added.counts().entrySet().stream().map(entry -> entry.getValue() + " " + entry.getKey().label().toLowerCase(java.util.Locale.FRENCH))

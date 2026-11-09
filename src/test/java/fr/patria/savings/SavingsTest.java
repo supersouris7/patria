@@ -160,6 +160,28 @@ class SavingsTest {
     }
 
     @Test
+    void isinPrefersAEuroListing() {
+        MarketFeeds feeds = new MarketFeeds(url -> "{\"quotes\":[{\"symbol\":\"VWRA.L\"},{\"symbol\":\"VWCE.DE\"},{\"symbol\":\"VWCE.MI\"}]}",
+                Clock.fixed(Instant.parse("2026-11-08T10:00:00Z"), ZoneOffset.UTC), Runnable::run, false);
+        assertEquals(Optional.of("VWCE.DE"), feeds.resolve("IE00BK5BQT80"));
+    }
+
+    @Test
+    void tradeRepublicExportGivesTitlesAndCash() {
+        // Format natif de Trade Republic (2026) : virements, achats, dividende, recalcul d'impot dans un seul fichier
+        String export = """
+                "datetime","date","account_type","category","type","asset_class","name","symbol","shares","price","amount","fee","tax","currency","original_amount","original_currency","fx_rate","description","transaction_id","counterparty_name","counterparty_iban","payment_reference","mcc_code"
+                "2026-01-05T10:30:20Z","2026-01-05","DEFAULT","CASH","TRANSFER_INSTANT_INBOUND","","","","","","300.000000","","","EUR","","","","Incoming transfer","a1","","","",""
+                "2026-01-05T10:31:23Z","2026-01-05","DEFAULT","TRADING","BUY","FUND","Core MSCI World USD (Acc)","IE000BI8OT95","2.0000000000","100.000000","-200.00","-1.00","","EUR","","","","Buy trade","a2","","","",""
+                "2026-01-05T13:42:05Z","2026-01-05","DEFAULT","TRADING","BUY","CRYPTO","Bitcoin","BTC","0.0010000000","50000.000000","-50.00","-1.00","","EUR","","","","Buy trade","a3","","","",""
+                "2026-03-16T19:26:49Z","2026-03-16","DEFAULT","CASH","DIVIDEND","FUND","NASDAQ100 USD (Dist)","DE000A0F5UF5","1.0000000000","","0.100000","","-0.02","EUR","0.11","USD","0.87","Cash Dividend","a4","","","",""
+                """;
+        assertEquals(Optional.of("IE000BI8OT95;Core MSCI World USD (Acc);2;201.00\nBTC;Bitcoin;0.001;51.00"), BrokerExport.toLines(export), "dividende sans achat ignoré");
+        assertEquals(Optional.of(new BigDecimal("48.08")), BrokerExport.cash(export), "300 − 201 − 51 + 0,10 − 0,02");
+        assertTrue(BrokerExport.cash("Date,Ticker,Type,Quantity\n2026-01-02,AAPL,BUY,2").isEmpty(), "sans les mouvements d'argent, pas d'espèces devinées");
+    }
+
+    @Test
     void titlesAreFoundAndHistoriesBuildThePortfolioCurve() {
         List<MarketFeeds.Found> found = MarketFeeds.parseSearch("""
                 {"quotes":[{"symbol":"^990100-USD-STRD","quoteType":"INDEX","typeDisp":"Index"},{"exchange":"PAR","shortname":"AMUNDI MSCI WORLD","quoteType":"ETF","symbol":"CW8.PA","longname":"Amundi MSCI World UCITS ETF",\
