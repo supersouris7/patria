@@ -123,6 +123,43 @@ class SavingsTest {
     }
 
     @Test
+    void brokerExportsAreReadWithoutAi() {
+        // Revolut (actions) : achats, vente partielle, dividende ignore
+        String revolut = """
+                Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate
+                2026-01-02T10:00:00Z,AAPL,BUY - MARKET,2,USD 150,USD 300,USD,1.1
+                2026-02-02T10:00:00Z,AAPL,BUY - MARKET,2,USD 200,USD 400,USD,1.1
+                2026-03-02T10:00:00Z,AAPL,SELL - MARKET,1,USD 210,USD 210,USD,1.1
+                2026-03-05T10:00:00Z,AAPL,DIVIDEND,,,USD 1.20,USD,1.1
+                """;
+        assertEquals(Optional.of("AAPL;AAPL;3;525.00"), BrokerExport.toLines(revolut));
+        // Degiro (transactions) : point-virgule, virgule decimale, vente en quantite negative, frais comptes
+        String degiro = """
+                Date;Heure;Produit;Code ISIN;Quantité;Cours;Montant;Frais de courtage
+                02-01-2026;09:00;ISHARES CORE MSCI WORLD;IE00B4L5Y983;10;100,00;-1000,00;-2,00
+                03-02-2026;09:00;ISHARES CORE MSCI WORLD;IE00B4L5Y983;-5;110,00;550,00;-2,00
+                """;
+        assertEquals(Optional.of("IE00B4L5Y983;ISHARES CORE MSCI WORLD;5;501.00"), BrokerExport.toLines(degiro));
+        // Coinbase : lignes d'introduction, crypto cotee en euros, staking compte, envoi ignore
+        String coinbase = """
+                Transactions
+                User,Paul
+                Timestamp,Transaction Type,Asset,Quantity Transacted,Spot Price Currency,Subtotal,Fees
+                2026-01-01,Buy,BTC,"0,01",EUR,"400,00","4,00"
+                2026-01-02,Staking Income,ETH,0.5,EUR,0,0
+                2026-01-03,Send,BTC,0.005,EUR,0,0
+                """;
+        List<PositionCsv.Row> rows = PositionCsv.parse(BrokerExport.toLines(coinbase).orElseThrow(), List.of(
+                new SavingsRepository.Position(7, 1, "BTC-EUR", "Bitcoin", BigDecimal.ONE, BigDecimal.TEN, null)), code -> Optional.empty());
+        assertEquals("BTC-EUR", rows.get(0).symbol());
+        assertEquals(7L, rows.get(0).existing(), "ligne deja presente : mise a jour");
+        assertEquals(new BigDecimal("404.00"), rows.get(0).cost());
+        assertEquals("ETH-EUR", rows.get(1).symbol());
+        assertTrue(BrokerExport.toLines("IE00B4L5Y983;ETF Monde;12,4;1050,30").isEmpty(), "le format Patria passe tel quel");
+        assertEquals("BRK-B", BrokerExport.yahoo("BRK-B"));
+    }
+
+    @Test
     void foreignQuotesAreConvertedAndPenceBecomePounds() {
         assertEquals(new BigDecimal("87.53"), MarketFeeds.parseQuote("{\"currency\":\"GBp\",\"regularMarketPrice\":8753}").price());
         SavingsRepository.Position apple = new SavingsRepository.Position(1, 1, "AAPL", "Apple", new BigDecimal("2"), new BigDecimal("300"), null);

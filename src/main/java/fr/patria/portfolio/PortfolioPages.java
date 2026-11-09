@@ -57,7 +57,7 @@ final class PortfolioPages {
                     "Les biens, prêts et apports s'ajoutent dans Gérer → Biens et prêts.", Layout.manages() ? Components.button("/administration/biens", "Gérer les biens et prêts") : Html.EMPTY)));
         }
         Html rows = overview.properties().stream().map(summary -> Html.of("<tr>%s%s%s%s%s%s%s</tr>",
-                Html.of("<td><a href=\"/bien/%s\">%s</a><small>%s</small></td>", summary.property().id(), summary.property().name(), summary.property().kind().label()),
+                Html.of("<td><a class=\"button secondary property-button\" href=\"/bien/%s\">%s</a></td>", summary.property().id(), summary.property().name()),
                 cell(summary.property().commune().isBlank() ? Format.DASH : summary.property().commune()),
                 number(summary.property().area(), area(summary.property().area())),
                 number(summary.value(), Html.of("%s<small>%s</small>", euroWhole(summary.value()), summary.scenario())),

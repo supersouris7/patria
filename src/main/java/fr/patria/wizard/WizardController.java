@@ -71,7 +71,9 @@ public final class WizardController {
             return Response.redirect("/assistant?ok=enregistre");
         });
         for (Step step : Step.values()) {
-            Router.Handler page = request -> Response.page(render(request, step, request.confirmation(), Map.of()));
+            // Documents : « q » cherche une banque ou un organisme dans les tutoriels.
+            Router.Handler page = request -> Response.page(render(request, step, request.confirmation(),
+                    request.query("q") == null || request.query("q").isBlank() ? Map.of() : Map.of("q", request.query("q").strip())));
             Router.Handler skip = request -> finish(request, step, WizardRepository.Status.SKIPPED);
             Router.Handler done = request -> finish(request, step, WizardRepository.Status.DONE);
             if (step.adminOnly()) {
@@ -86,6 +88,7 @@ public final class WizardController {
         }
         router.userPost("/assistant/documents/importer", this::importAll);
         router.userPost("/assistant/documents/liste", this::checkList);
+        router.userGet("/assistant/documents/aide", request -> Response.page(WizardPages.guides(context(request))));
         router.userPost("/assistant/tri", this::sort);
         router.userPost("/assistant/revenus/ajouter", this::addIncome);
         router.userPost("/assistant/logement/ajouter", request -> addExpenses(request, Step.HOUSING, List.of(Checklist.RENT), false));

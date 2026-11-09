@@ -49,12 +49,19 @@ public final class Request {
         return id("id");
     }
 
+    /** Parametre d'URL decode comme un formulaire GET ({@code +} = espace, {@code %C3%A9} = é) ; null si absent ou illisible. */
     public String query(String key) {
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         if (query == null) return null;
-        for (String part : query.split("&")) {
-            String[] entry = part.split("=", 2);
-            if (entry[0].equals(key)) return entry.length == 2 ? entry[1] : "";
+        try {
+            for (String part : query.split("&")) {
+                String[] entry = part.split("=", 2);
+                if (java.net.URLDecoder.decode(entry[0], java.nio.charset.StandardCharsets.UTF_8).equals(key)) {
+                    return entry.length == 2 ? java.net.URLDecoder.decode(entry[1], java.nio.charset.StandardCharsets.UTF_8) : "";
+                }
+            }
+        } catch (IllegalArgumentException malformed) {
+            return null;
         }
         return null;
     }

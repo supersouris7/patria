@@ -38,8 +38,8 @@ final class BudgetPages {
 
     static Html home(Forecast.View view, Html extras, String csrf) {
         Forecast.Month current = view.current();
-        Html heading = Html.concat(Components.heading(owner(view), Format.month(current.month()), "Prévisionnel : ce mois-ci et les 12 prochains mois, mois par mois.",
-                Components.pdfButton("/previsionnel.pdf" + scope(view))), budgetBar(view, "/"));
+        Html heading = Html.concat(Components.heading(owner(view), "Budget", "Prévisionnel de " + Format.month(current.month()).toLowerCase(java.util.Locale.FRENCH)
+                        + " et des 12 mois suivants, mois par mois." + part(view), headingActions("/previsionnel.pdf" + scope(view))), budgetBar(view, "/"));
         if (!view.hasIncome() && !view.hasExpenses() && view.person() != null) {
             return Layout.page("Prévisionnel · Patria", Layout.Section.HOME, csrf, scope(view), Html.concat(heading, extras, Components.emptyState("Rien pour " + view.person().name(),
                     "Aucun revenu ni dépense pour cette personne. Les revenus se saisissent dans Gérer → Revenus, la répartition des dépenses dans chaque dépense.",
@@ -112,6 +112,15 @@ final class BudgetPages {
                 <nav class="segmented" aria-label="Page du budget"><a href="/%s"%s>Prévisionnel</a><a href="/budget%s"%s>Moyen</a></nav>""",
                 scope(view), Html.raw(forecast ? " class=\"active\" aria-current=\"page\"" : ""), scope(view), Html.raw(forecast ? "" : " class=\"active\" aria-current=\"page\""));
         return Html.of("<div class=\"budget-bar\">%s%s</div>", pages, scopeTabs(view, path));
+    }
+
+    /** Memes boutons, au meme endroit, sur le Previsionnel et le Budget moyen : la bascule ne fait pas bouger la page. */
+    private static Html headingActions(String pdf) {
+        return Html.concat(Components.pdfButton(pdf), Components.secondaryButton("/administration/depenses", "Gérer les dépenses"));
+    }
+
+    private static String part(Forecast.View view) {
+        return view.person() == null ? "" : " Part de " + view.person().name() + " seulement.";
     }
 
     private static Html scopeTabs(Forecast.View view, String path) {
@@ -234,10 +243,8 @@ final class BudgetPages {
     static Html budget(Forecast.View view, List<Forecast.Average> incomes, List<Forecast.Average> expenses, String csrf) {
         BigDecimal income = incomes.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal spending = expenses.stream().map(Forecast.Average::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Html heading = Html.concat(Components.heading(owner(view), "Budget moyen", "Moyenne par mois sur les 12 prochains mois : chaque dépense est ramenée à son équivalent par mois."
-                        + (view.person() == null ? "" : " Part de " + view.person().name() + " seulement."),
-                Html.concat(Components.pdfButton("/budget-moyen.pdf" + scope(view)), Components.secondaryButton("/administration/depenses", "Gérer les dépenses"))),
-                budgetBar(view, "/budget"));
+        Html heading = Html.concat(Components.heading(owner(view), "Budget", "Moyenne par mois sur les 12 prochains mois, chaque dépense ramenée à son équivalent mensuel."
+                        + part(view), headingActions("/budget-moyen.pdf" + scope(view))), budgetBar(view, "/budget"));
 
         Map<Category, BigDecimal> byCategory = new EnumMap<>(Category.class);
         for (Forecast.Average line : expenses) byCategory.merge(line.category(), line.monthly(), BigDecimal::add);

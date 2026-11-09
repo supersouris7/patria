@@ -43,12 +43,12 @@ final class WizardPages {
                 <li><b>Un assistant IA externe</b> (ChatGPT, Claude, Le Chat…) n'est utile que pour transformer des PDF en fichier à importer : l'échéancier d'un prêt, ou vos relevés bancaires d'un coup. Tout le reste se saisit à la main. Patria ne lui envoie rien : <a href="/confidentialite">comment protéger vos données</a>.</li></ul>""");
         Html content = Html.concat(Components.heading("Patria", "Guide de saisie", context.admin() ? "Pour tout le foyer." : "Pour vos propres revenus et dépenses.",
                         actions),
+                Components.disclosure("Comment ça marche", intro, !started),
                 Components.card("Les étapes", null, Html.of("<span class=\"muted\">%s sur %s · %s %%</span>".replace("%%", "%"), handled, steps.size(), percent),
                         Html.concat(Components.progress(percent), Html.of("<ol class=\"wizard-overview\">%s</ol>", list),
                                 Html.of("<form method=\"post\" action=\"/assistant/recommencer\" class=\"wizard-reset\" data-confirm=\"%s\">%s"
                                                 + "<button class=\"quiet\" type=\"submit\">Recommencer à zéro</button><span class=\"muted\">efface la progression, pas les données saisies</span></form>",
-                                         "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())))),
-                Components.disclosure("Comment ça marche", intro, false));
+                                         "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())))));
         return Layout.page("Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), content);
     }
 
@@ -56,7 +56,7 @@ final class WizardPages {
 
     static Html step(WizardController.Context context, Step step, Notice notice, Map<String, String> values) {
         Html body = switch (step) {
-            case DOCUMENTS -> documents(context);
+            case DOCUMENTS -> documents(context, values.getOrDefault("q", ""));
             case MEMBERS -> members(context, values);
             case INCOMES -> incomes(context, values);
             case HOUSING -> housing(context, values);
@@ -68,13 +68,12 @@ final class WizardPages {
             case TRANSFERS -> transfers(context, values);
             case SHARES -> shares(context);
             case SAVINGS -> Html.concat(explain("Saisissez le solde de chaque livret, assurance-vie, PER, PEA ou compte-titres. Un versement programmé fait avancer le solde "
-                    + "tout seul et apparaît dans le budget. Pour la bourse, importez les lignes depuis l'export de votre courtier (Trade Republic, Boursorama…) "
-                    + "avec le prompt IA, puis complétez ou supprimez à la main."), context.savings().get());
+                    + "tout seul et apparaît dans le budget. Pour la bourse et les cryptos, déposez l'export CSV de votre courtier (Trade Republic, Revolut, Degiro, "
+                    + "Coinbase…) sous le compte : la valeur suit ensuite les cours du jour. Un PDF passe par le prompt IA."), context.savings().get());
             case HEALTH -> healthScope(context);
             case SUMMARY -> summary(context);
         };
-        int number = context.steps().indexOf(step) + 1;
-        Html heading = Components.heading("Guide · étape " + number + " sur " + context.steps().size() + (context.review() ? " · revue" : ""),
+        Html heading = Components.heading("Guide de saisie" + (context.review() ? " · revue" : ""),
                 step.title(), step.summary(), Html.EMPTY);
         Html bar = Html.of("<div class=\"wizard-bar\">%s<details class=\"wizard-plan\"><summary>Plan du guide</summary><ol class=\"wizard-plan-steps\">%s</ol></details></div>",
                 progressBar(context, step), stepper(context, step));
@@ -142,7 +141,7 @@ final class WizardPages {
      * Phase 1 du guide : reunir les documents, puis les donner tous a l'IA avec un prompt universel. Sa reponse rejoint
      * la pile « A trier » ; rien n'entre dans le budget. Le tri se fait ensuite, categorie par categorie (phase 2).
      */
-    static Html documents(WizardController.Context context) {
+    static Html documents(WizardController.Context context, String query) {
         List<Documents.Document> documents = Documents.forViewer(context.admin());
         long ready = documents.stream().filter(document -> isReady(context, document)).count();
         Map<ImportInbox.Type, Long> pile = context.inbox().stream().collect(java.util.stream.Collectors.groupingBy(ImportInbox.Item::type,
@@ -172,10 +171,50 @@ final class WizardPages {
                                     auto ? Html.raw(" <span class=\"badge paid\">déjà dans Patria</span>") : Html.EMPTY);
                         }).collect(Html.joining()))).collect(Html.joining()));
         return Html.concat(
-                Components.card("1. Cochez les documents que vous avez", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()), checklist),
+                Components.card("1. Cochez les documents que vous avez", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()),
+                        Html.concat(finder(context, documents, query), checklist)),
                 Html.of("<div id=\"import\">%s</div>", Components.card("2. Donnez-les tous à l'IA", null, Html.EMPTY,
                         Html.concat(Components.llmPrompt("prompt-universel", ImportInbox.prompt(context.visibility().people())), give))),
                 pileCard);
+    }
+
+    /**
+     * Recherche « ou trouver » : on tape sa banque ou un organisme, seules ses etapes s'affichent, document par
+     * document. Lien vers le tutoriel complet.
+     */
+    private static Html finder(WizardController.Context context, List<Documents.Document> documents, String query) {
+        String wanted = DocumentGuides.normalize(query);
+        Html results = Html.EMPTY;
+        if (!wanted.isEmpty()) {
+            Html found = documents.stream().flatMap(document -> DocumentGuides.forDocument(document.id()).stream()
+                            .filter(guide -> DocumentGuides.normalize(guide.name()).contains(wanted))
+                            .map(guide -> Html.of("<div class=\"howto-result\"><b>%s</b> <span class=\"muted\">· %s</span><ol>%s</ol></div>", document.label(), guide.name(),
+                                    guide.steps().stream().map(step -> Html.of("<li>%s</li>", step)).collect(Html.joining()))))
+                    .collect(Html.joining());
+            results = found.isEmpty() ? Html.of("<p class=\"muted\">Rien pour « %s ». %s</p>", query, DocumentGuides.FALLBACK) : found;
+        }
+        Html names = DocumentGuides.names().stream().map(name -> Html.of("<option value=\"%s\">", name)).collect(Html.joining());
+        return Html.of("""
+                <form method="get" action="/assistant/documents" class="howto-search" role="search">%s<label>Où trouver vos documents ?                <input type="search" name="q" value="%s" list="plateformes" placeholder="Votre banque ou organisme : LCL, CAF, Trade Republic…"></label>                <datalist id="plateformes">%s</datalist><button class="secondary" type="submit">Chercher</button>                <a href="/assistant/documents/aide">Tutoriel complet</a></form>%s""",
+                context.review() ? Html.of("<input type=\"hidden\" name=\"mode\" value=\"%s\">", WizardController.REVIEW) : Html.EMPTY, query, names, results);
+    }
+
+    /** Les plateformes d'un document : une ligne depliable par banque ou organisme, ses etapes numerotees. */
+    private static Html guideList(List<DocumentGuides.Guide> guides) {
+        return guides.stream().map(guide -> Html.of("<details><summary>%s</summary><ol>%s</ol></details>", guide.name(),
+                guide.steps().stream().map(step -> Html.of("<li>%s</li>", step)).collect(Html.joining()))).collect(Html.joining());
+    }
+
+    /** Tutoriel complet : pour chaque document qui en a, ou le recuperer sur chaque plateforme. */
+    static Html guides(WizardController.Context context) {
+        Html sections = Documents.forViewer(context.admin()).stream().filter(document -> !DocumentGuides.forDocument(document.id()).isEmpty())
+                .map(document -> Components.card(document.label(), null, Html.EMPTY, Html.of("<p class=\"muted\">%s</p><div class=\"howto-list\">%s</div>",
+                        document.where(), guideList(DocumentGuides.forDocument(document.id()))))).collect(Html.joining());
+        Html content = Html.concat(Components.heading("Guide de saisie", "Où trouver vos documents",
+                        "Étape par étape, banque par banque. Chemins vérifiés en " + DocumentGuides.CHECKED + " : les menus peuvent avoir changé.",
+                        Html.raw("<a class=\"button secondary\" href=\"/assistant/documents\">Retour aux documents</a>")),
+                Html.of("<p class=\"muted\">%s</p>", DocumentGuides.FALLBACK), sections);
+        return Layout.page("Où trouver vos documents · Patria", Layout.Section.ASSISTANT, context.csrf(), content);
     }
 
     /**

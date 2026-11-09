@@ -187,6 +187,10 @@ public final class Layout {
         Html burger = Html.of("""
                 <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="Menu principal" title="Menu principal">%s</summary>\
                 <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s</nav></div></details>""", BURGER_ICON, burgerLinks);
+        // Tablette et smartphone : le Bilan reste visible hors du menu, avec sa pastille d'alertes.
+        Html health = administrator ? Html.EMPTY : Html.of("""
+                <a class="nav-health%s" href="/bilan" aria-label="Bilan de santé" title="Bilan de santé">%s<span>Bilan</span><span class="nav-count warning" data-warning-count hidden></span></a>""",
+                section == Section.HEALTH ? " active" : "", HEALTH_ICON);
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
                         navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false),
                         realEstate ? Html.concat(navLink("/immobilier/prets", "Prêts", false), navLink("/immobilier/taxe-fonciere", "Taxe foncière", false),
@@ -197,7 +201,7 @@ public final class Layout {
                 <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                Html.raw(administrator ? "" : " data-navigation-status"), brand(), burger, links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, health), links, search(searchLinks), audience(chrome, csrf), account(chrome, section == Section.ACCOUNT),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));

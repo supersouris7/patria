@@ -10,15 +10,18 @@ import java.util.Optional;
 import java.util.function.Function;
 
 /**
- * Import des lignes de bourse d'un PEA ou compte-titres (export Trade Republic, Boursorama…, converti par une IA) :
- * {@code code;nom;quantite;prix_de_revient_total}. Le code est un ISIN (converti en code Yahoo Finance) ou deja un
- * code Yahoo (AI.PA).
+ * Import des lignes de bourse et de cryptos d'un PEA ou compte-titres : l'export CSV du courtier tel quel (lu par
+ * {@link BrokerExport}) ou la reponse d'une IA au format {@code code;nom;quantite;prix_de_revient_total}. Le code est un
+ * ISIN (converti en code Yahoo Finance), un code Yahoo (AI.PA) ou une crypto (BTC, cotee BTC-EUR).
  */
 public final class PositionCsv {
     static final int MAX_LINES = 200;
 
-    /** Une ligne lue, ou son erreur ; {@code duplicate} : deja sur ce compte. */
-    public record Row(int line, String code, String symbol, String label, BigDecimal quantity, BigDecimal cost, String error, boolean duplicate) {
+    /**
+     * Une ligne lue, ou son erreur ; {@code duplicate} : code deja vu plus haut dans le fichier (ignoree) ;
+     * {@code existing} : ligne deja sur ce compte, dont la quantite et le prix de revient seront mis a jour.
+     */
+    public record Row(int line, String code, String symbol, String label, BigDecimal quantity, BigDecimal cost, String error, boolean duplicate, Long existing) {
         public boolean valid() {
             return error == null;
         }
@@ -33,9 +36,11 @@ public final class PositionCsv {
 
     public static List<Row> parse(String text, List<SavingsRepository.Position> existing, Function<String, Optional<String>> resolve) {
         if (text.startsWith("\uFEFF")) text = text.substring(1);
+        if (text.length() > 2_000_000) throw new ValidationException("Fichier trop gros (2 Mo au plus).");
+        text = BrokerExport.toLines(text).orElse(text);
         if (text.length() > 40_000) throw new ValidationException("Trop de lignes (200 au plus).");
         List<Row> rows = new ArrayList<>();
-        List<String> seen = new ArrayList<>(existing.stream().map(position -> position.symbol().toUpperCase(Locale.ROOT)).toList());
+        List<String> seen = new ArrayList<>();
         String[] lines = text.replace("\r\n", "\n").split("\n");
         for (int number = 1; number <= lines.length; number++) {
             String line = lines[number - 1].strip();
@@ -51,15 +56,19 @@ public final class PositionCsv {
                 if (label.length() > 60) label = label.substring(0, 60);
                 BigDecimal quantity = number(cells[2], "Quantité");
                 BigDecimal cost = number(cells[3], "Prix de revient").setScale(2, RoundingMode.HALF_UP);
-                String symbol = isIsin(code) ? resolve.apply(code).orElse(code) : code;
+                String symbol = isIsin(code) ? resolve.apply(code).orElse(code) : BrokerExport.yahoo(code);
                 boolean duplicate = seen.contains(symbol);
                 seen.add(symbol);
-                rows.add(new Row(number, code, symbol, label, quantity, cost, null, duplicate));
+                Long current = existing.stream().filter(position -> position.symbol().equalsIgnoreCase(symbol)).map(SavingsRepository.Position::id).findFirst().orElse(null);
+                rows.add(new Row(number, code, symbol, label, quantity, cost, null, duplicate, current));
             } catch (ValidationException exception) {
-                rows.add(new Row(number, cells[0].strip(), null, null, null, null, exception.getMessage(), false));
+                rows.add(new Row(number, cells[0].strip(), null, null, null, null, exception.getMessage(), false, null));
             }
         }
         if (rows.isEmpty()) throw new ValidationException("Aucune ligne à importer.");
+        if (rows.size() > 1 && rows.stream().noneMatch(Row::valid)) {
+            throw new ValidationException("Format non reconnu : pour un PDF ou cet export, passez par le prompt IA (« PDF ou format non reconnu »).");
+        }
         return rows;
     }
 
@@ -81,13 +90,14 @@ public final class PositionCsv {
     public static String llmPrompt() {
         return """
                 Tu m'aides à importer mon portefeuille de bourse (PEA ou compte-titres) dans Patria, une application de budget du foyer. \
-                À partir du document joint (export ou relevé de titres de Trade Republic, Boursorama, Fortuneo, Degiro, une banque…), \
-                liste les titres que je détiens AUJOURD'HUI.
+                À partir du document joint (export ou relevé de titres de Trade Republic, Boursorama, Fortuneo, Degiro, Revolut, une plateforme crypto…), \
+                liste les titres et cryptos que je détiens AUJOURD'HUI.
 
                 Format, à respecter strictement :
                 - une ligne par titre, SANS ligne d'en-tête ;
                 - 4 colonnes séparées par un point-virgule : code;nom;quantité;prix de revient total
-                - code : l'ISIN du titre (12 caractères, ex. FR0000120073, IE00B4L5Y983) ; à défaut le code de cotation ;
+                - code : l'ISIN du titre (12 caractères, ex. FR0000120073, IE00B4L5Y983) ; à défaut le code de cotation ; pour une crypto, \
+                son symbole (BTC, ETH, SOL…) ;
                 - nom : court (ex. « Air Liquide », « ETF MSCI World ») ;
                 - quantité : nombre de parts détenues, virgule décimale autorisée (ex. 3,5) ;
                 - prix de revient total : ce que ces parts m'ont coûté au total en euros, frais compris (quantité × prix moyen d'achat), virgule décimale, sans €.

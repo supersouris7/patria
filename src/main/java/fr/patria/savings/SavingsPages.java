@@ -32,17 +32,17 @@ final class SavingsPages {
     /** Tirelire rose (illustration decorative, sans texte) : une piece tombe dans la fente. */
     static final String PIGGY = """
             <svg class="piggy" viewBox="0 0 128 104" aria-hidden="true" focusable="false">
-            <defs><linearGradient id="piggy-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc8dd"/><stop offset="1" stop-color="#f28db5"/></linearGradient></defs>
-            <g class="coin"><circle cx="64" cy="14" r="10"/><text x="64" y="18.5" text-anchor="middle">€</text></g>
-            <path class="tail" d="M20 60 c-9 -2 -10 -12 -3 -13 c5 0 5 7 0 8"/>
-            <rect class="leg" x="34" y="78" width="13" height="18" rx="6"/><rect class="leg" x="76" y="78" width="13" height="18" rx="6"/>
-            <path class="ear" d="M42 40 Q44 22 60 34 Z"/>
-            <rect x="18" y="34" width="88" height="54" rx="27" fill="url(#piggy-body)"/>
-            <rect class="slot" x="54" y="36" width="20" height="5" rx="2.5"/>
-            <circle class="cheek" cx="88" cy="68" r="7"/>
-            <rect class="snout" x="98" y="52" width="18" height="20" rx="8"/>
-            <ellipse class="nostril" cx="104" cy="62" rx="1.8" ry="2.6"/><ellipse class="nostril" cx="110" cy="62" rx="1.8" ry="2.6"/>
-            <circle class="eye" cx="86" cy="52" r="3.6"/><circle class="eye-light" cx="87.3" cy="50.7" r="1.2"/>
+            <defs><radialGradient id="piggy-body" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#ffd3e4"/><stop offset="1" stop-color="#f08ab3"/></radialGradient></defs>
+            <g class="coins"><g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g></g>
+            <path class="tail" d="M19 62 c-9 -1 -11 -11 -4 -12 c5 0 5 6 0 7"/>
+            <ellipse class="leg" cx="40" cy="92" rx="8" ry="6"/><ellipse class="leg" cx="82" cy="92" rx="8" ry="6"/>
+            <path class="ear" d="M44 38 Q46 20 62 31 Z"/>
+            <ellipse cx="62" cy="64" rx="45" ry="33" fill="url(#piggy-body)"/>
+            <rect class="slot" x="50" y="32" width="20" height="4.5" rx="2.25"/>
+            <circle class="cheek" cx="90" cy="72" r="6.5"/>
+            <ellipse class="snout" cx="106" cy="64" rx="10" ry="11"/>
+            <ellipse class="nostril" cx="103" cy="64" rx="1.8" ry="2.6"/><ellipse class="nostril" cx="109" cy="64" rx="1.8" ry="2.6"/>
+            <circle class="eye" cx="87" cy="54" r="3.6"/><circle class="eye-light" cx="88.3" cy="52.7" r="1.2"/>
             </svg>""";
 
     static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf) {
@@ -64,7 +64,7 @@ final class SavingsPages {
                 tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
                         snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
         Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Livrets, placements et bourse du foyer.", Html.raw(PIGGY)),
-                Components.notice(notice), tiles, chart(bars), planCard(snapshot, csrf), accounts(overview, today, null, csrf), addAccount(people, null, csrf),
+                Components.notice(notice), tiles, accounts(overview, today, null, csrf), addAccount(people, null, csrf), planCard(snapshot, csrf), chart(bars),
                 Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
                         Format.date(RegulatedRates.CHECKED)));
         return Layout.page("Épargne · Patria", Layout.Section.SAVINGS, csrf, content);
@@ -147,16 +147,19 @@ final class SavingsPages {
                 <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Cours</th><th class="num">Valeur</th>\
                 <th class="num">Plus-value</th><th></th></tr></thead><tbody>%s</tbody></table>""", rows);
         Html paste = Html.of("""
-                <details><summary>Importer l'export du courtier</summary>%s
-                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s%s<label>Réponse de l'IA
-                <textarea name="texte" rows="10" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label>
+                <details><summary>Importer l'export du courtier</summary>
+                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s
+                <p class="muted small">Trade Republic, Revolut, Degiro, Boursorama, Binance, Coinbase… : déposez l'export CSV tel quel (actions, ETF et cryptos).                 Les lignes déjà présentes sont mises à jour ; la valeur suit les cours du jour.</p>
+                <label>Export CSV<input name="csv" type="file" accept=".csv,.txt,text/csv,text/plain"></label>
+                <details><summary>PDF ou format non reconnu : passer par une IA</summary>%s%s<label>Réponse de l'IA
+                <textarea name="texte" rows="8" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label></details>
                 <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></details>""",
-                Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), account, token(csrf, back), Components.localAiInput("bourse"));
+                account, token(csrf, back), Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), Components.localAiInput("bourse"));
         Html add = Html.of("""
                 <details><summary>Ajouter une ligne</summary><form method="post" action="/epargne/compte/%s/ligne" class="stack">%s%s
                 <div class="form-actions"><button type="submit">Ajouter</button></div></form></details>""",
                 account, token(csrf, back), Components.fields(3,
-                        Components.input(Input.of("Code (ex. AI.PA)", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
+                        Components.input(Input.of("Code (AI.PA, BTC…)", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
                         Components.input(Input.of("Nom", "label", Field.TEXT).maxLength(60), Map.of()),
                         Components.input(Input.of("Quantité", "quantity", Field.NUMBER).required(), Map.of()),
                         Components.input(Input.of("Prix de revient total", "cost", Field.MONEY).required(), Map.of()),
@@ -273,7 +276,8 @@ final class SavingsPages {
                         : Html.text(String.valueOf(row.line())),
                 row.label(), row.symbol(), row.symbol().equals(row.code()) ? Html.EMPTY : Html.of("<small>%s</small>", row.code()),
                 Format.number(row.quantity(), 6), euroWhole(row.cost()),
-                row.duplicate() ? Html.raw("<span class=\"badge\">Déjà sur ce compte</span>") : PositionCsv.isIsin(row.symbol())
+                row.duplicate() ? Html.raw("<span class=\"badge\">En double, ignorée</span>")
+                        : row.existing() != null ? Html.raw("<span class=\"badge paid\">Mise à jour</span>") : PositionCsv.isIsin(row.symbol())
                         ? Html.raw("<span class=\"badge warn\" title=\"Code de cotation introuvable : comptée au prix de revient\">Sans cours</span>")
                         : Html.raw("<span class=\"badge paid\">À importer</span>"))
                 : Html.of("<tr class=\"row-error\"><td>%s</td><td colspan=\"5\" class=\"negative\">%s</td></tr>", row.line(), row.error())).collect(Html.joining());
@@ -283,8 +287,8 @@ final class SavingsPages {
                 <a class="button secondary" href="%s">Annuler</a><button type="submit">Importer la sélection</button></form>""",
                 account.id(), token(csrf, back), encoded, back == null ? "/epargne" : back);
         Html content2 = Html.concat(Components.backLink(back == null ? "/epargne" : back, back == null ? "Épargne" : "Retour au guide"),
-                Components.heading("Épargne", "Aperçu de l'import", fresh + " ligne" + (fresh > 1 ? "s" : "") + " à importer sur « " + account.name() + " ». Les lignes en "
-                        + "erreur sont ignorées.", Html.EMPTY),
+                Components.heading("Épargne", "Aperçu de l'import", fresh + " ligne" + (fresh > 1 ? "s" : "") + " à importer ou mettre à jour sur « " + account.name()
+                        + " ». Les lignes en erreur sont ignorées ; la valeur suit ensuite les cours du jour.", Html.EMPTY),
                 Components.card("Lignes", rows.size(), Html.EMPTY, Html.concat(Components.table(List.of("Importer", "Titre", "Code", "#Quantité", "#Prix de revient", "État"), body, false, false),
                         Html.raw("<p class=\"muted small\">« Sans cours » : le code ISIN n'a pas pu être converti en code de cotation (mode hors ligne ou titre introuvable) ; "
                                 + "la ligne est comptée à son prix de revient, modifiable ensuite.</p>"), actions)));

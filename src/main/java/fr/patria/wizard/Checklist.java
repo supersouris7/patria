@@ -64,6 +64,24 @@ final class Checklist {
 
     /** Etape Depenses fixes : tous les autres themes. */
     static final List<Group> FIXED = List.of(
+            // En premier : ce que l'IA ne voit pas (ou mal) sur les relevés, a passer en revue avec la personne.
+            new Group("oublis", "Le tour de ce que l'IA ne voit pas",
+                    "Payé en espèces, par chèque, retenu sur le salaire, réglé par l'autre parent ou noyé dans les paiements par carte : ces dépenses "
+                            + "manquent souvent dans la réponse de l'IA. Passez-les en revue ; indiquez ce qui sort réellement du compte, après les aides "
+                            + "(CAF, complément de libre choix du mode de garde, part de l'employeur), en moyenne mensuelle.",
+                    List.of(
+                            monthly("creche", "Crèche", Category.CHILDREN, null),
+                            monthly("assistante-maternelle", "Assistante maternelle", Category.CHILDREN, "salaire et indemnités, après aides"),
+                            monthly("garde-domicile", "Garde à domicile, baby-sitting régulier", Category.CHILDREN, null),
+                            monthly("cantine", "Cantine", Category.CHILDREN, "moyenne mensuelle"),
+                            monthly("periscolaire", "Périscolaire, centre de loisirs", Category.CHILDREN, null),
+                            monthly("pension-alimentaire", "Pension alimentaire versée", Category.CHILDREN, null).perPerson(),
+                            monthly("carburant", "Carburant", Category.TRANSPORT, "moyenne sur quelques relevés").perPerson(),
+                            monthly("transports-commun", "Abonnement métro, bus, train", Category.TRANSPORT, "Navigo, TCL… après la part de l'employeur").perPerson(),
+                            monthly("peages", "Péages", Category.TRANSPORT, null),
+                            monthly("stationnement", "Stationnement", Category.TRANSPORT, null),
+                            monthly("repas-travail", "Repas au travail", Category.OTHER, "cantine d'entreprise, titres-restaurant").perPerson(),
+                            monthly("menage", "Aide à domicile, ménage", Category.OTHER, "après crédit d'impôt"))),
             new Group("energie", "Énergie et eau",
                     "Dépenses fixes si vous êtes mensualisé (échéancier) ; sinon, indiquez la facture moyenne et sa fréquence.",
                     List.of(
@@ -97,28 +115,16 @@ final class Checklist {
                             yearly("logiciels", "Logiciels (Microsoft 365, antivirus, VPN…)", Category.TELECOM, null),
                             monthly("jeux", "Jeux vidéo en ligne (PlayStation Plus, Game Pass…)", Category.LEISURE, null))),
             new Group("enfants", "Enfants",
-                    "Indiquez ce qui sort réellement du compte, après les aides (CAF, complément de libre choix du mode de garde). Pour la cantine et le "
-                            + "périscolaire, une moyenne mensuelle suffit.",
+                    "Ce qui sort réellement du compte, après les aides. La garde, la cantine et la pension alimentaire sont dans le premier groupe.",
                     List.of(
-                            monthly("creche", "Crèche", Category.CHILDREN, null),
-                            monthly("assistante-maternelle", "Assistante maternelle", Category.CHILDREN, "salaire et indemnités, après aides"),
-                            monthly("garde-domicile", "Garde à domicile, baby-sitting régulier", Category.CHILDREN, null),
-                            monthly("cantine", "Cantine", Category.CHILDREN, "moyenne mensuelle"),
-                            monthly("periscolaire", "Périscolaire, centre de loisirs", Category.CHILDREN, null),
                             yearly("activites", "Activités extrascolaires (sport, musique…)", Category.CHILDREN, "inscription annuelle").perPerson(),
                             monthly("scolarite", "Scolarité privée, études", Category.CHILDREN, null),
                             monthly("transport-scolaire", "Transport scolaire", Category.CHILDREN, null),
-                            monthly("argent-poche", "Argent de poche", Category.CHILDREN, null).perPerson(),
-                            monthly("pension-alimentaire", "Pension alimentaire versée", Category.CHILDREN, null).perPerson())),
+                            monthly("argent-poche", "Argent de poche", Category.CHILDREN, null).perPerson())),
             new Group("deplacements", "Déplacements récurrents",
-                    "Ceux qui reviennent chaque mois : trajets domicile-travail, voiture, transports en commun. Pour le carburant et les péages, une "
-                            + "moyenne sur quelques relevés bancaires.",
+                    "La voiture et les trajets réguliers. Carburant, transports en commun et péages sont dans le premier groupe.",
                     List.of(
-                            monthly("transports-commun", "Abonnement transports en commun", Category.TRANSPORT, "Navigo, TCL… après la part de l'employeur").perPerson(),
-                            monthly("carburant", "Carburant", Category.TRANSPORT, "moyenne mensuelle").perPerson(),
                             monthly("recharge", "Recharge du véhicule électrique", Category.TRANSPORT, null),
-                            monthly("peages", "Péages", Category.TRANSPORT, null),
-                            monthly("stationnement", "Stationnement", Category.TRANSPORT, null),
                             monthly("leasing", "Leasing ou LOA de la voiture", Category.TRANSPORT, null),
                             monthly("credit-auto", "Crédit auto", Category.CREDIT, null).perPerson(),
                             monthly("assurance-auto", "Assurance auto", Category.INSURANCE, null).perPerson(),
@@ -155,8 +161,6 @@ final class Checklist {
                     "Ces dépenses varient d'un mois à l'autre : indiquez un budget moyen mensuel. Il sert à prévoir ce qui reste à vivre.",
                     List.of(
                             monthly("courses", "Courses alimentaires", Category.OTHER, "budget moyen par mois"),
-                            monthly("repas-travail", "Repas au travail", Category.OTHER, null).perPerson(),
-                            monthly("menage", "Aide à domicile, ménage", Category.OTHER, "après crédit d'impôt"),
                             monthly("animaux", "Animaux (nourriture, vétérinaire)", Category.OTHER, null),
                             monthly("sport", "Salle de sport", Category.LEISURE, null).perPerson(),
                             yearly("associations", "Cotisations (club, association, syndicat)", Category.LEISURE, null),

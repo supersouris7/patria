@@ -44,13 +44,13 @@ final class AccountPages {
                         <p class="notice error"><b>Double authentification fortement recommandée</b> : Patria est accessible depuis Internet.
                         <a href="/compte/double-authentification">L'activer pour le compte administrateur</a></p>""") : Html.EMPTY,
                 takeOver(orphans, activeUsers, values, csrf),
-                Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
-                Components.disclosure("Créer un foyer", form, notice != null && notice.error()),
                 Components.disclosure("Membre, compte et droits : quelle différence ?", Html.raw("""
                         <p>Un <b>membre du foyer</b> figure dans le budget (personne ou compte joint) ; seul l'administrateur en ajoute ou en supprime.
                         Un <b>compte</b> permet d'ouvrir Patria ; seul l'administrateur en crée (Utilisateurs). Le <b>tableau des droits</b> de chaque foyer
                         dit exactement ce que chaque compte voit : une case cochée donne l'accès complet (voir et modifier). L'administrateur ne consulte
-                        pas les finances des foyers.</p>"""), false), archives(archives, csrf));
+                        pas les finances des foyers.</p>"""), false),
+                Components.card("Foyers", cards.size(), Html.EMPTY, blocks),
+                Components.disclosure("Créer un foyer", form, notice != null && notice.error()), archives(archives, csrf));
         return Layout.adminSection("Foyers · Patria", csrf, Layout.AdminSection.HOUSEHOLDS, content);
     }
 

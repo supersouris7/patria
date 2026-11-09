@@ -71,6 +71,11 @@ class WizardTest {
 
         // 1. Documents : coche manuelle, puis coche automatique
         assertTrue(get(admin, "/assistant/documents").body().contains("Les 3 derniers bulletins de salaire"));
+        assertTrue(get(admin, "/assistant/documents?q=cr%C3%A9dit+agricole").body().contains("Mes prêts → le crédit") && get(admin, "/assistant/documents?q=lcl").body().contains("Mes relevés et documents → Crédits"), "recherche d'une banque dans les tutoriels");
+        assertTrue(get(admin, "/assistant/documents?q=inconnue").body().contains("Rien pour"));
+        String help = get(admin, "/assistant/documents/aide").body();
+        assertTrue(help.contains("Caisse d&#39;Épargne") || help.contains("Caisse d'Épargne"), "tutoriel complet par banque");
+        assertTrue(help.contains("impots.gouv.fr") && help.contains("Trade Republic"));
         assertEquals(303, post(admin, "/assistant/documents/liste", "doc_statements=on").statusCode());
         assertTrue(get(admin, "/assistant/documents").body().contains("name=\"doc_statements\" value=\"on\" checked"), "case cochée gardée");
         assertEquals("/assistant/revenus", location(post(admin, "/assistant/documents/terminer", "")), "étape suivante (les membres sont créés par l'administrateur)");

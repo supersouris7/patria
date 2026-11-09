@@ -111,6 +111,13 @@ public final class SavingsRepository {
                 Sql.cents(position.price())));
     }
 
+    /** Nouvel export du courtier : quantite et prix de revient a jour, cours saisi efface (le cours du jour reprend). */
+    public void updatePosition(long id, BigDecimal quantity, BigDecimal cost) {
+        if (quantity.signum() <= 0) throw new ValidationException("Quantité invalide.");
+        database.query(connection -> Sql.update(connection, "UPDATE savings_positions SET quantity = ?, cost = ?, price = NULL WHERE id = ?", quantity.toPlainString(),
+                Sql.cents(cost), id));
+    }
+
     public void deletePosition(long id) {
         database.query(connection -> Sql.update(connection, "DELETE FROM savings_positions WHERE id = ?", id));
     }

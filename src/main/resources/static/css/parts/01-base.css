@@ -52,6 +52,8 @@ main.shell { padding: 36px 0 72px; }
 .navigation .brand span { display: none; }
 /* Menu burger : seulement sur tablette et smartphone (voir le bloc @media 1000px), a la place de la navigation. */
 .nav-hamburger { display: none; }
+.nav-health { align-items: center; border-radius: 10px; color: var(--muted); display: none; font-weight: 650; gap: 6px; min-height: 44px; padding: 8px; position: relative; text-decoration: none; }
+.nav-health.active, .nav-health:hover { color: var(--text); }
 .nav-hamburger summary { min-height: 44px; padding: 8px; }
 .nav-hamburger .nav-entries { display: grid; gap: 4px; grid-template-columns: 1fr; margin: 0; }
 /* Libelle de l'Assistant : icone seule dans la barre, icone et nom dans le menu. */
@@ -126,6 +128,7 @@ label.check.option b { color: var(--text); display: block; }
     .navigation { gap: 8px; }
     .primary-navigation { display: none; }
     .nav-hamburger { display: inline-block; }
+    .nav-health { display: inline-flex; }
     .account-bar { gap: 2px; }
 }
 @media (max-width: 600px) {
@@ -134,4 +137,5 @@ label.check.option b { color: var(--text); display: block; }
     .account-link { padding-inline: 8px; }
     .nav-menu > summary { font-size: .8rem; padding-inline: 6px; }
     .nav-panel { padding: 16px; }
+    .nav-health > span:not(.nav-count) { display: none; }
 }

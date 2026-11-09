@@ -121,7 +121,9 @@ public final class SavingsController {
         SavingsRepository.Account account = editable(request);
         try {
             if (!account.kind().stocks()) throw new ValidationException("Les lignes de bourse s'importent sur un PEA ou un compte-titres.");
-            String content = new String(request.form().uploadedText("csv", "Lignes"), java.nio.charset.StandardCharsets.UTF_8);
+            String raw = new String(request.form().uploadedText("csv", "Export CSV ou réponse de l'IA"), java.nio.charset.StandardCharsets.UTF_8);
+            // Export de courtier : converti ici, l'apercu ne transporte que les lignes cumulees.
+            String content = BrokerExport.toLines(raw.startsWith("\uFEFF") ? raw.substring(1) : raw).orElse(raw);
             List<PositionCsv.Row> rows = PositionCsv.parse(content, savings.positions().stream().filter(position -> position.accountId() == account.id()).toList(), feeds::resolve);
             return Response.page(SavingsPages.importPreview(account, rows, content, back(request), request.csrf()));
         } catch (ValidationException exception) {
@@ -137,7 +139,8 @@ public final class SavingsController {
             int added = 0;
             for (PositionCsv.Row row : rows) {
                 if (!row.fresh() || !"on".equals(request.form().raw("importer_" + row.line()))) continue;
-                savings.addPosition(new SavingsRepository.Position(0, account.id(), row.symbol(), row.label(), row.quantity(), row.cost(), null));
+                if (row.existing() != null) savings.updatePosition(row.existing(), row.quantity(), row.cost());
+                else savings.addPosition(new SavingsRepository.Position(0, account.id(), row.symbol(), row.label(), row.quantity(), row.cost(), null));
                 added++;
             }
             if (added == 0) throw new ValidationException("Cochez au moins une ligne à importer.");
@@ -232,7 +235,10 @@ public final class SavingsController {
                 .filter(candidate -> candidate.kind().stocks() && request.viewer().sees(candidate.personId()) && candidate.name().equalsIgnoreCase(accountName.strip()))
                 .findFirst().orElseThrow(() -> new ValidationException("validez d'abord le compte « " + accountName + " » (Épargne) pour " + row.label()));
         String symbol = PositionCsv.isIsin(row.code()) ? feeds.resolve(row.code()).orElse(row.code()) : row.symbol();
-        savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, row.label(), row.quantity(), row.cost(), null));
+        java.util.Optional<SavingsRepository.Position> current = savings.positions().stream()
+                .filter(position -> position.accountId() == account.id() && position.symbol().equalsIgnoreCase(symbol)).findFirst();
+        if (current.isPresent()) savings.updatePosition(current.get().id(), row.quantity(), row.cost());
+        else savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, row.label(), row.quantity(), row.cost(), null));
     }
 
     /** Nombre de placements et de lignes de bourse visibles (coches automatiques du guide). */
@@ -272,8 +278,8 @@ public final class SavingsController {
         FormData form = request.form();
         try {
             if (!account.kind().stocks()) throw new ValidationException("Les lignes de bourse se saisissent sur un PEA ou un compte-titres.");
-            String symbol = form.requiredText("symbol", "Code Yahoo Finance", 20).trim().toUpperCase(java.util.Locale.ROOT);
-            if (!symbol.matches("[A-Z0-9.^=-]{1,20}")) throw new ValidationException("Code invalide : par exemple AI.PA pour Air Liquide à Paris.");
+            String symbol = BrokerExport.yahoo(form.requiredText("symbol", "Code Yahoo Finance", 20).trim().toUpperCase(java.util.Locale.ROOT));
+            if (!symbol.matches("[A-Z0-9.^=-]{1,20}")) throw new ValidationException("Code invalide : par exemple AI.PA pour Air Liquide à Paris, BTC pour le bitcoin.");
             String label = form.raw("label").isBlank() ? symbol : form.requiredText("label", "Nom", 60);
             BigDecimal quantity = quantity(form.raw("quantity"));
             savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, label, quantity, form.amount("cost", "Prix de revient total"),

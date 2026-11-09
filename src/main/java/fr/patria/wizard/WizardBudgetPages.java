@@ -164,7 +164,9 @@ final class WizardBudgetPages {
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "
                         + "d'un paiement et sa fréquence : Patria calcule les 12 prochains mois. Inutile de saisir ce que Patria reprend de l'immobilier "
                         + "(mensualités des prêts immobiliers, taxe foncière, copropriété, assurance d'un bien possédé)."),
-                quick, saved(context, "/assistant/depenses"),
+                quick, Html.raw("<p class=\"notice\"><b>Faites le tour de ce que l'IA ne voit pas</b> : garde d'enfants, cantine, pension alimentaire, "
+                        + "carburant, abonnement de transport… payés en espèces, retenus sur le salaire ou réglés par l'autre parent. Ils sont regroupés "
+                        + "en tête de la liste ci-dessous.</p>"), saved(context, "/assistant/depenses"),
                 Components.card("Ajouter à la main", null, Html.EMPTY,
                         checklist(context, "/assistant/depenses/ajouter", Checklist.FIXED, true, values, "Ajouter les dépenses cochées")));
     }

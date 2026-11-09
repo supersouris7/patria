@@ -34,7 +34,7 @@ class PresentationJourneyTest {
             before(expenses, "<summary>Ajouter une dépense", "<summary>Importer (réponse d");
             before(expenses, "<summary>Importer (réponse d", "<h2>Dépenses saisies");
             String guide = TestAccounts.get(client, base, manager, "/assistant").body();
-            before(guide, "<h2>Les étapes", "<summary>Comment ça marche");
+            before(guide, "<summary>Comment ça marche", "<h2>Les étapes");
             String budget = TestAccounts.get(client, base, manager, "/budget").body();
             before(budget, "<h2>Dépenses par catégorie", "<summary>Détail du taux d&#39;endettement");
             String error = TestAccounts.post(client, base, manager, "/administration/revenus",
