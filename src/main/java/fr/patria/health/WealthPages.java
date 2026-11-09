@@ -40,15 +40,24 @@ final class WealthPages {
         BigDecimal totalLiabilities = liabilities.stream().map(Row::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal net = totalAssets.subtract(totalLiabilities);
         Html tiles = Components.metrics(3,
-                tile("Actifs", "Tout ce que le foyer possède, à la valeur du jour.", Format.euroWhole(totalAssets), "accent", null),
-                tile("Passifs", "Ce qu'il reste à rembourser.", Format.euroWhole(totalLiabilities), totalLiabilities.signum() > 0 ? "warning" : "",
-                        totalAssets.signum() == 0 || totalLiabilities.signum() == 0 ? null : percent(totalLiabilities, totalAssets) + " des actifs"),
-                tile("Patrimoine net", "Actifs − passifs.", Format.euroWhole(net), net.signum() >= 0 ? "positive" : "negative", null));
+                tile("Ce que vous possédez", "Comptes, épargne, bourse et biens, à la valeur du jour (patrimoine brut).", Format.euroWhole(totalAssets), "accent",
+                        "patrimoine brut"),
+                tile("Ce que vous devez", "Capital restant dû des prêts immobiliers.", Format.euroWhole(totalLiabilities), totalLiabilities.signum() > 0 ? "warning" : "",
+                        totalAssets.signum() == 0 || totalLiabilities.signum() == 0 ? "dettes" : "dettes · " + percent(totalLiabilities, totalAssets) + " de ce que vous possédez"),
+                tile("Patrimoine net", "Ce que vous possédez − ce que vous devez.", Format.euroWhole(net), net.signum() >= 0 ? "positive" : "negative",
+                        "avant frais de vente et impôts"));
+        Html method = Components.disclosure("Comment c'est calculé", Html.raw("""
+                <p><b>Patrimoine net = ce que vous possédez − ce que vous devez.</b> C'est ce qui vous resterait si vous remboursiez toutes vos dettes aujourd'hui,
+                sans rien vendre. C'est la définition habituelle (celle des banques et de l'INSEE).</p>
+                <ul><li>Les biens comptent pour leur <b>valeur retenue</b>, avant frais de vente et impôts sur la plus-value. Ce qu'il resterait après une vente
+                est dans Immobilier → Synthèse (« valeur nette »), un chiffre plus bas.</li>
+                <li>Un bien acheté à crédit compte deux fois, en sens inverse : sa valeur dans ce que vous possédez, son capital restant dû dans ce que vous devez.
+                Rembourser une mensualité ne change donc presque pas le patrimoine net ; c'est la part de capital remboursée qui l'augmente.</li>
+                <li>La bourse est comptée au cours du jour, les comptes et livrets à leur solde. Les crédits à la consommation ne sont pas comptés : seule leur
+                mensualité est connue.</li></ul>"""), false);
         Html content = Html.concat(Components.heading("Bilan patrimonial", "Patrimoine", "Ce que vous possédez et ce que vous devez, à la valeur du jour.", Html.EMPTY),
-                tiles, composition(assets, totalAssets),
-                Html.of("<div class=\"wealth-grid\">%s%s</div>", table("Actifs", assets, totalAssets), table("Passifs", liabilities, totalLiabilities)),
-                Html.raw("<p class=\"muted small\">Les crédits à la consommation ne sont pas comptés : seule leur mensualité est connue. Valeurs indicatives, "
-                        + "biens à leur valeur retenue (avant frais de vente et impôts).</p>"));
+                tiles, method, composition(assets, totalAssets),
+                Html.of("<div class=\"wealth-grid\">%s%s</div>", table("Ce que vous possédez", assets, totalAssets), table("Ce que vous devez", liabilities, totalLiabilities)));
         return Layout.page("Patrimoine · Patria", Layout.Section.WEALTH, csrf, content);
     }
 
@@ -70,7 +79,7 @@ final class WealthPages {
                 row.amount().setScale(0, RoundingMode.HALF_UP).toPlainString(), row.label(), Format.euroWhole(row.amount()))).collect(Html.joining());
         Html legend = shown.stream().map(row -> Html.of("<li><i class=\"series-%s\"></i>%s <b>%s</b></li>", assets.indexOf(row) + 1, row.label(), percent(row.amount(), total)))
                 .collect(Html.joining());
-        return Components.card("Répartition des actifs", null, Html.EMPTY, Html.of("<div class=\"wealth-bar\" role=\"img\" aria-label=\"Répartition des actifs\">%s</div>"
+        return Components.card("Répartition de ce que vous possédez", null, Html.EMPTY, Html.of("<div class=\"wealth-bar\" role=\"img\" aria-label=\"Répartition des actifs\">%s</div>"
                 + "<ul class=\"chart-legend\">%s</ul>", bar, legend));
     }
 

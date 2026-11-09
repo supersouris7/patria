@@ -49,46 +49,15 @@ final class SavingsPages {
                 tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
                         snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
         Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.EMPTY),
-                Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf, false), planCard(snapshot, csrf), chart(bars),
+                Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf), planCard(snapshot, csrf), chart(bars),
                 Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
                         Format.date(RegulatedRates.CHECKED)));
         return Layout.page("Épargne · Patria", Layout.Section.SAVINGS, csrf, content);
     }
 
     /** Page Bourse : PEA, comptes-titres et cryptos au cours du jour, separes de l'epargne (risque de perte, horizon long). */
-    /** Recherche d'un titre sous le compte {@code account} : la saisie et ce que Yahoo Finance a trouve. */
-    record Search(long account, String query, List<MarketFeeds.Found> results, boolean offline) {
-    }
-
-    static Html stocks(SavingsController.Snapshot snapshot, List<Person> people, LocalDate today, Notice notice, String csrf, Search search) {
-        Savings.Overview portfolio = only(snapshot.overview(), true);
-        BigDecimal cost = portfolio.positions().stream().map(line -> line.position().cost()).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal gain = portfolio.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
-        String tone = tone(gain);
-        Html tiles = Components.metrics(4,
-                tile("Valeur du portefeuille", "Lignes au cours du jour, plus les liquidités des comptes.", euroWhole(portfolio.total()), "accent",
-                        Format.plural(portfolio.lines().size(), "compte", "comptes")),
-                tile("Plus-value latente", "Valeur des lignes − ce qu'elles ont coûté. Rien n'est gagné ou perdu avant la vente.", Format.signedEuroWhole(gain), tone, null),
-                tile("Performance", "Plus-value latente ÷ prix de revient des lignes.", cost.signum() == 0 ? "—"
-                        : Format.signedPercent(gain.multiply(BigDecimal.valueOf(100)).divide(cost, 1, java.math.RoundingMode.HALF_UP)), tone, "depuis l'achat"),
-                tile("Lignes", "Actions, ETF et cryptos détenus.", String.valueOf(portfolio.positions().size()), "", null));
-        Html content = Html.concat(Components.heading("Vos placements en bourse", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", Html.EMPTY),
-                Components.notice(notice), tiles,
-                portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Évolution du portefeuille", null, Html.EMPTY, Html.raw(
-                        "<div data-fragment-src=\"/bourse/graphique\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"
-                                + "<p class=\"muted small\">Lignes actuelles valorisées aux cours passés : la courbe ignore les dates d'achat.</p>")),
-                accounts(portfolio, today, null, csrf, search), addAccount(people, null, csrf, true),
-                Html.raw("<p class=\"muted small\">Cours Yahoo Finance, en différé. Valeur indicative : un placement en bourse peut perdre de la valeur. "
-                        + "Pas un conseil en investissement.</p>"));
-        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, content);
-    }
-
-    private static String tone(BigDecimal value) {
-        return value.signum() > 0 ? "positive" : value.signum() < 0 ? "negative" : "";
-    }
-
     /** Les seuls comptes de bourse ({@code stocks}) ou d'epargne, totaux recalcules. */
-    private static Savings.Overview only(Savings.Overview overview, boolean stocks) {
+    static Savings.Overview only(Savings.Overview overview, boolean stocks) {
         List<Savings.Line> lines = overview.lines().stream().filter(line -> line.account().kind().stocks() == stocks).toList();
         BigDecimal total = lines.stream().map(Savings.Line::value).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal gain = lines.stream().flatMap(line -> line.positions().stream()).map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -131,19 +100,13 @@ final class SavingsPages {
         return back == null ? Components.csrfField(csrf) : Html.concat(Components.csrfField(csrf), Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back));
     }
 
+    /** Tableau des placements (page Epargne et etape du guide) ; un compte de bourse montre ses titres, geres sur la page Bourse. */
     static Html accounts(Savings.Overview overview, LocalDate today, String back, String csrf) {
-        return accounts(overview, today, back, csrf, null);
-    }
-
-    private static Html accounts(Savings.Overview overview, LocalDate today, String back, String csrf, Search search) {
         if (overview.isEmpty()) {
             return Components.card("Comptes", 0, Html.EMPTY, Html.raw("<p class=\"empty\">Aucun placement pour l'instant.</p>"));
         }
-        // Page Bourse : liquidites et plus-value a la place du taux et des interets.
-        boolean market = overview.lines().stream().allMatch(line -> line.account().kind().stocks());
         Html rows = overview.lines().stream().map(line -> {
             SavingsRepository.Account account = line.account();
-            BigDecimal gain = line.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal ceiling = account.kind().ceiling();
             int fill = ceiling == null || account.kind().stocks() ? -1
                     : line.balance().multiply(BigDecimal.valueOf(100)).divide(ceiling, 0, java.math.RoundingMode.HALF_UP).min(BigDecimal.valueOf(100)).intValue();
@@ -153,96 +116,46 @@ final class SavingsPages {
                             contribution.frequency() == fr.patria.common.Frequency.MONTHLY ? "mois" : contribution.frequency().label().toLowerCase(java.util.Locale.FRENCH)),
                     fill < 0 ? Html.EMPTY : Html.of("<span class=\"ceiling\" title=\"%s du plafond\"><i style=\"width:%s\"></i></span>", fill + " %", fill + "%"));
             Html main = Html.of("""
-                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s</small>%s</td><td class="num"><b>%s</b></td><td class="num">%s</td><td class="num %s">%s</td><td class="actions">%s</td></tr>""",
+                    <tr id="compte-%s"><td><b>%s</b><small>%s · %s</small>%s</td><td class="num"><b>%s</b></td><td class="num">%s</td><td class="num positive">%s</td><td class="actions">%s</td></tr>""",
                     account.id(), account.name(), account.kind().label(), line.owner(), badges, euroWhole(line.value()),
-                    market ? euroWhole(line.balance()) : line.rate() == null ? "—" : Format.percent(line.rate()),
-                    market ? tone(gain) : "positive",
-                    market ? Format.signedEuroWhole(gain) : line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
+                    line.rate() == null ? "—" : Format.percent(line.rate()),
+                    line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
                     manage(line, back, csrf));
-            return account.kind().stocks() ? Html.concat(main, positions(line, back, csrf, search != null && search.account() == account.id() ? search : null)) : main;
+            return account.kind().stocks() ? Html.concat(main, positions(line)) : main;
         }).collect(Html.joining());
         BigDecimal interest = overview.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal cash = overview.lines().stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal gains = overview.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Html footer = market
-                ? Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th class=\"num\">%s</th><th class=\"num %s\">%s</th><th></th></tr>", euroWhole(overview.total()),
-                euroWhole(cash), tone(gains), Format.signedEuroWhole(gains))
-                : Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num positive\">+%s</th><th></th></tr>", euroWhole(overview.total()), euroWhole(interest));
+        Html footer = Html.of("<tr><th>Total</th><th class=\"num\">%s</th><th></th><th class=\"num positive\">+%s</th><th></th></tr>", euroWhole(overview.total()), euroWhole(interest));
         return Components.card("Comptes", overview.lines().size(), Html.EMPTY,
-                Html.of("<div class=\"table-wrap\"><table class=\"data savings-table\"><thead><tr><th>Placement</th><th class=\"num\">Valeur</th><th class=\"num\">%s</th>"
-                        + "<th class=\"num\">%s</th><th></th></tr></thead><tbody>%s</tbody><tfoot>%s</tfoot></table></div>", market ? "Liquidités" : "Taux",
-                        market ? "Plus-value" : "Intérêts / an", rows, footer));
+                Html.of("<div class=\"table-wrap\"><table class=\"data savings-table\"><thead><tr><th>Placement</th><th class=\"num\">Valeur</th><th class=\"num\">Taux</th>"
+                        + "<th class=\"num\">Intérêts / an</th><th></th></tr></thead><tbody>%s</tbody><tfoot>%s</tfoot></table></div>", rows, footer));
     }
 
-    /** Lignes de bourse d'un PEA ou compte-titres : tableau aligne, plus-values en couleur, ajout et import replies. */
-    private static Html positions(Savings.Line line, String back, String csrf, Search search) {
-        long account = line.account().id();
-        // Hors du guide : chaque ligne se deplie sur la courbe de son cours (chargee a l'ouverture).
-        boolean charts = back == null;
-        Html rows = line.positions().stream().map(position -> Html.concat(Html.of("""
-                <tr><td>%s <code>%s</code></td><td class="num">%s</td><td class="num" title="%s">%s</td><td class="num">%s</td><td class="num %s">%s</td>\
-                <td><form method="post" action="/epargne/ligne/%s/supprimer" class="inline-form">%s<button class="link-button" type="submit" aria-label="Supprimer %s">×</button></form></td></tr>""",
-                position.position().label(), position.position().symbol(), Format.number(position.position().quantity(), 4), position.priceSource(), Format.euro(position.price()),
-                euroWhole(position.value()), tone(position.gain()), Format.signedEuroWhole(position.gain()),
-                position.position().id(), token(csrf, back), position.position().label()), !charts ? Html.EMPTY : Html.of("""
-                <tr class="position-chart"><td colspan="6"><details data-fragment-src="/bourse/ligne/%s/graphique"><summary>Évolution du cours</summary>                <div data-fragment-target><p class="muted">Chargement…</p></div></details></td></tr>""", position.position().id()))).collect(Html.joining());
+    /** Titres d'un PEA ou compte-titres, en lecture : ajout, import et modification se font sur la page Bourse. */
+    private static Html positions(Savings.Line line) {
+        Html rows = line.positions().stream().map(position -> Html.of("<tr><td>%s <code>%s</code></td><td class=\"num\">%s</td><td class=\"num\">%s</td><td class=\"num %s\">%s</td></tr>",
+                position.position().label(), position.position().symbol(), Format.number(position.position().quantity(), 4), euroWhole(position.value()),
+                StocksPages.tone(position.gain()), Format.signedEuroWhole(position.gain()))).collect(Html.joining());
         Html table = line.positions().isEmpty() ? Html.EMPTY : Html.of("""
-                <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Cours</th><th class="num">Valeur</th>\
-                <th class="num">Plus-value</th><th></th></tr></thead><tbody>%s</tbody></table>""", rows);
-        Html paste = Html.of("""
-                <details><summary>Importer l'export du courtier</summary>
-                <form method="post" action="/epargne/compte/%s/import" class="stack" enctype="multipart/form-data">%s
-                <p class="muted small">Trade Republic, Revolut, Degiro, Boursorama, Binance, Coinbase… : déposez l'export CSV tel quel (actions, ETF et cryptos).                 Les lignes déjà présentes sont mises à jour ; la valeur suit les cours du jour.</p>
-                <label>Export CSV<input name="csv" type="file" accept=".csv,.txt,text/csv,text/plain"></label>
-                <details><summary>PDF ou format non reconnu : passer par une IA</summary>%s%s<label>Réponse de l'IA
-                <textarea name="texte" rows="8" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label></details>
-                <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></details>""",
-                account, token(csrf, back), Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), Components.localAiInput("bourse"));
-        Html manual = Html.of("""
-                <form method="post" action="/epargne/compte/%s/ligne" class="stack">%s%s
-                <div class="form-actions"><button type="submit">Ajouter</button></div></form>""",
-                account, token(csrf, back), Components.fields(3,
-                        Components.input(Input.of("Code (AI.PA, BTC…)", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
-                        Components.input(Input.of("Nom", "label", Field.TEXT).maxLength(60), Map.of()),
-                        Components.input(Input.of("Quantité", "quantity", Field.NUMBER).required(), Map.of()),
-                        Components.input(Input.of("Prix de revient total", "cost", Field.MONEY).required(), Map.of()),
-                        Components.input(Input.of("Cours (vide : du jour)", "price", Field.MONEY), Map.of())));
-        Html add = !charts ? Html.of("<details><summary>Ajouter une ligne</summary>%s</details>", manual) : Html.of("""
-                <details%s><summary>Ajouter une ligne</summary>
-                <form method="get" action="/bourse#compte-%s" class="title-search" role="search"><input type="hidden" name="compte" value="%s">                <label>Rechercher un titre<input type="search" name="q" value="%s" maxlength="60" required placeholder="Nom, ISIN ou code : MSCI World, FR0010315770, BTC"></label>                <button class="secondary" type="submit">Chercher</button></form>%s
-                <details><summary>Saisir le code à la main</summary>%s</details></details>""",
-                Html.raw(search == null ? "" : " open"), account, account, search == null ? "" : search.query(), found(account, search, back, csrf), manual);
-        return Html.of("<tr class=\"positions\"><td colspan=\"5\">%s<div class=\"position-tools\">%s%s</div></td></tr>", table, paste, add);
-    }
-
-    /** Titres trouves par la recherche : un formulaire par titre, quantite et prix de revient a saisir. */
-    private static Html found(long account, Search search, String back, String csrf) {
-        if (search == null) return Html.EMPTY;
-        if (search.results().isEmpty()) {
-            return Html.of("<p class=\"muted\">%s</p>", search.offline() ? "Recherche indisponible en mode hors ligne : saisissez le code à la main."
-                    : "Aucun titre trouvé pour « " + search.query() + " ». Essayez l'ISIN, ou saisissez le code à la main.");
-        }
-        return Html.of("<ul class=\"title-results\">%s</ul>", search.results().stream().map(found -> Html.of("""
-                <li><div><b>%s</b><small><code>%s</code> · %s%s</small></div>                <form method="post" action="/epargne/compte/%s/ligne" class="title-add">%s<input type="hidden" name="symbol" value="%s"><input type="hidden" name="label" value="%s">                <label>Quantité<input name="quantity" inputmode="decimal" required></label><label>Prix de revient total<input name="cost" inputmode="decimal" required></label>                <button type="submit">Ajouter</button></form></li>""",
-                found.name(), found.symbol(), found.type().isEmpty() ? "titre" : found.type(), found.exchange().isEmpty() ? "" : " · " + found.exchange(),
-                account, token(csrf, back), found.symbol(), found.name().length() > 60 ? found.name().substring(0, 60) : found.name())).collect(Html.joining()));
+                <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Valeur</th><th class="num">Plus-value</th></tr></thead>                <tbody>%s</tbody></table>""", rows);
+        return Html.of("<tr class=\"positions\"><td colspan=\"5\">%s<p class=\"muted small\"><a href=\"/bourse/ajouter?compte=%s\">Ajouter un titre</a> · "
+                + "<a href=\"/bourse/importer?compte=%s\">Importer un relevé</a> (page Bourse)</p></td></tr>", table, line.account().id(), line.account().id());
     }
 
     /** Menu « Gerer » d'un compte : nouveau solde, versement programme, suppression. */
-    private static Html manage(Savings.Line line, String back, String csrf) {
+    static Html manage(Savings.Line line, String back, String csrf) {
         SavingsRepository.Account account = line.account();
         SavingsRepository.Contribution current = account.contribution();
         List<Components.Option> frequencies = Arrays.stream(fr.patria.common.Frequency.values()).filter(frequency -> frequency != fr.patria.common.Frequency.ONCE)
                 .map(frequency -> new Components.Option(frequency.name(), frequency.label())).toList();
         return Html.of("""
                 <details class="row-menu"><summary>Gérer</summary><div class="row-menu-body">
-                <form method="post" action="/epargne/compte/%s" class="row-form">%s<label>Solde du jour<input name="balance" inputmode="decimal" value="%s"></label>\
+                <form method="post" action="/epargne/compte/%s" class="row-form">%s<label>%s<input name="balance" inputmode="decimal" value="%s"></label>\
                 <button class="secondary" type="submit">Mettre à jour</button></form>
                 <form method="post" action="/epargne/compte/%s/versement" class="row-form">%s<label>Versement programmé<input name="montant" inputmode="decimal" value="%s"></label>%s\
                 <button class="secondary" type="submit">Enregistrer</button></form>%s
                 <form method="post" action="/epargne/compte/%s/supprimer" data-confirm="Supprimer « %s » et ses lignes ?">%s<button class="danger" type="submit">Supprimer le compte</button></form>
                 </div></details>""",
-                account.id(), token(csrf, back), line.balance().toPlainString(),
+                account.id(), token(csrf, back), account.kind().stocks() ? "Espèces non investies" : "Solde du jour", line.balance().toPlainString(),
                 account.id(), token(csrf, back), current == null ? "" : current.amount().toPlainString(),
                 Components.select("Fréquence", "frequence", frequencies, current == null ? "MONTHLY" : current.frequency().name()),
                 current == null ? Html.EMPTY : Html.of("""
@@ -329,50 +242,20 @@ final class SavingsPages {
     }
 
     /** Apercu de l'import des lignes de bourse : une case par ligne valide et nouvelle. */
-    static Html importPreview(SavingsRepository.Account account, List<PositionCsv.Row> rows, String content, String back, String csrf) {
-        long fresh = rows.stream().filter(PositionCsv.Row::fresh).count();
-        Html body = rows.stream().map(row -> row.valid() ? Html.of("<tr><td>%s</td><td>%s</td><td><code>%s</code>%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td>%s</td></tr>",
-                row.fresh() ? Html.of("<input type=\"checkbox\" name=\"importer_%s\" value=\"on\" form=\"positions-import\" checked aria-label=\"Importer %s\">", row.line(), row.label())
-                        : Html.text(String.valueOf(row.line())),
-                row.label(), row.symbol(), row.symbol().equals(row.code()) ? Html.EMPTY : Html.of("<small>%s</small>", row.code()),
-                Format.number(row.quantity(), 6), euroWhole(row.cost()),
-                row.duplicate() ? Html.raw("<span class=\"badge\">En double, ignorée</span>")
-                        : row.existing() != null ? Html.raw("<span class=\"badge paid\">Mise à jour</span>") : PositionCsv.isIsin(row.symbol())
-                        ? Html.raw("<span class=\"badge warn\" title=\"Code de cotation introuvable : comptée au prix de revient\">Sans cours</span>")
-                        : Html.raw("<span class=\"badge paid\">À importer</span>"))
-                : Html.of("<tr class=\"row-error\"><td>%s</td><td colspan=\"5\" class=\"negative\">%s</td></tr>", row.line(), row.error())).collect(Html.joining());
-        String encoded = java.util.Base64.getUrlEncoder().encodeToString(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        Html actions = fresh == 0 ? Html.raw("<p class=\"muted\">Rien de nouveau à importer.</p>") : Html.of("""
-                <form id="positions-import" method="post" action="/epargne/compte/%s/import/valider" class="form-actions">%s<input type="hidden" name="contenu" value="%s">\
-                <a class="button secondary" href="%s">Annuler</a><button type="submit">Importer la sélection</button></form>""",
-                account.id(), token(csrf, back), encoded, back == null ? "/epargne" : back);
-        Html content2 = Html.concat(Components.backLink(back == null ? "/epargne" : back, back == null ? "Épargne" : "Retour au guide"),
-                Components.heading("Épargne", "Aperçu de l'import", fresh + " ligne" + (fresh > 1 ? "s" : "") + " à importer ou mettre à jour sur « " + account.name()
-                        + " ». Les lignes en erreur sont ignorées ; la valeur suit ensuite les cours du jour.", Html.EMPTY),
-                Components.card("Lignes", rows.size(), Html.EMPTY, Html.concat(Components.table(List.of("Importer", "Titre", "Code", "#Quantité", "#Prix de revient", "État"), body, false, false),
-                        Html.raw("<p class=\"muted small\">« Sans cours » : le code ISIN n'a pas pu être converti en code de cotation (mode hors ligne ou titre introuvable) ; "
-                                + "la ligne est comptée à son prix de revient, modifiable ensuite.</p>"), actions)));
-        return Layout.page("Import · Épargne · Patria", Layout.Section.SAVINGS, csrf, content2);
-    }
 
     /** Etape « Epargne et bourse » du guide : comptes, versements, lignes et import, avec retour au guide. */
     static Html wizard(SavingsController.Snapshot snapshot, List<Person> people, LocalDate today, String back, String csrf) {
         Savings.Overview overview = snapshot.overview();
-        boolean stocks = overview.lines().stream().anyMatch(line -> line.account().kind().stocks());
-        Html hint = stocks ? Html.EMPTY : Html.raw("<p class=\"muted\">Pour importer vos lignes de bourse, ajoutez d'abord votre PEA ou compte-titres ci-dessous (type « PEA » ou "
-                + "« Compte-titres ») : l'import apparaîtra sous ce compte.</p>");
+        Html hint = Html.raw("<p class=\"muted\">Bourse et cryptos (PEA, compte-titres) : sur la page <a href=\"/bourse\">Bourse</a>, « Importer un relevé » "
+                + "crée le compte et ses titres d'un coup.</p>");
         return Html.of("<div id=\"import\">%s%s%s</div>", accounts(overview, today, back, csrf), hint, addAccount(people, back, csrf));
     }
 
+    /** Nouveau placement d'epargne (les comptes de bourse naissent sur la page Bourse, a l'ajout d'un titre ou a l'import). */
     static Html addAccount(List<Person> people, String back, String csrf) {
-        return addAccount(people, back, csrf, null);
-    }
-
-    /** {@code stocks} : seulement les comptes de bourse (vrai), seulement l'epargne (faux), ou tous (null, guide). */
-    private static Html addAccount(List<Person> people, String back, String csrf, Boolean stocks) {
         if (people.isEmpty()) return Html.EMPTY;
         List<Components.Option> owners = people.stream().map(person -> new Components.Option(String.valueOf(person.id()), person.name())).toList();
-        List<Components.Option> kinds = Arrays.stream(SavingsKind.values()).filter(kind -> stocks == null || kind.stocks() == stocks)
+        List<Components.Option> kinds = Arrays.stream(SavingsKind.values()).filter(kind -> !kind.stocks())
                 .map(kind -> new Components.Option(kind.name(), kind.label())).toList();
         List<Html> fields = new ArrayList<>(List.of(Components.select("Membre", "person", owners, owners.getFirst().value()),
                 Html.concat(Components.select("Type", "kind", kinds, kinds.getFirst().value()), Html.of("<span hidden data-regulated-rates=\"%s\"></span>", regulatedRates())),
@@ -382,8 +265,8 @@ final class SavingsPages {
                         .help("Rempli d'office pour un livret réglementé (taux officiel) ; à saisir pour une assurance-vie ou un livret bancaire"), Map.of()),
                 Components.input(Input.of("Date d'ouverture", "opened_on", Field.DATE).help("Utile pour un PEA (5 ans)"), Map.of())));
         fields.add(Components.input(Input.of("Versement mensuel (facultatif)", "montant", Field.MONEY).help("Virement programmé : le solde avancera tout seul"), Map.of()));
-        return Components.disclosure(Boolean.TRUE.equals(stocks) ? "Ajouter un compte de bourse" : "Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
+        return Components.disclosure("Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
                         : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), Components.fields(3, fields.toArray(Html[]::new))),
-                Boolean.TRUE.equals(stocks) ? "Ajouter le compte" : "Ajouter le placement"), back != null);
+                "Ajouter le placement"), back != null);
     }
 }

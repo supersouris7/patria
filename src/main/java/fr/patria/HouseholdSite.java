@@ -27,6 +27,7 @@ import fr.patria.rent.RentController;
 import fr.patria.rent.RentRepository;
 import fr.patria.storage.Database;
 import fr.patria.storage.Migrations;
+import fr.patria.ui.Layout;
 import fr.patria.web.Router;
 import fr.patria.wizard.WizardController;
 import fr.patria.wizard.WizardRepository;
@@ -47,6 +48,7 @@ final class HouseholdSite implements AutoCloseable {
         this.database = database;
         properties = new PropertyRepository(database);
         LoanRepository loans = new LoanRepository(database);
+        router.before(() -> Layout.ESTATE_COUNTS.set(() -> new int[]{properties.all().size(), loans.all().size()}));
         ContributionRepository contributions = new ContributionRepository(database);
         ExpenseRepository expenses = new ExpenseRepository(database);
         RentRepository rents = new RentRepository(database);
@@ -74,6 +76,7 @@ final class HouseholdSite implements AutoCloseable {
         fr.patria.savings.SavingsController savings = new fr.patria.savings.SavingsController(new fr.patria.savings.SavingsRepository(database), household, forecast,
                 budgetItems, feeds, clock);
         savings.register(router);
+        new fr.patria.savings.StocksController(savings, savings.repository(), household, feeds, clock).register(router);
         WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard,
                 healthScope, savings, new fr.patria.wizard.ImportInbox(database)), clock);
         guide.register(router);

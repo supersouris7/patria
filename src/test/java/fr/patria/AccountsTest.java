@@ -385,14 +385,14 @@ class AccountsTest {
 
         assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=LIVRET_A&name=Livret+A+de+Paul&balance=2500").statusCode());
         assertEquals(303, post(manager, "/epargne/compte", "person=1&kind=PEA&name=PEA&balance=100&opened_on=2025-01-15").statusCode());
-        assertEquals(303, post(manager, "/epargne/compte/2/ligne", "symbol=cw8.pa&label=ETF+Monde&quantity=2&cost=1000&price=550").statusCode());
-        assertEquals(400, post(manager, "/epargne/compte/1/ligne", "symbol=AI.PA&quantity=1&cost=100").statusCode(), "pas de bourse sur un livret");
+        assertEquals(303, post(manager, "/bourse/ajouter", "symbole=cw8.pa&nom=ETF+Monde&quantity=2&montant=550&prix=pru&compte=2").statusCode());
+        assertEquals(400, post(manager, "/bourse/ajouter", "symbole=AI.PA&quantity=1&montant=100&prix=total&compte=1").statusCode(), "pas de bourse sur un livret");
         String page = get(manager, "/epargne").body();
         assertTrue(page.contains("Livret A de Paul") && !page.contains("CW8.PA") && page.contains("épargne de sécurité"), page);
         String stocks = get(manager, "/bourse").body();
         assertTrue(stocks.contains("CW8.PA") && !stocks.contains("Livret A de Paul"), "bourse séparée de l'épargne");
         String wealth = get(manager, "/patrimoine").body().replaceAll("[\\s\\u00a0\\u202f]", "");
-        assertTrue(wealth.contains("Patrimoinenet") && wealth.contains("2500€") && wealth.contains("1200€"), "bilan des actifs : livret et bourse");
+        assertTrue(wealth.contains("Patrimoinenet") && wealth.contains("2500€") && wealth.contains("Bourseetcryptos"), "bilan des actifs : livret et bourse");
         assertTrue(page.contains("2,5\u00a0%"), "taux du LEP dans le plan");
         assertEquals(303, post(manager, "/epargne/compte/1", "balance=3000").statusCode());
         assertTrue(get(manager, "/epargne").body().replaceAll("[\\s\\u00a0\\u202f]", "").contains("3000€"));

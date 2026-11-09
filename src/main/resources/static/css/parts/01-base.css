@@ -248,3 +248,4 @@ label.check.option b { color: var(--text); display: block; }
     .account-link span { display: none; }
     .theme-toggle, .account-bar .logout { padding-inline: 6px; }
 }
+.nav-badge { background: var(--blue-tint); border-radius: 99px; color: var(--accent-text); font-size: .72rem; font-weight: 750; margin-left: 4px; padding: 1px 7px; }

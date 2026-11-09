@@ -43,21 +43,6 @@ public final class SavingsController {
 
     public void register(Router router) {
         router.userGet("/epargne", request -> Response.page(page(request, request.confirmation(), false)));
-        router.userGet("/bourse", request -> Response.page(page(request, request.confirmation(), true)));
-        router.userGet("/bourse/graphique", request -> {
-            MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
-            List<Savings.Line> lines = snapshot(request, java.util.Set.of()).overview().lines().stream().filter(line -> line.account().kind().stocks()).toList();
-            BigDecimal cash = lines.stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
-            List<SavingsRepository.Position> positions = lines.stream().flatMap(line -> line.positions().stream()).map(Savings.PositionLine::position).toList();
-            return Response.page(StockCharts.portfolioChart(StockCharts.portfolio(positions, cash, range, symbol -> feeds.history(symbol, range)), range, "/bourse/graphique"));
-        });
-        router.userGet("/bourse/ligne/{id}/graphique", request -> {
-            SavingsRepository.Position position = savings.positions().stream().filter(candidate -> candidate.id() == request.id()).findFirst()
-                    .orElseThrow(() -> new NotFoundException("Ligne introuvable", "Cette ligne n'existe pas."));
-            editable(request, position.accountId());
-            MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
-            return Response.page(StockCharts.position(position, feeds.history(position.symbol(), range), range, "/bourse/ligne/" + position.id() + "/graphique"));
-        });
         router.userPost("/epargne/compte", this::addAccount);
         router.userPost("/epargne/compte/{id}", request -> {
             SavingsRepository.Account account = editable(request);
@@ -74,16 +59,6 @@ public final class SavingsController {
             if (account.contribution() != null && account.contribution().item() != null) budget.deleteWithShares(account.contribution().item());
             savings.deleteAccount(account.id());
             return done(request, "supprime", null, account.kind().stocks());
-        });
-        router.userPost("/epargne/compte/{id}/ligne", this::addPosition);
-        router.userPost("/epargne/compte/{id}/import", this::previewPositions);
-        router.userPost("/epargne/compte/{id}/import/valider", this::importPositions);
-        router.userPost("/epargne/ligne/{id}/supprimer", request -> {
-            SavingsRepository.Position position = savings.positions().stream().filter(candidate -> candidate.id() == request.id()).findFirst()
-                    .orElseThrow(() -> new NotFoundException("Ligne introuvable", "Cette ligne n'existe pas."));
-            editable(request, position.accountId());
-            savings.deletePosition(position.id());
-            return done(request, "supprime", "compte-" + position.accountId(), true);
         });
         router.userPost("/epargne/plan", request -> {
             String lep = request.form().raw("lep");
@@ -140,40 +115,6 @@ public final class SavingsController {
         }
     }
 
-    /** Lignes de bourse collees (reponse de l'IA) : apercu avec une case par ligne. */
-    private Response previewPositions(Request request) {
-        SavingsRepository.Account account = editable(request);
-        try {
-            if (!account.kind().stocks()) throw new ValidationException("Les lignes de bourse s'importent sur un PEA ou un compte-titres.");
-            String raw = new String(request.form().uploadedText("csv", "Export CSV ou réponse de l'IA"), java.nio.charset.StandardCharsets.UTF_8);
-            // Export de courtier : converti ici, l'apercu ne transporte que les lignes cumulees.
-            String content = BrokerExport.toLines(raw.startsWith("\uFEFF") ? raw.substring(1) : raw).orElse(raw);
-            List<PositionCsv.Row> rows = PositionCsv.parse(content, savings.positions().stream().filter(position -> position.accountId() == account.id()).toList(), feeds::resolve);
-            return Response.page(SavingsPages.importPreview(account, rows, content, back(request), request.csrf()));
-        } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error("Import impossible. " + exception.getMessage()), true));
-        }
-    }
-
-    private Response importPositions(Request request) {
-        SavingsRepository.Account account = editable(request);
-        try {
-            String content = new String(java.util.Base64.getUrlDecoder().decode(request.form().raw("contenu")), java.nio.charset.StandardCharsets.UTF_8);
-            List<PositionCsv.Row> rows = PositionCsv.parse(content, savings.positions().stream().filter(position -> position.accountId() == account.id()).toList(), feeds::resolve);
-            int added = 0;
-            for (PositionCsv.Row row : rows) {
-                if (!row.fresh() || !"on".equals(request.form().raw("importer_" + row.line()))) continue;
-                if (row.existing() != null) savings.updatePosition(row.existing(), row.quantity(), row.cost());
-                else savings.addPosition(new SavingsRepository.Position(0, account.id(), row.symbol(), row.label(), row.quantity(), row.cost(), null));
-                added++;
-            }
-            if (added == 0) throw new ValidationException("Cochez au moins une ligne à importer.");
-            return done(request, "importe", "compte-" + account.id(), true);
-        } catch (IllegalArgumentException exception) {
-            return Response.invalid(page(request, Notice.error("Import impossible : contenu illisible, recommencez."), true));
-        }
-    }
-
     /** Ce que voit la personne connectee : ses comptes, la vue, le plan (partage avec le bilan). */
     public record Snapshot(Savings.Overview overview, Savings.Plan plan, java.util.Optional<MarketFeeds.Inflation> inflation,
                            java.util.Optional<Savings.PurchasingPower> power, String lep, List<Person> holders) {
@@ -209,16 +150,8 @@ public final class SavingsController {
         LocalDate today = LocalDate.now(clock);
         // Historique : le solde du mois en cours de chaque placement visible (graphique de l'epargne).
         snapshot.overview().lines().forEach(line -> savings.recordHistory(line.account().id(), java.time.YearMonth.from(today), line.value()));
-        return stocks ? SavingsPages.stocks(snapshot, visibility.people(), today, notice, request.csrf(), search(request))
+        return stocks ? StocksPages.page(SavingsPages.only(snapshot.overview(), true), notice, request.csrf())
                 : SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf());
-    }
-
-    /** Recherche de titre lancee sous un compte de bourse (« q » et « compte » dans l'adresse), sinon vide. */
-    private SavingsPages.Search search(Request request) {
-        String query = request.query("q");
-        String account = request.query("compte");
-        if (query == null || query.isBlank() || account == null || !account.matches("\\d{1,12}")) return null;
-        return new SavingsPages.Search(Long.parseLong(account), query.strip(), feeds.search(query), feeds.offline());
     }
 
     /** 24 derniers mois, empiles : disponible et long terme, hors bourse (dernier solde connu reporte d'un mois sur l'autre). */
@@ -305,28 +238,20 @@ public final class SavingsController {
         }
     }
 
-    private Response addPosition(Request request) {
-        SavingsRepository.Account account = editable(request);
-        FormData form = request.form();
-        try {
-            if (!account.kind().stocks()) throw new ValidationException("Les lignes de bourse se saisissent sur un PEA ou un compte-titres.");
-            String symbol = BrokerExport.yahoo(form.requiredText("symbol", "Code Yahoo Finance", 20).trim().toUpperCase(java.util.Locale.ROOT));
-            if (!symbol.matches("[A-Z0-9.^=-]{1,20}")) throw new ValidationException("Code invalide : par exemple AI.PA pour Air Liquide à Paris, BTC pour le bitcoin.");
-            String label = form.raw("label").isBlank() ? symbol : form.requiredText("label", "Nom", 60);
-            BigDecimal quantity = quantity(form.raw("quantity"));
-            savings.addPosition(new SavingsRepository.Position(0, account.id(), symbol, label, quantity, form.amount("cost", "Prix de revient total"),
-                    form.optionalAmount("price", "Cours saisi")));
-            return done(request, "enregistre", "compte-" + account.id(), account.kind().stocks());
-        } catch (ValidationException exception) {
-            return Response.invalid(page(request, Notice.error(exception.getMessage()), account.kind().stocks()));
-        }
-    }
-
     private SavingsRepository.Account editable(Request request) {
         return editable(request, request.id());
     }
 
     /** Compte d'un membre accessible a la personne connectee (404 sinon, sans dire qu'il existe). */
+    public SavingsRepository repository() {
+        return savings;
+    }
+
+    /** Compte accessible a la personne connectee (404 sinon), pour la page Bourse. */
+    SavingsRepository.Account account(Request request, long id) {
+        return editable(request, id);
+    }
+
     private SavingsRepository.Account editable(Request request, long id) {
         SavingsRepository.Account account = savings.account(id).orElseThrow(() -> new NotFoundException("Compte introuvable", "Ce compte n'existe pas."));
         if (!request.viewer().sees(account.personId())) throw new NotFoundException("Compte introuvable", "Ce compte n'existe pas.");
@@ -353,7 +278,7 @@ public final class SavingsController {
         }
     }
 
-    private static BigDecimal quantity(String raw) {
+    static BigDecimal quantity(String raw) {
         try {
             BigDecimal quantity = new BigDecimal(raw.replace(',', '.').replaceAll("[\\s\\u00a0]", ""));
             if (quantity.signum() <= 0 || quantity.compareTo(BigDecimal.valueOf(10_000_000)) > 0) throw new NumberFormatException();

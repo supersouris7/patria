@@ -73,6 +73,8 @@ public final class Layout {
     }
 
     public static final ThreadLocal<Chrome> CHROME = new ThreadLocal<>();
+    /** Nombre de biens et de prets du foyer affiche (pastilles du sous-menu Immobilier), calcule a la demande. */
+    public static final ThreadLocal<java.util.function.Supplier<int[]>> ESTATE_COUNTS = new ThreadLocal<>();
     /** Theme force par la personne (« light » ou « dark ») ; vide : celui du systeme. */
     public static final ThreadLocal<String> THEME = new ThreadLocal<>();
 
@@ -297,11 +299,18 @@ public final class Layout {
     }
 
     public static Html estateNavigation(String active) {
+        java.util.function.Supplier<int[]> supplier = ESTATE_COUNTS.get();
+        int[] counts = supplier == null ? null : supplier.get();
         return Html.of("<nav class=\"estate-navigation\" aria-label=\"Navigation immobilière\">%s%s%s%s</nav>",
                 navLink("/immobilier", "Synthèse", active.equals("patrimoine")),
-                navLink("/immobilier/biens", "Mes biens", active.equals("biens")),
-                navLink("/immobilier/prets", "Prêts", active.equals("prets")),
+                countedLink("/immobilier/biens", "Mes biens", counts == null ? -1 : counts[0], active.equals("biens")),
+                countedLink("/immobilier/prets", "Prêts", counts == null ? -1 : counts[1], active.equals("prets")),
                 navLink("/immobilier/taxe-fonciere", "Taxe foncière", active.equals("taxe-fonciere")));
+    }
+
+    private static Html countedLink(String href, String label, int count, boolean active) {
+        return Html.of("<a href=\"%s\"%s>%s%s</a>", href, Html.raw(active ? " class=\"active\" aria-current=\"page\"" : ""), label,
+                count < 0 ? Html.EMPTY : Html.of(" <span class=\"nav-badge\">%s</span>", count));
     }
 
     /** Rappel du foyer modifie, en tete des pages qui en dependent (utile sur smartphone, ou le menu est replie). */

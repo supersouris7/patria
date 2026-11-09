@@ -175,11 +175,18 @@ Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (pr�
 
 ## Patrimoine
 
-La page **Patrimoine** est le bilan du foyer à la valeur du jour : les **actifs** (comptes et livrets, épargne long terme, bourse et cryptos, immobilier à sa valeur retenue), les **passifs** (capital restant dû des prêts immobiliers) et le **patrimoine net**, avec la répartition des actifs. Les crédits à la consommation n'y figurent pas : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui voit l'immobilier.
+La page **Patrimoine** montre ce que vous possédez (comptes et livrets, épargne long terme, bourse et cryptos, biens à leur valeur retenue), ce que vous devez (capital restant dû des prêts immobiliers) et le **patrimoine net = ce que vous possédez − ce que vous devez** : ce qui resterait si toutes les dettes étaient remboursées aujourd'hui, sans rien vendre. Les biens y sont comptés avant frais de vente et impôts (la « valeur nette » d'Immobilier → Synthèse les déduit, elle est donc plus basse). Les crédits à la consommation n'y figurent pas : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui voit l'immobilier.
 
 ## Épargne et Bourse
 
-L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur. La page Bourse affiche la valeur du portefeuille au cours du jour, la plus-value latente, la performance depuis l'achat, et pour chaque compte ses liquidités et sa plus-value. Pour ajouter un titre, **cherchez-le** sous le compte (nom, ISIN ou code : « MSCI World », `FR0010315770`, `BTC`) puis indiquez la quantité et le prix de revient. La **courbe du portefeuille** (1 mois, 1 an, 5 ans) valorise les lignes actuelles aux cours passés ; chaque ligne se déplie sur la **courbe de son cours**, avec le prix de revient en pointillé. Source : Yahoo Finance, en différé.
+L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur.
+
+Sur la page **Bourse**, deux boutons suffisent :
+
+- **Importer un relevé** : choisissez le courtier (les étapes pour obtenir l'export sont rappelées), le compte (existant, ou nouveau : type PEA ou compte-titres, nom, titulaire) et déposez le fichier tel quel. Patria reconnaît les colonnes, cumule achats et ventes et montre un aperçu ; un titre déjà présent est mis à jour. Un PDF passe par le prompt IA, en second choix.
+- **Ajouter un titre** : cherchez-le (nom, ISIN ou code : « MSCI World », `FR0010315770`, `BTC`), choisissez-le, puis indiquez la quantité et le **prix moyen par part** (ou le total payé) et le compte. Un nouvel achat d'un titre déjà détenu s'ajoute à sa ligne.
+
+Aucun solde à saisir : un compte de bourse naît avec 0 € d'**espèces** (l'argent non investi), modifiable dans son menu Gérer. Chaque titre se modifie (quantité, prix moyen) ou se supprime depuis son menu Gérer. Tuiles : valeur, plus-value latente, montant investi, espèces. La **courbe du portefeuille** (1 mois, 1 an, 5 ans) valorise les titres actuels aux cours passés ; chaque titre se déplie sur la **courbe de son cours**, avec le prix moyen en pointillé. Source : Yahoo Finance, en différé.
 
 
 Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.

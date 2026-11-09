@@ -68,8 +68,8 @@ final class WizardPages {
             case TRANSFERS -> transfers(context, values);
             case SHARES -> shares(context);
             case SAVINGS -> Html.concat(explain("Saisissez le solde de chaque livret, assurance-vie, PER, PEA ou compte-titres. Un versement programmé fait avancer le solde "
-                    + "tout seul et apparaît dans le budget. Pour la bourse et les cryptos, déposez l'export CSV de votre courtier (Trade Republic, Revolut, Degiro, "
-                    + "Coinbase…) sous le compte : la valeur suit ensuite les cours du jour. Un PDF passe par le prompt IA."), context.savings().get());
+                    + "tout seul et apparaît dans le budget. Pour la bourse et les cryptos, la page Bourse importe le relevé de votre courtier (Trade Republic, Revolut, "
+                    + "Degiro, Coinbase…) et crée le compte : la valeur suit ensuite les cours du jour."), context.savings().get());
             case HEALTH -> healthScope(context);
             case SUMMARY -> summary(context);
         };

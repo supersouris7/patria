@@ -241,3 +241,13 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 .title-results small { color: var(--muted); display: block; }
 .title-add { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; }
 .title-add label { font-size: .8rem; width: 160px; }
+.stock-start { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.stock-choice { color: var(--text); display: grid; gap: 10px; text-decoration: none; }
+.stock-choice:hover { border-color: var(--blue); }
+.stock-choice b { font-size: 1.15rem; }
+.stock-choice span:not(.button) { color: var(--text-soft); }
+.stock-choice .button { justify-self: start; }
+.stock-account-meta { color: var(--text-soft); font-size: .9rem; margin-right: 10px; }
+.positions-table td small { color: var(--muted); display: block; font-size: .78rem; }
+fieldset.target { border: 1px solid var(--line); border-radius: var(--radius-small); margin: 6px 0; padding: 10px 14px; }
+fieldset.target legend { color: var(--accent-text); font-size: .78rem; font-weight: 750; letter-spacing: .06em; padding: 0 6px; text-transform: uppercase; }

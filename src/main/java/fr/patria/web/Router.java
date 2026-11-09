@@ -65,6 +65,12 @@ public final class Router implements HttpHandler {
     private static final String SECURITY_POLICY = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
             + "script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
     private final List<Route> routes = new ArrayList<>();
+    /** Preparation propre au foyer avant chaque page (compteurs du sous-menu Immobilier). */
+    private Runnable before = () -> { };
+
+    public void before(Runnable hook) {
+        before = hook;
+    }
     private final Sessions sessions;
     private final Viewers viewers;
     private final Households households;
@@ -164,6 +170,7 @@ public final class Router implements HttpHandler {
         } finally {
             Layout.CHROME.remove();
             Layout.THEME.remove();
+            Layout.ESTATE_COUNTS.remove();
             exchange.close();
         }
     }
@@ -197,6 +204,7 @@ public final class Router implements HttpHandler {
             "/aide/https", "/aide/chiffrement", "/securite/http-compris", "/confidentialite", "/connexion", "/sante");
 
     private Response dispatch(HttpExchange exchange, String path, Session session, Viewer viewer) {
+        before.run();
         String method = exchange.getRequestMethod().equals("HEAD") ? "GET" : exchange.getRequestMethod();
         if (households != null && viewer != null && viewer.mustChangePassword() && !BEFORE_PASSWORD_CHANGE.contains(path)) {
             return Response.redirect("/compte/nouveau-mot-de-passe");
