@@ -96,13 +96,23 @@ public final class Request {
 
     /** Adresse du client. Derriere le reverse proxy local, la derniere entree de X-Forwarded-For (ajoutee par le proxy). */
     public String clientAddress() {
-        InetAddress remote = exchange.getRemoteAddress().getAddress();
         String forwarded = header("X-Forwarded-For");
-        if ((remote.isLoopbackAddress() || remote.isSiteLocalAddress()) && forwarded != null && !forwarded.isBlank()) {
+        if (fromProxy(exchange) && forwarded != null && !forwarded.isBlank()) {
             String[] hops = forwarded.split(",");
             return hops[hops.length - 1].trim();
         }
-        return remote.getHostAddress();
+        return exchange.getRemoteAddress().getAddress().getHostAddress();
+    }
+
+    /** Connexion venue du reverse proxy (machine locale ou reseau prive) : seuls ses en-tetes X-Forwarded-* sont crus. */
+    static boolean fromProxy(HttpExchange exchange) {
+        InetAddress remote = exchange.getRemoteAddress().getAddress();
+        return remote.isLoopbackAddress() || remote.isSiteLocalAddress();
+    }
+
+    /** Page servie en HTTPS par le reverse proxy ; un client direct ne peut pas le pretendre. */
+    static boolean https(HttpExchange exchange) {
+        return fromProxy(exchange) && "https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"));
     }
 
     HttpExchange exchange() {
@@ -110,7 +120,7 @@ public final class Request {
     }
 
     public boolean isHttps() {
-        return "https".equalsIgnoreCase(header("X-Forwarded-Proto"));
+        return https(exchange);
     }
 
     /** Formulaire envoye (urlencoded ou multipart), lu une seule fois. */

@@ -44,8 +44,9 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      * @param mustChangePassword mot de passe choisi par l'administrateur, a changer avant toute autre page
      * @param audience           qui voit quoi dans ce foyer (icone d'information de l'en-tete)
      * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
+     * @param emailToConfirm     e-mail a confirmer avant toute autre page (exige par l'administrateur a la creation du compte)
      */
-    public record Signals(boolean mustChangePassword, Audience audience, String notice) {
+    public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm) {
     }
 
     /** Un foyer du selecteur ; {@code managed} : l'utilisateur y gere l'immobilier (deplacement d'un bien). */
@@ -65,7 +66,7 @@ public record Viewer(Long userId, String name, Household household, List<Househo
 
     /** L'administrateur : aucune vue dans les foyers. */
     public static Viewer admin(String name, Household household, List<Household> households) {
-        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, null));
+        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, null, false));
     }
 
     public boolean wholeHousehold() {
@@ -82,6 +83,10 @@ public record Viewer(Long userId, String name, Household household, List<Househo
 
     public boolean mustChangePassword() {
         return signals.mustChangePassword();
+    }
+
+    public boolean emailToConfirm() {
+        return signals.emailToConfirm();
     }
 
     public Audience audience() {

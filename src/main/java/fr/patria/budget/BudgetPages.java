@@ -200,16 +200,16 @@ final class BudgetPages {
     private static Html monthList(List<Forecast.Month> months, String back) {
         Html items = months.stream().map(month -> {
             Html incomes = month.incomes().isEmpty() ? Html.raw("<p class=\"empty\">Aucun revenu prévu.</p>")
-                    : month.incomes().stream().map(line -> Html.of("<li><span>%s <small>%s</small></span><b>%s</b></li>", lineLink(line.link(), line.label(), back), line.who(), euro(line.amount())))
+                    : month.incomes().stream().map(line -> Html.of("<li><span>%s <small>%s</small></span><b>%s</b></li>", lineLink(line.link(), line.label(), back), line.who(), euroWhole(line.amount())))
                     .collect(Html.joining());
             Map<Category, List<Forecast.Line>> byCategory = month.expenses().stream()
                     .collect(Collectors.groupingBy(Forecast.Line::category, () -> new EnumMap<>(Category.class), Collectors.toList()));
             Html expenses = month.expenses().isEmpty() ? Html.raw("<p class=\"empty\">Aucune dépense prévue.</p>")
                     : byCategory.entrySet().stream().map(entry -> Html.of("<li class=\"group\"><span>%s</span><b>%s</b></li>%s", entry.getKey().label(),
-                    euro(entry.getValue().stream().map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add)),
+                    euroWhole(entry.getValue().stream().map(Forecast.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add)),
                     entry.getValue().stream().map(line -> Html.of("<li class=\"item\"><span>%s%s</span><b>%s</b></li>", lineLink(line.link(), line.label(), back),
                             line.frequency() == Frequency.MONTHLY ? Html.EMPTY : Html.of(" <small class=\"badge\">%s</small>", line.frequency().label()),
-                            euro(line.amount()))).collect(Html.joining()))).collect(Html.joining());
+                            euroWhole(line.amount()))).collect(Html.joining()))).collect(Html.joining());
             String tone = month.balance().signum() < 0 ? "negative" : "";
             return Html.of("""
                     <details class="month" id="%s"%s><summary><span class="month-name">%s</span><span>%s</span><span>%s</span><span class="%s">%s</span></summary>
@@ -217,7 +217,7 @@ final class BudgetPages {
                     <p class="month-margin %s"><span>Revenus %s − dépenses %s</span><span>%s <b>%s</b></span></p></div></details>""",
                     BudgetChart.anchor(month.month()), Html.raw(month == months.getFirst() ? " open" : ""), Format.month(month.month()), euroWhole(month.income()), euroWhole(month.spending()),
                     tone, Format.signedEuroWhole(month.balance()), incomes, expenses,
-                    tone, euro(month.income()), euro(month.spending()), month.balance().signum() < 0 ? "Il manque" : "Reste à vivre",
+                    tone, euroWhole(month.income()), euroWhole(month.spending()), month.balance().signum() < 0 ? "Il manque" : "Reste à vivre",
                     Format.signedEuroWhole(month.balance()));
         }).collect(Html.joining());
         return Html.of("<div class=\"months\"><div class=\"months-head\"><span>Mois</span><span>Revenus</span><span>Dépenses</span><span>Reste à vivre</span></div>%s</div>", items);
@@ -227,7 +227,7 @@ final class BudgetPages {
     private static Html categoryDetail(Category category, List<Forecast.Average> expenses, Forecast.View view) {
         Html items = expenses.stream().filter(line -> line.category() == category).sorted(Comparator.comparing(Forecast.Average::monthly).reversed())
                 .map(line -> Html.of("<li><span>%s <small>%s · %s</small></span><b>%s</b></li>", lineLink(line.link(), line.label(), "/budget" + scope(view)),
-                        line.frequency().label(), euro(line.perPayment()), euro(line.monthly()) + "/mois"))
+                        line.frequency().label(), euroWhole(line.perPayment()), euroWhole(line.monthly()) + "/mois"))
                 .collect(Html.joining());
         return Html.of("<ul class=\"rank-detail\">%s</ul>", items);
     }
@@ -259,11 +259,11 @@ final class BudgetPages {
                 .collect(Html.joining());
 
         Html incomeRows = incomes.stream().map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(lineLink(line.link(), line.label(), "/budget" + scope(view))), cell(line.detail()),
-                cell(line.frequency().label()), number(line.perPayment(), euro(line.perPayment())), number(line.monthly(), euro(line.monthly())))).collect(Html.joining());
+                cell(line.frequency().label()), number(line.perPayment(), euroWhole(line.perPayment())), number(line.monthly(), euroWhole(line.monthly())))).collect(Html.joining());
         Html expenseRows = expenses.stream().sorted(Comparator.comparing(Forecast.Average::category).thenComparing(Forecast.Average::monthly, Comparator.reverseOrder()))
                 .map(line -> Html.of("<tr>%s%s%s%s%s</tr>", cell(Html.concat(lineLink(line.link(), line.label(), "/budget" + scope(view)),
                                 line.origin() == Forecast.Origin.REAL_ESTATE ? Html.raw(" <small class=\"badge\">Immobilier</small>") : Html.EMPTY)),
-                        cell(line.detail()), cell(line.frequency().label()), number(line.perPayment(), euro(line.perPayment())), number(line.monthly(), euro(line.monthly()))))
+                        cell(line.detail()), cell(line.frequency().label()), number(line.perPayment(), euroWhole(line.perPayment())), number(line.monthly(), euroWhole(line.monthly()))))
                 .collect(Html.joining());
 
         Html content = Html.concat(heading,

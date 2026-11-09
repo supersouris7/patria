@@ -224,6 +224,8 @@ final class AccountPages {
                 Components.input(Input.of("Identifiant", "login", Field.TEXT).required().maxLength(40).placeholder("paul")
                         .help("Lettres, chiffres, point, tiret. Sert à la connexion."), values),
                 password("Mot de passe provisoire", "password", "new-password", "Au moins " + AccountRepository.MIN_PASSWORD + " caractères ; l'utilisateur le changera à sa première connexion."),
+                Components.input(Input.of("E-mail (facultatif)", "email", Field.TEXT).maxLength(254).placeholder("paul@example.fr")
+                        .help("À confirmer par l'utilisateur à sa première connexion si l'administrateur l'exige (Sécurité → E-mail)."), values),
                 memberSelect(choices, values.getOrDefault("membre", ""))),
                 "Créer l'utilisateur");
         Html content = Html.concat(Components.heading("Administration", "Utilisateurs",
@@ -346,6 +348,11 @@ final class AccountPages {
     }
 
     static Html account(String name, String login, boolean admin, Security security, Notice notice, String csrf) {
+        return account(name, login, admin, security, null, false, notice, csrf);
+    }
+
+    /** {@code email} : e-mail du compte (null pour l'administrateur) ; {@code mailActive} : envoi d'e-mails regle. */
+    static Html account(String name, String login, boolean admin, Security security, AccountRepository.Email email, boolean mailActive, Notice notice, String csrf) {
         Html body = admin ? Html.raw("""
                 <p class="muted">Vous êtes connecté en administrateur. Ce mot de passe est défini dans l'environnement du serveur (APP_PASSWORD) :
                 il se change dans la configuration (compose.yaml), puis en redémarrant Patria.</p>""")
@@ -355,9 +362,43 @@ final class AccountPages {
                         password("Confirmation", "confirm", "new-password", null)), "Changer le mot de passe");
         Html content = Html.concat(Components.heading("Mon compte", name, login, Html.EMPTY), Components.notice(notice),
                 Components.card("Mot de passe", null, Html.EMPTY, body),
+                email == null ? Html.EMPTY : Components.card("E-mail", null, Html.EMPTY, emailForm(email, mailActive, csrf)),
                 Components.card("Double authentification", null, Html.EMPTY, twoFactor(security, admin, csrf)),
                 connections(security));
         return Layout.page("Mon compte · Patria", Layout.Section.ACCOUNT, csrf, content);
+    }
+
+    /** E-mail du compte : etat (confirme ou non) et changement, avec envoi d'un lien quand l'envoi est regle. */
+    static Html emailForm(AccountRepository.Email email, boolean mailActive, String csrf) {
+        Html state = email.address() == null ? Html.raw("<p class=\"muted\">Aucun e-mail. "
+                + (mailActive ? "Ajoutez-en un pour pouvoir réinitialiser votre mot de passe vous-même." : "Facultatif.") + "</p>")
+                : Html.of("<p><b>%s</b> %s</p>", email.address(), Html.raw(email.verified() ? "<span class=\"badge paid\">confirmé</span>"
+                : mailActive ? "<span class=\"badge warn\">à confirmer</span>" : ""));
+        return Html.concat(state, Html.of("""
+                <form method="post" action="/compte/email" class="row-form">%s<label>%s<input name="email" type="email" maxlength="254" value="%s" required autocomplete="email"></label>                <button class="secondary" type="submit">%s</button></form>""", Components.csrfField(csrf), email.address() == null ? "E-mail" : "Nouvel e-mail",
+                email.address() == null ? "" : email.address(), mailActive ? "Envoyer le lien de confirmation" : "Enregistrer"));
+    }
+
+    /** Page de confirmation de l'e-mail, exigee avant d'aller plus loin pour un compte cree quand l'administrateur l'exige. */
+    static Html emailRequired(AccountRepository.Email email, Notice notice, String csrf) {
+        return Layout.document("Confirmer votre e-mail · Patria", "login-page", Html.of("""
+                <main class="login-card">%s<h1 class="login-title">Confirmez votre e-mail</h1>%s
+                <p class="muted">L'administrateur demande un e-mail confirmé : il vous servira à réinitialiser votre mot de passe. Indiquez-le, puis ouvrez le lien
+                reçu (valable 24 heures).</p>%s
+                <form method="post" action="/deconnexion">%s<button class="quiet" type="submit">Se déconnecter</button></form></main>""",
+                Layout.brand(), Components.notice(notice), emailForm(email, true, csrf), Components.csrfField(csrf)));
+    }
+
+    /** Proposition de la double authentification, juste apres le premier mot de passe : activer, ou plus tard. */
+    static Html offerTwoFactor(String csrf) {
+        return Layout.document("Sécuriser votre compte · Patria", "login-page", Html.of("""
+                <main class="login-card">%s<h1 class="login-title">Protégez votre compte</h1>
+                <p>La <b>double authentification</b> demande, en plus du mot de passe, un code à 6 chiffres affiché par une application de votre téléphone
+                (Google Authenticator, Microsoft Authenticator, Aegis, 2FAS…). Même si votre mot de passe est deviné ou volé, personne ne peut ouvrir votre budget.</p>
+                <p class="muted">Deux minutes suffisent. Vous pourrez aussi l'activer plus tard dans Mon compte.</p>
+                <div class="form-actions"><a class="button" href="/compte/double-authentification?suite=bienvenue">Activer maintenant</a>
+                <form method="post" action="/compte/securiser/plus-tard">%s<button class="secondary" type="submit">Plus tard</button></form></div></main>""",
+                Layout.brand(), Components.csrfField(csrf)));
     }
 
     private static Html twoFactor(Security security, boolean admin, String csrf) {
@@ -395,7 +436,7 @@ final class AccountPages {
     }
 
     /** Activation : QR code a scanner, cle a saisir a la main, puis le premier code. */
-    static Html twoFactorSetup(String uri, String secret, Notice notice, String csrf) {
+    static Html twoFactorSetup(String uri, String secret, Notice notice, boolean welcome, String csrf) {
         Html content = Html.concat(Components.backLink("/compte", "Mon compte"),
                 Components.heading("Mon compte", "Activer la double authentification", "Trois étapes, une minute.", Html.EMPTY), Components.notice(notice),
                 Html.of("""
@@ -411,7 +452,7 @@ final class AccountPages {
                         <p class="muted small">Téléphone perdu ou changé : l'administrateur peut retirer votre double authentification (c'est inscrit au journal
                         et Patria vous le signale). Le QR code est dessiné par Patria : la clé ne quitte pas votre serveur.</p></section>""",
                         fr.patria.ui.QrCode.svg(uri, "QR code à scanner avec l'application d'authentification"), fr.patria.common.Totp.grouped(secret),
-                        Components.csrfField(csrf)));
+                        Html.concat(Components.csrfField(csrf), welcome ? Html.raw("<input type=\"hidden\" name=\"suite\" value=\"bienvenue\">") : Html.EMPTY)));
         return Layout.page("Double authentification · Patria", Layout.Section.ACCOUNT, csrf, content);
     }
 

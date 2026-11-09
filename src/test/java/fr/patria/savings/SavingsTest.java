@@ -160,6 +160,32 @@ class SavingsTest {
     }
 
     @Test
+    void titlesAreFoundAndHistoriesBuildThePortfolioCurve() {
+        List<MarketFeeds.Found> found = MarketFeeds.parseSearch("""
+                {"quotes":[{"symbol":"^990100-USD-STRD","quoteType":"INDEX","typeDisp":"Index"},{"exchange":"PAR","shortname":"AMUNDI MSCI WORLD","quoteType":"ETF","symbol":"CW8.PA","longname":"Amundi MSCI World UCITS ETF",\
+                "exchDisp":"Paris","typeDisp":"ETF"},{"symbol":"BTC-EUR","shortname":"Bitcoin EUR","typeDisp":"Cryptocurrency"}],"news":[]}""");
+        assertEquals("CW8.PA", found.getFirst().symbol());
+        assertEquals("Amundi MSCI World UCITS ETF", found.getFirst().name());
+        assertEquals("Paris", found.getFirst().exchange());
+        assertEquals("BTC-EUR", found.get(1).symbol());
+        MarketFeeds.History etf = MarketFeeds.parseHistory("""
+                {"chart":{"result":[{"meta":{"currency":"EUR"},"timestamp":[1767225600,1767312000,1767398400],\
+                "indicators":{"quote":[{"close":[100.0,null,110.0]}]}}]}}""");
+        assertEquals(2, etf.dates().size(), "jour sans cours ignore");
+        MarketFeeds.History dollar = MarketFeeds.parseHistory("""
+                {"chart":{"result":[{"meta":{"currency":"USD"},"timestamp":[1767225600,1767398400],"indicators":{"quote":[{"close":[10,20]}]}}]}}""");
+        MarketFeeds.History rate = MarketFeeds.parseHistory("""
+                {"chart":{"result":[{"meta":{"currency":"EUR"},"timestamp":[1767225600],"indicators":{"quote":[{"close":[0.5]}]}}]}}""");
+        List<SavingsRepository.Position> positions = List.of(
+                new SavingsRepository.Position(1, 1, "CW8.PA", "ETF", new BigDecimal("2"), new BigDecimal("150"), null),
+                new SavingsRepository.Position(2, 1, "AAPL", "Apple", new BigDecimal("1"), new BigDecimal("5"), null));
+        StockCharts.Series curve = StockCharts.portfolio(positions, new BigDecimal("50"), MarketFeeds.Range.YEAR,
+                symbol -> switch (symbol) { case "CW8.PA" -> etf; case "AAPL" -> dollar; default -> rate; });
+        assertEquals(new BigDecimal("255.00"), curve.values().getFirst(), "50 de liquidites + 2 × 100 + 10 $ × 0,5");
+        assertEquals(new BigDecimal("280.00"), curve.values().getLast(), "50 + 2 × 110 + 20 $ × 0,5 (dernier taux connu)");
+    }
+
+    @Test
     void foreignQuotesAreConvertedAndPenceBecomePounds() {
         assertEquals(new BigDecimal("87.53"), MarketFeeds.parseQuote("{\"currency\":\"GBp\",\"regularMarketPrice\":8753}").price());
         SavingsRepository.Position apple = new SavingsRepository.Position(1, 1, "AAPL", "Apple", new BigDecimal("2"), new BigDecimal("300"), null);

@@ -179,7 +179,7 @@ La page **Patrimoine** est le bilan du foyer à la valeur du jour : les **actifs
 
 ## Épargne et Bourse
 
-L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur. La page Bourse affiche la valeur du portefeuille au cours du jour, la plus-value latente, la performance depuis l'achat, et pour chaque compte ses liquidités et sa plus-value.
+L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur. La page Bourse affiche la valeur du portefeuille au cours du jour, la plus-value latente, la performance depuis l'achat, et pour chaque compte ses liquidités et sa plus-value. Pour ajouter un titre, **cherchez-le** sous le compte (nom, ISIN ou code : « MSCI World », `FR0010315770`, `BTC`) puis indiquez la quantité et le prix de revient. La **courbe du portefeuille** (1 mois, 1 an, 5 ans) valorise les lignes actuelles aux cours passés ; chaque ligne se déplie sur la **courbe de son cours**, avec le prix de revient en pointillé. Source : Yahoo Finance, en différé.
 
 
 Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.

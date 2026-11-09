@@ -83,3 +83,22 @@ CVE-2026-84243 n'est pas considérée comme corrigée : l'avis Chainguard (CGA-v
 - Compatibilité des données : base créée par l'image stable publiée (schéma v13, chiffrée) puis ouverte par la nouvelle image : migration jusqu'à v17 avec sa sauvegarde automatique, données relues, propriétaire du volume inchangé (10001).
 - Image : aucun shell, aucun gestionnaire de paquets, aucun `.env`, aucune base SQLite, aucun secret dans l'historique ; programme et bibliothèque native appartenant à root.
 - arm64 : non testé localement (pas d'émulation sur cette machine) ; le job `verify` de la CI construit, démarre et analyse l'image arm64 sous QEMU avant toute publication.
+
+## Exposition sur Internet (novembre 2026)
+
+Revue du code avant une ouverture du port 443 derrière un reverse proxy, pour un accès familial.
+
+| Point | Constat | Suite |
+|---|---|---|
+| Mots de passe | bcrypt, 8 caractères minimum, essais limités (10 par adresse, 30 par identifiant, 15 min) | conforme |
+| Double authentification | TOTP, 5 essais par jeton de connexion, essais comptés dans la même limite | conforme ; à activer pour l'administrateur |
+| Session | cookie aléatoire, `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS, 12 h | conforme |
+| CSRF | jeton vérifié en temps constant sur chaque formulaire connecté | conforme |
+| En-têtes | CSP sans script en ligne, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS en HTTPS | conforme |
+| Inscriptions | mode « message » par défaut ; demandes en attente plafonnées | conforme |
+| `X-Forwarded-Proto` | cru venant de n'importe quel client | **corrigé** : seulement depuis le proxy (machine locale ou réseau privé), comme `X-Forwarded-For` |
+| Fils du serveur | 4 fils fixes : quatre requêtes lentes (envoi lent, conversion par l'IA locale) bloquaient tout | **corrigé** : un fil léger par requête |
+| Requête interminable | aucune limite de durée côté serveur | **corrigé** : 120 s au plus pour recevoir une requête |
+| Port de Patria | publié sur `127.0.0.1` seulement dans `compose.yaml` | conforme ; ne jamais le rediriger sur la box |
+
+Guide de mise en ligne : [administration.md](administration.md#exposer-sur-internet-depuis-une-box-port-443).

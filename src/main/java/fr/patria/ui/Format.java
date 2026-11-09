@@ -10,7 +10,7 @@ import java.util.Locale;
 
 /** Mise en forme a la francaise. Renvoie du texte brut : l'echappement est fait par {@link Html}. */
 public final class Format {
-    public static final String DASH = "–";
+    public static final String DASH = "—";
     private static final Locale FR = Locale.FRANCE;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy", FR);
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMMM yyyy", FR);

@@ -186,7 +186,7 @@ public final class Router implements HttpHandler {
     }
 
     static boolean insecure(HttpExchange exchange) {
-        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) return false;
+        if (Request.https(exchange)) return false;
         String host = exchange.getRequestHeaders().getFirst("Host");
         String name = host == null ? "" : host.toLowerCase(java.util.Locale.ROOT).replaceFirst(":\\d+$", "");
         return !(name.equals("localhost") || name.startsWith("127.") || name.equals("[::1]"));
@@ -200,6 +200,9 @@ public final class Router implements HttpHandler {
         String method = exchange.getRequestMethod().equals("HEAD") ? "GET" : exchange.getRequestMethod();
         if (households != null && viewer != null && viewer.mustChangePassword() && !BEFORE_PASSWORD_CHANGE.contains(path)) {
             return Response.redirect("/compte/nouveau-mot-de-passe");
+        }
+        if (households != null && viewer != null && viewer.emailToConfirm() && !BEFORE_PASSWORD_CHANGE.contains(path) && !path.startsWith("/compte/email")) {
+            return Response.redirect("/compte/email");
         }
         boolean pathExists = false;
         for (Route route : routes) {
@@ -268,7 +271,7 @@ public final class Router implements HttpHandler {
         headers.set("Cross-Origin-Opener-Policy", "same-origin");
         headers.set("Cross-Origin-Resource-Policy", "same-origin");
         // HTTPS (derriere le proxy) : le navigateur n'essaiera plus le HTTP pendant un an.
-        if ("https".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Forwarded-Proto"))) {
+        if (Request.https(exchange)) {
             headers.set("Strict-Transport-Security", "max-age=31536000");
         }
         switch (response) {

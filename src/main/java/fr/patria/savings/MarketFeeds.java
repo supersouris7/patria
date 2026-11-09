@@ -35,7 +35,9 @@ import java.util.regex.Pattern;
 public final class MarketFeeds {
     static final String INFLATION_URL = "https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/011814630?lastNObservations=13";
     static final String QUOTE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1d&interval=1d";
-    static final String SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search?q=%s&quotesCount=5&newsCount=0";
+    static final String SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search?q=%s&quotesCount=8&newsCount=0";
+    static final String HISTORY_URL = "https://query1.finance.yahoo.com/v8/finance/chart/%s?range=%s&interval=%s";
+    private static final Duration HISTORY_REFRESH = Duration.ofHours(6);
     private static final Duration QUOTE_REFRESH = Duration.ofHours(1);
     private static final Duration INFLATION_REFRESH = Duration.ofDays(1);
     private static final Duration RETRY = Duration.ofMinutes(30);
@@ -44,6 +46,45 @@ public final class MarketFeeds {
 
     /** Cours d'une valeur et sa devise. */
     public record Quote(BigDecimal price, String currency) {
+    }
+
+    /** Un titre trouve par la recherche : code Yahoo, nom, place de cotation, type (ETF, action, crypto…). */
+    public record Found(String symbol, String name, String exchange, String type) {
+    }
+
+    /** Periode d'un graphique de cours : 1 mois (quotidien), 1 an (quotidien), 5 ans (hebdomadaire). */
+    public enum Range {
+        MONTH("1mo", "1d", "1 mois"), YEAR("1y", "1d", "1 an"), FIVE_YEARS("5y", "1wk", "5 ans");
+
+        final String range;
+        final String interval;
+        private final String label;
+
+        Range(String range, String interval, String label) {
+            this.range = range;
+            this.interval = interval;
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        /** {@code 1m}, {@code 1a}, {@code 5a} ; 1 an par defaut. */
+        public static Range parse(String value) {
+            return "1m".equals(value) ? MONTH : "5a".equals(value) ? FIVE_YEARS : YEAR;
+        }
+
+        public String code() {
+            return this == MONTH ? "1m" : this == FIVE_YEARS ? "5a" : "1a";
+        }
+    }
+
+    /** Historique de cours : dates et cloture dans la devise de cotation (pence ramenes en livres). */
+    public record History(java.util.List<java.time.LocalDate> dates, java.util.List<BigDecimal> closes, String currency) {
+        public boolean isEmpty() {
+            return dates.isEmpty();
+        }
     }
 
     /** Inflation sur 12 mois (en %) au mois {@code month}, d'apres l'indice des prix INSEE. */
@@ -64,6 +105,8 @@ public final class MarketFeeds {
     private final Map<String, Long> nextQuote = new ConcurrentHashMap<>();
     private final Map<String, Boolean> fetchingQuote = new ConcurrentHashMap<>();
     private final AtomicBoolean fetchingInflation = new AtomicBoolean();
+    private final Map<String, History> histories = new ConcurrentHashMap<>();
+    private final Map<String, Long> historyFetched = new ConcurrentHashMap<>();
     private volatile Inflation inflation;
     private volatile long nextInflation;
 
@@ -124,6 +167,101 @@ public final class MarketFeeds {
             Thread.currentThread().interrupt();
             return Optional.empty();
         }
+    }
+
+    /**
+     * Recherche libre d'un titre (nom, ISIN, code) sur Yahoo Finance, a la demande de la personne : appel direct ;
+     * vide hors ligne ou en cas de panne.
+     */
+    public java.util.List<Found> search(String query) {
+        String wanted = query == null ? "" : query.strip();
+        if (offline || wanted.isEmpty() || wanted.length() > 60) return java.util.List.of();
+        try {
+            return parseSearch(source.fetch(SEARCH_URL.formatted(URLEncoder.encode(wanted, StandardCharsets.UTF_8))));
+        } catch (IOException | RuntimeException exception) {
+            LOG.log(Level.INFO, "Recherche de titre indisponible", exception);
+            return java.util.List.of();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return java.util.List.of();
+        }
+    }
+
+    /** Resultats de la recherche Yahoo (objets « quotes ») : seuls les titres cotes avec un code valable. */
+    static java.util.List<Found> parseSearch(String json) {
+        int start = json.indexOf("\"quotes\"");
+        if (start < 0) return java.util.List.of();
+        int end = json.indexOf(']', start);
+        Matcher object = Pattern.compile("\\{[^{}]*\\}").matcher(json.substring(start, end < 0 ? json.length() : end));
+        java.util.List<Found> found = new java.util.ArrayList<>();
+        while (object.find()) {
+            String item = object.group();
+            String symbol = field(item, "symbol");
+            // Un indice (^…) ne s'achete pas : seuls les titres detenables sont proposes.
+            if (symbol == null || symbol.startsWith("^") || !SYMBOL.matcher(symbol).matches() || "INDEX".equalsIgnoreCase(field(item, "quoteType"))) continue;
+            String name = java.util.Objects.requireNonNullElse(field(item, "longname"), java.util.Objects.requireNonNullElse(field(item, "shortname"), symbol));
+            found.add(new Found(symbol.toUpperCase(java.util.Locale.ROOT), name, java.util.Objects.requireNonNullElse(field(item, "exchDisp"), ""),
+                    java.util.Objects.requireNonNullElse(field(item, "typeDisp"), "")));
+        }
+        return found;
+    }
+
+    private static String field(String json, String name) {
+        Matcher matcher = Pattern.compile("\"" + name + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(json);
+        return matcher.find() ? matcher.group(1).replace("\\u0026", "&").replace("\\\"", "\"").strip() : null;
+    }
+
+    /**
+     * Historique de cours de {@code symbol} sur {@code range} (Yahoo « chart »), garde 6 heures. Appel direct a la
+     * premiere demande ; vide hors ligne ou si le titre est inconnu.
+     */
+    public History history(String symbol, Range range) {
+        History none = new History(java.util.List.of(), java.util.List.of(), "EUR");
+        if (offline || symbol == null || !SYMBOL.matcher(symbol).matches()) return none;
+        String key = symbol.toUpperCase(java.util.Locale.ROOT) + "|" + range;
+        History cached = histories.get(key);
+        if (cached != null && clock.millis() < historyFetched.getOrDefault(key, 0L) + HISTORY_REFRESH.toMillis()) return cached;
+        try {
+            History fresh = parseHistory(source.fetch(HISTORY_URL.formatted(URLEncoder.encode(symbol.toUpperCase(java.util.Locale.ROOT), StandardCharsets.UTF_8),
+                    range.range, range.interval)));
+            histories.put(key, fresh);
+            historyFetched.put(key, clock.millis());
+            return fresh;
+        } catch (IOException | RuntimeException exception) {
+            LOG.log(Level.INFO, "Historique de " + symbol + " indisponible", exception);
+            return cached != null ? cached : none;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return cached != null ? cached : none;
+        }
+    }
+
+    /** {@code timestamp} et {@code close} de la reponse « chart » ; les jours sans cours sont ignores. */
+    static History parseHistory(String json) {
+        Matcher times = Pattern.compile("\"timestamp\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(json);
+        Matcher closes = Pattern.compile("\"close\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(json);
+        if (!times.find() || !closes.find()) throw new IllegalArgumentException("Historique absent de la réponse.");
+        Matcher currency = Pattern.compile("\"currency\"\\s*:\\s*\"([A-Za-z]{3})\"").matcher(json);
+        String code = currency.find() ? currency.group(1) : "EUR";
+        boolean pence = code.equals("GBp") || code.equals("GBX");
+        String[] stamps = times.group(1).split(",");
+        String[] values = closes.group(1).split(",");
+        java.util.List<java.time.LocalDate> dates = new java.util.ArrayList<>();
+        java.util.List<BigDecimal> prices = new java.util.ArrayList<>();
+        for (int index = 0; index < Math.min(stamps.length, values.length); index++) {
+            String value = values[index].strip();
+            if (value.isEmpty() || value.equals("null") || stamps[index].isBlank()) continue;
+            BigDecimal price = new BigDecimal(value);
+            if (price.signum() <= 0) continue;
+            java.time.LocalDate date = java.time.Instant.ofEpochSecond(Long.parseLong(stamps[index].strip())).atZone(java.time.ZoneOffset.UTC).toLocalDate();
+            if (!dates.isEmpty() && dates.getLast().equals(date)) {
+                prices.set(prices.size() - 1, pence ? price.movePointLeft(2) : price);
+                continue;
+            }
+            dates.add(date);
+            prices.add(pence ? price.movePointLeft(2) : price);
+        }
+        return new History(dates, prices, pence ? "GBP" : code.toUpperCase(java.util.Locale.ROOT));
     }
 
     /** Derniere inflation connue ; vide tant qu'elle n'a pas pu etre telechargee (ou hors ligne). */

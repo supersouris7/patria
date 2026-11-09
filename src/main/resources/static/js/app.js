@@ -513,3 +513,24 @@ document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
     show();
   });
 });
+
+// Fragments charges a la demande (graphiques de la Bourse) : a l'ouverture d'un depliant, ou des le chargement
+// (data-fragment-auto) ; les liens de periode rechargent le fragment sur place.
+document.querySelectorAll("[data-fragment-src]").forEach((holder) => {
+  const target = holder.matches("details") ? holder.querySelector("[data-fragment-target]") : holder;
+  const load = (url) => fetch(url, { credentials: "same-origin" })
+    .then((response) => (response.ok ? response.text() : Promise.reject(response.status)))
+    .then((html) => { target.innerHTML = html; holder.dataset.loaded = "1"; })
+    .catch(() => { target.innerHTML = "<p class=\"muted\">Graphique indisponible pour le moment.</p>"; });
+  target.addEventListener("click", (event) => {
+    const link = event.target.closest("a[data-fragment-link]");
+    if (!link) return;
+    event.preventDefault();
+    load(link.href);
+  });
+  if (holder.matches("details")) {
+    holder.addEventListener("toggle", () => { if (holder.open && !holder.dataset.loaded) load(holder.dataset.fragmentSrc); });
+  } else if (holder.hasAttribute("data-fragment-auto")) {
+    load(holder.dataset.fragmentSrc);
+  }
+});

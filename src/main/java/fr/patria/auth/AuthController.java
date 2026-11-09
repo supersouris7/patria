@@ -57,6 +57,11 @@ public final class AuthController {
             return false;
         }
 
+        /** « Mot de passe oublie » propose (envoi d'e-mails regle par l'administrateur). */
+        default boolean passwordReset() {
+            return false;
+        }
+
         /** Retient cet appareil 30 jours ; renvoie le jeton a mettre dans son cookie. */
         default String trustDevice(Long userId) {
             return null;
@@ -112,8 +117,9 @@ public final class AuthController {
                 : request.query("erreur") != null ? Notice.error("Identifiant ou mot de passe incorrect.")
                 : request.query("sans-foyer") != null ? Notice.error("Aucun foyer n'est ouvert pour ce compte. Demandez à l'administrateur.")
                 : request.query("expire") != null ? Notice.error("Délai dépassé : reconnectez-vous.")
+                : request.query("reinitialise") != null ? Notice.success("Mot de passe changé : connectez-vous avec le nouveau.")
                 : request.query("deconnecte") != null ? Notice.success("Vous êtes déconnecté.") : null;
-        return Response.page(page(notice, LocalPath.safe(request.query("suite")), fr.patria.web.Router.insecure(request)));
+        return Response.page(page(notice, LocalPath.safe(request.query("suite")), fr.patria.web.Router.insecure(request), users.passwordReset()));
     }
 
     private Response login(Request request) {
@@ -249,14 +255,19 @@ public final class AuthController {
     }
 
     static Html page(Notice notice, String next, boolean insecure) {
+        return page(notice, next, insecure, false);
+    }
+
+    static Html page(Notice notice, String next, boolean insecure, boolean reset) {
         return Layout.document("Connexion · Patria", "login-page", Html.of("""
                 <main class="login-card">%s<p class="login-slogan">Vos comptes restent chez vous.</p>\
                 <p class="muted">Budget et patrimoine, hébergés sur votre serveur.</p><h1 class="login-title">Connexion</h1>%s%s
                 <form method="post" action="/connexion" class="stack">%s<label>Identifiant
                 <input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label><label>Mot de passe
                 <input name="password" type="password" autocomplete="current-password" required></label>
-                <button type="submit">Ouvrir Patria</button></form><p class="muted"><a href="/inscription">Créer un compte</a> · <a href="/confidentialite">Confidentialité</a></p></main>""", Layout.brand(),
+                <button type="submit">Ouvrir Patria</button></form><p class="muted">%s<a href="/inscription">Créer un compte</a> · <a href="/confidentialite">Confidentialité</a></p></main>""", Layout.brand(),
                 insecure ? fr.patria.ui.SecurityPages.loginWarning() : Html.EMPTY, Components.notice(notice),
-                next == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"suite\" value=\"%s\">", next)));
+                next == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"suite\" value=\"%s\">", next),
+                reset ? Html.raw("<a href=\"/connexion/oubli\">Mot de passe oublié ?</a> · ") : Html.EMPTY));
     }
 }

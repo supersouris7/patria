@@ -45,4 +45,4 @@ COPY --from=build /build/target/patria.jar /app/patria.jar
 ENV JAVA_HOME=/opt/java PATH="/opt/java/bin:/usr/bin:/bin"
 USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["/opt/java/bin/java", "-Djava.awt.headless=true", "-Duser.home=/data", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dorg.sqlite.lib.path=/app/native", "-Dorg.sqlite.lib.name=libsqlitejdbc.so", "-Xms16m", "-Xmx96m", "-jar", "/app/patria.jar"]
+ENTRYPOINT ["/opt/java/bin/java", "-Djava.awt.headless=true", "-Duser.home=/data", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dorg.sqlite.lib.path=/app/native", "-Dorg.sqlite.lib.name=libsqlitejdbc.so", "-Dsun.net.httpserver.maxReqTime=120", "-Xms16m", "-Xmx96m", "-jar", "/app/patria.jar"]

@@ -127,6 +127,35 @@ Remplacez le domaine, lancez `docker compose up -d`, puis ouvrez `https://patria
 
 Alternatives : [Nginx Proxy Manager](https://nginxproxymanager.com/guide/), [Traefik](https://doc.traefik.io/traefik/https/acme/), [Tailscale Serve](https://tailscale.com/kb/1312/serve) pour un accès privé. [Documentation Caddy](https://caddyserver.com/docs/quick-starts/reverse-proxy).
 
+### Exposer sur Internet depuis une box (port 443)
+
+Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un VPN comme [Tailscale](https://tailscale.com/kb/1312/serve) ou WireGuard donne l'accès sans exposer Patria. Si vous ouvrez quand même le port 443 :
+
+1. **Nom de domaine dynamique** : votre IP de box change. Créez un nom gratuit chez [DuckDNS](https://www.duckdns.org/) (ou DynHost chez OVH, ou le DNS dynamique intégré à la box) et faites-le mettre à jour par la box ou un petit conteneur.
+2. **Box** : bail DHCP fixe pour le serveur, puis redirection **TCP 443** (et 80 si vous voulez la redirection automatique de HTTP vers HTTPS) vers ce serveur. Rien d'autre : jamais le port de Patria (`8101`).
+3. **Caddy** comme ci-dessus, avec votre nom DuckDNS. Avec le seul port 443 ouvert, Caddy obtient quand même son certificat (défi TLS-ALPN). Caddy remplace les en-têtes `X-Forwarded-*` envoyés par le client : Patria ne les croit que s'ils viennent de la machine locale ou du réseau privé (le proxy).
+4. **Avant d'ouvrir le port** :
+   - `APP_PASSWORD` long (16 caractères ou plus) et unique ; **double authentification** activée pour l'administrateur, conseillée pour chaque compte ;
+   - inscriptions sur « message » (réglage par défaut, Gérer → Demandes de compte) : aucun formulaire public ne crée de compte ;
+   - `DB_ENCRYPTION_KEY` définie et sauvegardée hors du serveur, sauvegardes de `/data` vérifiées ;
+   - une image **stable** (`latest` ou `X.Y.Z`) plutôt que `unstable`, mise à jour régulièrement.
+5. **Vérifier depuis le réseau mobile** (Wi-Fi coupé) :
+   - `https://votre-nom.duckdns.org` s'ouvre sans alerte de certificat ;
+   - `curl -sI https://votre-nom.duckdns.org/connexion` montre `strict-transport-security` et `content-security-policy` ;
+   - `http://VOTRE-IP:8101` ne répond pas ;
+   - Sécurité → Connexions : les adresses affichées sont celles des visiteurs, pas celle du proxy.
+6. **Ensuite** : surveillez Sécurité → Connexions échouées. Les essais de mot de passe sont limités (10 échecs par adresse et 30 par identifiant en 15 minutes) et les codes de double authentification aussi.
+
+## E-mail (facultatif)
+
+Sécurité → **E-mail** : serveur SMTP de votre fournisseur (Brevo, OVH, Gmail avec un mot de passe d'application…), port et chiffrement (STARTTLS 587 ou TLS 465), expéditeur, et **adresse publique** de Patria (`https://…`), qui sert aux liens des e-mails : Patria ne prend jamais l'adresse dans la requête, qu'un tiers pourrait falsifier. « Tester » envoie un e-mail de contrôle.
+
+- Sans réglage : l'e-mail des comptes est facultatif et rien n'est envoyé.
+- Avec réglage : **Mot de passe oublié** apparaît sur la page de connexion (lien valable 30 minutes vers l'e-mail confirmé, même réponse que le compte existe ou non, envois limités ; la double authentification reste demandée).
+- « Exiger un e-mail confirmé » : une demande d'inscription n'apparaît dans Demandes de compte qu'une fois son e-mail confirmé ; un compte créé ici doit confirmer son e-mail à sa première connexion, avant toute autre page. Les comptes existants ne sont pas concernés.
+
+Après le premier mot de passe, chaque nouveau compte se voit **proposer la double authentification** (« Activer maintenant » ou « Plus tard »).
+
 ## Créer les accès
 
 Le compte administrateur ne voit aucune donnée financière **dans l'interface**. Il est le seul à créer les foyers, leurs membres et les comptes, et à régler les droits. Pour votre budget personnel, créez aussi un compte utilisateur.

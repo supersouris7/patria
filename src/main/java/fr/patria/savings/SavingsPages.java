@@ -29,22 +29,6 @@ final class SavingsPages {
         }
     }
 
-    /** Tirelire rose (illustration decorative, sans texte) : une piece tombe dans la fente. */
-    static final String PIGGY = """
-            <svg class="piggy" viewBox="0 0 128 104" aria-hidden="true" focusable="false">
-            <defs><radialGradient id="piggy-body" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#ffd3e4"/><stop offset="1" stop-color="#f08ab3"/></radialGradient></defs>
-            <g class="coins"><g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g>            <g class="coin"><circle cx="60" cy="22" r="8"/><circle class="rim" cx="60" cy="22" r="5"/></g></g>
-            <path class="tail" d="M19 62 c-9 -1 -11 -11 -4 -12 c5 0 5 6 0 7"/>
-            <ellipse class="leg" cx="40" cy="92" rx="8" ry="6"/><ellipse class="leg" cx="82" cy="92" rx="8" ry="6"/>
-            <path class="ear" d="M44 38 Q46 20 62 31 Z"/>
-            <ellipse cx="62" cy="64" rx="45" ry="33" fill="url(#piggy-body)"/>
-            <rect class="slot" x="50" y="32" width="20" height="4.5" rx="2.25"/>
-            <circle class="cheek" cx="90" cy="72" r="6.5"/>
-            <ellipse class="snout" cx="106" cy="64" rx="10" ry="11"/>
-            <ellipse class="nostril" cx="103" cy="64" rx="1.8" ry="2.6"/><ellipse class="nostril" cx="109" cy="64" rx="1.8" ry="2.6"/>
-            <circle class="eye" cx="87" cy="54" r="3.6"/><circle class="eye-light" cx="88.3" cy="52.7" r="1.2"/>
-            </svg>""";
-
     static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf) {
         Savings.Overview overview = snapshot.overview();
         Savings.Plan plan = snapshot.plan();
@@ -64,7 +48,7 @@ final class SavingsPages {
                 tile("Inflation", "Hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
                 tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
                         snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
-        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.raw(PIGGY)),
+        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.EMPTY),
                 Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf, false), planCard(snapshot, csrf), chart(bars),
                 Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
                         Format.date(RegulatedRates.CHECKED)));
@@ -72,7 +56,11 @@ final class SavingsPages {
     }
 
     /** Page Bourse : PEA, comptes-titres et cryptos au cours du jour, separes de l'epargne (risque de perte, horizon long). */
-    static Html stocks(SavingsController.Snapshot snapshot, List<Person> people, LocalDate today, Notice notice, String csrf) {
+    /** Recherche d'un titre sous le compte {@code account} : la saisie et ce que Yahoo Finance a trouve. */
+    record Search(long account, String query, List<MarketFeeds.Found> results, boolean offline) {
+    }
+
+    static Html stocks(SavingsController.Snapshot snapshot, List<Person> people, LocalDate today, Notice notice, String csrf, Search search) {
         Savings.Overview portfolio = only(snapshot.overview(), true);
         BigDecimal cost = portfolio.positions().stream().map(line -> line.position().cost()).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal gain = portfolio.positions().stream().map(Savings.PositionLine::gain).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -85,7 +73,11 @@ final class SavingsPages {
                         : Format.signedPercent(gain.multiply(BigDecimal.valueOf(100)).divide(cost, 1, java.math.RoundingMode.HALF_UP)), tone, "depuis l'achat"),
                 tile("Lignes", "Actions, ETF et cryptos détenus.", String.valueOf(portfolio.positions().size()), "", null));
         Html content = Html.concat(Components.heading("Vos placements en bourse", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", Html.EMPTY),
-                Components.notice(notice), tiles, accounts(portfolio, today, null, csrf), addAccount(people, null, csrf, true),
+                Components.notice(notice), tiles,
+                portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Évolution du portefeuille", null, Html.EMPTY, Html.raw(
+                        "<div data-fragment-src=\"/bourse/graphique\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"
+                                + "<p class=\"muted small\">Lignes actuelles valorisées aux cours passés : la courbe ignore les dates d'achat.</p>")),
+                accounts(portfolio, today, null, csrf, search), addAccount(people, null, csrf, true),
                 Html.raw("<p class=\"muted small\">Cours Yahoo Finance, en différé. Valeur indicative : un placement en bourse peut perdre de la valeur. "
                         + "Pas un conseil en investissement.</p>"));
         return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, content);
@@ -140,6 +132,10 @@ final class SavingsPages {
     }
 
     static Html accounts(Savings.Overview overview, LocalDate today, String back, String csrf) {
+        return accounts(overview, today, back, csrf, null);
+    }
+
+    private static Html accounts(Savings.Overview overview, LocalDate today, String back, String csrf, Search search) {
         if (overview.isEmpty()) {
             return Components.card("Comptes", 0, Html.EMPTY, Html.raw("<p class=\"empty\">Aucun placement pour l'instant.</p>"));
         }
@@ -163,7 +159,7 @@ final class SavingsPages {
                     market ? tone(gain) : "positive",
                     market ? Format.signedEuroWhole(gain) : line.yearlyInterest() == null || line.yearlyInterest().signum() == 0 ? "—" : "+" + euroWhole(line.yearlyInterest()),
                     manage(line, back, csrf));
-            return account.kind().stocks() ? Html.concat(main, positions(line, back, csrf)) : main;
+            return account.kind().stocks() ? Html.concat(main, positions(line, back, csrf, search != null && search.account() == account.id() ? search : null)) : main;
         }).collect(Html.joining());
         BigDecimal interest = overview.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal cash = overview.lines().stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -179,14 +175,17 @@ final class SavingsPages {
     }
 
     /** Lignes de bourse d'un PEA ou compte-titres : tableau aligne, plus-values en couleur, ajout et import replies. */
-    private static Html positions(Savings.Line line, String back, String csrf) {
+    private static Html positions(Savings.Line line, String back, String csrf, Search search) {
         long account = line.account().id();
-        Html rows = line.positions().stream().map(position -> Html.of("""
+        // Hors du guide : chaque ligne se deplie sur la courbe de son cours (chargee a l'ouverture).
+        boolean charts = back == null;
+        Html rows = line.positions().stream().map(position -> Html.concat(Html.of("""
                 <tr><td>%s <code>%s</code></td><td class="num">%s</td><td class="num" title="%s">%s</td><td class="num">%s</td><td class="num %s">%s</td>\
                 <td><form method="post" action="/epargne/ligne/%s/supprimer" class="inline-form">%s<button class="link-button" type="submit" aria-label="Supprimer %s">×</button></form></td></tr>""",
                 position.position().label(), position.position().symbol(), Format.number(position.position().quantity(), 4), position.priceSource(), Format.euro(position.price()),
                 euroWhole(position.value()), tone(position.gain()), Format.signedEuroWhole(position.gain()),
-                position.position().id(), token(csrf, back), position.position().label())).collect(Html.joining());
+                position.position().id(), token(csrf, back), position.position().label()), !charts ? Html.EMPTY : Html.of("""
+                <tr class="position-chart"><td colspan="6"><details data-fragment-src="/bourse/ligne/%s/graphique"><summary>Évolution du cours</summary>                <div data-fragment-target><p class="muted">Chargement…</p></div></details></td></tr>""", position.position().id()))).collect(Html.joining());
         Html table = line.positions().isEmpty() ? Html.EMPTY : Html.of("""
                 <table class="data positions-table"><thead><tr><th>Titre</th><th class="num">Quantité</th><th class="num">Cours</th><th class="num">Valeur</th>\
                 <th class="num">Plus-value</th><th></th></tr></thead><tbody>%s</tbody></table>""", rows);
@@ -199,16 +198,34 @@ final class SavingsPages {
                 <textarea name="texte" rows="8" placeholder="IE00B4L5Y983;ETF MSCI World;12,4;1050,30"></textarea></label></details>
                 <div class="form-actions"><button type="submit">Voir l'aperçu</button></div></form></details>""",
                 account, token(csrf, back), Components.llmPrompt("prompt-bourse-" + account, PositionCsv.llmPrompt()), Components.localAiInput("bourse"));
-        Html add = Html.of("""
-                <details><summary>Ajouter une ligne</summary><form method="post" action="/epargne/compte/%s/ligne" class="stack">%s%s
-                <div class="form-actions"><button type="submit">Ajouter</button></div></form></details>""",
+        Html manual = Html.of("""
+                <form method="post" action="/epargne/compte/%s/ligne" class="stack">%s%s
+                <div class="form-actions"><button type="submit">Ajouter</button></div></form>""",
                 account, token(csrf, back), Components.fields(3,
                         Components.input(Input.of("Code (AI.PA, BTC…)", "symbol", Field.TEXT).required().maxLength(20).placeholder("AI.PA"), Map.of()),
                         Components.input(Input.of("Nom", "label", Field.TEXT).maxLength(60), Map.of()),
                         Components.input(Input.of("Quantité", "quantity", Field.NUMBER).required(), Map.of()),
                         Components.input(Input.of("Prix de revient total", "cost", Field.MONEY).required(), Map.of()),
                         Components.input(Input.of("Cours (vide : du jour)", "price", Field.MONEY), Map.of())));
+        Html add = !charts ? Html.of("<details><summary>Ajouter une ligne</summary>%s</details>", manual) : Html.of("""
+                <details%s><summary>Ajouter une ligne</summary>
+                <form method="get" action="/bourse#compte-%s" class="title-search" role="search"><input type="hidden" name="compte" value="%s">                <label>Rechercher un titre<input type="search" name="q" value="%s" maxlength="60" required placeholder="Nom, ISIN ou code : MSCI World, FR0010315770, BTC"></label>                <button class="secondary" type="submit">Chercher</button></form>%s
+                <details><summary>Saisir le code à la main</summary>%s</details></details>""",
+                Html.raw(search == null ? "" : " open"), account, account, search == null ? "" : search.query(), found(account, search, back, csrf), manual);
         return Html.of("<tr class=\"positions\"><td colspan=\"5\">%s<div class=\"position-tools\">%s%s</div></td></tr>", table, paste, add);
+    }
+
+    /** Titres trouves par la recherche : un formulaire par titre, quantite et prix de revient a saisir. */
+    private static Html found(long account, Search search, String back, String csrf) {
+        if (search == null) return Html.EMPTY;
+        if (search.results().isEmpty()) {
+            return Html.of("<p class=\"muted\">%s</p>", search.offline() ? "Recherche indisponible en mode hors ligne : saisissez le code à la main."
+                    : "Aucun titre trouvé pour « " + search.query() + " ». Essayez l'ISIN, ou saisissez le code à la main.");
+        }
+        return Html.of("<ul class=\"title-results\">%s</ul>", search.results().stream().map(found -> Html.of("""
+                <li><div><b>%s</b><small><code>%s</code> · %s%s</small></div>                <form method="post" action="/epargne/compte/%s/ligne" class="title-add">%s<input type="hidden" name="symbol" value="%s"><input type="hidden" name="label" value="%s">                <label>Quantité<input name="quantity" inputmode="decimal" required></label><label>Prix de revient total<input name="cost" inputmode="decimal" required></label>                <button type="submit">Ajouter</button></form></li>""",
+                found.name(), found.symbol(), found.type().isEmpty() ? "titre" : found.type(), found.exchange().isEmpty() ? "" : " · " + found.exchange(),
+                account, token(csrf, back), found.symbol(), found.name().length() > 60 ? found.name().substring(0, 60) : found.name())).collect(Html.joining()));
     }
 
     /** Menu « Gerer » d'un compte : nouveau solde, versement programme, suppression. */

@@ -98,7 +98,9 @@ public final class UsersController extends AccountSupport {
                     throw new ValidationException("Ce membre n'existe plus : choisissez-en un autre.");
                 }
             }
-            long id = accounts.createUser(login, name, request.form().raw("password"), LocalDate.now(clock));
+            String email = Mails.address(request.form().raw("email"));
+            AccountRepository.Mail mail = accounts.mail();
+            long id = accounts.createUser(login, name, request.form().raw("password"), LocalDate.now(clock), email.isEmpty() ? null : email, mail.required() && mail.active());
             audit("USER", null, id, "Compte « " + login + " » créé (mot de passe provisoire).");
             if (household != null) {
                 String[] parts = member.split(":", 2);

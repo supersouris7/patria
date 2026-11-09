@@ -100,8 +100,10 @@ class AccountsTest {
         assertEquals("/compte/nouveau-mot-de-passe", get(paul, "/").headers().firstValue("Location").orElseThrow(), "rien d'autre avant");
         assertTrue(get(paul, "/compte/nouveau-mot-de-passe").body().contains("choisi par l'administrateur le 15/06/2026"));
         assertEquals(400, post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=motdepasse1&confirm=motdepasse1").statusCode(), "un autre mot de passe");
-        assertEquals("/bienvenue", post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=paulpasse1&confirm=paulpasse1")
-                .headers().firstValue("Location").orElseThrow());
+        assertEquals("/compte/securiser", post(paul, "/compte/mot-de-passe", "current=motdepasse1&password=paulpasse1&confirm=paulpasse1")
+                .headers().firstValue("Location").orElseThrow(), "double authentification proposée après le premier mot de passe");
+        assertTrue(get(paul, "/compte/securiser").body().contains("Activer maintenant"));
+        assertEquals("/bienvenue", post(paul, "/compte/securiser/plus-tard", "").headers().firstValue("Location").orElseThrow(), "plus tard : l'accueil");
 
         String home = get(paul, "/").body();
         assertTrue(home.contains("Budget de Paul"), "vue de Paul par défaut, sans vue Foyer");

@@ -53,6 +53,12 @@ public final class SessionViewers {
                 + "changez votre mot de passe et réactivez-la dans Mon compte.";
         Viewer.Rights rights = Viewer.Rights.user(access.wholeHousehold(), access.members(), access.realEstate());
         return Optional.of(new Viewer(user.id(), user.name(), new Viewer.Household(access.householdId(), access.householdName(), access.realEstate()), households,
-                rights, new Viewer.Signals(state.get().mustChangePassword(), audience, notice)));
+                rights, new Viewer.Signals(state.get().mustChangePassword(), audience, notice, emailToConfirm(user.id()))));
+    }
+
+    /** E-mail exige a la creation et pas encore confirme ; plus rien d'exige si l'administrateur a coupe l'envoi. */
+    private boolean emailToConfirm(long userId) {
+        AccountRepository.Email email = accounts.email(userId);
+        return email.required() && !email.verified() && accounts.mail().active();
     }
 }

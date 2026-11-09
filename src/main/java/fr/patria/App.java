@@ -105,6 +105,7 @@ public final class App implements AutoCloseable {
             new fr.patria.account.UsersController(stores).register(router);
             new fr.patria.account.SignupController(stores).register(router);
             new fr.patria.account.MyAccountController(stores).register(router);
+            new fr.patria.account.PasswordResetController(stores).register(router);
             Path dataDirectory = config.databasePath().toAbsolutePath().getParent();
             new fr.patria.account.SecurityController(accounts, log, twoFactors, sessions, locator, new fr.patria.account.SecurityController.Installation(
                     config.encryptionKey() != null, config.offline(), auth::blocked, sites::backups), config.clock()).register(router);
@@ -112,7 +113,8 @@ public final class App implements AutoCloseable {
             PropertyMove.register(router, sites, accounts, sessions);
 
             HttpServer server = HttpServer.create(new InetSocketAddress(config.port()), 0);
-            ExecutorService executor = Executors.newFixedThreadPool(4);
+            // Un fil leger par requete : une conversion par l'IA locale ou un envoi lent ne bloque pas les autres visiteurs.
+            ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             server.createContext("/", router);
             server.setExecutor(executor);
             server.start();

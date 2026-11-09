@@ -44,6 +44,20 @@ public final class SavingsController {
     public void register(Router router) {
         router.userGet("/epargne", request -> Response.page(page(request, request.confirmation(), false)));
         router.userGet("/bourse", request -> Response.page(page(request, request.confirmation(), true)));
+        router.userGet("/bourse/graphique", request -> {
+            MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
+            List<Savings.Line> lines = snapshot(request, java.util.Set.of()).overview().lines().stream().filter(line -> line.account().kind().stocks()).toList();
+            BigDecimal cash = lines.stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<SavingsRepository.Position> positions = lines.stream().flatMap(line -> line.positions().stream()).map(Savings.PositionLine::position).toList();
+            return Response.page(StockCharts.portfolioChart(StockCharts.portfolio(positions, cash, range, symbol -> feeds.history(symbol, range)), range, "/bourse/graphique"));
+        });
+        router.userGet("/bourse/ligne/{id}/graphique", request -> {
+            SavingsRepository.Position position = savings.positions().stream().filter(candidate -> candidate.id() == request.id()).findFirst()
+                    .orElseThrow(() -> new NotFoundException("Ligne introuvable", "Cette ligne n'existe pas."));
+            editable(request, position.accountId());
+            MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
+            return Response.page(StockCharts.position(position, feeds.history(position.symbol(), range), range, "/bourse/ligne/" + position.id() + "/graphique"));
+        });
         router.userPost("/epargne/compte", this::addAccount);
         router.userPost("/epargne/compte/{id}", request -> {
             SavingsRepository.Account account = editable(request);
@@ -195,8 +209,16 @@ public final class SavingsController {
         LocalDate today = LocalDate.now(clock);
         // Historique : le solde du mois en cours de chaque placement visible (graphique de l'epargne).
         snapshot.overview().lines().forEach(line -> savings.recordHistory(line.account().id(), java.time.YearMonth.from(today), line.value()));
-        return stocks ? SavingsPages.stocks(snapshot, visibility.people(), today, notice, request.csrf())
+        return stocks ? SavingsPages.stocks(snapshot, visibility.people(), today, notice, request.csrf(), search(request))
                 : SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf());
+    }
+
+    /** Recherche de titre lancee sous un compte de bourse (« q » et « compte » dans l'adresse), sinon vide. */
+    private SavingsPages.Search search(Request request) {
+        String query = request.query("q");
+        String account = request.query("compte");
+        if (query == null || query.isBlank() || account == null || !account.matches("\\d{1,12}")) return null;
+        return new SavingsPages.Search(Long.parseLong(account), query.strip(), feeds.search(query), feeds.offline());
     }
 
     /** 24 derniers mois, empiles : disponible et long terme, hors bourse (dernier solde connu reporte d'un mois sur l'autre). */

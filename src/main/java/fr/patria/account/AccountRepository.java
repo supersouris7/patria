@@ -23,7 +23,7 @@ import org.mindrot.jbcrypt.BCrypt;
  */
 public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
-    private static final int LATEST = 4;
+    private static final int LATEST = 5;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
     /** Cout de bcrypt : 12 ; la propriete systeme {@code patria.bcrypt.cost} l'abaisse pour les tests (4 a 31). */
     private static final int COST = Math.clamp(Integer.getInteger("patria.bcrypt.cost", 12), 4, 31);
@@ -147,6 +147,28 @@ public final class AccountRepository {
                 statement.execute("PRAGMA user_version = 4");
             }
         }
+        if (version < 5) {
+            // E-mail des comptes (confirme ou non), jetons de confirmation et de mot de passe oublie, proposition de la
+            // double authentification ; e-mail et confirmation des demandes de compte. Rien n'est exige des comptes existants.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE users ADD COLUMN email TEXT");
+                statement.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0");
+                statement.execute("ALTER TABLE users ADD COLUMN must_confirm_email INTEGER NOT NULL DEFAULT 0");
+                statement.execute("ALTER TABLE users ADD COLUMN offer_two_factor INTEGER NOT NULL DEFAULT 0");
+                statement.execute("ALTER TABLE account_requests ADD COLUMN email TEXT");
+                statement.execute("ALTER TABLE account_requests ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 1");
+                statement.execute("ALTER TABLE account_requests ADD COLUMN token_hash TEXT");
+                statement.execute("""
+                        CREATE TABLE email_tokens (
+                            token_hash TEXT PRIMARY KEY,
+                            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            purpose TEXT NOT NULL,
+                            email TEXT NOT NULL,
+                            expires_at TEXT NOT NULL
+                        )""");
+                statement.execute("PRAGMA user_version = 5");
+            }
+        }
     }
 
     // ---- Foyers ----
@@ -206,16 +228,98 @@ public final class AccountRepository {
     }
 
     public long createUser(String login, String name, String password, LocalDate today) {
+        return createUser(login, name, password, today, null, false);
+    }
+
+    /**
+     * Compte cree par l'administrateur : mot de passe a changer a la premiere connexion, double authentification
+     * proposee ensuite ; {@code confirmEmail} : e-mail a confirmer avant d'aller plus loin (reglage de l'administrateur).
+     */
+    public long createUser(String login, String name, String password, LocalDate today, String email, boolean confirmEmail) {
         checkPassword(password);
         return database.transaction(connection -> {
             if (!Sql.list(connection, "SELECT id FROM users WHERE login = ?", row -> row.getLong(1), login).isEmpty()) {
                 throw new ValidationException("L'identifiant « " + login + " » est déjà pris.");
             }
-            // Mot de passe choisi par l'administrateur : a changer a la premiere connexion.
             return Sql.insert(connection, """
-                    INSERT INTO users (login, name, password_hash, created_on, must_change_password, password_set_by_admin_on)
-                    VALUES (?, ?, ?, ?, 1, ?) RETURNING id""", login, name, hash(password), today, today);
+                    INSERT INTO users (login, name, password_hash, created_on, must_change_password, password_set_by_admin_on, email, must_confirm_email, offer_two_factor)
+                    VALUES (?, ?, ?, ?, 1, ?, ?, ?, 1) RETURNING id""", login, name, hash(password), today, today, email, confirmEmail ? 1 : 0);
         });
+    }
+
+    // ---- E-mail des comptes ----
+
+    /** E-mail d'un compte ; {@code verified} : confirme par le lien recu ; {@code required} : a confirmer avant tout. */
+    public record Email(String address, boolean verified, boolean required) {
+    }
+
+    public Email email(long userId) {
+        return database.query(connection -> Sql.list(connection, "SELECT email, email_verified, must_confirm_email FROM users WHERE id = ?",
+                row -> new Email(row.getString(1), row.getInt(2) == 1, row.getInt(3) == 1), userId)).stream().findFirst().orElse(new Email(null, false, false));
+    }
+
+    /** Nouvel e-mail ; {@code verified} vrai seulement quand le lien de confirmation a ete suivi (ou sans envoi d'e-mail). */
+    public void setEmail(long userId, String address, boolean verified) {
+        database.query(connection -> Sql.update(connection, "UPDATE users SET email = ?, email_verified = ?, must_confirm_email = CASE WHEN ? = 1 THEN 0 ELSE must_confirm_email END WHERE id = ?",
+                address, verified ? 1 : 0, verified ? 1 : 0, userId));
+    }
+
+    /** Compte actif dont l'identifiant ou l'e-mail confirme correspond (mot de passe oublie). */
+    public Optional<User> userForReset(String loginOrEmail) {
+        String wanted = loginOrEmail == null ? "" : loginOrEmail.trim();
+        return database.query(connection -> Sql.list(connection, """
+                SELECT * FROM users WHERE active = 1 AND email_verified = 1 AND email IS NOT NULL AND (login = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)""",
+                AccountRepository::user, wanted, wanted)).stream().findFirst();
+    }
+
+    /** Jeton a usage unique envoye par e-mail ({@code purpose} : confirmation ou mot de passe) ; seule son empreinte est gardee. */
+    public String createToken(long userId, String purpose, String email, java.time.LocalDateTime expiresAt) {
+        String token = randomToken();
+        database.transaction(connection -> {
+            Sql.update(connection, "DELETE FROM email_tokens WHERE user_id = ? AND purpose = ?", userId, purpose);
+            Sql.update(connection, "INSERT INTO email_tokens (token_hash, user_id, purpose, email, expires_at) VALUES (?, ?, ?, ?, ?)", sha256(token), userId, purpose,
+                    email, expiresAt.toString());
+            return null;
+        });
+        return token;
+    }
+
+    /** Un jeton valide, consomme a la lecture : le compte et l'e-mail auquel il a ete envoye. */
+    public record Token(long userId, String email) {
+    }
+
+    public Optional<Token> consumeToken(String token, String purpose, java.time.LocalDateTime now) {
+        if (token == null || token.isBlank() || token.length() > 100) return Optional.empty();
+        String hash = sha256(token);
+        return database.transaction(connection -> {
+            List<Token> found = Sql.list(connection, "SELECT user_id, email, expires_at FROM email_tokens WHERE token_hash = ? AND purpose = ?",
+                    row -> java.time.LocalDateTime.parse(row.getString(3)).isAfter(now) ? new Token(row.getLong(1), row.getString(2)) : null, hash, purpose);
+            Sql.update(connection, "DELETE FROM email_tokens WHERE token_hash = ?", hash);
+            return found.stream().filter(java.util.Objects::nonNull).findFirst();
+        });
+    }
+
+    /** Double authentification a proposer (compte cree depuis cette version, pas encore active ni « plus tard »). */
+    public boolean offerTwoFactor(long userId) {
+        return database.query(connection -> !Sql.list(connection, "SELECT 1 FROM users WHERE id = ? AND offer_two_factor = 1", row -> 1, userId).isEmpty());
+    }
+
+    public void stopOfferingTwoFactor(long userId) {
+        database.query(connection -> Sql.update(connection, "UPDATE users SET offer_two_factor = 0 WHERE id = ?", userId));
+    }
+
+    private static String randomToken() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    static String sha256(String value) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
     public void updateUser(long id, String name, boolean active) {
@@ -359,7 +463,7 @@ public final class AccountRepository {
     // ---- Demandes de compte ----
 
     /** Une demande envoyee depuis la page de connexion. */
-    public record AccountRequest(long id, String name, String login, String message, String createdAt) {
+    public record AccountRequest(long id, String name, String login, String message, String createdAt, String email) {
     }
 
     /** Ce que la page de connexion propose : {@code "message"} (demander a l'administrateur) ou {@code "form"}. */
@@ -393,19 +497,70 @@ public final class AccountRepository {
                 "INSERT INTO settings (key, value) VALUES ('signup_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", mode));
     }
 
+    /** Demandes a traiter : celles dont l'e-mail est confirme (ou envoyees sans confirmation). */
     public List<AccountRequest> requests() {
-        return database.query(connection -> Sql.list(connection, "SELECT id, name, login, message, created_at FROM account_requests ORDER BY id",
-                row -> new AccountRequest(row.getLong(1), row.getString(2), row.getString(3), row.getString(4), row.getString(5))));
+        return database.query(connection -> Sql.list(connection, "SELECT id, name, login, message, created_at, email FROM account_requests WHERE confirmed = 1 ORDER BY id",
+                row -> new AccountRequest(row.getLong(1), row.getString(2), row.getString(3), row.getString(4), row.getString(5), row.getString(6))));
+    }
+
+    /** Lien de confirmation suivi : la demande devient visible par l'administrateur. Faux si le lien est inconnu ou deja utilise. */
+    public boolean confirmRequest(String token) {
+        if (token == null || token.isBlank() || token.length() > 100) return false;
+        return database.query(connection -> Sql.update(connection, "UPDATE account_requests SET confirmed = 1, token_hash = NULL WHERE token_hash = ? AND confirmed = 0",
+                sha256(token))) > 0;
     }
 
     /** Enregistre une demande ; refusee (faux) au-dela de {@code limit} demandes en attente ou si l'identifiant est deja demande. */
     public boolean addRequest(String name, String login, String message, String createdAt, int limit) {
+        return addRequest(name, login, message, createdAt, limit, null, null);
+    }
+
+    /** {@code token} non nul : demande en attente de confirmation de l'e-mail, invisible pour l'administrateur jusque-la. */
+    public boolean addRequest(String name, String login, String message, String createdAt, int limit, String email, String token) {
         return database.transaction(connection -> {
+            // Demande jamais confirmee : oubliee apres un jour (elle ne bloque pas les autres).
+            Sql.update(connection, "DELETE FROM account_requests WHERE confirmed = 0 AND created_at < ?", java.time.LocalDateTime.parse(createdAt).minusDays(1).toString());
             long pending = Sql.list(connection, "SELECT COUNT(*) FROM account_requests", row -> row.getLong(1)).getFirst();
             boolean taken = !Sql.list(connection, "SELECT 1 FROM account_requests WHERE login = ? COLLATE NOCASE", row -> 1, login).isEmpty();
             if (pending >= limit || taken) return false;
-            Sql.update(connection, "INSERT INTO account_requests (name, login, message, created_at) VALUES (?, ?, ?, ?)", name, login, message, createdAt);
+            Sql.update(connection, "INSERT INTO account_requests (name, login, message, created_at, email, confirmed, token_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    name, login, message, createdAt, email, token == null ? 1 : 0, token == null ? null : sha256(token));
             return true;
+        });
+    }
+
+    // ---- Envoi d'e-mails (reglage de l'administrateur) ----
+
+    /** Serveur d'envoi, adresse publique de Patria (liens des e-mails) et confirmation exigee des nouveaux comptes. */
+    public record Mail(fr.patria.common.Smtp.Settings smtp, String publicUrl, boolean required) {
+        public boolean active() {
+            return smtp.configured() && !publicUrl.isBlank();
+        }
+    }
+
+    public Mail mail() {
+        java.util.Map<String, String> values = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, "SELECT key, value FROM settings WHERE key LIKE 'mail_%'", row -> values.put(row.getString(1), row.getString(2))));
+        int port;
+        try {
+            port = Integer.parseInt(values.getOrDefault("mail_port", "587"));
+        } catch (NumberFormatException exception) {
+            port = 587;
+        }
+        return new Mail(new fr.patria.common.Smtp.Settings(values.getOrDefault("mail_host", ""), port, fr.patria.common.Smtp.security(values.get("mail_security")),
+                values.getOrDefault("mail_user", ""), values.getOrDefault("mail_password", ""), values.getOrDefault("mail_from", "")),
+                values.getOrDefault("mail_public_url", ""), "on".equals(values.get("mail_required")));
+    }
+
+    public void setMail(Mail mail) {
+        database.transaction(connection -> {
+            fr.patria.common.Smtp.Settings smtp = mail.smtp();
+            for (String[] pair : new String[][]{{"mail_host", smtp.host()}, {"mail_port", String.valueOf(smtp.port())}, {"mail_security", smtp.security().name()},
+                    {"mail_user", smtp.user()}, {"mail_password", smtp.password()}, {"mail_from", smtp.from()}, {"mail_public_url", mail.publicUrl()},
+                    {"mail_required", mail.required() ? "on" : "off"}}) {
+                Sql.update(connection, "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", pair[0], pair[1]);
+            }
+            return null;
         });
     }
 

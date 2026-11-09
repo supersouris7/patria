@@ -56,6 +56,11 @@ final class LoginAccounts implements AuthController.Users {
     }
 
     @Override
+    public boolean passwordReset() {
+        return accounts.mail().active();
+    }
+
+    @Override
     public boolean mustChangePassword(Long userId) {
         return userId != null && accounts.passwordToChange(userId).isPresent();
     }

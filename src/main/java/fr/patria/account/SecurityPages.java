@@ -26,7 +26,7 @@ final class SecurityPages {
     static Html page(State state, int failures24h, int failures7d, List<String> blocked, List<SecurityLog.LoginEvent> failures,
                      List<SecurityLog.LoginEvent> successes, Map<String, String> places, List<User> users, Map<Long, LocalDateTime> lastLogins,
                      Map<Long, Integer> open, java.util.Set<Long> provisional, Map<String, java.time.LocalDate> twoFactor, List<SecurityLog.AuditEntry> audit,
-                     String csrf) {
+                     AccountRepository.Mail mail, String mailStatus, String csrf) {
         Html tiles = Components.metrics(4,
                 Components.tile("Échecs sur 24 h", null, failures24h, "mots de passe faux ou comptes inconnus"),
                 Components.tile("Échecs sur 7 jours", null, failures7d, null),
@@ -69,7 +69,7 @@ final class SecurityPages {
                                 + SecurityLog.KEPT_DAYS + " jours.", Html.EMPTY),
                 recommended, tiles,
                 Components.card("État de l'installation", null, Html.EMPTY, installation),
-                localAiCard(csrf),
+                localAiCard(csrf), mailCard(mail, mailStatus, csrf),
                 Components.card("Bloqués en ce moment", blocked.size(), Html.EMPTY, blockedList),
                 Components.disclosure("Connexions échouées (" + failures.size() + ")", failures.isEmpty() ? Html.raw("<p class=\"empty\">Aucun échec enregistré.</p>")
                         : Html.concat(Components.table(List.of("Date", "Identifiant tenté", "Adresse IP", "Lieu"), failureRows, false, false), place), !failures.isEmpty()),
@@ -99,6 +99,40 @@ final class SecurityPages {
                 : Html.of("<span class=\"badge paid\">Activée%s</span>", twoFactor.equals(java.time.LocalDate.MIN) ? ""
                 : " le " + twoFactor.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         return Html.of("<tr><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td>%s</td></tr>", name, last == null ? "Jamais" : last.format(WHEN), open, password, state);
+    }
+
+    /**
+     * Envoi d'e-mails (facultatif) : serveur SMTP, adresse publique pour les liens, test, puis confirmation exigee des
+     * nouveaux comptes. Sans reglage, l'e-mail reste facultatif et rien n'est envoye.
+     */
+    private static Html mailCard(AccountRepository.Mail mail, String status, String csrf) {
+        fr.patria.common.Smtp.Settings smtp = mail.smtp();
+        Html securities = java.util.Arrays.stream(fr.patria.common.Smtp.Security.values()).map(security -> Html.of("<option value=\"%s\"%s>%s</option>", security.name(),
+                Html.raw(security == smtp.security() ? " selected" : ""), switch (security) {
+                    case STARTTLS -> "STARTTLS (port 587)";
+                    case TLS -> "TLS (port 465)";
+                    case NONE -> "Aucun (réseau local seulement)";
+                })).collect(Html.joining());
+        return Html.of("<div id=\"email\">%s</div>", Components.card("E-mail", null, Html.EMPTY, Html.of("""
+                <p>Facultatif. Avec un serveur d'envoi (celui de votre fournisseur d'e-mail, Brevo, Gmail avec un mot de passe d'application…), Patria peut
+                confirmer l'adresse des nouveaux comptes et envoyer un lien en cas de <b>mot de passe oublié</b>. Sans réglage, l'e-mail des comptes reste
+                facultatif et rien n'est envoyé.</p>%s
+                <form method="post" action="/administration/securite/email" class="stack">%s
+                <div class="form-grid cols-3"><label>Serveur SMTP<input name="host" value="%s" maxlength="200" placeholder="smtp.example.fr"></label>
+                <label>Port<input name="port" value="%s" inputmode="numeric" maxlength="5"></label>
+                <label>Chiffrement<select name="securite">%s</select></label>
+                <label>Utilisateur<input name="utilisateur" value="%s" maxlength="200" autocomplete="off"></label>
+                <label>Mot de passe<input name="mot_de_passe" type="password" maxlength="200" autocomplete="new-password" placeholder="%s"></label>
+                <label>Expéditeur<input name="expediteur" value="%s" maxlength="254" placeholder="patria@example.fr"></label></div>
+                <label>Adresse publique de Patria (pour les liens des e-mails)<input name="adresse" value="%s" maxlength="200" placeholder="https://patria.example.fr"></label>
+                <label class="check"><input type="checkbox" name="exiger" value="on"%s> Exiger un e-mail confirmé pour les nouveaux comptes (demandes d'inscription et
+                comptes créés ici)</label>
+                <div class="form-actions"><button class="secondary" type="submit">Enregistrer</button></div></form>
+                <form method="post" action="/administration/securite/email/test" class="row-form">%s<label>Envoyer un e-mail de test à
+                <input name="a" type="email" maxlength="254" required></label><button class="secondary" type="submit">Tester</button></form>""",
+                status == null ? Html.EMPTY : Html.of("<p class=\"notice %s\">%s</p>", status.startsWith("E-mail de test envoyé") ? "success" : "warning", status),
+                Components.csrfField(csrf), smtp.host(), smtp.port(), securities, smtp.user(), smtp.password().isEmpty() ? "" : "inchangé si vide", smtp.from(),
+                mail.publicUrl(), Html.raw(mail.required() ? " checked" : ""), Components.csrfField(csrf))));
     }
 
     /** IA locale : oui ou non, adresse du serveur Ollama et modele, avec le resultat du dernier test. */
