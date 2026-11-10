@@ -61,6 +61,23 @@ public abstract class AccountSupport {
         return (request.isHttps() ? "https://" : "http://") + (host == null ? "localhost" : host) + path;
     }
 
+    /** Pour la recherche des listes : sans accents ni majuscules. */
+    protected static String normalize(String value) {
+        return value == null ? "" : java.text.Normalizer.normalize(value.strip(), java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
+    }
+
+    /** Page demandee d'une liste (de 1 a la derniere), avec sa recherche, son filtre et son tri. */
+    protected static AdminPages.Listing listing(fr.patria.web.Request request, String query, String filter, String sort, int total) {
+        int pages = Math.max(1, (total + AdminPages.Listing.SIZE - 1) / AdminPages.Listing.SIZE);
+        int page;
+        try {
+            page = Math.clamp(Integer.parseInt(java.util.Objects.requireNonNullElse(request.query("page"), "1")), 1, pages);
+        } catch (NumberFormatException exception) {
+            page = 1;
+        }
+        return new AdminPages.Listing(query, filter, sort, page, pages, total);
+    }
+
     /** Action faite par quelqu'un d'autre que l'administrateur (gestionnaire, personne invitee). */
     protected void audit(String actor, String action, Long household, Long user, String detail) {
         log.audit(LocalDateTime.now(clock), actor, action, household, user, detail);

@@ -32,7 +32,13 @@ final class HouseholdPages {
                 membersCard, rights(household, members, accesses, self, csrf), invitations(members, invitations, closed, csrf),
                 Components.disclosure("Nom du foyer", Html.of("""
                         <form method="post" action="/foyer/renommer" class="row-form">%s<label>Nom<input name="name" value="%s" maxlength="60" required></label>\
-                        <button class="secondary" type="submit">Renommer</button></form>""", Components.csrfField(csrf), household.name()), false));
+                        <button class="secondary" type="submit">Renommer</button></form>""", Components.csrfField(csrf), household.name()), false),
+                Components.disclosure("Supprimer le foyer", Html.of("""
+                        <p class="muted">Tous ses comptes perdent l'accès à ce foyer. Sa base est mise de côté sur le serveur (l'administrateur peut l'effacer
+                        définitivement ensuite) ; rien n'est récupérable depuis l'application.</p>
+                        <form method="post" action="/foyer/supprimer" class="row-form">%s<label>Tapez « %s » pour confirmer<input name="confirmation" maxlength="60" required \
+                        autocomplete="off"></label><button class="danger" type="submit">Supprimer définitivement le foyer</button></form>""",
+                        Components.csrfField(csrf), household.name()), false));
         return Layout.adminSection("Mon foyer · Patria", csrf, Layout.AdminSection.HOUSEHOLD, content);
     }
 

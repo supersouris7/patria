@@ -75,26 +75,37 @@ final class AccountPages {
                 email.address() == null ? "" : email.address(), mailActive ? "Envoyer le lien de confirmation" : "Enregistrer"));
     }
 
+    /** Etapes de l'arrivee d'un nouveau compte (1 a 4), en haut des pages concernees. */
+    static Html onboarding(int current) {
+        String[] steps = {"Compte", "E-mail", "Sécurité", "Découverte"};
+        StringBuilder items = new StringBuilder();
+        for (int index = 0; index < steps.length; index++) {
+            String css = index + 1 < current ? "done" : index + 1 == current ? "current" : "";
+            items.append("<li class=\"").append(css).append("\"").append(index + 1 == current ? " aria-current=\"step\"" : "").append(">").append(steps[index]).append("</li>");
+        }
+        return Html.of("<ol class=\"onboarding-steps\" aria-label=\"Création du compte\">%s</ol>", Html.raw(items.toString()));
+    }
+
     /** Page de confirmation de l'e-mail, exigee avant d'aller plus loin pour un compte cree quand l'administrateur l'exige. */
     static Html emailRequired(AccountRepository.Email email, Notice notice, String csrf) {
         return Layout.document("Confirmer votre e-mail · Patria", "login-page", Html.of("""
-                <main class="login-card">%s<h1 class="login-title">Confirmez votre e-mail</h1>%s
+                <main class="login-card">%s%s<h1 class="login-title">Confirmez votre e-mail</h1>%s
                 <p class="muted">L'administrateur demande un e-mail confirmé : il vous servira à réinitialiser votre mot de passe. Indiquez-le, puis ouvrez le lien
                 reçu (valable 24 heures).</p>%s
                 <form method="post" action="/deconnexion">%s<button class="quiet" type="submit">Se déconnecter</button></form></main>""",
-                Layout.brand(), Components.notice(notice), emailForm(email, true, csrf), Components.csrfField(csrf)));
+                Layout.brand(), onboarding(2), Components.notice(notice), emailForm(email, true, csrf), Components.csrfField(csrf)));
     }
 
     /** Proposition de la double authentification, juste apres le premier mot de passe : activer, ou plus tard. */
     static Html offerTwoFactor(String csrf) {
         return Layout.document("Sécuriser votre compte · Patria", "login-page", Html.of("""
-                <main class="login-card">%s<h1 class="login-title">Protégez votre compte</h1>
+                <main class="login-card">%s%s<h1 class="login-title">Protégez votre compte</h1>
                 <p>La <b>double authentification</b> demande, en plus du mot de passe, un code à 6 chiffres affiché par une application de votre téléphone
                 (Google Authenticator, Microsoft Authenticator, Aegis, 2FAS…). Même si votre mot de passe est deviné ou volé, personne ne peut ouvrir votre budget.</p>
                 <p class="muted">Deux minutes suffisent. Vous pourrez aussi l'activer plus tard dans Mon compte.</p>
                 <div class="form-actions"><a class="button" href="/compte/double-authentification?suite=bienvenue">Activer maintenant</a>
                 <form method="post" action="/compte/securiser/plus-tard">%s<button class="secondary" type="submit">Plus tard</button></form></div></main>""",
-                Layout.brand(), Components.csrfField(csrf)));
+                Layout.brand(), onboarding(3), Components.csrfField(csrf)));
     }
 
     private static Html twoFactor(Security security, boolean admin, String csrf) {

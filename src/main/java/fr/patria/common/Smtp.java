@@ -45,6 +45,11 @@ public final class Smtp {
     }
 
     public static void send(Settings settings, String to, String subject, String body) throws IOException {
+        send(settings, to, subject, body, null);
+    }
+
+    /** {@code html} non nul : e-mail en deux versions (texte et HTML), la messagerie choisit. */
+    public static void send(Settings settings, String to, String subject, String body, String html) throws IOException {
         if (!settings.configured()) throw new IOException("Serveur d'envoi non réglé.");
         if (!valid(to) || !valid(settings.from())) throw new IOException("Adresse e-mail invalide.");
         if (subject.contains("\r") || subject.contains("\n")) throw new IOException("Objet invalide.");
@@ -69,19 +74,27 @@ public final class Smtp {
             session.command("MAIL FROM:<" + settings.from() + ">", 250);
             session.command("RCPT TO:<" + to + ">", 250, 251);
             session.command("DATA", 354);
-            session.write(message(settings.from(), to, subject, body));
+            session.write(message(settings.from(), to, subject, body, html));
             session.command(".", 250);
             session.command("QUIT", 221);
         }
     }
 
-    static String message(String from, String to, String subject, String body) {
+    static String message(String from, String to, String subject, String body, String html) {
         String encodedSubject = "=?UTF-8?B?" + Base64.getEncoder().encodeToString(subject.getBytes(StandardCharsets.UTF_8)) + "?=";
-        String text = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(body.replace("\r\n", "\n").replace("\n", "\r\n")
-                .getBytes(StandardCharsets.UTF_8));
-        return "From: Patria <" + from + ">\r\nTo: <" + to + ">\r\nSubject: " + encodedSubject + "\r\nDate: "
-                + ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "\r\nMessage-ID: <" + java.util.UUID.randomUUID() + "@patria>\r\n"
-                + "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + text + "\r\n";
+        String headers = "From: Patria <" + from + ">\r\nTo: <" + to + ">\r\nSubject: " + encodedSubject + "\r\nDate: "
+                + ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "\r\nMessage-ID: <" + java.util.UUID.randomUUID() + "@patria>\r\nMIME-Version: 1.0\r\n";
+        String text = encode(body.replace("\r\n", "\n").replace("\n", "\r\n"));
+        if (html == null) return headers + "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + text + "\r\n";
+        String boundary = "patria-" + java.util.UUID.randomUUID();
+        return headers + "Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n\r\n"
+                + "--" + boundary + "\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + text + "\r\n"
+                + "--" + boundary + "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + encode(html) + "\r\n"
+                + "--" + boundary + "--\r\n";
+    }
+
+    private static String encode(String text) {
+        return Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(text.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Dialogue ligne a ligne avec le serveur : une commande, puis le code de reponse attendu. */

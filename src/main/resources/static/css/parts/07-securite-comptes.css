@@ -118,3 +118,52 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .check-line { display: flex; flex-wrap: wrap; gap: 6px 20px; }
 .pending-form { display: inline; margin-left: 8px; }
 .invite-link input { font-family: ui-monospace, monospace; font-size: .85rem; margin-top: 6px; }
+
+/* Administration a grande echelle : filtres, liste, actions groupees, pages */
+.list-filters { align-items: end; display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; }
+.list-filters label { flex: 1 1 200px; }
+.list-filters label:first-child { flex: 2 1 280px; }
+.admin-list td small { color: var(--muted); display: block; }
+.admin-list td.select { width: 1%; }
+.admin-list td a { color: var(--text); text-decoration: none; }
+.admin-list td a:hover { color: var(--blue); }
+.bulk-actions { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+.pagination { align-items: center; display: flex; gap: 12px; justify-content: center; margin-top: 12px; }
+.install-choices { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.install-choice { align-items: flex-start; border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer; display: flex; gap: 10px; padding: 14px; }
+.install-choice:has(input:checked) { background: var(--blue-tint); border-color: var(--blue); }
+.install-choice b { display: block; margin-bottom: 4px; }
+.install-choice span { color: var(--text-soft); font-weight: 400; }
+.legal { max-width: 760px; padding-bottom: 40px; padding-top: 32px; }
+.legal p { line-height: 1.6; white-space: pre-line; }
+
+/* Pages de connexion et d'arrivee : presentation a gauche, formulaire a droite */
+.auth-shell { align-items: center; display: grid; gap: 48px; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); max-width: 980px; width: 100%; }
+.auth-aside { color: var(--text-soft); }
+.auth-aside .auth-tagline { color: var(--text); font-size: 2rem; font-weight: 780; letter-spacing: -.02em; line-height: 1.15; margin-bottom: 24px; }
+.auth-aside ul { display: grid; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.auth-aside li { border-left: 3px solid var(--blue); padding-left: 12px; }
+.auth-aside b { color: var(--text); }
+.auth-shell .login-card { max-width: none; }
+.password-field { position: relative; }
+.password-field input { padding-right: 84px; }
+.password-toggle { font-size: .78rem; min-height: 0; padding: 4px 8px; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+.password-meter { display: block; font-size: .78rem; margin-top: 4px; }
+.password-meter i { background: var(--track); border-radius: 99px; display: block; height: 4px; margin-bottom: 3px; overflow: hidden; }
+.password-meter i b { background: var(--danger); display: block; height: 100%; transition: width .2s; width: 0; }
+.password-meter[data-level="2"] i b { background: var(--status-warning); }
+.password-meter[data-level="3"] i b, .password-meter[data-level="4"] i b { background: var(--success); }
+.onboarding-steps { display: flex; flex-wrap: wrap; gap: 4px 14px; list-style: none; margin: 0 0 14px; padding: 0; }
+.onboarding-steps li { color: var(--muted); font-size: .78rem; font-weight: 650; }
+.onboarding-steps li.done { color: var(--success); }
+.onboarding-steps li.current { color: var(--text); }
+.onboarding-steps li.done::before { content: "✓ "; }
+@media (max-width: 860px) {
+    .auth-shell { grid-template-columns: 1fr; justify-items: center; }
+    .auth-aside { display: none; }
+}
+.login-page { align-content: center; }
+.auth-links { color: var(--muted); font-size: .82rem; margin: 18px 0 0; text-align: center; }
+.auth-links a { color: var(--muted); }
+.install-choice input { flex: none; margin-top: 3px; width: auto; }
+.login-links { margin: 12px 0 0; }

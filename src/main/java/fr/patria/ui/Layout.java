@@ -101,6 +101,7 @@ public final class Layout {
         SECURITY(AdminGroup.ACCOUNTS, "/administration/securite", "Sécurité", Who.ADMINISTRATOR),
         HOUSEHOLDS(AdminGroup.ACCOUNTS, "/administration/foyers", "Foyers", Who.ADMINISTRATOR),
         USERS(AdminGroup.ACCOUNTS, "/administration/utilisateurs", "Utilisateurs", Who.ADMINISTRATOR),
+        INSTALLATION(AdminGroup.ACCOUNTS, "/administration/installation", "Installation", Who.ADMINISTRATOR),
         ACCOUNT(AdminGroup.ACCOUNTS, "/compte", "Mon compte", Who.EVERYONE),
         HOUSEHOLD(AdminGroup.HOUSEHOLD, "/foyer", "Mon foyer et les droits", Who.MANAGER),
         INCOMES(AdminGroup.HOUSEHOLD, "/administration/revenus", "Revenus", Who.EVERYONE),
@@ -154,13 +155,27 @@ public final class Layout {
     private static final Html SETTINGS_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/></svg>");
 
     /** Pied de page : rappel de l'auto-hebergement, confidentialite, version et lien « Soutenir ». */
+    /** Pages legales publiees par l'administrateur (liens du pied de page). */
+    private static volatile boolean terms;
+    private static volatile boolean legalNotice;
+
+    public static void useLegalPages(boolean hasTerms, boolean hasNotice) {
+        terms = hasTerms;
+        legalNotice = hasNotice;
+    }
+
+    public static boolean hasTerms() {
+        return terms;
+    }
+
     private static Html footer() {
         Html support = BuildInfo.supportUrl() == null ? Html.EMPTY
                 : Html.of("<a class=\"support-link\" href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\">♥ Soutenir Patria</a>", BuildInfo.supportUrl());
         return Html.of("""
-                <footer class="shell site-footer"><span>Patria · vos données restent sur votre serveur</span><a href="/confidentialite">Confidentialité</a>\
+                <footer class="shell site-footer"><span>Patria · vos données restent sur votre serveur</span><a href="/confidentialite">Confidentialité</a>%s%s\
                 <span class="version" title="Version et commit de cette installation">v%s · %s</span>%s</footer>""",
-                BuildInfo.version(), BuildInfo.shortCommit(), support);
+                terms ? Html.raw("<a href=\"/conditions\">Conditions d'utilisation</a>") : Html.EMPTY,
+                legalNotice ? Html.raw("<a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY, BuildInfo.version(), BuildInfo.shortCommit(), support);
     }
 
     private Layout() {
@@ -378,8 +393,19 @@ public final class Layout {
                 <title>%s</title><link rel="icon" type="image/png" href="%s"><link rel="stylesheet" href="%s"><script defer src="%s"></script></head>
                 <body class="%s">%s</body></html>""",
                 theme().isEmpty() ? Html.EMPTY : Html.of(" data-theme=\"%s\"", theme()), theme().isEmpty() ? "dark light" : theme(),
-                title, Assets.url("/images/patria-logo.png"), Assets.url("/css/patria.css"), Assets.url("/js/app.js"), bodyClass, body);
+                title, Assets.url("/images/patria-logo.png"), Assets.url("/css/patria.css"), Assets.url("/js/app.js"), bodyClass,
+                "login-page".equals(bodyClass) ? Html.of("<div class=\"auth-shell\">%s%s</div><p class=\"auth-links\"><a href=\"/confidentialite\">Confidentialité</a>%s%s</p>",
+                        AUTH_ASIDE, body, terms ? Html.raw(" · <a href=\"/conditions\">Conditions d'utilisation</a>") : Html.EMPTY,
+                        legalNotice ? Html.raw(" · <a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY) : body);
     }
+
+    /** Volet de presentation des pages de connexion, d'inscription et d'arrivee (masque sur petit ecran). */
+    private static final Html AUTH_ASIDE = Html.raw("""
+            <aside class="auth-aside" aria-hidden="true"><p class="auth-tagline">Le budget et le patrimoine de votre foyer, sur votre serveur.</p>
+            <ul><li><b>Prévisionnel</b> : chaque mois des 12 prochains, ce qui rentre, ce qui sort, ce qui reste.</li>
+            <li><b>Épargne, bourse et immobilier</b> au cours du jour, et votre patrimoine net.</li>
+            <li><b>Chacun voit ce qu'on lui ouvre</b> : le gestionnaire du foyer règle qui voit quoi.</li>
+            <li><b>Vos données restent chez vous</b> : bases chiffrées, aucune publicité, aucun pistage.</li></ul></aside>""");
 
     private static String theme() {
         String theme = THEME.get();

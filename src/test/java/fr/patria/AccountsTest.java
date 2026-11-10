@@ -78,8 +78,10 @@ class AccountsTest {
         }
         assertEquals(403, post(admin, "/administration/depenses", "label=Intrus" + expense).statusCode());
         String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("Camille") && !households.contains("Yoga") && !households.contains("2 000"), "les membres, pas les montants");
-        assertTrue(households.contains("Gestion · gestionnaire") && !households.contains("Qui voit quoi"), "supervision, pas de réglage des droits");
+        assertTrue(households.contains("Mon foyer") && households.contains("Gestion"), "liste des foyers et de leurs gestionnaires");
+        String detail = get(admin, "/administration/foyer/1").body();
+        assertTrue(detail.contains("Camille") && !detail.contains("Yoga") && !detail.contains("2 000"), "les membres, pas les montants");
+        assertTrue(detail.contains("Gestion</a> · gestionnaire") && !detail.contains("Qui voit quoi"), "supervision, pas de réglage des droits");
 
         // L'administrateur ne cree plus de compte : Paul arrive par l'invitation du gestionnaire, lie au membre Paul
         assertEquals(405, post(admin, "/administration/utilisateurs", "login=paul&name=Paul&password=motdepasse1").statusCode(), "plus de création par l'administrateur");
@@ -190,8 +192,9 @@ class AccountsTest {
     void aNewHouseholdStartsWithItsManagerWhoInvitesItsMembers() throws Exception {
         Visitor admin = admin();
         Visitor martine = TestAccounts.join(client, base, post(admin, "/administration/foyers/lien", "").body(), "martine", "Martine", "Foyer Martin");
-        String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("id=\"foyer-2\"") && households.contains("Martine · gestionnaire"), "nouveau foyer et son gestionnaire");
+        assertTrue(get(admin, "/administration/foyers").body().contains("/administration/foyer/2\"><b>Foyer Martin</b>"), "nouveau foyer listé");
+        String households = get(admin, "/administration/foyer/2").body();
+        assertTrue(households.contains("Martine</a> · gestionnaire"), "son gestionnaire");
         assertTrue(households.contains("<span class=\"badge\">Martine</span>"), "membre créé à son nom");
         assertEquals(403, post(admin, "/foyer/choisir", "foyer=2").statusCode(), "l'administrateur n'ouvre pas les foyers");
         assertEquals(200, get(martine, "/foyer").statusCode(), "elle gère son foyer");
@@ -209,10 +212,12 @@ class AccountsTest {
     @Test
     void aHouseholdWithoutManagerIsRepairedByTheAdministrator() throws Exception {
         Visitor admin = admin();
-        String households = get(admin, "/administration/foyers").body();
-        assertTrue(households.contains("Sans gestionnaire") && households.contains("Créer un lien de gestion"), "dépannage proposé");
+        assertEquals("/administration/installation", TestAccounts.location(get(admin, "/administration/foyers")), "premier lancement : le type d'installation");
+        assertEquals(303, post(admin, "/administration/installation", "type=local").statusCode());
+        assertTrue(get(admin, "/administration/foyers?filtre=sansgestionnaire").body().contains("Sans gestionnaire</span>"), "filtre des foyers à dépanner");
+        assertTrue(get(admin, "/administration/foyer/1").body().contains("Créer un lien de gestion"), "dépannage proposé");
         Visitor william = TestAccounts.join(client, base, post(admin, "/administration/foyers/1/lien", "").body(), "william", "William", "");
-        assertFalse(get(admin, "/administration/foyers").body().contains("sans gestionnaire"));
+        assertFalse(get(admin, "/administration/foyer/1").body().contains("Créer un lien de gestion"));
         assertEquals(400, post(admin, "/administration/foyers/1/lien", "").statusCode(), "foyer géré : l'administrateur ne peut pas s'y ouvrir d'accès");
         assertEquals(200, get(william, "/administration/biens").statusCode(), "gestionnaire repris : il voit tout");
         assertTrue(get(william, "/").body().contains("Vous voyez les totaux du foyer"));
@@ -221,7 +226,7 @@ class AccountsTest {
         Visitor paul = TestAccounts.join(client, base, post(william, "/foyer/invitations", "membre=nouveau&name=Paul&whole=on").body(), "paul", "Paul", "");
         assertEquals(400, post(william, "/foyer/droits", "u" + paul.id() + "_whole=on").statusCode(), "au moins un gestionnaire");
         assertEquals(303, post(admin, "/administration/utilisateur/" + william.id() + "/supprimer", "").statusCode());
-        assertTrue(get(admin, "/administration/foyers").body().contains("sans gestionnaire"));
+        assertTrue(get(admin, "/administration/foyer/1").body().contains("Nommer gestionnaire"));
         assertEquals(303, post(admin, "/administration/foyers/1/gestionnaire", "compte=" + paul.id()).statusCode());
         paul = login("paul", "paul-motdepasse");
         assertEquals(200, get(paul, "/foyer").statusCode(), "nommé gestionnaire");
@@ -260,6 +265,10 @@ class AccountsTest {
         assertTrue(link.find());
         assertEquals(303, post(paul, "/invitation/rejoindre", "jeton=" + link.group(1) + "&foyer=Foyer+Paul").statusCode());
         assertTrue(get(paul, "/administration/revenus").body().contains("name=\"foyer\""), "deux foyers : sélecteur dans Gérer");
+        // Son gestionnaire peut supprimer ce foyer, en tapant son nom
+        assertEquals(400, post(paul, "/foyer/supprimer", "confirmation=Autre").statusCode());
+        assertEquals(303, post(paul, "/foyer/supprimer", "confirmation=Foyer+Paul").statusCode());
+        assertFalse(get(paul, "/administration/revenus").body().contains("name=\"foyer\""), "un seul foyer restant");
         assertTrue(get(admin, "/administration/securite").body().contains("Paul : accès modifié"), "journal");
     }
 
@@ -318,7 +327,6 @@ class AccountsTest {
         assertEquals(400, post(martine, "/administration/bien/1/foyer", "foyer=1").statusCode(), "accès Immobilier requis dans les deux foyers");
         assertEquals(403, post(admin, "/administration/bien/1/foyer", "foyer=2").statusCode(), "l'administrateur ne voit pas les biens");
 
-        assertEquals(400, post(admin, "/administration/foyers/1/supprimer", "").statusCode(), "le foyer principal reste");
         assertEquals(303, post(admin, "/administration/foyers/2/supprimer", "").statusCode());
         assertFalse(Files.exists(directory.resolve("foyer-2.sqlite3")), "base mise de côté, renommée");
         String archived = get(admin, "/administration/foyers").body();
@@ -329,6 +337,7 @@ class AccountsTest {
         assertFalse(Files.exists(directory.resolve(archive.group(1))), "effacée définitivement");
         assertTrue(Files.exists(directory.resolve(App.ACCOUNTS_FILE)));
         assertEquals(303, get(martine, "/").statusCode(), "plus aucun foyer : déconnectée");
+        assertEquals(400, post(admin, "/administration/foyers/1/supprimer", "").statusCode(), "le seul foyer de l'installation reste");
     }
 
     @Test
@@ -376,6 +385,23 @@ class AccountsTest {
         assertTrue(get(william, "/").headers().firstValue("Location").orElseThrow().startsWith("/connexion"), "plus aucun accès : déconnecté");
         assertEquals(303, post(manager, "/foyer/membre/2/supprimer", "").statusCode());
         assertFalse(get(manager, "/foyer").body().contains("_member_2\""), "plus de colonne pour le membre supprimé");
+    }
+
+    @Test
+    void installationChoosesLocalOrCloudAndPublishesLegalPages() throws Exception {
+        Visitor admin = admin();
+        assertEquals("/administration/installation", TestAccounts.location(get(admin, "/administration/foyers")), "premier lancement");
+        assertEquals(400, post(admin, "/administration/installation", "type=cloud&adresse=http%3A%2F%2Fpatria.example.fr").statusCode(), "cloud : https exigé");
+        assertEquals(303, post(admin, "/administration/installation", "type=cloud&adresse=https%3A%2F%2Fpatria.example.fr&conditions=Soyez+courtois.&mentions=").statusCode());
+        assertEquals("/compte/double-authentification", TestAccounts.location(get(admin, "/administration/foyers")), "cloud : double authentification de l'admin exigée");
+        assertTrue(get(null, "/conditions").body().contains("Soyez courtois."));
+        assertEquals(404, get(null, "/mentions-legales").statusCode(), "rien publié");
+        assertTrue(get(null, "/connexion").body().contains("href=\"/conditions\""), "lien en pied de page");
+        assertEquals(400, post(null, "/inscription", "name=Lou&login=lou&password=loupasse1&confirm=loupasse1").statusCode(), "conditions à accepter");
+        assertEquals("/compte/securiser", TestAccounts.location(post(null, "/inscription", "name=Lou&login=lou&password=loupasse1&confirm=loupasse1&conditions=on")),
+                "cloud : inscriptions ouvertes");
+        assertEquals(303, post(admin, "/administration/installation", "type=local&adresse=").statusCode());
+        assertTrue(get(null, "/inscription").body().contains("sur invitation"), "locale : sur invitation");
     }
 
     @Test

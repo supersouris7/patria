@@ -534,3 +534,42 @@ document.querySelectorAll("[data-fragment-src]").forEach((holder) => {
     load(holder.dataset.fragmentSrc);
   }
 });
+
+// Pages de connexion : afficher ou masquer le mot de passe, et robustesse d'un nouveau mot de passe.
+document.querySelectorAll(".login-card input[type=password]").forEach((input) => {
+  const field = document.createElement("span");
+  field.className = "password-field";
+  input.parentNode.insertBefore(field, input);
+  field.appendChild(input);
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "quiet password-toggle";
+  toggle.textContent = "Afficher";
+  toggle.setAttribute("aria-label", "Afficher le mot de passe");
+  toggle.addEventListener("click", () => {
+    const hidden = input.type === "password";
+    input.type = hidden ? "text" : "password";
+    toggle.textContent = hidden ? "Masquer" : "Afficher";
+    toggle.setAttribute("aria-label", hidden ? "Masquer le mot de passe" : "Afficher le mot de passe");
+  });
+  field.appendChild(toggle);
+  if (input.autocomplete !== "new-password" || input.name === "confirm") return;
+  const meter = document.createElement("span");
+  meter.className = "password-meter";
+  meter.innerHTML = "<i><b></b></i><span></span>";
+  field.after(meter);
+  const labels = ["Trop court", "Faible", "Moyen", "Solide", "Très solide"];
+  const update = () => {
+    const value = input.value;
+    let score = value.length >= 8 ? 1 : 0;
+    if (value.length >= 12) score++;
+    if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score++;
+    if (/\d/.test(value) && /[^A-Za-z0-9]/.test(value)) score++;
+    if (value.length >= 16) score = Math.max(score, 3);
+    score = Math.min(score, 4);
+    meter.dataset.level = String(score);
+    meter.querySelector("b").style.width = (value ? Math.max(score, 0.5) * 25 : 0) + "%";
+    meter.querySelector("span").textContent = value ? labels[score] : "";
+  };
+  input.addEventListener("input", update);
+});

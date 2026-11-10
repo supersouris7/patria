@@ -17,7 +17,9 @@ public final class UsersController extends AccountSupport {
     }
 
     public void register(Router router) {
-        router.get("/administration/utilisateurs", request -> Response.page(usersPage(request.confirmation(), request.csrf())));
+        router.get("/administration/utilisateurs", request -> InstallationController.blocked(accounts, twoFactors) ? Response.redirect("/compte/double-authentification")
+                : Response.page(usersPage(request, request.confirmation())));
+        router.post("/administration/utilisateurs/groupe", this::bulk);
         router.post("/administration/inscriptions", request -> {
             String mode = request.form().raw("mode");
             accounts.setSignupMode(mode.equals("open") || mode.equals("closed") ? mode : "invite");
@@ -49,14 +51,7 @@ public final class UsersController extends AccountSupport {
             }
         });
         router.post("/administration/utilisateur/{id}/supprimer", request -> {
-            User user = user(request.id());
-            List<Access> before = accounts.accesses(user.id());
-            accounts.deleteUser(user.id());
-            twoFactors.forget(user.id());
-            directory.forgetUser(user.id());
-            sessions.removeUser(user.id());
-            for (Access access : before) audit("ACCESS", access.householdId(), user.id(), user.name() + " : compte supprimé, plus d'accès à ce foyer.");
-            audit("USER", null, user.id(), "Compte « " + user.login() + " » supprimé.");
+            delete(user(request.id()));
             return Response.redirect("/administration/utilisateurs?ok=supprime");
         });
 
@@ -68,10 +63,72 @@ public final class UsersController extends AccountSupport {
         });
     }
 
-    private fr.patria.ui.Html usersPage(Notice notice, String csrf) {
-        List<User> users = accounts.users();
-        Map<Long, List<Access>> accesses = users.stream().collect(Collectors.toMap(User::id, user -> accounts.accesses(user.id())));
-        return AdminPages.users(users, accesses, accounts.signupMode(), notice, csrf);
+    /** Suppression d'un compte : droits, double authentification, progression et sessions. */
+    private void delete(User user) {
+        List<Access> before = accounts.accesses(user.id());
+        accounts.deleteUser(user.id());
+        twoFactors.forget(user.id());
+        directory.forgetUser(user.id());
+        sessions.removeUser(user.id());
+        for (Access access : before) audit("ACCESS", access.householdId(), user.id(), user.name() + " : compte supprimé, plus d'accès à ce foyer.");
+        audit("USER", null, user.id(), "Compte « " + user.login() + " » supprimé.");
+    }
+
+    /** Action sur les comptes coches : desactiver, reactiver ou supprimer. */
+    private Response bulk(Request request) {
+        String action = request.form().raw("action");
+        List<User> chosen = accounts.users().stream().filter(user -> "on".equals(request.form().raw("u_" + user.id()))).toList();
+        if (chosen.isEmpty()) return Response.invalid(usersPage(request, Notice.error("Cochez au moins un compte.")));
+        for (User user : chosen) {
+            switch (action) {
+                case "supprimer" -> delete(user);
+                case "desactiver", "reactiver" -> {
+                    boolean active = action.equals("reactiver");
+                    if (active == user.active()) continue;
+                    accounts.updateUser(user.id(), user.name(), active);
+                    if (!active) sessions.removeUser(user.id());
+                    audit("USER", null, user.id(), "Compte « " + user.login() + " » " + (active ? "réactivé." : "désactivé."));
+                }
+                default -> throw new ValidationException("Action inconnue.");
+            }
+        }
+        return Response.redirect("/administration/utilisateurs?ok=enregistre");
+    }
+
+    /** Liste des comptes : recherche (nom, identifiant, e-mail), filtre, tri, pages de 50, tuiles. */
+    private fr.patria.ui.Html usersPage(Request request, Notice notice) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(clock);
+        Map<Long, List<Access>> accesses = accounts.allAccesses();
+        Map<Long, java.time.LocalDateTime> logins = log.lastLogins();
+        Map<String, LocalDate> twoFactor = twoFactors.twoFactorAccounts();
+        List<AdminPages.UserLine> all = accounts.userRows().stream().map(row -> new AdminPages.UserLine(row, accesses.getOrDefault(row.user().id(), List.of()),
+                logins.get(row.user().id()), twoFactor.containsKey(TwoFactorStore.account(row.user().id())))).toList();
+        AdminPages.UserStats stats = new AdminPages.UserStats(all.size(),
+                (int) all.stream().filter(line -> line.lastLogin() != null && line.lastLogin().isAfter(now.minusDays(30))).count(),
+                (int) all.stream().filter(line -> line.row().createdOn() != null && java.time.YearMonth.from(line.row().createdOn()).equals(java.time.YearMonth.from(now))).count(),
+                (int) all.stream().filter(line -> line.row().user().active() && !line.twoFactor()).count(),
+                (int) all.stream().filter(line -> !line.row().user().active()).count());
+        String query = normalize(request.query("q"));
+        String filter = java.util.Objects.requireNonNullElse(request.query("filtre"), "");
+        String sort = java.util.Objects.requireNonNullElse(request.query("tri"), "");
+        java.util.stream.Stream<AdminPages.UserLine> stream = all.stream().filter(line -> query.isEmpty() || normalize(line.row().user().name() + " " + line.row().user().login()
+                + " " + java.util.Objects.requireNonNullElse(line.row().email(), "")).contains(query)).filter(line -> switch (filter) {
+                    case "actifs" -> line.row().user().active();
+                    case "desactives" -> !line.row().user().active();
+                    case "sans2fa" -> line.row().user().active() && !line.twoFactor();
+                    case "inactifs" -> line.row().user().active() && (line.lastLogin() == null || line.lastLogin().isBefore(now.minusDays(90)));
+                    case "sansfoyer" -> line.accesses().isEmpty();
+                    default -> true;
+                });
+        if (sort.equals("recents")) {
+            stream = stream.sorted(java.util.Comparator.comparing((AdminPages.UserLine line) -> line.row().createdOn(), java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())).reversed());
+        } else if (sort.equals("connexion")) {
+            stream = stream.sorted(java.util.Comparator.comparing(AdminPages.UserLine::lastLogin, java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())).reversed());
+        }
+        List<AdminPages.UserLine> found = stream.toList();
+        AdminPages.Listing listing = listing(request, query.isEmpty() ? "" : request.query("q").strip(), filter, sort, found.size());
+        List<AdminPages.UserLine> page = found.stream().skip((long) (listing.page() - 1) * AdminPages.Listing.SIZE).limit(AdminPages.Listing.SIZE).toList();
+        return AdminPages.users(stats, page, listing, accounts.signupMode(), notice, request.csrf());
     }
 
     private fr.patria.ui.Html userPage(User user, Notice notice, String csrf) {

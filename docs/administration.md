@@ -136,7 +136,7 @@ Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un V
 3. **Caddy** comme ci-dessus, avec votre nom DuckDNS. Avec le seul port 443 ouvert, Caddy obtient quand même son certificat (défi TLS-ALPN). Caddy remplace les en-têtes `X-Forwarded-*` envoyés par le client : Patria ne les croit que s'ils viennent de la machine locale ou du réseau privé (le proxy).
 4. **Avant d'ouvrir le port** :
    - `APP_PASSWORD` long (16 caractères ou plus) et unique ; **double authentification** activée pour l'administrateur, conseillée pour chaque compte ;
-   - inscriptions sur « message » (réglage par défaut, Gérer → Demandes de compte) : aucun formulaire public ne crée de compte ;
+   - installation **locale** (inscriptions sur invitation, par défaut) : seuls les invités créent un compte ;
    - `DB_ENCRYPTION_KEY` définie et sauvegardée hors du serveur, sauvegardes de `/data` vérifiées ;
    - une image **stable** (`latest` ou `X.Y.Z`) plutôt que `unstable`, mise à jour régulièrement.
 5. **Vérifier depuis le réseau mobile** (Wi-Fi coupé) :
@@ -146,13 +146,24 @@ Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un V
    - Sécurité → Connexions : les adresses affichées sont celles des visiteurs, pas celle du proxy.
 6. **Ensuite** : surveillez Sécurité → Connexions échouées. Les essais de mot de passe sont limités (10 échecs par adresse et 30 par identifiant en 15 minutes) et les codes de double authentification aussi.
 
+## Installation locale ou cloud
+
+Au premier lancement, Foyers ouvre **Installation** (Gérer → Installation, modifiable ensuite) :
+
+- **Locale** (famille, proches) : inscriptions sur invitation ;
+- **Cloud** (ouverte au public) : inscriptions ouvertes, e-mail confirmé exigé si l'envoi est réglé, adresse publique en `https://` obligatoire, et double authentification exigée pour l'administrateur avant d'accéder aux listes de comptes et de foyers.
+
+La même page porte l'adresse publique et deux textes facultatifs : **Conditions d'utilisation** (une case à cocher apparaît alors à l'inscription) et **Mentions légales**, publiés sur `/conditions` et `/mentions-legales` et liés en bas des pages de connexion.
+
+**Derrière un proxy.** Les liens d'invitation et des e-mails partent de l'adresse publique. Sans elle, Patria reprend l'hôte de la requête, en `https` seulement si l'en-tête `X-Forwarded-Proto` vient d'un proxy local ou du réseau privé : réglez l'adresse publique dès qu'un proxy ou un nom de domaine est en place.
+
 ## E-mail (facultatif)
 
-Sécurité → **E-mail** : serveur SMTP de votre fournisseur (Brevo, OVH, Gmail avec un mot de passe d'application…), port et chiffrement (STARTTLS 587 ou TLS 465), expéditeur, et **adresse publique** de Patria (`https://…`), qui sert aux liens des e-mails : Patria ne prend jamais l'adresse dans la requête, qu'un tiers pourrait falsifier. « Tester » envoie un e-mail de contrôle.
+Sécurité → **E-mail** : serveur SMTP de votre fournisseur (Brevo, OVH, Gmail avec un mot de passe d'application…), port et chiffrement (STARTTLS 587 ou TLS 465), expéditeur, et **adresse publique** de Patria (`https://…`), qui sert aux liens des e-mails : Patria ne prend jamais l'adresse dans la requête, qu'un tiers pourrait falsifier. « Tester » envoie un e-mail de contrôle. Les e-mails partent en deux versions, texte et HTML (bouton pour le lien).
 
 - Sans réglage : l'e-mail des comptes est facultatif et rien n'est envoyé.
 - Avec réglage : **Mot de passe oublié** apparaît sur la page de connexion (lien valable 30 minutes vers l'e-mail confirmé, même réponse que le compte existe ou non, envois limités ; la double authentification reste demandée).
-- « Exiger un e-mail confirmé » : une demande d'inscription n'apparaît dans Demandes de compte qu'une fois son e-mail confirmé ; un compte créé ici doit confirmer son e-mail à sa première connexion, avant toute autre page. Les comptes existants ne sont pas concernés.
+- « Exiger un e-mail confirmé » : une inscription ou une invitation demande une adresse, à confirmer à la première connexion avant toute autre page. Les comptes existants ne sont pas concernés.
 
 Après le premier mot de passe, chaque nouveau compte se voit **proposer la double authentification** (« Activer maintenant » ou « Plus tard »).
 
@@ -187,7 +198,7 @@ Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un p
 
 **L'administrateur** :
 
-- **supervise** : Foyers (membres, comptes, gestionnaires, sans aucun montant) et Utilisateurs (foyers et rôle de chacun) ;
+- **supervise** : Foyers et Utilisateurs, deux listes faites pour beaucoup de comptes (indicateurs en tête, recherche sans accents, filtres, tri, pages de 50). Utilisateurs filtre les comptes actifs, désactivés, sans double authentification, inactifs depuis 90 jours ou sans foyer, et applique une action à la sélection (désactiver, réactiver, supprimer). Foyers montre membres, comptes et gestionnaires, sans aucun montant, et signale les foyers sans gestionnaire ;
 - **dépanne** : réinitialiser un mot de passe (provisoire, à changer à la connexion suivante), retirer une double authentification, désactiver ou supprimer un compte, nommer un gestionnaire parmi les comptes d'un foyer qui n'en a plus, ou créer un lien de gestion ;
 - **règle le serveur** : inscriptions, Sécurité, e-mail, IA locale ; supprime un foyer abandonné (sa base est mise de côté).
 
@@ -316,4 +327,4 @@ Les services utilisés hors mode hors ligne sont détaillés dans [Confidentiali
 
 ## Suppressions
 
-Une suppression de foyer archive sa base en `.supprime-AAAAMMJJ-HHMMSS` ; l'effacement définitif se fait dans Foyers → Foyers supprimés. Le foyer principal ne se supprime pas. Supprimer un compte ne supprime pas le budget de son foyer. Les sauvegardes externes conservent leurs anciennes données : définissez une durée de rétention et protégez-les.
+Un foyer se supprime depuis sa fiche (Foyers → le foyer → Supprimer) ou par son gestionnaire (Mon foyer et les droits → Supprimer le foyer, en retapant son nom). La base est archivée en `.supprime-AAAAMMJJ-HHMMSS` ; l'effacement définitif se fait dans Foyers → Foyers supprimés. Le dernier foyer de l'installation reste. Supprimer un compte ne supprime pas le budget de son foyer. Les sauvegardes externes conservent leurs anciennes données : définissez une durée de rétention et protégez-les.

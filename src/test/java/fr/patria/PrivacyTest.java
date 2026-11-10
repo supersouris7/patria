@@ -104,19 +104,19 @@ class PrivacyTest {
     void httpIsFlaggedUntilAcknowledged() throws Exception {
         try (App ignored = start(null)) {
             Visitor admin = login("admin", "secret");
-            assertFalse(get(admin, "/administration/foyers").body().contains("security-overlay"), "localhost : rien ne passe par le réseau");
-            String overHttp = rawGet("/administration/foyers", "patria.lan:8080", admin.cookie());
-            assertTrue(overHttp.contains("Connexion non chiffrée (HTTP)") && overHttp.contains("name=\"suite\" value=\"/administration/foyers\""), overHttp);
+            assertFalse(get(admin, "/administration/securite").body().contains("security-overlay"), "localhost : rien ne passe par le réseau");
+            String overHttp = rawGet("/administration/securite", "patria.lan:8080", admin.cookie());
+            assertTrue(overHttp.contains("Connexion non chiffrée (HTTP)") && overHttp.contains("name=\"suite\" value=\"/administration/securite\""), overHttp);
             assertFalse(rawGet("/aide/https", "patria.lan", admin.cookie()).contains("security-overlay"), "pas par-dessus la page d'aide");
             assertTrue(rawGet("/connexion", "patria.lan", "").contains("http-warning"), "alerte avant de taper le mot de passe");
             assertEquals(200, get(null, "/aide/https").statusCode(), "aide lisible sans connexion");
             assertTrue(get(null, "/aide/chiffrement").body().contains("openssl rand -base64 32"), "pas à pas du chiffrement");
-            assertEquals("/administration/foyers", location(post(admin, "/securite/http-compris", "suite=%2Fadministration%2Ffoyers")));
-            assertFalse(rawGet("/administration/foyers", "patria.lan", admin.cookie()).contains("security-overlay"), "lue pour cette session");
+            assertEquals("/administration/securite", location(post(admin, "/securite/http-compris", "suite=%2Fadministration%2Fsecurite")));
+            assertFalse(rawGet("/administration/securite", "patria.lan", admin.cookie()).contains("security-overlay"), "lue pour cette session");
             Visitor other = login("admin", "secret");
-            assertTrue(rawGet("/administration/foyers", "patria.lan", other.cookie()).contains("security-overlay"), "revient à chaque connexion");
+            assertTrue(rawGet("/administration/securite", "patria.lan", other.cookie()).contains("security-overlay"), "revient à chaque connexion");
             assertTrue(get(other, "/administration/securite").body().contains("Connexion locale (localhost)"), "état de l'installation : client local");
-            HttpResponse<String> https = client.send(HttpRequest.newBuilder(URI.create(base + "/administration/foyers")).header("Cookie", other.cookie())
+            HttpResponse<String> https = client.send(HttpRequest.newBuilder(URI.create(base + "/administration/securite")).header("Cookie", other.cookie())
                     .header("X-Forwarded-Proto", "https").GET().build(), HttpResponse.BodyHandlers.ofString());
             assertFalse(https.body().contains("security-overlay"), "derrière un reverse proxy HTTPS");
         }
@@ -192,7 +192,7 @@ class PrivacyTest {
             assertTrue(get(admin, "/bienvenue?etape=1").body().contains("ne voyez aucune donnée financière"), "accueil propre à l'administrateur");
             assertEquals("/administration/foyers", location(post(admin, "/bienvenue/terminer", "")));
             assertEquals("/", location(post(null, "/connexion", "login=admin&password=secret")), "une seule fois");
-            assertTrue(get(admin, "/administration/foyers").body().contains("class=\"version\""), "version en pied de page");
+            assertTrue(get(admin, "/administration/securite").body().contains("class=\"version\""), "version en pied de page");
 
             Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
             Visitor gestion = manager;

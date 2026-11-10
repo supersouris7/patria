@@ -200,6 +200,39 @@ public final class AccountRepository {
         return database.query(connection -> Sql.list(connection, "SELECT * FROM households ORDER BY id", AccountRepository::household));
     }
 
+    /** Date de creation de chaque foyer (liste de l'administrateur). */
+    public Map<Long, LocalDate> householdCreations() {
+        Map<Long, LocalDate> created = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, "SELECT id, created_on FROM households",
+                row -> created.put(row.getLong(1), row.getString(2) == null ? null : LocalDate.parse(row.getString(2).substring(0, 10)))));
+        return created;
+    }
+
+    /** Un compte vu par l'administrateur : date de creation et e-mail (jamais de donnee des foyers). */
+    public record UserRow(User user, LocalDate createdOn, String email) {
+    }
+
+    public List<UserRow> userRows() {
+        return database.query(connection -> Sql.list(connection, "SELECT * FROM users ORDER BY name COLLATE NOCASE, login", row -> new UserRow(user(row),
+                row.getString("created_on") == null ? null : LocalDate.parse(row.getString("created_on").substring(0, 10)), row.getString("email"))));
+    }
+
+    /** Droits de tous les comptes, en deux requetes (liste de l'administrateur, quel que soit le nombre de comptes). */
+    public Map<Long, List<Access>> allAccesses() {
+        return database.query(connection -> {
+            Map<String, Set<Long>> members = new java.util.HashMap<>();
+            Sql.list(connection, "SELECT user_id, household_id, person_id FROM user_members",
+                    row -> members.computeIfAbsent(row.getLong(1) + ":" + row.getLong(2), key -> new LinkedHashSet<>()).add(row.getLong(3)));
+            Map<Long, List<Access>> result = new java.util.HashMap<>();
+            Sql.list(connection, """
+                    SELECT a.user_id, a.household_id, h.name, a.whole_household, a.real_estate, a.manager FROM user_households a
+                    JOIN households h ON h.id = a.household_id ORDER BY h.id""", row -> result.computeIfAbsent(row.getLong(1), key -> new java.util.ArrayList<>())
+                    .add(new Access(row.getLong(1), row.getLong(2), row.getString(3), row.getInt(4) == 1, members.getOrDefault(row.getLong(1) + ":" + row.getLong(2), Set.of()),
+                            row.getInt(5) == 1, row.getInt(6) == 1)));
+            return result;
+        });
+    }
+
     public Optional<Household> household(long id) {
         return database.query(connection -> Sql.list(connection, "SELECT * FROM households WHERE id = ?", AccountRepository::household, id)).stream().findFirst();
     }
@@ -552,6 +585,29 @@ public final class AccountRepository {
     public void setLocalAi(fr.patria.ai.LocalAi.Settings settings) {
         database.transaction(connection -> {
             for (String[] pair : new String[][]{{"local_ai_enabled", settings.enabled() ? "on" : "off"}, {"local_ai_url", settings.url()}, {"local_ai_model", settings.model()}}) {
+                Sql.update(connection, "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", pair[0], pair[1]);
+            }
+            return null;
+        });
+    }
+
+    /** Reglages d'installation : type ({@code local} ou {@code cloud}, vide tant qu'il n'est pas choisi) et pages legales. */
+    public record Installation(String mode, String terms, String notice) {
+        public boolean cloud() {
+            return "cloud".equals(mode);
+        }
+    }
+
+    public Installation installation() {
+        Map<String, String> values = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, "SELECT key, value FROM settings WHERE key IN ('install_mode', 'legal_terms', 'legal_notice')",
+                row -> values.put(row.getString(1), row.getString(2))));
+        return new Installation(values.getOrDefault("install_mode", ""), values.getOrDefault("legal_terms", ""), values.getOrDefault("legal_notice", ""));
+    }
+
+    public void setInstallation(Installation installation) {
+        database.transaction(connection -> {
+            for (String[] pair : new String[][]{{"install_mode", installation.mode()}, {"legal_terms", installation.terms()}, {"legal_notice", installation.notice()}}) {
                 Sql.update(connection, "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", pair[0], pair[1]);
             }
             return null;

@@ -66,6 +66,19 @@ public final class HouseholdController extends AccountSupport {
             accounts.cancelInvitation(request.id(), household.id());
             return Response.redirect("/foyer?ok=supprime#invitations");
         });
+        router.userPost("/foyer/supprimer", request -> {
+            Household household = managed(request);
+            if (!request.form().raw("confirmation").strip().equals(household.name())) {
+                return Response.invalid(page(request, Notice.error("Pour supprimer le foyer, tapez exactement son nom : « " + household.name() + " »."), null));
+            }
+            if (accounts.households().size() < 2) {
+                return Response.invalid(page(request, Notice.error("C'est le seul foyer de cette installation : il ne peut pas être supprimé."), null));
+            }
+            accounts.deleteHousehold(household.id());
+            directory.deleted(household);
+            audit(request.viewer().name(), "HOUSEHOLD", household.id(), null, "Foyer « " + household.name() + " » supprimé par son gestionnaire (base mise de côté).");
+            return Response.redirect("/");
+        });
         router.userPost("/foyer/renommer", request -> {
             Household household = managed(request);
             try {

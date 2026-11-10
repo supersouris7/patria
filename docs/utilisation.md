@@ -6,7 +6,7 @@ Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et su
 
 ## Première connexion
 
-Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Patria propose ensuite la double authentification, puis quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
+Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) guide l'arrivée : confirmation de l'e-mail si l'installation l'exige, proposition de double authentification, puis quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
 
 Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Le **gestionnaire** d'un foyer (un ou plusieurs) gère ses membres, invite les autres et règle qui voit quoi (Gérer → Mon foyer et les droits). L'**administrateur** supervise l'installation et dépanne les comptes, sans voir les finances.
 
@@ -15,7 +15,7 @@ Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** 
 - Les totaux du foyer donnent aussi les réglages communs ; l'immobilier, les biens, prêts, apports et la répartition.
 - L'icône jaune « qui voit quoi », à côté du foyer, indique les accès et leurs changements récents. Cela ne protège pas contre l'exploitant du serveur : [limites de confidentialité](confidentialite.md).
 
-Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
+Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Sur la page de connexion, « Afficher » montre le mot de passe saisi ; à la création, une jauge indique sa solidité. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
 
 **Connexions.** Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification. Il n'y a plus de bouton horloge dans la barre de navigation.
 

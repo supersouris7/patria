@@ -81,13 +81,17 @@ final class HouseholdSites implements HouseholdDirectory {
     }
 
     /** « foyer-2.sqlite3.supprime-20261104-101500 » : base d'un foyer supprime. */
-    private static final java.util.regex.Pattern ARCHIVE = java.util.regex.Pattern.compile("foyer-\\d+\\.sqlite3\\.supprime-(\\d{8}-\\d{6})");
+    /** Base mise de cote : celle d'un foyer ({@code foyer-<id>.sqlite3}) ou celle du foyer principal. */
+    private java.util.regex.Pattern archive() {
+        String primary = java.util.regex.Pattern.quote(config.databasePath().getFileName().toString());
+        return java.util.regex.Pattern.compile("(?:foyer-\\d+\\.sqlite3|" + primary + ")\\.supprime-(\\d{8}-\\d{6})");
+    }
 
     @Override
     public List<Archive> archives() {
         Path directory = config.databasePath().toAbsolutePath().getParent();
         try (java.util.stream.Stream<Path> files = Files.list(directory)) {
-            return files.map(file -> file.getFileName().toString()).map(ARCHIVE::matcher).filter(java.util.regex.Matcher::matches).map(matcher -> {
+            return files.map(file -> file.getFileName().toString()).map(archive()::matcher).filter(java.util.regex.Matcher::matches).map(matcher -> {
                 Path file = directory.resolve(matcher.group());
                 long bytes;
                 try {
@@ -104,7 +108,7 @@ final class HouseholdSites implements HouseholdDirectory {
 
     @Override
     public void purge(String name) {
-        java.util.regex.Matcher matcher = ARCHIVE.matcher(name);
+        java.util.regex.Matcher matcher = archive().matcher(name);
         if (!matcher.matches() || archives().stream().noneMatch(archive -> archive.name().equals(name))) {
             throw new fr.patria.common.ValidationException("Base introuvable.");
         }

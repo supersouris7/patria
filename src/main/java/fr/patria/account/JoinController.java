@@ -158,6 +158,7 @@ public final class JoinController extends AccountSupport {
     private long createAccount(Request request, FormData form, String name) {
         String login = login(form.raw("login"));
         if (!form.raw("password").equals(form.raw("confirm"))) throw new ValidationException("La confirmation ne correspond pas au mot de passe.");
+        if (Layout.hasTerms() && !"on".equals(form.raw("conditions"))) throw new ValidationException("Acceptez les conditions d'utilisation pour créer votre compte.");
         String email = Mails.address(form.raw("email"));
         AccountRepository.Mail mail = accounts.mail();
         boolean confirm = mail.required() && mail.active();
@@ -206,8 +207,9 @@ public final class JoinController extends AccountSupport {
                     + "demandez-le à l'administrateur.</p>");
         };
         return Layout.document("Créer un compte · Patria", "login-page", Html.of("""
-                <main class="login-card">%s<h1 class="login-title">Créer un compte</h1>%s%s
-                <p class="muted"><a href="/connexion">Retour à la connexion</a></p></main>""", Layout.brand(), Components.notice(notice), body));
+                <main class="login-card">%s%s<h1 class="login-title">Créer un compte</h1>%s%s
+                <p class="muted"><a href="/connexion">Retour à la connexion</a></p></main>""", Layout.brand(), "open".equals(mode) ? AccountPages.onboarding(1) : Html.EMPTY,
+                Components.notice(notice), body));
     }
 
     private Html invitationPage(Request request, String token, Map<String, String> values, Notice notice) {
@@ -232,7 +234,8 @@ public final class JoinController extends AccountSupport {
                             fr.patria.web.LocalPath.encode("/invitation?jeton=" + token)));
         }
         return Layout.document("Invitation · Patria", "login-page", Html.of("""
-                <main class="login-card">%s<h1 class="login-title">Invitation</h1>%s%s%s</main>""", Layout.brand(), Components.notice(notice), intro, body));
+                <main class="login-card">%s%s<h1 class="login-title">Invitation</h1>%s%s%s</main>""", Layout.brand(), AccountPages.onboarding(1),
+                Components.notice(notice), intro, body));
     }
 
     /** Formulaire de creation de compte ; {@code household} : demande aussi le nom du nouveau foyer. */
@@ -245,7 +248,7 @@ public final class JoinController extends AccountSupport {
                 <label>Identifiant de connexion<input name="login" maxlength="40" required autocapitalize="none" spellcheck="false" autocomplete="username" value="%s"></label>
                 <label>E-mail%s<input name="email" type="email" maxlength="254"%s autocomplete="email" value="%s"></label>
                 <label>Mot de passe<input name="password" type="password" minlength="%s" required autocomplete="new-password"></label>
-                <label>Confirmation<input name="confirm" type="password" required autocomplete="new-password"></label>%s
+                <label>Confirmation<input name="confirm" type="password" required autocomplete="new-password"></label>%s%s
                 <label class="honeypot" aria-hidden="true">Site<input name="site" tabindex="-1" autocomplete="off"></label>
                 <button type="submit">Créer mon compte</button></form>""",
                 action, token == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"jeton\" value=\"%s\">", token),
@@ -253,6 +256,8 @@ public final class JoinController extends AccountSupport {
                 emailRequired ? " (un lien de confirmation vous sera envoyé)" : " (facultatif, pour retrouver votre mot de passe)", Html.raw(emailRequired ? " required" : ""),
                 values.getOrDefault("email", ""), AccountRepository.MIN_PASSWORD,
                 household ? Html.of("<label>Nom de votre foyer<input name=\"foyer\" maxlength=\"60\" placeholder=\"Foyer Martin\" value=\"%s\"></label>",
-                        values.getOrDefault("foyer", "")) : Html.EMPTY);
+                        values.getOrDefault("foyer", "")) : Html.EMPTY,
+                Layout.hasTerms() ? Html.raw("<label class=\"check\"><input type=\"checkbox\" name=\"conditions\" value=\"on\" required> J'accepte les "
+                        + "<a href=\"/conditions\" target=\"_blank\">conditions d'utilisation</a></label>") : Html.EMPTY);
     }
 }

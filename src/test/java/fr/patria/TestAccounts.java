@@ -98,8 +98,8 @@ final class TestAccounts {
 
     /** Identifiant d'un compte, lu dans la liste des utilisateurs de l'administrateur. */
     static long userId(HttpClient client, String base, String login) throws Exception {
-        Matcher row = Pattern.compile("<code>" + Pattern.quote(login) + "</code>.*?/administration/utilisateur/(\\d+)", Pattern.DOTALL)
-                .matcher(get(client, base, admin(client, base), "/administration/utilisateurs").body());
+        Matcher row = Pattern.compile("/administration/utilisateur/(\\d+)\"><b>[^<]*</b></a><small>" + Pattern.quote(login) + "(?: ·|<)")
+                .matcher(get(client, base, admin(client, base), "/administration/utilisateurs?q=" + login).body());
         assertTrue(row.find(), "compte " + login);
         return Long.parseLong(row.group(1));
     }

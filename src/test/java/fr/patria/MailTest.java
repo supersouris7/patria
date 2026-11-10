@@ -43,9 +43,13 @@ class MailTest {
                     while ((line = in.readLine()) != null) {
                         if (data != null) {
                             if (line.equals(".")) {
+                                // Version texte (premiere partie base64), et la version HTML doit exister
                                 String message = data.toString();
-                                String body = message.substring(message.indexOf("\r\n\r\n") + 4).replace("\r\n", "");
-                                mails.add(new String(Base64.getDecoder().decode(body), StandardCharsets.UTF_8));
+                                int start = message.indexOf("Content-Transfer-Encoding: base64\r\n\r\n") + "Content-Transfer-Encoding: base64\r\n\r\n".length();
+                                int end = message.indexOf("\r\n--", start);
+                                String body = message.substring(start, end < 0 ? message.length() : end).replace("\r\n", "");
+                                String text = new String(Base64.getDecoder().decode(body), StandardCharsets.UTF_8);
+                                mails.add(message.contains("text/html") ? text : "SANS VERSION HTML " + text);
                                 data = null;
                                 out.write("250 ok\r\n".getBytes(StandardCharsets.US_ASCII));
                             } else {
