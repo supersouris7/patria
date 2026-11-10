@@ -26,6 +26,10 @@ Les prompts (`ExpenseCsv.llmPrompt`, `CsvScheduleParser.llmPrompt`, `savings/Pos
 
 IA locale facultative (module `ai`) : `LocalAi` appelle le serveur Ollama réglé par l'administrateur (réglages `local_ai_*` de la base des comptes, page Sécurité) avec `POST /api/generate` (non diffusé, température 0) ; `PdfText` extrait le texte des PDF avec OpenPDF (pas d'OCR). Un formulaire d'import qui contient `Components.localAiInput(type)` envoie le champ `document` et `ia` (depenses, echeancier, bourse) ; `FormData.uploadedText` le fait convertir avant l'aperçu habituel (convertisseur posé par `App`). Envois de fichiers : 10 Mo au plus.
 
+## Licence
+
+Le code est sous Elastic License 2.0 (`LICENSE`, traduction `LICENSE.fr`), © 2026 William Iv. Chaque fichier source commence par la ligne `Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0` : ajoutez-la à tout nouveau fichier. Les deux textes sont copiés dans le jar (`/licence`), et l'image Docker porte l'étiquette `org.opencontainers.image.licenses=Elastic-2.0`.
+
 ## Publication Docker Hub
 
 Un seul workflow : [`.github/workflows/docker.yml`](../.github/workflows/docker.yml) (tests Java, contrôle amd64/arm64 et Trivy, puis publication), à modifier dans le dépôt (pas dans Portainer). Docker Hub est conservé ; aucun deuxième pipeline GHCR n'est nécessaire. Secrets GitHub requis : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (jeton d'accès Docker Hub en lecture et écriture).

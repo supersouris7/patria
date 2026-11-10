@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 /**
  * Interface HTML. {@link fr.patria.ui.Html} echappe tout texte par defaut ; {@link fr.patria.ui.Components} fournit
  * les briques (tuiles, cartes, tableaux, champs) et {@link fr.patria.ui.Layout} le squelette des pages.

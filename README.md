@@ -59,4 +59,14 @@ Les images Docker Hub sont disponibles pour `linux/amd64` et `linux/arm64` :
 
 ## Soutenir
 
-Patria est gratuit, sans abonnement ni publicité. Le lien facultatif « Soutenir Patria » ouvre Ko-fi sans charger de contenu tiers dans les pages. L'hébergement reste à votre charge. Aucune licence générale du code n'est actuellement déclarée dans ce dépôt : sa disponibilité publique ne suffit pas à le qualifier de logiciel libre. Les composants tiers conservent leurs propres licences.
+Patria est gratuit, sans abonnement ni publicité. Le lien facultatif « Soutenir Patria » ouvre Ko-fi sans charger de contenu tiers dans les pages. L'hébergement reste à votre charge.
+
+## Licence
+
+© 2026 William Iv. Patria est distribué sous la licence **[Elastic License 2.0](LICENSE)** ([traduction française](LICENSE.fr), pour information ; seul le texte anglais fait foi) :
+
+- vous pouvez l'installer gratuitement pour vous, votre famille ou vos proches, le modifier et le redistribuer avec cette licence ;
+- vous ne pouvez pas le proposer à des tiers comme **service hébergé ou géré** : ce service est réservé au titulaire des droits ;
+- les mentions de droits et de licence ne doivent pas être retirées ; le nom « Patria » et son logo ne sont pas concédés.
+
+Ce n'est pas une licence « open source » au sens de l'OSI. Les composants tiers conservent leurs propres licences. Chaque installation affiche la licence sur `/licence` et en pied de page.

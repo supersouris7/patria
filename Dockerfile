@@ -5,6 +5,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn --batch-mode dependency:go-offline
 COPY src src
+COPY LICENSE LICENSE.fr ./
 # Commit affiche en pied de page (docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) .)
 ARG GIT_COMMIT=dev
 # Version affichee : le numero du tag stable (X.Y.Z) ; vide pour unstable, qui garde celle du pom.xml.
@@ -42,6 +43,9 @@ COPY --from=build /out/native /app/native
 # Programme et bibliotheque native appartiennent a root : l'application ne peut pas les modifier.
 COPY --from=build /build/target/patria.jar /app/patria.jar
 
+LABEL org.opencontainers.image.title="Patria" \
+      org.opencontainers.image.vendor="William Iv" \
+      org.opencontainers.image.licenses="Elastic-2.0"
 ENV JAVA_HOME=/opt/java PATH="/opt/java/bin:/usr/bin:/bin"
 USER 10001:10001
 EXPOSE 8080

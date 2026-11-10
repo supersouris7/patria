@@ -1,0 +1,113 @@
+Copyright (c) 2026 William Iv. Tous droits réservés, sauf ceux accordés ci-dessous.
+
+Patria est distribué sous la licence Elastic License 2.0 (ELv2). Le concédant
+est William Iv. Le logiciel est Patria : son code source, ses fichiers de
+construction, sa documentation, ses images et ses images Docker.
+
+Traduction française fournie à titre d'information. Seule la version anglaise
+(fichier LICENSE) fait foi.
+
+Le nom « Patria » et son logo sont réservés : la licence ne donne aucun droit
+de les utiliser.
+
+En résumé (ce résumé ne remplace pas le texte) :
+- vous pouvez installer Patria chez vous, gratuitement, pour vous, votre
+  famille ou vos proches, le modifier et le redistribuer avec cette licence ;
+- vous ne pouvez pas proposer Patria à des tiers comme service hébergé ou
+  géré (en ligne, payant ou gratuit) : ce service est réservé au concédant ;
+- vous ne pouvez pas retirer ni masquer les mentions de droits et de licence.
+
+-------------------------------------------------------------------------------
+
+Licence Elastic 2.0
+
+Acceptation
+
+En utilisant le logiciel, vous acceptez l'ensemble des conditions ci-dessous.
+
+Licence de droit d'auteur
+
+Le concédant vous accorde une licence non exclusive, gratuite, mondiale, non
+sous-licenciable et non transférable pour utiliser, copier, distribuer, mettre
+à disposition et créer des œuvres dérivées du logiciel, dans chaque cas sous
+réserve des limitations et conditions ci-dessous.
+
+Limitations
+
+Vous ne pouvez pas fournir le logiciel à des tiers sous forme de service
+hébergé ou géré, lorsque ce service donne aux utilisateurs accès à une part
+substantielle des fonctions ou fonctionnalités du logiciel.
+
+Vous ne pouvez pas déplacer, modifier, désactiver ou contourner la
+fonctionnalité de clé de licence du logiciel, ni retirer ou masquer une
+fonctionnalité du logiciel protégée par la clé de licence.
+
+Vous ne pouvez pas modifier, retirer ou masquer les mentions de licence, de
+droit d'auteur ou autres du concédant dans le logiciel. Toute utilisation des
+marques du concédant est soumise au droit applicable.
+
+Brevets
+
+Le concédant vous accorde une licence, au titre de toute revendication de
+brevet qu'il peut concéder ou qu'il deviendra en mesure de concéder, pour
+fabriquer, faire fabriquer, utiliser, vendre, proposer à la vente, importer et
+faire importer le logiciel, dans chaque cas sous réserve des limitations et
+conditions de cette licence. Cette licence ne couvre pas les revendications de
+brevet que vous enfreindriez du fait de modifications ou d'ajouts au logiciel.
+Si vous ou votre entreprise affirmez par écrit que le logiciel enfreint un
+brevet ou contribue à son infraction, votre licence de brevet sur le logiciel
+prend fin immédiatement. Si votre entreprise le fait, votre licence de brevet
+prend fin immédiatement pour le travail effectué pour votre entreprise.
+
+Mentions
+
+Vous devez veiller à ce que toute personne qui obtient de vous une copie de
+tout ou partie du logiciel reçoive aussi une copie de ces conditions.
+
+Si vous modifiez le logiciel, vous devez inclure dans toute copie modifiée des
+mentions visibles indiquant que vous l'avez modifié.
+
+Aucun autre droit
+
+Ces conditions n'impliquent aucune autre licence que celles expressément
+accordées ici.
+
+Résiliation
+
+Si vous utilisez le logiciel en violation de ces conditions, cette utilisation
+n'est pas autorisée et vos licences prennent fin automatiquement. Si le
+concédant vous notifie la violation et que vous y mettez fin au plus tard
+30 jours après réception de cette notification, vos licences sont rétablies
+rétroactivement. Toutefois, toute nouvelle violation après ce rétablissement
+met fin à vos licences automatiquement et définitivement.
+
+Absence de responsabilité
+
+Dans toute la mesure permise par la loi, le logiciel est fourni tel quel, sans
+garantie ni condition d'aucune sorte, et le concédant ne sera pas responsable
+envers vous des dommages résultant de ces conditions ou de l'utilisation ou de
+la nature du logiciel, quel que soit le fondement juridique invoqué.
+
+Définitions
+
+Le concédant est l'entité qui propose ces conditions, et le logiciel est le
+logiciel que le concédant met à disposition selon ces conditions, y compris
+toute partie de celui-ci.
+
+« Vous » désigne la personne ou l'entité qui accepte ces conditions.
+
+« Votre entreprise » désigne toute entité juridique, entreprise individuelle
+ou autre organisation pour laquelle vous travaillez, ainsi que toutes les
+organisations qui la contrôlent, qu'elle contrôle ou qui sont sous contrôle
+commun avec elle. Le contrôle désigne la détention de la quasi-totalité des
+actifs d'une entité, ou le pouvoir de diriger sa gestion et sa politique par
+vote, contrat ou autrement. Le contrôle peut être direct ou indirect.
+
+« Vos licences » désigne toutes les licences qui vous sont accordées sur le
+logiciel selon ces conditions.
+
+« Utilisation » désigne tout ce que vous faites avec le logiciel et qui
+nécessite l'une de vos licences.
+
+« Marque » désigne les marques de commerce, marques de service et droits
+similaires.

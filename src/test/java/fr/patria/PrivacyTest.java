@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 package fr.patria;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,6 +75,8 @@ class PrivacyTest {
                     + "&estimate_date=2025-01-01&sale_fees_pct=8").statusCode());
             assertEquals("/administration/bien/1?ok=deplace", location(post(admin, "/administration/bien/1/foyer", "foyer=2")), "déplacement entre bases chiffrées");
             assertTrue(get(admin, "/confidentialite").body().contains("sont <b>chiffrées</b>"));
+            String licence = get(admin, "/licence").body();
+            assertTrue(licence.contains("Elastic License 2.0") && licence.contains("William Iv") && licence.contains("hosted or managed"));
             assertTrue(get(null, "/aide/chiffrement").body().contains("Les bases de cette installation sont chiffrées"), "aide lisible sans connexion");
         }
         for (String file : new String[]{"patria.sqlite3", "foyer-2.sqlite3", App.ACCOUNTS_FILE, "patria.sqlite3.avant-migration-v12-20260101-000000"}) {

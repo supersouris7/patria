@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 /**
  * Persistance SQLite : connexion partagee ({@link fr.patria.storage.Database}), conversions sans flottants
  * ({@link fr.patria.storage.Sql}) et migrations versionnees avec sauvegarde ({@link fr.patria.storage.Migrations}).

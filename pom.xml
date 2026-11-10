@@ -8,6 +8,9 @@
     <version>0.6.0</version>
     <name>Patria</name>
     <description>Suivi immobilier personnel</description>
+    <licenses>
+        <license><name>Elastic License 2.0</name><url>https://www.elastic.co/licensing/elastic-license</url><distribution>repo</distribution></license>
+    </licenses>
 
     <properties>
         <java.version>21</java.version>
@@ -33,6 +36,8 @@
         <finalName>patria</finalName>
         <resources>
             <resource><directory>src/main/resources</directory></resource>
+            <!-- Textes de la licence, servis par /licence et livres dans le jar. -->
+            <resource><directory>${project.basedir}</directory><targetPath>licence</targetPath><includes><include>LICENSE</include><include>LICENSE.fr</include></includes></resource>
             <!-- Seul ce dossier est filtre (version, commit) : les images et polices ne doivent pas l'etre. -->
             <resource><directory>src/main/build-info</directory><filtering>true</filtering></resource>
         </resources>

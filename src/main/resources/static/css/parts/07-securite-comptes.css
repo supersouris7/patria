@@ -1,3 +1,4 @@
+/* Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE) */
 /* Alerte HTTP, accueil, pied de page, qui voit quoi, connexion et double authentification. Ordre de chargement : parts/files.txt (la cascade en depend). */
 
 /* ---- Alerte HTTP, encadre de progression, accueil, pied de page ---- */
@@ -167,3 +168,4 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .auth-links a { color: var(--muted); }
 .install-choice input { flex: none; margin-top: 3px; width: auto; }
 .login-links { margin: 12px 0 0; }
+.licence-text { font-size: .8rem; max-height: 60vh; overflow: auto; white-space: pre-wrap; }

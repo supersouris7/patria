@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 package fr.patria.savings;
 
 import fr.patria.common.ValidationException;

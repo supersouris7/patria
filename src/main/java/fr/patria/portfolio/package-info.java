@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 /**
  * Module « patrimoine » : vues de synthese qui combinent biens, prets et apports.
  * {@link fr.patria.portfolio.Portfolio} calcule, {@link fr.patria.portfolio.PortfolioPages} affiche.

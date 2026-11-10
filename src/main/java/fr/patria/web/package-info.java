@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 /**
  * Socle HTTP sans framework. Le {@link fr.patria.web.Router} applique authentification, CSRF, en-tetes de securite
  * et pages d'erreur ; les controleurs recoivent une {@link fr.patria.web.Request} et renvoient une

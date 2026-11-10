@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 package fr.patria.ui;
 
 import java.util.List;
@@ -173,6 +174,7 @@ public final class Layout {
                 : Html.of("<a class=\"support-link\" href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\">♥ Soutenir Patria</a>", BuildInfo.supportUrl());
         return Html.of("""
                 <footer class="shell site-footer"><span>Patria · vos données restent sur votre serveur</span><a href="/confidentialite">Confidentialité</a>%s%s\
+                <a href="/licence">© 2026 William Iv · Licence Elastic 2.0</a>\
                 <span class="version" title="Version et commit de cette installation">v%s · %s</span>%s</footer>""",
                 terms ? Html.raw("<a href=\"/conditions\">Conditions d'utilisation</a>") : Html.EMPTY,
                 legalNotice ? Html.raw("<a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY, BuildInfo.version(), BuildInfo.shortCommit(), support);
@@ -394,7 +396,7 @@ public final class Layout {
                 <body class="%s">%s</body></html>""",
                 theme().isEmpty() ? Html.EMPTY : Html.of(" data-theme=\"%s\"", theme()), theme().isEmpty() ? "dark light" : theme(),
                 title, Assets.url("/images/patria-logo.png"), Assets.url("/css/patria.css"), Assets.url("/js/app.js"), bodyClass,
-                "login-page".equals(bodyClass) ? Html.of("<div class=\"auth-shell\">%s%s</div><p class=\"auth-links\"><a href=\"/confidentialite\">Confidentialité</a>%s%s</p>",
+                "login-page".equals(bodyClass) ? Html.of("<div class=\"auth-shell\">%s%s</div><p class=\"auth-links\"><a href=\"/confidentialite\">Confidentialité</a>%s%s · <a href=\"/licence\">Licence</a></p>",
                         AUTH_ASIDE, body, terms ? Html.raw(" · <a href=\"/conditions\">Conditions d'utilisation</a>") : Html.EMPTY,
                         legalNotice ? Html.raw(" · <a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY) : body);
     }

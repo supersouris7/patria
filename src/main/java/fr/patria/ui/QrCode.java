@@ -1,3 +1,4 @@
+// Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE)
 package fr.patria.ui;
 
 import io.nayuki.qrcodegen.QrCode.Ecc;

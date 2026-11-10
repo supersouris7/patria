@@ -155,6 +155,8 @@ jobs:
             org.opencontainers.image.version=${{ needs.publication.outputs.tag }}
             org.opencontainers.image.revision=${{ needs.publication.outputs.commit }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=Elastic-2.0
+            org.opencontainers.image.vendor=William Iv
 
   latest:
     needs: [publication, docker]
