@@ -31,14 +31,7 @@
 .welcome .eyebrow { color: var(--warn-text); }
 .welcome .lead { color: var(--text); }
 .welcome b { color: var(--text); }
-.welcome-steps { counter-reset: none; display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; margin: 0 0 22px; padding: 0; }
-.welcome-steps li { align-items: center; color: var(--muted); display: inline-flex; font-size: .82rem; font-weight: 650; gap: 7px; }
-.welcome-steps li span { align-items: center; border: 1px solid var(--line-strong); border-radius: 99px; display: inline-flex; font-size: .75rem; height: 22px;
-    justify-content: center; width: 22px; }
-.welcome-steps li.done span { background: rgb(243 211 138 / 18%); border-color: var(--warn-line); color: var(--warn-text); }
-.welcome-steps li.current { color: var(--warn-strong); }
-.welcome-steps li.current span { background: var(--warn-text); border-color: var(--warn-text); color: var(--on-warn); }
-.welcome-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 18px 0 6px; }
+.welcome-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); margin: 18px 0 6px; }
 .welcome-grid div { background: var(--input); border: 1px solid rgb(107 85 32 / 55%); border-radius: var(--radius-small); padding: 12px 14px; }
 .welcome-grid b { display: block; margin-bottom: 3px; }
 .welcome-grid span { color: var(--text-soft); font-size: .9rem; }
@@ -46,11 +39,6 @@
 .welcome-list li { margin-bottom: 8px; }
 .welcome-actions { align-items: center; border-top: 1px solid rgb(107 85 32 / 55%); display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; padding-top: 16px; }
 .welcome-actions form { margin: 0; }
-.welcome-count { color: var(--muted); font-size: .85rem; margin-left: auto; }
-.welcome-skip { margin: 10px 0 0; }
-.welcome-skip .quiet { color: var(--muted); padding-left: 0; }
-.button.kofi { background: #ff5e5b; border-color: #ff5e5b; color: #fff; }
-.button.kofi:hover { background: #e54b48; }
 
 .site-footer .version { font-variant-numeric: tabular-nums; }
 .site-footer .support-link { color: var(--danger); font-weight: 650; }
@@ -58,11 +46,9 @@
 @media (max-width: 640px) {
     .security-dialog { padding: 18px; }
     .notice.welcome { padding: 20px 18px; }
-    .welcome-count { margin-left: 0; order: 3; width: 100%; }
 }
 .notice.warning a.button { color: #fff; margin-left: 0; }
 .notice.warning a.button.secondary { color: var(--text-soft); }
-.notice.warning a.button.kofi { color: #fff; }
 .notice ul { font-weight: 500; margin: 6px 0 0; padding-left: 20px; }
 .check-list { list-style: none; margin: 0; padding: 0; }
 .check-list li { margin-bottom: 6px; }
@@ -169,3 +155,12 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .install-choice input { flex: none; margin-top: 3px; width: auto; }
 .login-links { margin: 12px 0 0; }
 .licence-text { font-size: .8rem; max-height: 60vh; overflow: auto; white-space: pre-wrap; }
+/* Visite guidee */
+.tour { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: 0 16px 40px #0005; padding: 18px 18px 12px; position: fixed;
+    width: min(360px, calc(100vw - 32px)); z-index: 60; }
+.tour h2 { font-size: 1.05rem; margin: 0 0 6px; outline: none; }
+.tour p { color: var(--text-soft); margin: 0 0 14px; }
+.tour-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.tour-actions .muted { margin-right: auto; }
+.tour-skip { display: block; font-size: .8rem; margin: 6px auto 0; }
+.tour-target { border-radius: 10px; box-shadow: 0 0 0 3px var(--blue), 0 0 0 9px rgb(26 120 220 / 22%); }

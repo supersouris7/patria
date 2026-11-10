@@ -588,3 +588,101 @@ document.querySelectorAll(".login-card input[type=password]").forEach((input) =>
   };
   input.addEventListener("input", update);
 });
+
+// Visite guidee (?visite=1) : une bulle par element de l'interface, saute ceux qui ne sont pas affiches.
+const tourTemplate = document.getElementById("visite");
+if (tourTemplate) {
+  const shown = (element) => element && element.getClientRects().length > 0;
+  const stops = Array.from(tourTemplate.content.querySelectorAll("[data-stop]"))
+    .filter((stop) => !stop.dataset.target || shown(document.querySelector(stop.dataset.target)));
+  const bubble = document.createElement("div");
+  bubble.className = "tour";
+  bubble.setAttribute("role", "dialog");
+  bubble.setAttribute("aria-live", "polite");
+  let index = 0;
+  let target = null;
+  const place = () => {
+    const width = bubble.offsetWidth;
+    const height = bubble.offsetHeight;
+    if (!target) {
+      bubble.style.left = `${Math.max(16, (innerWidth - width) / 2)}px`;
+      bubble.style.top = `${Math.max(16, (innerHeight - height) / 2)}px`;
+      return;
+    }
+    const box = target.getBoundingClientRect();
+    let top = box.bottom + 12;
+    if (top + height > innerHeight - 16) top = Math.max(16, box.top - height - 12);
+    bubble.style.top = `${top}px`;
+    bubble.style.left = `${Math.min(Math.max(16, box.left + box.width / 2 - width / 2), innerWidth - width - 16)}px`;
+  };
+  const end = () => {
+    target?.classList.remove("tour-target");
+    bubble.remove();
+    removeEventListener("resize", place);
+    document.removeEventListener("keydown", keys);
+    const url = new URL(location.href);
+    url.searchParams.delete("visite");
+    history.replaceState(null, "", url);
+  };
+  const button = (label, css, action) => {
+    const element = document.createElement("button");
+    element.type = "button";
+    element.className = css;
+    element.textContent = label;
+    element.addEventListener("click", action);
+    return element;
+  };
+  const show = (next) => {
+    index = next;
+    target?.classList.remove("tour-target");
+    const stop = stops[index];
+    target = stop.dataset.target ? document.querySelector(stop.dataset.target) : null;
+    if (target) {
+      target.classList.add("tour-target");
+      target.scrollIntoView({ block: "nearest" });
+    }
+    bubble.replaceChildren(...Array.from(stop.children, (child) => child.cloneNode(true)));
+    const heading = bubble.querySelector("h2");
+    heading.id = "tour-title";
+    heading.tabIndex = -1;
+    bubble.setAttribute("aria-labelledby", "tour-title");
+    const actions = document.createElement("div");
+    actions.className = "tour-actions";
+    const count = document.createElement("span");
+    count.className = "muted small";
+    count.textContent = `${index + 1} / ${stops.length}`;
+    actions.append(count);
+    if (index > 0) actions.append(button("Précédent", "secondary", () => show(index - 1)));
+    const last = index === stops.length - 1;
+    if (last && tourTemplate.dataset.finalHref) {
+      const link = document.createElement("a");
+      link.className = "button";
+      link.href = tourTemplate.dataset.finalHref;
+      link.textContent = tourTemplate.dataset.finalLabel;
+      link.addEventListener("click", end);
+      actions.append(button("Terminer", "secondary", end), link);
+    } else {
+      actions.append(button(last ? "Terminer" : "Suivant", "", last ? end : () => show(index + 1)));
+    }
+    bubble.append(actions);
+    if (!last) bubble.append(button("Passer la visite", "quiet tour-skip", end));
+    place();
+    heading.focus({ preventScroll: true });
+  };
+  const keys = (event) => {
+    if (event.key === "Escape") end();
+  };
+  if (stops.length) {
+    document.body.append(bubble);
+    addEventListener("resize", place);
+    document.addEventListener("keydown", keys);
+    show(0);
+  }
+}
+
+// Lien vers une ancre dans un depliant ferme : on l'ouvre avant d'y aller.
+document.addEventListener("click", (event) => {
+  const link = event.target.closest('a[href^="#"]');
+  const target = link && link.getAttribute("href").length > 1 ? document.getElementById(link.getAttribute("href").slice(1)) : null;
+  for (let details = target?.closest("details"); details; details = details.parentElement?.closest("details")) details.open = true;
+});

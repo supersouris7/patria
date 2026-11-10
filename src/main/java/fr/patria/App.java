@@ -81,7 +81,7 @@ public final class App implements AutoCloseable {
             fr.patria.ai.LocalAi.configure(localAi);
             fr.patria.ui.Components.useLocalAi(localAi.enabled());
             fr.patria.account.AccountRepository.Installation installation = accounts.installation();
-            fr.patria.ui.Layout.useLegalPages(!installation.terms().isBlank(), !installation.notice().isBlank());
+            fr.patria.ui.Layout.useInstallation(installation.cloud(), !installation.terms().isBlank(), !installation.notice().isBlank());
             // Type d'import (et, pour les revenus, prenoms des membres : « revenus|Paul,Camille ») -> prompt de l'IA locale.
             fr.patria.web.FormData.useConverter((kind, document) -> fr.patria.ai.LocalAi.convert(switch (kind.split("\\|")[0]) {
                 case "echeancier" -> fr.patria.loan.CsvScheduleParser.llmPrompt();

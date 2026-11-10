@@ -23,23 +23,16 @@ public final class WelcomeController {
     }
 
     public void register(Router router) {
-        router.userGet("/bienvenue", request -> {
-            int step;
-            try {
-                step = Math.clamp(Integer.parseInt(request.query("etape") == null ? "1" : request.query("etape")), 1, WelcomePages.STEPS);
-            } catch (NumberFormatException exception) {
-                step = 1;
-            }
-            return Response.page(WelcomePages.page(step, request.viewer().name(), !request.viewer().isAdministrator(), request.viewer().isAdministrator(),
-                    encrypted, request.csrf()));
-        });
+        router.userGet("/bienvenue", request -> Response.page(WelcomePages.page(request.viewer().name(), request.viewer().householdManager(),
+                request.viewer().isAdministrator(), encrypted, request.csrf())));
         router.userPost("/bienvenue/terminer", request -> {
             accounts.setWelcomed(request.viewer().userId(), LocalDate.now(clock));
             String next = LocalPath.safe(request.form().raw("suite"));
             if (next != null) return Response.redirect(next);
-            boolean skipped = !request.form().raw("passer").isEmpty();
-            if (request.viewer().isAdministrator()) return Response.redirect("/administration/foyers");
-            return Response.redirect(!skipped ? "/assistant" : "/");
+            // Visite de l'administrateur depuis Securite : Foyers peut renvoyer vers Installation au premier lancement.
+            boolean tour = !request.form().raw("visite").isEmpty();
+            if (request.viewer().isAdministrator()) return Response.redirect(tour ? "/administration/securite?visite=1" : "/administration/foyers");
+            return Response.redirect(tour ? "/?visite=1" : "/");
         });
     }
 }

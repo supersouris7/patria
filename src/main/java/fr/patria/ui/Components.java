@@ -248,11 +248,17 @@ public final class Components {
     public static Html llmPrompt(String id, String prompt) {
         return Html.of("""
                 <div class="llm-prompt"><p class="llm-why"><b>Aide IA facultative.</b> Copiez le prompt dans un assistant IA (ChatGPT, Claude, Le Chat, Gemini, \
-                ou un modèle local) avec vos documents, puis collez sa réponse ci-dessous. Patria ne lui envoie rien lui-même.</p>%s\
-                <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">Copier le prompt IA</button>\
+                ou un modèle local) avec vos documents, puis collez sa réponse ci-dessous. Patria ne lui envoie rien lui-même.</p>%s%s</div>""",
+                aiWarning(), promptCopy(id, prompt, "Copier le prompt IA"));
+    }
+
+    /** Bouton de copie d'une consigne pour une IA, et la consigne elle-meme, repliee. */
+    public static Html promptCopy(String id, String prompt, String label) {
+        return Html.of("""
+                <div class="llm-prompt-actions"><button type="button" class="secondary" data-copy="%s">%s</button>\
                 <span class="muted copy-status" role="status"></span></div>\
-                <details><summary>Voir le prompt</summary><textarea id="%s" readonly rows="12" aria-label="Prompt pour assistant IA">%s</textarea></details></div>""",
-                aiWarning(), id, id, prompt);
+                <details><summary>Voir la consigne</summary><textarea id="%s" readonly rows="12" aria-label="Consigne pour l'IA">%s</textarea></details>""",
+                id, label, id, prompt);
     }
 
     /** Avertissement sur les donnees confiees a un assistant IA commercial. */

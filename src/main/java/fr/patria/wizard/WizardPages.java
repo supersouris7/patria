@@ -41,7 +41,8 @@ final class WizardPages {
                 <li><b>Votre progression est gardée</b> : « Reprendre » saute ce qui est fait, « Tout revoir » repasse chaque étape avec ce qui est déjà saisi
                 (utile une fois par an).</li>
                 <li>Comptez 15 à 30 minutes avec les documents sous la main.</li>
-                <li><b>Un assistant IA externe</b> (ChatGPT, Claude, Le Chat…) n'est utile que pour transformer des PDF en fichier à importer : l'échéancier d'un prêt, ou vos relevés bancaires d'un coup. Tout le reste se saisit à la main. Patria ne lui envoie rien : <a href="/confidentialite">comment protéger vos données</a>.</li></ul>""");
+                <li><b>Pour aller vite</b>, la première étape importe le fichier des opérations de votre banque (le plus simple, sans IA), ou la réponse d'une IA
+                (Le Chat, ChatGPT, Claude, Gemini) à qui vous donnez vos documents. Patria ne lui envoie rien : <a href="/confidentialite">comment protéger vos données</a>.</li></ul>""");
         Html content = Html.concat(Components.heading("Patria", "Guide de saisie", context.admin() ? "Pour tout le foyer." : "Pour vos propres revenus et dépenses.",
                         actions),
                 Components.disclosure("Comment ça marche", intro, !started),
@@ -152,17 +153,7 @@ final class WizardPages {
                 : Html.of("<ul class=\"pile\">%s</ul><p class=\"muted\">Rien n'est encore dans votre budget : chaque ligne se valide ou se refuse à l'étape indiquée, avec « Suivant ».</p>",
                 pile.entrySet().stream().map(entry -> Html.of("<li><b>%s</b> %s <span class=\"muted\">→ étape « %s »</span></li>", entry.getValue(),
                         entry.getKey().label().toLowerCase(java.util.Locale.FRENCH), entry.getKey().step().title())).collect(Html.joining())));
-        Html give = Html.of("""
-                <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s%s%s
-                <label>Réponse de l'IA (toutes les lignes, vous pouvez coller en plusieurs fois)<textarea name="texte" rows="12"
-                placeholder="REVENU;Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;"></textarea></label>
-                <label>Ou, sans IA, l'export de vos opérations bancaires (CSV, OFX ou QIF, trois mois ou plus)<input name="csv" type="file" accept=".csv,.ofx,.qif,.txt">
-                <small class="muted">Proposé par la plupart des banques dans la liste des opérations (« Exporter » ou « Télécharger mes opérations »). Patria y repère
-                les prélèvements et revenus qui reviennent chaque mois avec le même montant ; les dépenses variables (courses, carburant) se saisissent ensuite.</small></label>
-                <div class="form-actions"><button type="submit">Ajouter à la pile « À trier »</button></div></form>""",
-                Components.csrfField(context.csrf()), modeField(context),
-                Components.localAiInput("tout|" + context.visibility().people().stream().map(person -> person.name() + (person.isAccount() ? "*" : ""))
-                        .collect(java.util.stream.Collectors.joining(","))));
+        Html methods = importMethods(context);
         Html checklist = Html.of("""
                 <form method="post" action="/assistant/documents/liste" class="doc-checklist">%s%s%s
                 <div class="form-actions"><button class="secondary" type="submit">Enregistrer la liste</button></div></form>""",
@@ -175,11 +166,72 @@ final class WizardPages {
                                     auto ? Html.raw(" <span class=\"badge paid\">déjà dans Patria</span>") : Html.EMPTY);
                         }).collect(Html.joining()))).collect(Html.joining()));
         return Html.concat(
-                Components.card("1. Cochez les documents que vous avez", null, Html.of("<span class=\"muted\">%s sur %s</span>", ready, documents.size()),
-                        Html.concat(finder(context, documents, query), checklist)),
-                Html.of("<div id=\"import\">%s</div>", Components.card("2. Donnez-les tous à l'IA", null, Html.EMPTY,
-                        Html.concat(Components.llmPrompt("prompt-universel", ImportInbox.prompt(context.visibility().people())), give))),
+                Html.of("<div id=\"import\">%s</div>", Components.card("Comment voulez-vous remplir Patria ?", null, Html.EMPTY, methods)),
+                // La liste et la recherche « ou trouver » s'ouvrent d'elles-memes quand on cherche une banque.
+                Components.disclosure("Quels documents rassembler, et où les trouver ? (" + ready + " sur " + documents.size() + ")",
+                        Html.concat(finder(context, documents, query), checklist), !query.isBlank()),
                 pileCard);
+    }
+
+    /**
+     * Trois facons d'importer, une seule ouverte a la fois : le fichier de la banque (le plus simple, sans IA), une IA
+     * (pas a pas, avec la consigne a copier), ou a la main. Tout arrive dans la pile « A trier » ; rien n'entre dans le
+     * budget sans validation.
+     */
+    private static Html importMethods(WizardController.Context context) {
+        Html csrf = Html.concat(Components.csrfField(context.csrf()), modeField(context));
+        Html bank = Html.of("""
+                <ol class="howto-steps">
+                <li><b>Connectez-vous au site de votre banque</b>, de préférence sur ordinateur : les applications mobiles proposent rarement l'export.</li>
+                <li><b>Ouvrez la liste des opérations</b> du compte courant et cherchez « Exporter », « Télécharger » ou une flèche vers le bas.
+                Pas trouvé ? Tapez le nom de votre banque dans <a href="#ou-trouver">Où trouver vos documents ?</a></li>
+                <li><b>Choisissez le format CSV</b> (ou OFX, QIF) sur au moins 3 mois, idéalement 12, puis enregistrez le fichier.</li>
+                <li><b>Déposez-le ici :</b></li></ol>
+                <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s
+                <label>Fichier de la banque (CSV, OFX ou QIF)<input name="csv" type="file" accept=".csv,.ofx,.qif,.txt" required></label>
+                <div class="form-actions"><button type="submit">Analyser le fichier</button></div></form>
+                <p class="muted small">Patria repère les prélèvements et revenus qui reviennent chaque mois avec le même montant (loyer, abonnements, salaire)
+                et les met dans la pile « À trier ». Les dépenses variables (courses, carburant) se saisissent ensuite. Le fichier n'est pas conservé.</p>""", csrf);
+        Html ai = Html.of("""
+                %s<ol class="howto-steps">
+                <li><b>Ouvrez une IA</b> dans un autre onglet : <a href="https://chat.mistral.ai" target="_blank" rel="noopener noreferrer">Le Chat (Mistral)</a>,
+                <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">ChatGPT</a>, <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Claude</a>
+                ou <a href="https://gemini.google.com" target="_blank" rel="noopener noreferrer">Gemini</a>. Un compte gratuit suffit.</li>
+                <li><b>Copiez la consigne</b> et collez-la dans la conversation de l'IA.<div class="llm-prompt">%s</div></li>
+                <li><b>Joignez vos documents</b> avec le trombone de l'IA : bulletins de salaire, relevés, avis d'impôt, contrats (PDF, photos ou captures).
+                Masquez d'abord IBAN et numéros de compte si vous le souhaitez.</li>
+                <li><b>Copiez toute la réponse de l'IA</b> (bouton « Copier » sous sa réponse) et <b>collez-la ici :</b></li></ol>
+                <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s
+                <label>Réponse de l'IA (vous pouvez coller en plusieurs fois)<textarea name="texte" rows="10" required
+                placeholder="REVENU;Paul;Salaire;Salaire net;2450,00;Mensuel;01/09/2026;"></textarea></label>
+                <div class="form-actions"><button type="submit">Ajouter à la pile « À trier »</button></div></form>%s""",
+                Components.aiWarning(), Components.promptCopy("prompt-universel", ImportInbox.prompt(context.visibility().people()), "Copier la consigne"), csrf,
+                localAi(context, csrf));
+        Html manual = Html.of("""
+                <p>Le guide vous fait saisir, un écran à la fois, vos revenus, votre logement, vos dépenses fixes et vos impôts. Gardez vos derniers
+                bulletins de salaire et relevés sous la main.</p>
+                <form method="post" action="%s/passer">%s<button type="submit">Saisir à la main, étape par étape →</button></form>""", Step.DOCUMENTS.path(), csrf);
+        return Html.of("""
+                <p class="muted">Choisissez une méthode. Rien n'entre dans votre budget avant que vous l'ayez validé, ligne par ligne.</p>
+                <div class="import-methods">%s%s%s</div>""",
+                method("Avec le fichier de ma banque", "Le plus simple · sans IA · charges et revenus réguliers", bank, true),
+                method("Avec une IA", "Le plus complet · salaires, impôts, contrats · 10 minutes", ai, false),
+                method("À la main", "Sans fichier · écran par écran", manual, false));
+    }
+
+    private static Html method(String title, String hint, Html body, boolean open) {
+        return Html.of("<details class=\"import-method\" name=\"methode\"%s><summary><b>%s</b><small>%s</small></summary><div class=\"import-method-body\">%s</div></details>",
+                Html.raw(open ? " open" : ""), title, hint, body);
+    }
+
+    /** IA locale de l'installation, si l'administrateur l'a activee : le document est converti sans rien envoyer dehors. */
+    private static Html localAi(WizardController.Context context, Html csrf) {
+        Html input = Components.localAiInput("tout|" + context.visibility().people().stream().map(person -> person.name() + (person.isAccount() ? "*" : ""))
+                .collect(java.util.stream.Collectors.joining(",")));
+        if (input.isEmpty()) return Html.EMPTY;
+        return Html.of("""
+                <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s%s
+                <div class="form-actions"><button class="secondary" type="submit">Convertir avec l'IA locale</button></div></form>""", csrf, input);
     }
 
     /**
@@ -199,7 +251,7 @@ final class WizardPages {
         }
         Html names = DocumentGuides.names().stream().map(name -> Html.of("<option value=\"%s\">", name)).collect(Html.joining());
         return Html.of("""
-                <form method="get" action="/assistant/documents" class="howto-search" role="search">%s<label>Où trouver vos documents ?                <input type="search" name="q" value="%s" list="plateformes" placeholder="Votre banque ou organisme : LCL, CAF, Trade Republic…"></label>                <datalist id="plateformes">%s</datalist><button class="secondary" type="submit">Chercher</button>                <a href="/assistant/documents/aide">Tutoriel complet</a></form>%s""",
+                <form method="get" action="/assistant/documents" class="howto-search" id="ou-trouver" role="search">%s<label>Où trouver vos documents ?                <input type="search" name="q" value="%s" list="plateformes" placeholder="Votre banque ou organisme : LCL, CAF, Trade Republic…"></label>                <datalist id="plateformes">%s</datalist><button class="secondary" type="submit">Chercher</button>                <a class="button secondary" href="/assistant/documents/aide">Tutoriel banque par banque</a></form>%s""",
                 context.review() ? Html.of("<input type=\"hidden\" name=\"mode\" value=\"%s\">", WizardController.REVIEW) : Html.EMPTY, query, names, results);
     }
 

@@ -189,17 +189,22 @@ class PrivacyTest {
         try (App ignored = start(null)) {
             assertEquals("/bienvenue", location(post(null, "/connexion", "login=admin&password=secret")));
             Visitor admin = login("admin", "secret");
-            for (int step = 1; step <= 4; step++) assertEquals(200, get(admin, "/bienvenue?etape=" + step).statusCode());
-            assertTrue(get(admin, "/bienvenue?etape=99").body().contains("Soutenir"), "étape bornée");
-            assertTrue(get(admin, "/bienvenue?etape=3").body().contains("DB_ENCRYPTION_KEY"), "l'administrateur voit que les bases ne sont pas chiffrées");
-            assertTrue(get(admin, "/bienvenue?etape=1").body().contains("ne voyez aucune donnée financière"), "accueil propre à l'administrateur");
-            assertEquals("/administration/foyers", location(post(admin, "/bienvenue/terminer", "")));
+            String welcome = get(admin, "/bienvenue").body();
+            assertTrue(welcome.contains("DB_ENCRYPTION_KEY"), "l'administrateur voit que les bases ne sont pas chiffrées");
+            assertTrue(welcome.contains("ne créez aucun compte") && !welcome.contains("Ko-fi"), "accueil propre à l'administrateur, sans don");
+            assertEquals("/administration/securite?visite=1", location(post(admin, "/bienvenue/terminer", "visite=1")));
+            String tour = get(admin, "/administration/securite?visite=1").body();
+            assertTrue(tour.contains("<template id=\"visite\"") && tour.contains("Vous supervisez, sans saisir"), "visite de l'administrateur");
+            assertFalse(get(admin, "/administration/securite").body().contains("id=\"visite\""), "pas de visite sans la demander");
             assertEquals("/", location(post(null, "/connexion", "login=admin&password=secret")), "une seule fois");
             assertTrue(get(admin, "/administration/securite").body().contains("class=\"version\""), "version en pied de page");
 
             Visitor manager = TestAccounts.account(client, base, TestAccounts.admin(client, base), "gestion", "Gestion", 1, "access=on&all=on");
             Visitor gestion = manager;
-            assertEquals("/assistant", location(post(gestion, "/bienvenue/terminer", "")), "le gestionnaire commence par le guide");
+            assertEquals("/?visite=1", location(post(gestion, "/bienvenue/terminer", "visite=1")), "la visite commence sur le budget");
+            String visit = get(gestion, "/?visite=1").body();
+            assertTrue(visit.contains("Ouvrir le Guide de saisie") && visit.contains("Mon foyer et les droits"), "visite du gestionnaire, puis le guide");
+            assertEquals("/", location(post(gestion, "/bienvenue/terminer", "passer=1")), "passer : sans visite");
             String home = get(gestion, "/").body();
             assertTrue(home.contains("Guide de saisie : 0 % des étapes faites"), "encadré de progression");
             assertEquals("/", location(post(gestion, "/assistant/encadre/ignorer", "")));

@@ -6,7 +6,7 @@ Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et su
 
 ## Première connexion
 
-Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) guide l'arrivée : confirmation de l'e-mail si l'installation l'exige, proposition de double authentification, puis quatre écrans présentent Patria, les foyers, la confidentialité et le soutien au développement.
+Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) guide l'arrivée : confirmation de l'e-mail si l'installation l'exige, proposition de double authentification, puis un écran d'accueil adapté à votre rôle. « Visiter Patria » pose ensuite des bulles sur les vrais éléments de l'interface (Budget, Patrimoine, Bilan, Qui voit quoi, Gérer, recherche ; sur smartphone, le menu) ; « Passer » l'évite. Mon compte → « Revoir la visite guidée » la relance.
 
 Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Le **gestionnaire** d'un foyer (un ou plusieurs) gère ses membres, invite les autres et règle qui voit quoi (Gérer → Mon foyer et les droits). L'**administrateur** supervise l'installation et dépanne les comptes, sans voir les finances.
 
@@ -77,7 +77,12 @@ Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » pro
 
 Le Guide de saisie se suit avec **Précédent / Suivant** (toujours l'étape juste après, sans rien sauter) ; le plan complet reste dans « Plan du guide », replié. Il se fait en deux temps :
 
-1. **Vos documents** : cochez dans la liste ceux que vous avez, puis donnez-les **tous** à votre IA avec le **prompt universel**. Pour les relevés de compte, l'IA est facultative : déposez directement l'**export des opérations** de votre banque (CSV, OFX ou QIF, trois mois ou plus ; « Exporter » ou « Télécharger mes opérations » dans la liste des opérations chez BoursoBank, Banque Populaire, Caisse d'Épargne, LCL, BNP Paribas, N26…). Patria y repère les prélèvements et revenus qui reviennent chaque mois avec le même montant et les ajoute à la pile ; les dépenses variables (courses, carburant) se saisissent ensuite. Elle renvoie une ligne par élément trouvé, avec son type (`REVENU`, `DEPENSE`, `VIREMENT`, `EPARGNE`, `BOURSE`). Collez la réponse, en une ou plusieurs fois : tout attend dans la pile **« À trier »**, même en trop. **Rien n'entre dans le budget à ce stade.**
+1. **Vos documents** : la page demande « Comment voulez-vous remplir Patria ? » et propose trois méthodes, une ouverte à la fois :
+   - **Avec le fichier de ma banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → format CSV (ou OFX, QIF), 3 à 12 mois ; déposez le fichier, Patria repère les prélèvements et revenus réguliers ;
+   - **Avec une IA** (Le Chat, ChatGPT, Claude ou Gemini) : ouvrez l'IA, « Copier la consigne », collez-la avec vos documents joints, puis collez toute sa réponse dans Patria ;
+   - **À la main** : le guide passe aux écrans de saisie.
+
+   En dessous, « Quels documents rassembler, et où les trouver ? » liste les documents utiles et cherche, banque par banque, où les télécharger (avec le tutoriel complet).
 2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.
 
 Les échéanciers de prêts immobiliers restent à part, à l'étape Prêts (un prompt dédié, rattaché au bien).

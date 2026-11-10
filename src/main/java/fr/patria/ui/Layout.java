@@ -160,7 +160,15 @@ public final class Layout {
     private static volatile boolean terms;
     private static volatile boolean legalNotice;
 
-    public static void useLegalPages(boolean hasTerms, boolean hasNotice) {
+    private static volatile boolean cloud;
+
+    /** Installation cloud (service ouvert au public) : pas de lien de don, accueil sans parler de famille. */
+    public static boolean cloud() {
+        return cloud;
+    }
+
+    public static void useInstallation(boolean cloudMode, boolean hasTerms, boolean hasNotice) {
+        cloud = cloudMode;
         terms = hasTerms;
         legalNotice = hasNotice;
     }
@@ -170,7 +178,7 @@ public final class Layout {
     }
 
     private static Html footer() {
-        Html support = BuildInfo.supportUrl() == null ? Html.EMPTY
+        Html support = BuildInfo.supportUrl() == null || cloud ? Html.EMPTY
                 : Html.of("<a class=\"support-link\" href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\">♥ Soutenir Patria</a>", BuildInfo.supportUrl());
         return Html.of("""
                 <footer class="shell site-footer"><span>Patria · vos données restent sur votre serveur</span><a href="/confidentialite">Confidentialité</a>%s%s\
@@ -254,7 +262,56 @@ public final class Layout {
                 Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, health), links, search(searchLinks), audience(chrome, csrf), Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
-        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay));
+        Html tour = csrf == null || chrome == null || chrome.location() == null || !chrome.location().matches(".*[?&]visite=1(&.*)?") ? Html.EMPTY : tour(chrome);
+        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay, tour));
+    }
+
+    /**
+     * Visite guidee de l'interface ({@code ?visite=1}, apres l'accueil ou depuis Mon compte) : des bulles posees sur les
+     * vrais elements, selon le role. app.js saute un arret dont l'element n'est pas affiche (pas de droit, petit ecran)
+     * ; un arret sans cible s'affiche au centre. Sans JavaScript, rien ne s'affiche.
+     */
+    private static Html tour(Chrome chrome) {
+        List<String[]> stops = new java.util.ArrayList<>();
+        String finalHref = "";
+        String finalLabel = "";
+        if (chrome.administrator()) {
+            stops.add(new String[] {".admin-nav a[href='/administration/foyers']", "Foyers",
+                    "Tous les foyers, leurs membres et gestionnaires, sans aucun montant. Un foyer sans gestionnaire est signalé ici."});
+            stops.add(new String[] {".admin-nav a[href='/administration/utilisateurs']", "Utilisateurs",
+                    "Recherche, filtres et actions groupées : réinitialiser un mot de passe, retirer une double authentification, désactiver un compte."});
+            stops.add(new String[] {".admin-nav a[href='/administration/installation']", "Installation",
+                    "Locale ou cloud, inscriptions, adresse publique, conditions d'utilisation et mentions légales."});
+            stops.add(new String[] {".admin-nav a[href='/administration/securite']", "Sécurité",
+                    "Connexions, blocages, envoi d'e-mails, journal des droits et état du serveur."});
+            stops.add(new String[] {"", "Vous supervisez, sans saisir",
+                    "Vous ne créez aucun compte : chacun s'inscrit ou est invité par le gestionnaire de son foyer, qui règle qui voit quoi."});
+        } else {
+            boolean manager = chrome.householdManager();
+            stops.add(new String[] {".nav-hamburger > summary", "Le menu",
+                    "Toutes les pages sont ici, avec la recherche, Mon compte et le thème. La pastille compte vos notifications."});
+            stops.add(new String[] {".primary-navigation > a:first-child", "Budget",
+                    "Le Prévisionnel des 12 prochains mois et le Budget moyen, pour tout le foyer ou par personne."});
+            stops.add(new String[] {".primary-navigation a[href='/patrimoine']", "Patrimoine, Épargne, Bourse",
+                    "Ce que vous possédez moins ce que vous devez, vos livrets et placements, vos actions, ETF et cryptos aux cours du jour."});
+            if (chrome.realEstate()) stops.add(new String[] {".primary-navigation a[href='/immobilier']", "Immobilier",
+                    "Biens, prêts, loyers et charges : ils alimentent le budget tout seuls."});
+            stops.add(new String[] {".primary-navigation a[href='/bilan']", "Bilan de santé",
+                    "Endettement, épargne de précaution, impôts à ne pas oublier. La pastille compte les points à corriger."});
+            stops.add(new String[] {".audience > summary", "Qui voit quoi", manager
+                    ? "Ce que chaque compte du foyer voit. Vous le réglez dans Gérer → Mon foyer et les droits."
+                    : "Ce que chaque compte du foyer voit, réglé par le gestionnaire. Un point orange signale un changement."});
+            if (manager) stops.add(new String[] {".primary-navigation a[href='/administration']", "Gérer",
+                    "Vos lignes, les membres du budget, les invitations et les droits du foyer."});
+            stops.add(new String[] {".nav-search-menu > summary", "Recherche", "Tapez le nom d'une page ou d'un bien pour y aller directement."});
+            stops.add(new String[] {"", manager ? "Et maintenant ?" : "C'est à vous",
+                    manager ? "Le Guide de saisie remplit Patria pas à pas : avec un fichier de votre banque, avec une IA, ou à la main. Comptez 15 à 30 minutes."
+                            : "Vos revenus et dépenses apparaissent dans le Prévisionnel dès qu'ils sont saisis. L'Assistant vous guide pas à pas."});
+            finalHref = "/assistant";
+            finalLabel = manager ? "Ouvrir le Guide de saisie" : "Ouvrir l'Assistant";
+        }
+        return Html.of("<template id=\"visite\" data-final-href=\"%s\" data-final-label=\"%s\">%s</template>", finalHref, finalLabel,
+                stops.stream().map(stop -> Html.of("<div data-stop data-target=\"%s\"><h2>%s</h2><p>%s</p></div>", stop[0], stop[1], stop[2])).collect(Html.joining()));
     }
 
     /**

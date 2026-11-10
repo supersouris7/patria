@@ -50,7 +50,7 @@ public final class InstallationController extends AccountSupport {
         accounts.setMail(new AccountRepository.Mail(mail.smtp(), url, mode.equals("cloud") ? mail.smtp().configured() : mail.required()));
         accounts.setSignupMode(mode.equals("cloud") ? "open" : "invite");
         accounts.setInstallation(new AccountRepository.Installation(mode, terms, notice));
-        Layout.useLegalPages(!terms.isEmpty(), !notice.isEmpty());
+        Layout.useInstallation(mode.equals("cloud"), !terms.isEmpty(), !notice.isEmpty());
         audit("USER", null, null, "Installation réglée : " + (mode.equals("cloud") ? "cloud (inscriptions ouvertes)" : "locale (sur invitation)") + ".");
         return Response.redirect("/administration/installation?ok=enregistre");
     }

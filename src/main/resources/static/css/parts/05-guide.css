@@ -71,3 +71,16 @@
     .wizard-overview a { grid-template-columns: 32px minmax(0, 1fr); }
     .wizard-overview .wizard-state { grid-column: 2; }
 }
+/* Import : trois methodes, une ouverte a la fois */
+.import-methods { display: grid; gap: 10px; }
+.import-method { border: 1px solid var(--line); border-radius: var(--radius-small); }
+.import-method[open] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.import-method > summary { cursor: pointer; display: grid; gap: 2px; padding: 14px 16px; }
+.import-method > summary small { color: var(--muted); font-weight: 500; }
+.import-method-body { border-top: 1px solid var(--line); padding: 14px 16px; }
+.howto-steps { display: grid; gap: 8px; margin: 0 0 14px; padding-left: 22px; }
+.howto-steps .llm-prompt { margin: 8px 0 0; }
+.import-method > summary { list-style: none; padding-right: 44px; position: relative; }
+.import-method > summary::-webkit-details-marker { display: none; }
+.import-method > summary::after { color: var(--blue); content: "›"; font-size: 1.4rem; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
+.import-method[open] > summary::after { transform: translateY(-50%) rotate(90deg); }
