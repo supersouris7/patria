@@ -11,7 +11,7 @@ import java.util.Optional;
  */
 public enum Step {
     DOCUMENTS("documents", "Vos documents", "Importez vos opérations et vos documents en une fois : avec le fichier de votre banque, avec une IA, ou à la main.", false),
-    MEMBERS("membres", "Membres du foyer", "Les personnes du budget, et le compte joint s'il y en a un.", true),
+    MEMBERS("membres", "Membres du foyer", "Les personnes du budget, et le compte joint s'il y en a un.", false),
     INCOMES("revenus", "Revenus", "Salaires, primes, pensions, allocations : ce qui rentre chaque mois.", false),
     HOUSING("logement", "Logement", "Locataire, propriétaire ou les deux : loyer payé et charges du logement.", false),
     PROPERTIES("biens", "Biens immobiliers", "Les logements possédés : résidence principale, location, résidence secondaire.", true),
@@ -57,9 +57,12 @@ public enum Step {
         return "/assistant/" + slug;
     }
 
-    /** Etapes proposees a l'administrateur ou a un utilisateur. */
-    public static List<Step> forViewer(boolean admin) {
-        return Arrays.stream(values()).filter(step -> step != MEMBERS && (admin || !step.adminOnly)).toList();
+    /**
+     * Etapes proposees : {@code admin} voit l'immobilier (biens, prets, charges, repartition) ; {@code manager}
+     * (gestionnaire du foyer) ajoute les membres du budget.
+     */
+    public static List<Step> forViewer(boolean admin, boolean manager) {
+        return Arrays.stream(values()).filter(step -> (step != MEMBERS || manager) && (admin || !step.adminOnly)).toList();
     }
 
     public static Optional<Step> of(String name) {

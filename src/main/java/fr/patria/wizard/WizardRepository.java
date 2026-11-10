@@ -117,10 +117,10 @@ public final class WizardRepository {
         }
     }
 
-    /** {@code userId} : le compte ; {@code manages} : gestionnaire (toutes les etapes) ou non (ses propres lignes). */
-    public Summary summary(long userId, boolean manages) {
+    /** {@code userId} : le compte ; {@code realEstate} : etapes de l'immobilier ; {@code manager} : gestionnaire (membres). */
+    public Summary summary(long userId, boolean realEstate, boolean manager) {
         String owner = "user:" + userId;
-        List<Step> steps = Step.forViewer(manages).stream().filter(step -> step != Step.SUMMARY).toList();
+        List<Step> steps = Step.forViewer(realEstate, manager).stream().filter(step -> step != Step.SUMMARY).toList();
         Map<Step, Status> progress = steps(owner);
         int done = (int) steps.stream().filter(step -> progress.get(step) == Status.DONE).count();
         int skipped = (int) steps.stream().filter(step -> progress.get(step) == Status.SKIPPED).count();

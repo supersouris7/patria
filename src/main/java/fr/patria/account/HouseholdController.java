@@ -41,7 +41,9 @@ public final class HouseholdController extends AccountSupport {
                 accounts.setAccess(own.userId(), household.id(), new Access(own.userId(), household.id(), household.name(), own.wholeHousehold(), members,
                         own.realEstate(), true));
                 audit(request.viewer().name(), "MEMBER", household.id(), null, "Membre « " + name + " » ajouté au foyer « " + household.name() + " ».");
-                return Response.redirect("/foyer?ok=enregistre#membres");
+                // Ajout depuis le Guide de saisie : retour sur son etape.
+                String next = fr.patria.web.LocalPath.safe(request.form().raw("suite"));
+                return Response.redirect(next != null && next.startsWith("/assistant/") ? next : "/foyer?ok=enregistre#membres");
             } catch (ValidationException exception) {
                 return Response.invalid(page(request, Notice.error(exception.getMessage()), null));
             }

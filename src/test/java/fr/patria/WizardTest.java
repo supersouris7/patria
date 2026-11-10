@@ -79,10 +79,12 @@ class WizardTest {
         assertTrue(help.contains("impots.gouv.fr") && help.contains("Trade Republic"));
         assertEquals(303, post(admin, "/assistant/documents/liste", "doc_statements=on").statusCode());
         assertTrue(get(admin, "/assistant/documents").body().contains("name=\"doc_statements\" value=\"on\" checked"), "case cochée gardée");
-        assertEquals("/assistant/revenus", location(post(admin, "/assistant/documents/terminer", "")), "étape suivante (les membres sont créés par l'administrateur)");
+        assertEquals("/assistant/membres", location(post(admin, "/assistant/documents/terminer", "")), "le gestionnaire passe par les membres du budget");
+        assertEquals("/assistant/membres", location(post(admin, "/foyer/membres", "name=Paul&kind=PERSON&suite=%2Fassistant%2Fmembres")), "ajout, retour sur l'étape");
+        assertTrue(get(admin, "/assistant/membres").body().contains("Paul"));
+        assertEquals("/assistant/revenus", location(post(admin, "/assistant/membres/terminer", "")));
 
         // 2. Membres, 3. Revenus
-        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON").statusCode());
         assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON").statusCode());
         assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Compte+joint&kind=ACCOUNT").statusCode());
         assertEquals(303, post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
@@ -120,7 +122,7 @@ class WizardTest {
         // Progression : passer, reprendre, revue
         assertEquals("/assistant/logement", location(post(admin, "/assistant/revenus/passer", "")), "étape passée, suivante à faire");
         assertTrue(get(admin, "/assistant").body().contains("href=\"/assistant/logement\""), "Reprendre : la première étape à faire");
-        assertEquals("/assistant/revenus?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
+        assertEquals("/assistant/membres?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
         String summary = get(admin, "/assistant/recapitulatif").body();
         assertTrue(summary.contains("Passé") && summary.contains("Fait") && summary.contains("À faire"));
         assertEquals(303, post(admin, "/assistant/recommencer", "").statusCode());
@@ -206,7 +208,7 @@ class WizardTest {
 
         String home = get(paul, "/assistant").body();
         assertFalse(home.contains("/assistant/membres") || home.contains("/assistant/biens"), "pas d'étapes réservées");
-        assertEquals(403, get(paul, "/assistant/membres").statusCode());
+        assertEquals(404, get(paul, "/assistant/membres").statusCode(), "étape réservée au gestionnaire");
         assertEquals(403, post(paul, "/assistant/biens/ajouter", "name=X&kind=HOUSE").statusCode());
         assertFalse(get(paul, "/assistant/documents").body().contains("doc-deed"), "documents de l'immobilier masqués");
 

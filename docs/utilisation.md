@@ -80,7 +80,7 @@ Le Guide de saisie se suit avec **Précédent / Suivant** (toujours l'étape jus
 1. **Vos documents** : la page demande « Comment voulez-vous remplir Patria ? » et propose trois méthodes, une ouverte à la fois :
    - **Avec le fichier de ma banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → format CSV (ou OFX, QIF), 3 à 12 mois ; déposez le fichier, Patria repère les prélèvements et revenus réguliers ;
    - **Avec une IA** (Le Chat, ChatGPT, Claude ou Gemini) : ouvrez l'IA, « Copier la consigne », collez-la avec vos documents joints, puis collez toute sa réponse dans Patria ;
-   - **À la main** : le guide passe aux écrans de saisie.
+   - **À la main** : l'étape est validée et le guide passe aux écrans de saisie, à commencer (pour le gestionnaire) par **Membres du foyer** : les personnes du budget et le compte joint, sans lesquelles aucun revenu ne peut être saisi.
 
    En dessous, « Quels documents rassembler, et où les trouver ? » liste les documents utiles et cherche, banque par banque, où les télécharger (avec le tutoriel complet).
 2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.

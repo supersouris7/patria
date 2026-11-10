@@ -25,27 +25,32 @@ final class WizardBudgetPages {
     private WizardBudgetPages() {
     }
 
+    /**
+     * Membres du budget, pour le gestionnaire : la liste, et l'ajout par le meme formulaire que « Mon foyer et les
+     * droits » (le gestionnaire voit le nouveau membre), avec retour sur cette etape.
+     */
     static Html members(WizardController.Context context, Map<String, String> values) {
         List<Person> people = context.snapshot().people();
-        Html list = people.isEmpty() ? Html.raw("<p class=\"empty\">Aucun membre pour l'instant.</p>")
+        Html list = people.isEmpty() ? Html.raw("<p class=\"empty\">Aucun membre pour l'instant : ajoutez au moins vous-même.</p>")
                 : Html.of("<ul class=\"done-list\">%s</ul>", people.stream().map(person -> Html.of("<li><span class=\"ok\" aria-hidden=\"true\">✓</span>%s%s</li>",
                 person.name(), person.isAccount() ? Html.raw(" <small class=\"badge\">compte joint</small>") : Html.EMPTY)).collect(Html.joining()));
-        Html add = form(context, "/assistant/membres/ajouter", false, Components.fields(2,
-                Components.input(Input.of("Nom", "name", Field.TEXT).required().maxLength(60).placeholder("Prénom, ou « Compte joint »"), values),
-                Components.select("Type", "kind", List.of(new Option("PERSON", "Personne"), new Option("ACCOUNT", "Compte joint")), values.getOrDefault("kind", "PERSON"))),
-                "Ajouter ce membre");
-        return Html.concat(explain("Ajoutez chaque personne dont les revenus et les dépenses comptent dans le budget, puis le compte joint s'il y en a un : "
-                        + "il a son propre budget, alimenté par des virements. Un membre n'est pas un compte de connexion : les comptes se créent dans "
-                        + "Utilisateurs dans la navigation de l'administrateur."),
-                Components.card("Membres du foyer", people.size(), Html.EMPTY, Html.concat(list, add)));
+        Html add = Html.of("""
+                <form method="post" action="/foyer/membres" class="row-form">%s<input type="hidden" name="suite" value="%s%s">\
+                <label>Nouveau membre<input name="name" maxlength="60" required placeholder="Prénom, ou « Compte joint »"></label>\
+                <label>Type<select name="kind"><option value="PERSON">Personne</option><option value="ACCOUNT">Compte joint</option></select></label>\
+                <button type="submit">Ajouter</button></form>""", Components.csrfField(context.csrf()), Step.MEMBERS.path(), context.mode());
+        return Html.concat(explain("Ajoutez chaque personne dont les revenus et les dépenses comptent dans le budget (vous, votre conjoint, un enfant qui a "
+                        + "des frais), puis le compte joint s'il y en a un : il a son propre budget, alimenté par des virements. Un membre n'est pas forcément "
+                        + "un compte de connexion ; pour qu'un proche se connecte, invitez-le depuis Gérer → Mon foyer et les droits."),
+                Components.card("Membres du budget", people.size(), Html.EMPTY, Html.concat(list, add)));
     }
 
     static Html incomes(WizardController.Context context, Map<String, String> values) {
         List<Person> open = context.visibility().people().stream().filter(person -> !person.isAccount()).toList();
         if (open.isEmpty()) {
             return Html.concat(explain("Les revenus se rattachent à une personne du foyer."),
-                    Components.card("Revenus", null, Html.EMPTY, Html.raw(context.admin()
-                            ? "<p class=\"empty\">Aucune personne dans le foyer : ajoutez-en à l'étape Membres.</p>"
+                    Components.card("Revenus", null, Html.EMPTY, Html.raw(context.steps().contains(Step.MEMBERS)
+                            ? "<p class=\"empty\">Aucune personne dans le budget : ajoutez-en à l'étape <a href=\"" + Step.MEMBERS.path() + "\">Membres du foyer</a>.</p>"
                             : "<p class=\"empty\">Aucune personne ne vous est ouverte (seulement un compte joint, ou aucune vue) : passez cette étape, "
                             + "ou demandez au gestionnaire du foyer de vous ouvrir votre vue.</p>")));
         }
@@ -77,9 +82,12 @@ final class WizardBudgetPages {
         Html blocks = groups.stream().map(group -> {
             long existing = group.items().stream().filter(item -> context.snapshot().item(item.label()).isPresent()).count();
             Html rows = group.items().stream().map(item -> checkRow(context, item, values)).collect(Html.joining());
+            Html badge = existing == 0 ? Html.EMPTY : Html.of(" <span class=\"badge paid\">%s déjà saisie%s</span>", existing, existing > 1 ? "s" : "");
+            // Un seul groupe : la carte porte deja son titre, pas de depliant qui le repete.
+            if (groups.size() == 1 && !custom) return Html.of("<div class=\"check-group\"><p class=\"muted\">%s%s</p><div class=\"check-rows\">%s</div></div>",
+                    group.explanation(), badge, rows);
             return Html.of("<details class=\"check-group\" open><summary><b>%s</b>%s</summary><p class=\"muted\">%s</p><div class=\"check-rows\">%s</div></details>",
-                    group.title(), existing == 0 ? Html.EMPTY : Html.of(" <span class=\"badge paid\">%s déjà saisie%s</span>", existing, existing > 1 ? "s" : ""),
-                    group.explanation(), rows);
+                    group.title(), badge, group.explanation(), rows);
         }).collect(Html.joining());
         Html extra = Html.EMPTY;
         if (custom) {

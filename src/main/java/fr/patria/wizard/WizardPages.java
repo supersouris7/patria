@@ -210,7 +210,7 @@ final class WizardPages {
         Html manual = Html.of("""
                 <p>Le guide vous fait saisir, un écran à la fois, vos revenus, votre logement, vos dépenses fixes et vos impôts. Gardez vos derniers
                 bulletins de salaire et relevés sous la main.</p>
-                <form method="post" action="%s/passer">%s<button type="submit">Saisir à la main, étape par étape →</button></form>""", Step.DOCUMENTS.path(), csrf);
+                <form method="post" action="%s/terminer">%s<button type="submit">Saisir à la main, étape par étape →</button></form>""", Step.DOCUMENTS.path(), csrf);
         return Html.of("""
                 <p class="muted">Choisissez une méthode. Rien n'entre dans votre budget avant que vous l'ayez validé, ligne par ligne.</p>
                 <div class="import-methods">%s%s%s</div>""",

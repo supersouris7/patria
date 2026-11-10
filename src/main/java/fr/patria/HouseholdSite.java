@@ -88,7 +88,7 @@ final class HouseholdSite implements AutoCloseable {
         health.register(router);
         router.userGet("/navigation/etat", request -> new fr.patria.web.Response.Text(200,
                 "{\"warnings\":" + health.warningCount(request) + ",\"progress\":"
-                        + wizard.summary(request.viewer().userId(), request.viewer().realEstate()).percent() + "}"));
+                        + wizard.summary(request.viewer().userId(), request.viewer().realEstate(), request.viewer().householdManager()).percent() + "}"));
         budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
     }
 

@@ -157,7 +157,7 @@ public final class WizardController {
         if (!request.viewer().wholeHousehold() && !request.viewer().realEstate() && request.viewer().members().isEmpty()) return Html.EMPTY;
         String owner = owner(request);
         if (stores.progress().bannerHidden(owner)) return Html.EMPTY;
-        List<Step> steps = Step.forViewer(request.viewer().realEstate()).stream().filter(step -> step != Step.SUMMARY).toList();
+        List<Step> steps = Step.forViewer(request.viewer().realEstate(), request.viewer().householdManager()).stream().filter(step -> step != Step.SUMMARY).toList();
         Map<Step, WizardRepository.Status> progress = stores.progress().steps(owner);
         long finished = steps.stream().filter(progress::containsKey).count();
         if (finished == steps.size()) return Html.EMPTY;
@@ -297,7 +297,7 @@ public final class WizardController {
                 ? new Snapshot(people, incomes, items, stores.properties().all(), stores.loans().all(), stores.charges().all(), stores.rents().all(), transfers,
                         stores.savings().counts(request))
                 : new Snapshot(people, incomes, items, List.of(), List.of(), List.of(), List.of(), transfers, stores.savings().counts(request));
-        return new Context(admin, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.forViewer(admin),
+        return new Context(admin, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.forViewer(admin, request.viewer().householdManager()),
                 stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf(),
                 stores.healthScope().scope(request.viewer(), people),
                 request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
@@ -425,20 +425,7 @@ public final class WizardController {
         }
     }
 
-    // ---- Documents ----
-
-
-    // ---- Membres, revenus, virements ----
-
-    private Response addMember(Request request) {
-        try {
-            String kind = request.form().raw("kind");
-            stores.household().addMember(request.form().requiredText("name", "Nom", 60), kind.isBlank() ? Person.Kind.PERSON : Person.Kind.parse(kind));
-            return back(request, Step.MEMBERS, null);
-        } catch (ValidationException exception) {
-            return invalid(request, Step.MEMBERS, exception);
-        }
-    }
+    // ---- Revenus, virements ----
 
     private Response addIncome(Request request) {
         try {
