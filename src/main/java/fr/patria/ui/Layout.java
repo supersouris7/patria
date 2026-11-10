@@ -222,19 +222,30 @@ public final class Layout {
         Html links = allLinks;
         // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
         // entrees, pastille du Bilan et % de l'Assistant compris (utilisable sans JavaScript).
-        Html burgerLinks = allLinks;
+        // Smartphone : tout passe dans ce menu (recherche, compte, theme), sauf « Qui voit quoi » et la deconnexion. Les pages
+        // de second niveau n'y apparaissent qu'en cherchant. La pastille totalise les notifications : changements d'acces et
+        // avis serveur ici, alertes du Bilan ajoutees par app.js.
+        Html estateLinks = administrator || !realEstate ? Html.EMPTY : Html.concat(navLink("/immobilier/prets", "Prêts", false),
+                navLink("/immobilier/taxe-fonciere", "Taxe foncière", false), Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>"));
+        Html manageGroup = group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active);
+        int notifications = chrome == null || administrator ? 0 : chrome.changes().size() + (chrome.notice() == null ? 0 : 1);
         Html burger = Html.of("""
-                <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="Menu principal" title="Menu principal">%s</summary>\
-                <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s</nav></div></details>""", BURGER_ICON, burgerLinks);
+                <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="%s" title="Menu principal">%s\
+                <span class="nav-count warning burger-count" data-notification-total="%s"%s>%s</span></summary>\
+                <div class="nav-panel"><label class="nav-search phone-only"><span class="visually-hidden">Rechercher dans les pages et les biens accessibles</span>\
+                <input type="search" placeholder="Rechercher partout…" autocomplete="off"></label>\
+                <nav class="nav-entries" aria-label="Menu principal">%s<a class="phone-only%s" href="/compte">Mon compte</a><div class="nav-deep" hidden>%s%s</div></nav>\
+                <p class="nav-empty muted" role="status" hidden>Aucun résultat.</p>\
+                <button class="quiet theme-toggle phone-only" type="button" data-theme-toggle><span data-theme-label>Thème</span></button></div></details>""",
+                notifications == 0 ? "Menu principal" : "Menu principal, " + notifications + " notification(s)", BURGER_ICON, String.valueOf(notifications),
+                Html.raw(notifications == 0 ? " hidden" : ""), String.valueOf(notifications), allLinks, section == Section.ACCOUNT ? " active" : "", estateLinks, manageGroup);
         // Tablette et smartphone : le Bilan reste visible hors du menu, avec sa pastille d'alertes.
         Html health = administrator ? Html.EMPTY : Html.of("""
                 <a class="nav-health%s" href="/bilan" aria-label="Bilan de santé" title="Bilan de santé">%s<span>Bilan</span><span class="nav-count warning" data-warning-count hidden></span></a>""",
                 section == Section.HEALTH ? " active" : "", HEALTH_ICON);
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
-                        navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false),
-                        realEstate ? Html.concat(navLink("/immobilier/prets", "Prêts", false), navLink("/immobilier/taxe-fonciere", "Taxe foncière", false),
-                                Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>")) : Html.EMPTY),
-                navLink("/administration", "Gérer", false), group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active), navLink("/compte", "Mon compte", false));
+                        navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false), estateLinks),
+                navLink("/administration", "Gérer", false), manageGroup, navLink("/compte", "Mon compte", false));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
                 <header class="topbar"%s><div class="shell navigation">%s%s<nav class="primary-navigation" aria-label="Navigation principale">%s</nav>
                 <div class="account-bar">%s%s%s
@@ -262,7 +273,7 @@ public final class Layout {
 
     private static Html search(Html entries) {
         return Html.of("""
-                <details class="nav-menu" name="navigation"><summary aria-label="Recherche globale" title="Recherche globale"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg></summary><div class="nav-panel">
+                <details class="nav-menu nav-search-menu" name="navigation"><summary aria-label="Recherche globale" title="Recherche globale"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg></summary><div class="nav-panel">
                 <label class="nav-search"><span class="visually-hidden">Rechercher dans les pages et les biens accessibles</span><input type="search" placeholder="Rechercher partout…" autocomplete="off"></label>
                 <div class="nav-entries">%s</div><p class="nav-empty muted" role="status" hidden>Aucun résultat.</p></div></details>""",
                 entries);

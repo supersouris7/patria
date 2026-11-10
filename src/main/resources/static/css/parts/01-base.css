@@ -162,6 +162,11 @@ main.shell { padding: 36px 0 72px; }
 .nav-health.active, .nav-health:hover { color: var(--text); }
 .nav-hamburger summary { min-height: 44px; padding: 8px; }
 .nav-hamburger .nav-entries { display: grid; gap: 4px; grid-template-columns: 1fr; margin: 0; }
+.nav-hamburger summary { align-items: center; display: inline-flex; gap: 4px; }
+.burger-count { font-weight: 750; }
+.nav-hamburger .phone-only { display: none; }
+.nav-deep { border-top: 1px solid var(--line); display: grid; gap: 4px; padding-top: 8px; }
+.nav-deep[hidden] { display: none; }
 /* Libelle de l'Assistant : icone seule dans la barre, icone et nom dans le menu. */
 .primary-navigation .menu-only { display: none; }
 .primary-navigation { align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
@@ -244,6 +249,10 @@ label.check.option b { color: var(--text); display: block; }
     .nav-menu > summary { font-size: .8rem; padding-inline: 6px; }
     .nav-panel { padding: 16px; }
     .nav-health > span:not(.nav-count) { display: none; }
+    /* Smartphone : la barre garde le logo, le burger, « Qui voit quoi » et la deconnexion ; le reste est dans le burger. */
+    .nav-health, .nav-search-menu, .account-bar > .theme-toggle, .account-bar > .account-link { display: none; }
+    .nav-hamburger .phone-only { display: flex; }
+    .nav-hamburger .theme-toggle { gap: 8px; justify-content: flex-start; }
 }
 @media (max-width: 600px) {
     .account-link span { display: none; }

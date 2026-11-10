@@ -14,6 +14,8 @@ const filterNavigation = (menu) => {
   const input = menu.querySelector('.nav-search input');
   if (!input) return;
   const query = navText(input.value.trim());
+  const deep = menu.querySelector('.nav-deep');
+  if (deep) deep.hidden = !query;
   const links = menu.querySelectorAll('.nav-entries a[href]');
   links.forEach((link) => { link.hidden = !navText(link.textContent).includes(query); });
   menu.querySelector('.nav-empty').hidden = Array.from(links).some((link) => !link.hidden);
@@ -46,11 +48,13 @@ navigationMenus.forEach((menu) => {
   menu.addEventListener("toggle", () => {
     if (!menu.open) return;
     navigationMenus.forEach((other) => { if (other !== menu) other.open = false; });
+    // Le burger ne donne pas le focus a sa recherche : le clavier du telephone ne s'ouvre pas tout seul.
+    if (menu.classList.contains('nav-hamburger')) return;
     menu.querySelector('.nav-search input')?.focus({preventScroll: true});
     filterNavigation(menu);
     loadNavigationProperties(menu);
   });
-  menu.querySelector('.nav-search input')?.addEventListener('input', () => filterNavigation(menu));
+  menu.querySelector('.nav-search input')?.addEventListener('input', () => { loadNavigationProperties(menu); filterNavigation(menu); });
 });
 
 const navigationStatus = document.querySelector('[data-navigation-status]');
@@ -66,6 +70,12 @@ if (navigationStatus) {
         warnings.textContent = state.warnings;
         warnings.hidden = state.warnings === 0;
         warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
+      });
+      navigationStatus.querySelectorAll('[data-notification-total]').forEach((badge) => {
+        const total = Number(badge.dataset.notificationTotal) + state.warnings;
+        badge.textContent = total;
+        badge.hidden = total === 0;
+        badge.closest('summary').setAttribute('aria-label', total === 0 ? 'Menu principal' : `Menu principal, ${total} notification(s)`);
       });
       navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
         progress.textContent = `${state.progress} %`;
@@ -498,20 +508,24 @@ document.querySelectorAll("[data-add-account]").forEach(select => {
 });
 
 // Theme : systeme → clair → sombre. Le cookie permet au serveur de rendre la bonne couleur des le chargement.
-document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
-  const labels = { "": "système", light: "clair", dark: "sombre" };
-  const show = () => {
-    const label = "Thème : " + labels[document.documentElement.dataset.theme || ""];
+const themeButtons = document.querySelectorAll("[data-theme-toggle]");
+const showTheme = () => {
+  const label = "Thème : " + { "": "système", light: "clair", dark: "sombre" }[document.documentElement.dataset.theme || ""];
+  themeButtons.forEach((button) => {
     button.title = label;
     button.setAttribute("aria-label", label);
-  };
-  show();
+    const text = button.querySelector("[data-theme-label]");
+    if (text) text.textContent = label;
+  });
+};
+showTheme();
+themeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const next = { "": "light", light: "dark", dark: "" }[document.documentElement.dataset.theme || ""];
     if (next) document.documentElement.dataset.theme = next;
     else delete document.documentElement.dataset.theme;
     document.cookie = "theme=" + next + "; path=/; max-age=" + (next ? 31536000 : 0) + "; SameSite=Lax";
-    show();
+    showTheme();
   });
 });
 
