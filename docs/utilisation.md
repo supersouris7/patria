@@ -148,6 +148,8 @@ La page **Patrimoine** montre ce que vous possédez (comptes et livrets, épargn
 
 ## Épargne et Bourse
 
+**Comparer les performances (Bourse).** Le graphique « Comparer les performances » met chaque courbe en base 100 au début de la période (110 = +10 %), sur 1 mois, 1 an ou 5 ans, avec la variation de chacune dans la légende : **Mes lignes** (chaque titre, ETF ou crypto détenu, les 7 plus importants, et le portefeuille en pointillé), **Face à un indice** (le portefeuille face au MSCI World, au S&P 500, au CAC 40 ou à l'Euro Stoxx 50, hors dividendes), **Face à l'épargne** (le portefeuille face au Livret A, au taux moyen de votre épargne et à l'inflation, à leur taux actuel capitalisé sur la période). Le portefeuille est pris à sa composition actuelle ; les cours des titres restent dans leur devise de cotation.
+
 **Inflation et intérêts.** La tuile **Vos intérêts** donne le taux moyen de votre épargne (pondéré par les soldes) et ce qu'il reste après inflation : en rouge, l'épargne perd du pouvoir d'achat. Le graphique **Inflation et taux de l'épargne** compare, mois par mois sur deux ans, l'inflation INSEE au Livret A, au LEP (depuis leur dernière date vérifiée) et à votre taux moyen. Le pouvoir d'achat de vos revenus est passé dans le Bilan, rubrique Finances.
 
 **Revenu fiscal de référence.** À saisir à l'étape Impôts du guide, sur la page Épargne (« Revenu fiscal de référence ») ou par la ligne `FISCAL;revenu;année;parts` de la réponse de l'IA. Avec le nombre de parts, Patria en déduit seul l'éligibilité au LEP (plafond d'une part, plus un montant par demi-part) : plus besoin de répondre à la question « Éligible au LEP ? ». Le PEL n'a pas de condition de revenu.

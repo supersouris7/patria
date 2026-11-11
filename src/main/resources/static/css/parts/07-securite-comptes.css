@@ -132,8 +132,8 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .auth-aside li { border-left: 3px solid var(--blue); padding-left: 12px; }
 .auth-aside b { color: var(--text); }
 .auth-shell .login-card { max-width: none; }
-.password-field { position: relative; }
-.password-field input { padding-right: 84px; }
+.password-field { display: block; margin-top: 6px; position: relative; }
+.password-field input { margin-top: 0; padding-right: 84px; }
 .password-toggle { font-size: .78rem; min-height: 0; padding: 4px 8px; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
 .password-meter { display: block; font-size: .78rem; margin-top: 4px; }
 .password-meter i { background: var(--track); border-radius: 99px; display: block; height: 4px; margin-bottom: 3px; overflow: hidden; }

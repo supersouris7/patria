@@ -179,6 +179,16 @@ public final class SavingsController {
         savings.setPreference("parts", parts.stripTrailingZeros().toPlainString());
     }
 
+    /** Taux moyen de l'epargne visible (hors bourse), pondere par les soldes ; {@code null} sans epargne. */
+    public BigDecimal averageRate(Request request) {
+        Savings.Overview overview = snapshot(request, java.util.Set.of()).overview();
+        List<Savings.Line> lines = overview.lines().stream().filter(line -> !line.account().kind().stocks()).toList();
+        BigDecimal total = lines.stream().map(Savings.Line::value).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (total.signum() <= 0) return null;
+        BigDecimal yearly = lines.stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return yearly.multiply(BigDecimal.valueOf(100)).divide(total, 2, RoundingMode.HALF_UP);
+    }
+
     /** Eligibilite au LEP : deduite du revenu fiscal de reference s'il est connu, sinon la reponse donnee (« oui », « non », vide). */
     String lep() {
         return taxInfo().map(info -> info.lepEligible() ? "oui" : "non").orElse(savings.preference("lep"));

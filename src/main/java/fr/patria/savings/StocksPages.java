@@ -62,8 +62,10 @@ final class StocksPages {
         Html chart = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Évolution du portefeuille", null, Html.EMPTY, Html.raw(
                 "<div data-fragment-src=\"/bourse/graphique\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"
                         + "<p class=\"muted small\">Titres actuels valorisés aux cours passés : la courbe ignore les dates d'achat.</p>"));
+        Html compare = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Comparer les performances", null, Html.EMPTY, Html.raw(
+                "<div data-fragment-src=\"/bourse/comparaison\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"));
         Html accounts = portfolio.lines().stream().map(line -> account(line, csrf)).collect(Html.joining());
-        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), tiles, chart, accounts,
+        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), tiles, chart, compare, accounts,
                 Html.raw("<p class=\"muted small\">Cours Yahoo Finance, en différé. Valeur indicative : un placement en bourse peut perdre de la valeur. "
                         + "Pas un conseil en investissement.</p>")));
     }
