@@ -15,5 +15,7 @@ class AssetsTest {
         int security = css.indexOf("/* 07-securite-comptes.css */");
         assertTrue(base >= 0 && base < responsive && responsive < security, "ordre de parts/files.txt");
         assertTrue(css.contains("--bg:") && css.contains(".audience-panel") && css.contains("@media"), "toutes les parties");
+        assertTrue(css.contains(".auth-shell .login-card { max-width: 420px; }"), "formulaire lisible sur tablette");
+        assertTrue(css.contains(".auth-shell { grid-template-columns: minmax(0, 1fr); justify-items: center; }"), "sans débordement au zoom");
     }
 }

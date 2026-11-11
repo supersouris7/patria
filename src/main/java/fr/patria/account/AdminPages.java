@@ -86,9 +86,9 @@ final class AdminPages {
         Html signup = Html.of("""
                 <form method="post" action="/administration/inscriptions" class="stack">%s%s%s%s
                 <div class="form-actions"><button class="secondary" type="submit">Enregistrer</button></div></form>""", Components.csrfField(csrf),
-                option(mode, "open", "Ouvertes", "Chacun crée son compte et son propre foyer depuis la page de connexion (installation dans le cloud, ouverte au public)."),
+                option(mode, "open", "Ouvertes", "Chacun crée son compte et son propre foyer depuis la page de connexion (inscriptions publiques)."),
                 option(mode, "invite", "Sur invitation", "Un compte se crée avec un lien : celui d'un gestionnaire pour rejoindre son foyer, ou le vôtre pour créer un "
-                        + "foyer (auto-hébergement familial)."),
+                         + "foyer (inscriptions privées)."),
                 option(mode, "closed", "Fermées", "Plus aucun nouveau compte, même invité ; seuls vos liens « créer son foyer » restent possibles."));
         String modeLabel = mode.equals("open") ? "ouvertes" : mode.equals("closed") ? "fermées" : "sur invitation";
         Html content = Html.concat(Components.heading("Administration", "Utilisateurs",

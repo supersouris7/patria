@@ -136,7 +136,7 @@ Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un V
 3. **Caddy** comme ci-dessus, avec votre nom DuckDNS. Avec le seul port 443 ouvert, Caddy obtient quand même son certificat (défi TLS-ALPN). Caddy remplace les en-têtes `X-Forwarded-*` envoyés par le client : Patria ne les croit que s'ils viennent de la machine locale ou du réseau privé (le proxy).
 4. **Avant d'ouvrir le port** :
    - `APP_PASSWORD` long (16 caractères ou plus) et unique ; **double authentification** activée pour l'administrateur, conseillée pour chaque compte ;
-   - installation **locale** (inscriptions sur invitation, par défaut) : seuls les invités créent un compte ;
+   - inscriptions **privées** (sur invitation, par défaut) : seuls les invités créent un compte ;
    - `DB_ENCRYPTION_KEY` définie et sauvegardée hors du serveur, sauvegardes de `/data` vérifiées ;
    - une image **stable** (`latest` ou `X.Y.Z`) plutôt que `unstable`, mise à jour régulièrement.
 5. **Vérifier depuis le réseau mobile** (Wi-Fi coupé) :
@@ -146,12 +146,16 @@ Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un V
    - Sécurité → Connexions : les adresses affichées sont celles des visiteurs, pas celle du proxy.
 6. **Ensuite** : surveillez Sécurité → Connexions échouées. Les essais de mot de passe sont limités (10 échecs par adresse et 30 par identifiant en 15 minutes) et les codes de double authentification aussi.
 
-## Installation locale ou cloud
+## Inscriptions privées ou publiques
 
 Au premier lancement, Foyers ouvre **Installation** (Gérer → Installation, modifiable ensuite) :
 
-- **Locale** (famille, proches) : inscriptions sur invitation ;
-- **Cloud** (ouverte au public) : inscriptions ouvertes, e-mail confirmé exigé si l'envoi est réglé, adresse publique en `https://` obligatoire, et double authentification exigée pour l'administrateur avant d'accéder aux listes de comptes et de foyers.
+- **Privée — sur invitation** : les comptes se créent sur invitation ; le réglage d'e-mail confirmé existant est conservé.
+- **Publique — inscriptions ouvertes** : chacun peut créer son compte et son foyer ; l'adresse publique en `https://` est obligatoire. Sans double authentification administrateur, les listes de comptes et les pages de foyers redirigent vers son activation. Ce contrôle ne bloque pas toutes les routes administrateur : activez la double authentification avant toute exposition publique.
+
+Ces choix ne déplacent pas Patria et n'activent ni HTTPS ni le chiffrement des bases. Une installation chez vous ou chez OVH peut être privée ou publique. Configurez HTTPS, chiffrement et sauvegardes séparément. **Enregistrer à nouveau ce choix réinitialise la politique d'inscription** : sur invitation en privé, ouverte en public ; elle reste ensuite modifiable dans Utilisateurs → Inscriptions.
+
+**Confirmation d'e-mail en public :** si SMTP est déjà configuré lors de l'enregistrement du mode public, Patria active l'exigence de confirmation pour les nouveaux comptes. Si SMTP est configuré après, cochez explicitement « Exiger un e-mail confirmé » dans Sécurité → E-mail ; la case reste modifiable. Sans cela, les inscriptions publiques peuvent se faire sans e-mail confirmé. Testez l'envoi avant l'ouverture au public.
 
 La même page porte l'adresse publique et deux textes facultatifs : **Conditions d'utilisation** (une case à cocher apparaît alors à l'inscription) et **Mentions légales**, publiés sur `/conditions` et `/mentions-legales` et liés en bas des pages de connexion.
 
@@ -169,7 +173,7 @@ Après le premier mot de passe, chaque nouveau compte se voit **proposer la doub
 
 ## Comptes, foyers et droits
 
-Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et ne voit aucune donnée financière dans l'interface : il supervise et dépanne. Le même fonctionnement sert à l'auto-hébergement familial et à une installation dans le cloud ; seul le réglage des inscriptions change.
+Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et ne voit aucune donnée financière dans l'interface : il supervise et dépanne. En privé comme en public, ce fonctionnement est identique ; le choix règle aussi l'adresse, certains contrôles et l'exigence initiale d'e-mail décrits ci-dessus.
 
 **Comment on crée un compte.** Toujours par la personne elle-même, de deux façons :
 
@@ -183,7 +187,7 @@ Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et n
 | Réglage | Qui peut créer un compte | Pour |
 |---|---|---|
 | **Sur invitation** (par défaut) | les invités d'un gestionnaire, et vos liens « créer son foyer » | auto-hébergement familial |
-| **Ouvertes** | tout le monde (son propre foyer), plus les invitations | installation ouverte au public, dans le cloud |
+| **Ouvertes** | tout le monde (son propre foyer), plus les invitations | inscriptions publiques, quel que soit l'hébergement |
 | **Fermées** | personne, sauf vos liens « créer son foyer » | geler une installation |
 
 Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un piège à robots. Pour une installation ouverte, réglez l'envoi d'e-mails et cochez « Exiger un e-mail confirmé ».

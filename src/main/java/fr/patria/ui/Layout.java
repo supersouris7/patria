@@ -281,7 +281,7 @@ public final class Layout {
             stops.add(new String[] {".admin-nav a[href='/administration/utilisateurs']", "Utilisateurs",
                     "Recherche, filtres et actions groupées : réinitialiser un mot de passe, retirer une double authentification, désactiver un compte."});
             stops.add(new String[] {".admin-nav a[href='/administration/installation']", "Installation",
-                    "Locale ou cloud, inscriptions, adresse publique, conditions d'utilisation et mentions légales."});
+                    "Inscriptions privées ou publiques, adresse publique, conditions d'utilisation et mentions légales."});
             stops.add(new String[] {".admin-nav a[href='/administration/securite']", "Sécurité",
                     "Connexions, blocages, envoi d'e-mails, journal des droits et état du serveur."});
             stops.add(new String[] {"", "Vous supervisez, sans saisir",
@@ -471,11 +471,11 @@ public final class Layout {
 
     /** Volet de presentation des pages de connexion, d'inscription et d'arrivee (masque sur petit ecran). */
     private static final Html AUTH_ASIDE = Html.raw("""
-            <aside class="auth-aside" aria-hidden="true"><p class="auth-tagline">Le budget et le patrimoine de votre foyer, sur votre serveur.</p>
+            <aside class="auth-aside" aria-hidden="true"><p class="auth-tagline">Le budget et le patrimoine de votre foyer, sans connexion bancaire.</p>
             <ul><li><b>Prévisionnel</b> : chaque mois des 12 prochains, ce qui rentre, ce qui sort, ce qui reste.</li>
             <li><b>Épargne, bourse et immobilier</b> au cours du jour, et votre patrimoine net.</li>
             <li><b>Chacun voit ce qu'on lui ouvre</b> : le gestionnaire du foyer règle qui voit quoi.</li>
-            <li><b>Vos données restent chez vous</b> : bases chiffrées, aucune publicité, aucun pistage.</li></ul></aside>""");
+            <li><b>Vos données sur le serveur choisi</b> : aucune publicité, aucun pistage. Le chiffrement dépend de sa configuration.</li></ul></aside>""");
 
     private static String theme() {
         String theme = THEME.get();

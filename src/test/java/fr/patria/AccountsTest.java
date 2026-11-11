@@ -392,6 +392,10 @@ class AccountsTest {
     void installationChoosesLocalOrCloudAndPublishesLegalPages() throws Exception {
         Visitor admin = admin();
         assertEquals("/administration/installation", TestAccounts.location(get(admin, "/administration/foyers")), "premier lancement");
+        String installation = get(admin, "/administration/installation").body();
+        assertTrue(installation.contains("Privée — sur invitation") && installation.contains("Publique — inscriptions ouvertes"));
+        assertTrue(installation.contains("ne change ni l&#39;hébergement ni le chiffrement"));
+        assertTrue(installation.contains("ne configure pas HTTPS"));
         assertEquals(400, post(admin, "/administration/installation", "type=cloud&adresse=http%3A%2F%2Fpatria.example.fr").statusCode(), "cloud : https exigé");
         assertEquals(303, post(admin, "/administration/installation", "type=cloud&adresse=https%3A%2F%2Fpatria.example.fr&conditions=Soyez+courtois.&mentions=").statusCode());
         assertEquals("/compte/double-authentification", TestAccounts.location(get(admin, "/administration/foyers")), "cloud : double authentification de l'admin exigée");

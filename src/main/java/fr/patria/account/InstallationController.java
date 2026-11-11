@@ -35,13 +35,13 @@ public final class InstallationController extends AccountSupport {
 
     private Response save(Request request) {
         String mode = request.form().raw("type");
-        if (!mode.equals("local") && !mode.equals("cloud")) return Response.invalid(page(request, Notice.error("Choisissez une installation locale ou cloud.")));
+        if (!mode.equals("local") && !mode.equals("cloud")) return Response.invalid(page(request, Notice.error("Choisissez une inscription privée ou publique.")));
         String url = request.form().raw("adresse").strip();
         if (!url.isEmpty() && !url.matches("https?://[A-Za-z0-9.-]+(:\\d{1,5})?(/[A-Za-z0-9._~/-]*)?")) {
             return Response.invalid(page(request, Notice.error("Adresse publique invalide : par exemple https://patria.example.fr")));
         }
         if (mode.equals("cloud") && !url.startsWith("https://")) {
-            return Response.invalid(page(request, Notice.error("Dans le cloud, indiquez l'adresse publique en https:// (liens des invitations et des e-mails).")));
+            return Response.invalid(page(request, Notice.error("Pour les inscriptions publiques, indiquez l'adresse publique en https:// (liens des invitations et des e-mails).")));
         }
         String terms = request.form().raw("conditions").strip();
         String notice = request.form().raw("mentions").strip();
@@ -51,7 +51,7 @@ public final class InstallationController extends AccountSupport {
         accounts.setSignupMode(mode.equals("cloud") ? "open" : "invite");
         accounts.setInstallation(new AccountRepository.Installation(mode, terms, notice));
         Layout.useInstallation(mode.equals("cloud"), !terms.isEmpty(), !notice.isEmpty());
-        audit("USER", null, null, "Installation réglée : " + (mode.equals("cloud") ? "cloud (inscriptions ouvertes)" : "locale (sur invitation)") + ".");
+        audit("USER", null, null, "Installation réglée : " + (mode.equals("cloud") ? "publique (inscriptions ouvertes)" : "privée (sur invitation)") + ".");
         return Response.redirect("/administration/installation?ok=enregistre");
     }
 
@@ -60,22 +60,24 @@ public final class InstallationController extends AccountSupport {
         AccountRepository.Mail mail = accounts.mail();
         boolean first = installation.mode().isEmpty();
         Html warnings = Html.concat(
-                installation.cloud() && !twoFactors.twoFactor(null).enabled() ? Html.raw("<p class=\"notice error\"><b>Mode cloud</b> : activez la "
-                        + "<a href=\"/compte/double-authentification\">double authentification de l'administrateur</a> ; les pages d'administration l'exigent.</p>")
+                installation.cloud() && !twoFactors.twoFactor(null).enabled() ? Html.raw("<p class=\"notice error\"><b>Inscriptions publiques</b> : activez la "
+                        + "<a href=\"/compte/double-authentification\">double authentification de l'administrateur</a> pour accéder aux listes de foyers et d'utilisateurs.</p>")
                         : Html.EMPTY,
                 installation.cloud() && !mail.active() ? Html.raw("<p class=\"notice warning\">Réglez l'<a href=\"/administration/securite#email\">envoi d'e-mails</a> : "
-                        + "il confirme l'adresse des nouveaux comptes et permet le « mot de passe oublié ».</p>") : Html.EMPTY);
+                        + "puis cochez « Exiger un e-mail confirmé » pour vérifier l'adresse des nouveaux comptes.</p>") : Html.EMPTY,
+                installation.cloud() && mail.active() && !mail.required() ? Html.raw("<p class=\"notice warning\">La confirmation d'e-mail n'est pas exigée. Activez-la dans "
+                        + "<a href=\"/administration/securite#email\">Sécurité → E-mail</a> pour les nouveaux comptes.</p>") : Html.EMPTY);
         Html form = Html.of("""
                 <form method="post" action="/administration/installation" class="stack">%s
                 <div class="install-choices">
-                <label class="install-choice"><input type="radio" name="type" value="local"%s><span><b>Locale ou familiale</b>
-                Sur votre serveur, pour votre famille ou vos proches. Les comptes se créent sur invitation ; l'e-mail est facultatif.</span></label>
-                <label class="install-choice"><input type="radio" name="type" value="cloud"%s><span><b>Cloud, ouverte au public</b>
-                Chacun crée son compte et son foyer. E-mail confirmé exigé (dès que l'envoi est réglé), double authentification obligatoire pour vous.</span></label>
+                <label class="install-choice"><input type="radio" name="type" value="local"%s><span><b>Privée — sur invitation</b>
+                Pour vos proches : les comptes se créent sur invitation. L'e-mail dépend du réglage dans Sécurité.</span></label>
+                <label class="install-choice"><input type="radio" name="type" value="cloud"%s><span><b>Publique — inscriptions ouvertes</b>
+                Chacun peut créer son compte et son foyer. Adresse HTTPS requise ; activez la double authentification administrateur et la confirmation d'e-mail.</span></label>
                 </div>
                 <label>Adresse publique de Patria<input name="adresse" value="%s" maxlength="200" placeholder="https://patria.example.fr">\
-                <span class="help">Sert aux liens des invitations et des e-mails. Indispensable derrière un proxy ou dans le cloud.</span></label>
-                <details%s><summary>Pages légales (facultatif, conseillé dans le cloud)</summary>
+                <span class="help">Sert aux liens des invitations et des e-mails. Obligatoire en HTTPS pour les inscriptions publiques ; renseigner cette adresse ne configure pas HTTPS.</span></label>
+                <details%s><summary>Pages légales (facultatif, conseillé pour une installation publique)</summary>
                 <label>Conditions d'utilisation<textarea name="conditions" rows="8" maxlength="20000">%s</textarea>\
                 <span class="help">Affichées en pied de page ; à accepter pour créer un compte. Texte simple, un paragraphe par ligne vide.</span></label>
                 <label>Mentions légales<textarea name="mentions" rows="6" maxlength="20000">%s</textarea>\
@@ -85,7 +87,7 @@ public final class InstallationController extends AccountSupport {
                 mail.publicUrl(), Html.raw(installation.terms().isEmpty() && installation.notice().isEmpty() ? "" : " open"), installation.terms(), installation.notice(),
                 first ? "Commencer" : "Enregistrer");
         Html content = Html.concat(Components.heading("Administration", first ? "Bienvenue : votre installation" : "Installation",
-                        "Locale ou cloud : Patria règle les inscriptions et la sécurité en conséquence. Tout se modifie ensuite.", Html.EMPTY),
+                        "Choisissez qui peut s'inscrire. Ce choix ne change ni l'hébergement ni le chiffrement. Chaque enregistrement remet les inscriptions sur invitation ou ouvertes ; vous pouvez ensuite les modifier dans Utilisateurs.", Html.EMPTY),
                 Components.notice(notice), warnings, Components.card("Type d'installation", null, Html.EMPTY, form));
         return Layout.adminSection("Installation · Patria", request.csrf(), Layout.AdminSection.INSTALLATION, content);
     }

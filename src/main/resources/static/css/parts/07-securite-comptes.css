@@ -146,10 +146,12 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .onboarding-steps li.current { color: var(--text); }
 .onboarding-steps li.done::before { content: "✓ "; }
 @media (max-width: 860px) {
-    .auth-shell { grid-template-columns: 1fr; justify-items: center; }
+    .auth-shell { grid-template-columns: minmax(0, 1fr); justify-items: center; }
     .auth-aside { display: none; }
+    .auth-shell .login-card { max-width: 420px; }
 }
 .login-page { align-content: center; }
+.login-card { min-width: 0; }
 .auth-links { color: var(--muted); font-size: .82rem; margin: 18px 0 0; text-align: center; }
 .auth-links a { color: var(--muted); }
 .install-choice input { flex: none; margin-top: 3px; width: auto; }

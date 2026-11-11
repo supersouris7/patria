@@ -33,7 +33,7 @@ final class WelcomePages {
                 <p class="lead">Vous supervisez cette installation. Vous ne créez aucun compte et ne voyez aucune donnée financière : chacun s'inscrit
                 ou est invité par le gestionnaire de son foyer, qui règle qui voit quoi.</p>
                 <div class="welcome-grid">
-                <div><b>Installation</b><span>Locale ou cloud, inscriptions, adresse publique, conditions et mentions légales.</span></div>
+                <div><b>Installation</b><span>Inscriptions privées ou publiques, adresse publique, conditions et mentions légales.</span></div>
                 <div><b>Foyers</b><span>Membres et gestionnaires de chaque foyer, sans montant ; un lien de gestion pour un foyer qui n'en a plus.</span></div>
                 <div><b>Utilisateurs</b><span>Dépanner : mot de passe provisoire, double authentification, désactiver ou supprimer un compte.</span></div>
                 <div><b>Sécurité</b><span>Connexions, blocages, envoi d'e-mails, journal des droits, état du serveur (HTTPS, chiffrement).</span></div>
