@@ -18,6 +18,10 @@ public sealed interface Response {
     record NoContent() implements Response {
     }
 
+    /** Image servie dans la page (photo de compte), jamais mise en cache partagee. */
+    record Image(String contentType, byte[] body) implements Response {
+    }
+
     /** Fichier a enregistrer (modele CSV...), propose au telechargement sous {@code filename}. */
     record Download(String filename, String contentType, byte[] body) implements Response {
     }

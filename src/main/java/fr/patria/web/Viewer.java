@@ -52,7 +52,10 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
      * @param emailToConfirm     e-mail a confirmer avant toute autre page (exige par l'administrateur a la creation du compte)
      */
-    public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm) {
+    public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm, boolean avatar) {
+        public Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm) {
+            this(mustChangePassword, audience, notice, emailToConfirm, false);
+        }
     }
 
     /** Un foyer du selecteur ; {@code managed} : l'utilisateur y gere l'immobilier (deplacement d'un bien). */

@@ -18,7 +18,7 @@ import java.util.Map;
  */
 final class AdminPages {
     /** Une ligne de la liste des comptes : le compte, ses foyers, sa derniere connexion (90 jours gardes), sa double authentification. */
-    record UserLine(AccountRepository.UserRow row, List<Access> accesses, java.time.LocalDateTime lastLogin, boolean twoFactor) {
+    record UserLine(AccountRepository.UserRow row, List<Access> accesses, java.time.LocalDateTime lastLogin, boolean twoFactor, boolean avatar) {
     }
 
     /** Une ligne de la liste des foyers : comptes qui y ont acces (gestionnaires marques). */
@@ -68,8 +68,8 @@ final class AdminPages {
             User user = line.row().user();
             return Html.of("""
                     <tr><td class="select"><input type="checkbox" name="u_%s" value="on" form="groupe" aria-label="Sélectionner %s"></td>\
-                    <td><a href="/administration/utilisateur/%s"><b>%s</b></a><small>%s%s</small></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>""",
-                    user.id(), user.name(), user.id(), user.name(), user.login(), line.row().email() == null ? "" : " · " + line.row().email(),
+                    <td><div class="user-cell">%s<div><a href="/administration/utilisateur/%s"><b>%s</b></a><small>%s%s</small></div></div></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>""",
+                    user.id(), user.name(), Components.avatar(user.id(), user.name(), line.avatar(), "avatar-small"), user.id(), user.name(), user.login(), line.row().email() == null ? "" : " · " + line.row().email(),
                     line.accesses().isEmpty() ? Html.raw("<span class=\"muted\">Aucun foyer</span>") : Html.of("%s", line.accesses().stream()
                             .map(access -> access.householdName() + (access.manager() ? " ★" : "")).reduce((a, b) -> a + ", " + b).orElse("")),
                     line.lastLogin() == null ? "—" : line.lastLogin().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
@@ -201,11 +201,16 @@ final class AdminPages {
     }
 
     static Html user(User user, List<Access> accesses, Map<Long, List<HouseholdDirectory.Member>> members, boolean provisional, java.time.LocalDate twoFactorOn,
-                     Notice notice, String csrf) {
-        Html identity = Components.form("/administration/utilisateur/" + user.id(), csrf, false, Html.concat(Components.fields(2,
+                     Notice notice, String csrf, AccountRepository.Profile profile) {
+        // Profil saisi par la personne (pour la reconnaitre et la joindre en cas de depannage).
+        Html contact = Html.of("<div class=\"profile-head\">%s<p class=\"muted\">%s%s</p></div>",
+                Components.avatar(user.id(), user.name(), profile.avatar(), "avatar-large"),
+                profile.birthDate() == null ? "Date de naissance non renseignée" : "Né(e) le " + profile.birthDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                profile.phone() == null ? " · téléphone non renseigné" : " · téléphone " + profile.phone());
+        Html identity = Html.concat(contact, Components.form("/administration/utilisateur/" + user.id(), csrf, false, Html.concat(Components.fields(2,
                         Components.input(Input.of("Nom affiché", "name", Field.TEXT).required().maxLength(60), Map.of("name", user.name())),
                         Html.of("<label>Identifiant<input value=\"%s\" disabled></label>", user.login())),
-                AccountPages.checkbox("active", "Compte actif (décoché : connexion impossible)", user.active())), "Enregistrer");
+                AccountPages.checkbox("active", "Compte actif (décoché : connexion impossible)", user.active())), "Enregistrer"));
         Html households = accesses.isEmpty() ? Html.raw("<p class=\"muted\">Aucun foyer.</p>") : Html.of("<ul class=\"plain-list\">%s</ul>", accesses.stream()
                 .map(access -> Html.of("<li><b>%s</b>%s · %s</li>", access.householdName(), access.manager() ? " · gestionnaire" : "",
                         AudienceText.summary(access, members.getOrDefault(access.householdId(), List.of())))).collect(Html.joining()));

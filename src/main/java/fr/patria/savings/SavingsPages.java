@@ -30,14 +30,17 @@ final class SavingsPages {
         }
     }
 
-    static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf) {
+    static Html page(SavingsController.Snapshot snapshot, List<Person> people, List<Bar> bars, boolean offline, LocalDate today, Notice notice, String csrf,
+                     Html taxForm) {
         Savings.Overview overview = snapshot.overview();
         Savings.Plan plan = snapshot.plan();
         String inflation = snapshot.inflation().map(value -> Format.signedPercent(value.percent())).orElse(offline ? "Hors ligne" : "…");
         String inflationSub = snapshot.inflation().map(value -> "sur 12 mois · INSEE").orElse(offline ? "mode hors ligne" : "chargement…");
-        String power = snapshot.power().map(value -> Format.signedPercent(value.power())).orElse("—");
-        String powerSub = snapshot.power().map(value -> value.estimated() ? "à revenus constants" : "revenus " + Format.signedPercent(value.income()) + " en un an")
-                .orElse("revenus à saisir");
+        // Ce que rapporte l'epargne (taux moyen pondere par les soldes), face a la hausse des prix.
+        Savings.Overview interest = only(overview, false);
+        BigDecimal yearly = interest.lines().stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal average = interest.total().signum() <= 0 ? null : yearly.multiply(BigDecimal.valueOf(100)).divide(interest.total(), 2, java.math.RoundingMode.HALF_UP);
+        BigDecimal real = average == null ? null : snapshot.inflation().map(value -> average.subtract(value.percent())).orElse(null);
         BigDecimal months = plan.coverMonths();
         String cushionTone = plan.spending().signum() == 0 ? "" : months.compareTo(BigDecimal.ONE) < 0 ? "negative" : months.compareTo(BigDecimal.valueOf(3)) < 0 ? "warning" : "positive";
         Savings.Overview saved = only(overview, false);
@@ -47,10 +50,14 @@ final class SavingsPages {
                 tile("Précaution", "Disponible tout de suite (comptes, livrets). Repère : 3 à 6 mois de dépenses.", euroWhole(overview.available()), cushionTone,
                         plan.spending().signum() == 0 ? null : Format.number(months, 1) + " mois de dépenses"),
                 tile("Inflation", "Hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
-                tile("Pouvoir d'achat", "Revenus d'il y a un an comparés à aujourd'hui, corrigés de l'inflation ; à défaut, revenus supposés constants.", power,
-                        snapshot.power().map(value -> value.power().signum() >= 0 ? "positive" : "negative").orElse(""), powerSub));
+                tile("Vos intérêts", "Taux moyen de votre épargne (pondéré par les soldes), comparé à l'inflation : au-dessus, votre épargne gagne en valeur réelle ; "
+                                + "en dessous, elle en perd.", average == null ? "—" : Format.number(average, 2) + " %",
+                        real == null ? "" : real.signum() >= 0 ? "positive" : "negative",
+                        real == null ? "taux à saisir sur vos comptes" : "soit " + Format.signedPercent(real.setScale(1, java.math.RoundingMode.HALF_UP)) + " après inflation"));
         Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.EMPTY),
                 Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf), planCard(snapshot, csrf), chart(bars),
+                snapshot.inflation().map(value -> inflationChart(value, average, today)).orElse(Html.EMPTY),
+                Html.of("<div id=\"fiscal\">%s</div>", Components.disclosure("Revenu fiscal de référence (éligibilité au LEP)", taxForm, false)),
                 Html.of("<p class=\"muted small\">Taux réglementés : %s, au %s. Indicatif, pas un conseil en investissement.</p>", RegulatedRates.SOURCE,
                         Format.date(RegulatedRates.CHECKED)));
         return Layout.page("Épargne · Patria", Layout.Section.SAVINGS, csrf, content);
@@ -88,7 +95,10 @@ final class SavingsPages {
         Html settings = Html.of("""
                 <form method="post" action="/epargne/plan" class="row-form">%s%s%s<button class="secondary" type="submit">Recalculer</button></form>""",
                 Components.csrfField(csrf),
-                Components.select("Éligible au LEP ?", "lep", List.of(new Components.Option("", "Je ne sais pas"), new Components.Option("oui", "Oui"),
+                // Revenu fiscal connu : l'eligibilite est calculee, la question ne se pose plus.
+                snapshot.lepFromTax() ? Html.of("<p class=\"muted\">LEP : %s, d'après votre <a href=\"#fiscal\">revenu fiscal de référence</a>.</p><input type=\"hidden\" name=\"lep\" value=\"%s\">",
+                        "oui".equals(lep) ? "éligible" : "non éligible", lep)
+                        : Components.select("Éligible au LEP ?", "lep", List.of(new Components.Option("", "Je ne sais pas"), new Components.Option("oui", "Oui"),
                         new Components.Option("non", "Non")), lep),
                 Components.select("Objectif de précaution", "mois", List.of(new Components.Option("3", "3 mois"), new Components.Option("4", "4 mois"),
                         new Components.Option("6", "6 mois"), new Components.Option("9", "9 mois"), new Components.Option("12", "12 mois")), String.valueOf(plan.months())));
@@ -180,6 +190,86 @@ final class SavingsPages {
      * Historique de l'epargne : barres empilees sur 24 mois (disponible, bourse, long terme), legende, infobulle par
      * segment et tableau des valeurs. SVG dessine cote serveur.
      */
+    /**
+     * Inflation sur 12 mois (INSEE, mois par mois) face aux taux du Livret A et du LEP (depuis leur derniere date
+     * verifiee) et au taux moyen de votre epargne : une seule echelle, en %. Au-dessus de la courbe orange, l'epargne
+     * gagne en valeur reelle. Une ligne par serie, legende et derniere valeur ecrites.
+     */
+    static Html inflationChart(MarketFeeds.Inflation inflation, BigDecimal average, LocalDate today) {
+        List<java.time.YearMonth> known = inflation.history().keySet().stream().sorted().toList();
+        if (known.size() < 3) return Html.EMPTY;
+        List<java.time.YearMonth> months = known.subList(Math.max(0, known.size() - 24), known.size());
+        java.time.YearMonth first = months.getFirst();
+        java.time.YearMonth last = months.getLast();
+        List<Object[]> series = new java.util.ArrayList<>();
+        List<double[]> inflationPoints = new java.util.ArrayList<>();
+        for (java.time.YearMonth month : months) inflationPoints.add(new double[] {months.indexOf(month), inflation.history().get(month).doubleValue()});
+        series.add(new Object[] {"Inflation", "s2", inflationPoints});
+        for (Object[] regulated : new Object[][] {{SavingsKind.LIVRET_A, "Livret A", "s1"}, {SavingsKind.LEP, "LEP", "s3"}}) {
+            RegulatedRates.at((SavingsKind) regulated[0], today).ifPresent(rate -> {
+                List<double[]> points = new java.util.ArrayList<>();
+                for (int index = 0; index < months.size(); index++) {
+                    java.time.YearMonth month = months.get(index);
+                    RegulatedRates.at((SavingsKind) regulated[0], month.atEndOfMonth())
+                            .ifPresent(value -> points.add(new double[] {months.indexOf(month), value.percent().doubleValue()}));
+                }
+                if (points.size() >= 2) series.add(new Object[] {regulated[1], regulated[2], points});
+            });
+        }
+        if (average != null) {
+            series.add(new Object[] {"Votre taux moyen (aujourd'hui)", "s4", List.of(new double[] {0, average.doubleValue()}, new double[] {months.size() - 1, average.doubleValue()})});
+        }
+        double max = series.stream().flatMap(entry -> ((List<double[]>) entry[2]).stream()).mapToDouble(point -> point[1]).max().orElse(1);
+        double min = Math.min(0, series.stream().flatMap(entry -> ((List<double[]>) entry[2]).stream()).mapToDouble(point -> point[1]).min().orElse(0));
+        double top = Math.ceil(max + 0.5);
+        double bottom = Math.floor(min);
+        int width = 720;
+        int height = 220;
+        int left = 40;
+        int right = 120;
+        double plotTop = 10;
+        double plotHeight = height - 34 - plotTop;
+        double step = (width - left - right) / (double) (months.size() - 1);
+        java.util.function.DoubleUnaryOperator y = value -> plotTop + plotHeight * (top - value) / (top - bottom);
+        StringBuilder svg = new StringBuilder();
+        for (double tick = bottom; tick <= top; tick += Math.max(1, Math.round((top - bottom) / 4))) {
+            svg.append(String.format(java.util.Locale.ROOT, "<line class=\"grid\" x1=\"%d\" x2=\"%d\" y1=\"%.1f\" y2=\"%.1f\"/>", left, width - right, y.applyAsDouble(tick), y.applyAsDouble(tick)));
+            svg.append(String.format(java.util.Locale.ROOT, "<text class=\"axis\" x=\"%d\" y=\"%.1f\" text-anchor=\"end\">%s %%</text>", left - 6, y.applyAsDouble(tick) + 4,
+                    Format.number(BigDecimal.valueOf(tick), 0)));
+        }
+        // Premier et dernier mois alignes sur les bords du trace : jamais coupes.
+        for (int index : new int[] {0, months.size() / 2, months.size() - 1}) {
+            String anchor = index == 0 ? "start" : index == months.size() - 1 ? "end" : "middle";
+            svg.append(String.format(java.util.Locale.ROOT, "<text class=\"axis\" x=\"%.1f\" y=\"%d\" text-anchor=\"%s\">%s</text>", left + index * step, height - 12, anchor,
+                    escape(Format.month(months.get(index)))));
+        }
+        Html legend = Html.EMPTY;
+        for (Object[] entry : series) {
+            List<double[]> points = (List<double[]>) entry[2];
+            String path = points.stream().map(point -> String.format(java.util.Locale.ROOT, "%.1f,%.1f", left + point[0] * step, y.applyAsDouble(point[1])))
+                    .collect(java.util.stream.Collectors.joining(" "));
+            svg.append(String.format(java.util.Locale.ROOT, "<polyline class=\"rate-line %s\" points=\"%s\"/>", entry[1], path));
+            double[] end = points.getLast();
+            String value = Format.number(BigDecimal.valueOf(end[1]).setScale(1, java.math.RoundingMode.HALF_UP), 1) + " %";
+            svg.append(String.format(java.util.Locale.ROOT, "<circle class=\"rate-dot %s\" cx=\"%.1f\" cy=\"%.1f\" r=\"4\"><title>%s : %s</title></circle>",
+                    entry[1], left + end[0] * step, y.applyAsDouble(end[1]), escape((String) entry[0]), escape(value)));
+            svg.append(String.format(java.util.Locale.ROOT, "<text class=\"axis rate-label\" x=\"%.1f\" y=\"%.1f\">%s</text>", left + end[0] * step + 8, y.applyAsDouble(end[1]) + 4,
+                    escape(value)));
+            legend = Html.concat(legend, Html.of("<span class=\"legend-item\"><i class=\"swatch %s\"></i>%s</span>", entry[1], entry[0]));
+        }
+        // Points survolables de l'inflation, mois par mois.
+        for (java.time.YearMonth month : months) {
+            svg.append(String.format(java.util.Locale.ROOT, "<circle class=\"hit\" cx=\"%.1f\" cy=\"%.1f\" r=\"9\"><title>%s : inflation %s %%</title></circle>",
+                    left + months.indexOf(month) * step, y.applyAsDouble(inflation.history().get(month).doubleValue()), escape(Format.month(month)),
+                    escape(Format.number(inflation.history().get(month), 1))));
+        }
+        return Components.card("Inflation et taux de l'épargne", null, Html.of("<span class=\"muted\">%s à %s</span>", Format.month(first), Format.month(last)), Html.of("""
+                <p class="muted">Quand un taux passe sous la courbe de l'inflation, l'argent placé perd du pouvoir d'achat : les intérêts ne compensent pas la hausse des prix.</p>
+                <div class="chart-legend">%s</div><div class="chart-scroll"><svg class="chart rates-chart" viewBox="0 0 %s %s" role="img" aria-label="Inflation et taux de l'épargne">%s</svg></div>
+                <p class="muted small">Inflation : INSEE, indice des prix à la consommation, glissement sur 12 mois. Livret A et LEP : taux depuis leur dernière date vérifiée.</p>""",
+                legend, width, height, Html.raw(svg.toString())));
+    }
+
     static Html chart(List<Bar> bars) {
         if (bars.stream().allMatch(bar -> bar.total().signum() == 0)) return Html.EMPTY;
         BigDecimal max = bars.stream().map(Bar::total).max(BigDecimal::compareTo).orElse(BigDecimal.ONE);

@@ -24,7 +24,7 @@ import org.mindrot.jbcrypt.BCrypt;
  */
 public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
-    private static final int LATEST = 6;
+    private static final int LATEST = 7;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
     /** Cout de bcrypt : 12 ; la propriete systeme {@code patria.bcrypt.cost} l'abaisse pour les tests (4 a 31). */
     private static final int COST = Math.clamp(Integer.getInteger("patria.bcrypt.cost", 12), 4, 31);
@@ -193,6 +193,136 @@ public final class AccountRepository {
                 statement.execute("PRAGMA user_version = 6");
             }
         }
+        if (version < 7) {
+            // Profil du compte (prenom, nom, naissance, telephone, photo ronde), membre du budget qu'il represente dans
+            // chaque foyer, et jetons d'API en lecture seule (tableaux de bord). Rien n'est retire ni reecrit.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE users ADD COLUMN first_name TEXT");
+                statement.execute("ALTER TABLE users ADD COLUMN last_name TEXT");
+                statement.execute("ALTER TABLE users ADD COLUMN birth_date TEXT");
+                statement.execute("ALTER TABLE users ADD COLUMN phone TEXT");
+                statement.execute("ALTER TABLE users ADD COLUMN avatar BLOB");
+                statement.execute("ALTER TABLE user_households ADD COLUMN self_member INTEGER");
+                statement.execute("""
+                        CREATE TABLE api_tokens (
+                            id INTEGER PRIMARY KEY,
+                            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+                            name TEXT NOT NULL,
+                            token_hash TEXT NOT NULL UNIQUE,
+                            created_at TEXT NOT NULL,
+                            last_used_at TEXT
+                        )""");
+                statement.execute("PRAGMA user_version = 7");
+            }
+        }
+    }
+
+    // ---- Profil du compte ----
+
+    /** Profil : prenom, nom, date de naissance, telephone ; {@code avatar} : une photo est enregistree. */
+    public record Profile(String firstName, String lastName, LocalDate birthDate, String phone, boolean avatar) {
+        public String displayName(String fallback) {
+            String full = ((firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName)).strip();
+            return full.isEmpty() ? fallback : full;
+        }
+    }
+
+    public Profile profile(long userId) {
+        return database.query(connection -> Sql.list(connection, "SELECT first_name, last_name, birth_date, phone, avatar IS NOT NULL FROM users WHERE id = ?",
+                row -> new Profile(row.getString(1), row.getString(2), row.getString(3) == null ? null : LocalDate.parse(row.getString(3)), row.getString(4),
+                        row.getInt(5) == 1), userId)).stream().findFirst().orElse(new Profile(null, null, null, null, false));
+    }
+
+    /** Enregistre le profil ; le nom affiche devient « Prenom Nom » quand le prenom est donne. */
+    public void setProfile(long userId, String firstName, String lastName, LocalDate birthDate, String phone) {
+        String display = ((firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName)).strip();
+        database.query(connection -> Sql.update(connection, """
+                UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, phone = ?, name = CASE WHEN ? = '' THEN name ELSE ? END WHERE id = ?""",
+                blank(firstName), blank(lastName), birthDate == null ? null : birthDate.toString(), blank(phone), display, display, userId));
+    }
+
+    private static String blank(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    public Optional<byte[]> avatar(long userId) {
+        return database.query(connection -> Sql.list(connection, "SELECT avatar FROM users WHERE id = ? AND avatar IS NOT NULL", row -> row.getBytes(1), userId))
+                .stream().findFirst();
+    }
+
+    /** {@code null} : retire la photo (les initiales reviennent). */
+    public void setAvatar(long userId, byte[] image) {
+        database.query(connection -> Sql.update(connection, "UPDATE users SET avatar = ? WHERE id = ?", image, userId));
+    }
+
+    /** Comptes qui ont une photo (listes : photo ou initiales). */
+    public java.util.Set<Long> usersWithAvatar() {
+        return new java.util.HashSet<>(database.query(connection -> Sql.list(connection, "SELECT id FROM users WHERE avatar IS NOT NULL", row -> row.getLong(1))));
+    }
+
+    /** Les deux comptes partagent au moins un foyer (photo visible de l'un a l'autre). */
+    public boolean shareHousehold(long userId, long otherId) {
+        return userId == otherId || !database.query(connection -> Sql.list(connection, """
+                SELECT 1 FROM user_households a JOIN user_households b ON a.household_id = b.household_id WHERE a.user_id = ? AND b.user_id = ? LIMIT 1""",
+                row -> row.getInt(1), userId, otherId)).isEmpty();
+    }
+
+    /** Membre du budget que ce compte represente dans ce foyer ({@code null} : aucun). */
+    public Long selfMember(long userId, long householdId) {
+        return database.query(connection -> Sql.list(connection, "SELECT self_member FROM user_households WHERE user_id = ? AND household_id = ? AND self_member IS NOT NULL",
+                row -> row.getLong(1), userId, householdId)).stream().findFirst().orElse(null);
+    }
+
+    public void setSelfMember(long userId, long householdId, Long member) {
+        database.query(connection -> Sql.update(connection, "UPDATE user_households SET self_member = ? WHERE user_id = ? AND household_id = ?", member, userId, householdId));
+    }
+
+    /** Membres representes dans un foyer, par compte (tableau des droits). */
+    public Map<Long, Long> selfMembers(long householdId) {
+        Map<Long, Long> result = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, "SELECT user_id, self_member FROM user_households WHERE household_id = ? AND self_member IS NOT NULL", row -> {
+            result.put(row.getLong(1), row.getLong(2));
+            return null;
+        }, householdId));
+        return result;
+    }
+
+    // ---- Jetons d'API (lecture seule) ----
+
+    public record ApiToken(long id, long householdId, String householdName, String name, String createdAt, String lastUsedAt) {
+    }
+
+    /** Cree un jeton pour ce compte et ce foyer ; seul son empreinte est gardee : il ne s'affiche qu'une fois. */
+    public String createApiToken(long userId, long householdId, String name, java.time.LocalDateTime now) {
+        String token = "patria_" + randomToken();
+        database.query(connection -> Sql.update(connection, "INSERT INTO api_tokens (user_id, household_id, name, token_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+                userId, householdId, name, sha256(token), now.withNano(0).toString()));
+        return token;
+    }
+
+    public List<ApiToken> apiTokens(long userId) {
+        return database.query(connection -> Sql.list(connection, """
+                SELECT t.id, t.household_id, h.name, t.name, t.created_at, t.last_used_at FROM api_tokens t JOIN households h ON h.id = t.household_id
+                WHERE t.user_id = ? ORDER BY t.id""",
+                row -> new ApiToken(row.getLong(1), row.getLong(2), row.getString(3), row.getString(4), row.getString(5), row.getString(6)), userId));
+    }
+
+    public void revokeApiToken(long userId, long id) {
+        database.query(connection -> Sql.update(connection, "DELETE FROM api_tokens WHERE id = ? AND user_id = ?", id, userId));
+    }
+
+    /** Compte et foyer d'un jeton valable (compte actif, toujours membre du foyer) ; note la derniere utilisation. */
+    public Optional<long[]> apiToken(String token, java.time.LocalDateTime now) {
+        if (token == null || !token.startsWith("patria_") || token.length() > 100) return Optional.empty();
+        String hash = sha256(token);
+        Optional<long[]> found = database.query(connection -> Sql.list(connection, """
+                SELECT t.user_id, t.household_id FROM api_tokens t JOIN users u ON u.id = t.user_id AND u.active = 1
+                JOIN user_households a ON a.user_id = t.user_id AND a.household_id = t.household_id WHERE t.token_hash = ?""",
+                row -> new long[] {row.getLong(1), row.getLong(2)}, hash)).stream().findFirst();
+        found.ifPresent(ids -> database.query(connection -> Sql.update(connection, "UPDATE api_tokens SET last_used_at = ? WHERE token_hash = ?",
+                now.withNano(0).toString(), hash)));
+        return found;
     }
 
     // ---- Foyers ----

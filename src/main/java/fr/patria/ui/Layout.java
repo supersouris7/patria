@@ -28,9 +28,9 @@ public final class Layout {
          * @param realEstate    consultation des biens du foyer
          * @param householdManager gestionnaire du foyer affiche (membres, droits, invitations)
          */
-        public record Person(String name, boolean administrator, boolean manages, boolean realEstate, boolean householdManager) {
+        public record Person(String name, boolean administrator, boolean manages, boolean realEstate, boolean householdManager, Long userId, boolean avatar) {
             public Person(String name, boolean administrator, boolean manages, boolean realEstate) {
-                this(name, administrator, manages, realEstate, false);
+                this(name, administrator, manages, realEstate, false, null, false);
             }
         }
 
@@ -236,7 +236,9 @@ public final class Layout {
         Html estateLinks = administrator || !realEstate ? Html.EMPTY : Html.concat(navLink("/immobilier/prets", "Prêts", false),
                 navLink("/immobilier/taxe-fonciere", "Taxe foncière", false), Html.raw("<div data-property-links><a href=\"/immobilier/biens\">Mes biens</a></div>"));
         Html manageGroup = group(administrator ? AdminGroup.ACCOUNTS : AdminGroup.HOUSEHOLD, chrome, active);
-        int notifications = chrome == null || administrator ? 0 : chrome.changes().size() + (chrome.notice() == null ? 0 : 1);
+        // Pas de doublon : les changements d'acces ont deja leur point sur « Qui voit quoi », toujours visible ; les alertes
+        // du Bilan ne sont ajoutees par app.js que si le bouton Bilan (et sa pastille) n'est pas affiche.
+        int notifications = chrome == null || administrator || chrome.notice() == null ? 0 : 1;
         Html burger = Html.of("""
                 <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="%s" title="Menu principal">%s\
                 <span class="nav-count warning burger-count" data-notification-total="%s"%s>%s</span></summary>\
@@ -369,8 +371,9 @@ public final class Layout {
     /** Lien vers « Mon compte » (mot de passe), avec le nom de la personne connectee. */
     private static Html account(Chrome chrome, boolean active) {
         if (chrome == null) return Html.EMPTY;
+        Html icon = chrome.person().userId() == null ? ACCOUNT_ICON : Components.avatar(chrome.person().userId(), chrome.name(), chrome.person().avatar(), "avatar-small");
         return Html.of("<a class=\"account-link%s\" href=\"/compte\"%s title=\"Mon compte\" aria-label=\"Mon compte (%s)\">%s<span>%s</span></a>",
-                active ? " active" : "", Html.raw(active ? " aria-current=\"page\"" : ""), chrome.name(), ACCOUNT_ICON, chrome.name());
+                active ? " active" : "", Html.raw(active ? " aria-current=\"page\"" : ""), chrome.name(), icon, chrome.name());
     }
 
     /** Rubrique de gestion ; la navigation commune indique la rubrique active. */

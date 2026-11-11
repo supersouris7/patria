@@ -108,6 +108,9 @@ public final class App implements AutoCloseable {
             fr.patria.account.IpLocator locator = new fr.patria.account.IpLocator(log, config.offline(), config.clock());
             fr.patria.account.SessionViewers viewers = new fr.patria.account.SessionViewers(accounts, log, sites);
             Router router = new Router(sessions, viewers::of, household -> sites.site(household).router);
+            // API des tableaux de bord : un jeton (Mon compte) vaut une session en lecture seule sur son foyer, sans cookie.
+            router.useApiTokens(token -> accounts.apiToken(token, java.time.LocalDateTime.now(config.clock()))
+                    .map(ids -> new fr.patria.web.Session("api", "", Long.MAX_VALUE, ids[0], ids[1], true)));
             router.publicGet("/sante", request -> new Response.Text(200, "ok"));
             router.publicGet("/aide/chiffrement", request -> Response.page(fr.patria.ui.SecurityPages.encryptionHelp(config.encryptionKey() != null, request.csrf())));
             router.publicGet("/licence", request -> Response.page(fr.patria.ui.LicencePage.render()));

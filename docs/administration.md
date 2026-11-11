@@ -208,6 +208,8 @@ Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un p
 
 **Passage à cette version :** les comptes et les droits existants ne changent pas. Au premier démarrage, un compte qui voyait **tout** un foyer (tous ses membres, les totaux et l'immobilier) en devient gestionnaire. Un foyer sans gestionnaire est signalé dans Foyers, avec « Nommer gestionnaire » et « Créer un lien de gestion ». Les anciennes « demandes de compte » ne sont plus utilisées (elles restent dans la base) ; l'ancien réglage vaut « sur invitation ».
 
+La fiche d'un utilisateur affiche son avatar, sa date de naissance et son téléphone s'il les a renseignés. Chaque compte peut créer des jetons d'API en lecture seule (Mon compte → Accès API) pour un tableau de bord : ils sont liés à un foyer, stockés sous forme d'empreinte, inscrits au journal et supprimés avec le compte.
+
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
 
 ## IA locale (facultative)

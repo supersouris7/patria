@@ -86,6 +86,10 @@ final class HouseholdSite implements AutoCloseable {
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope, savings,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
+        // API des tableaux de bord (jeton en lecture seule, voir Mon compte) : chiffres du foyer, comme les pages les montrent.
+        router.userGet("/api/v1/resume", request -> new fr.patria.web.Response.Text(200, "{\"foyer\":\""
+                + request.viewer().household().name().replace("\\", "\\\\").replace("\"", "\\\"") + "\"," + health.apiSummary(request)
+                + ",\"guide_pct\":" + wizard.summary(request.viewer().userId(), request.viewer().realEstate(), request.viewer().householdManager()).percent() + "}"));
         router.userGet("/navigation/etat", request -> {
             WizardRepository.Summary guideState = wizard.summary(request.viewer().userId(), request.viewer().realEstate(), request.viewer().householdManager());
             // Barre « Guide de saisie » des pages : pour qui saisit, tant qu'il reste une etape et qu'elle n'est pas masquee.

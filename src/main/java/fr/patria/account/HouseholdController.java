@@ -181,7 +181,7 @@ public final class HouseholdController extends AccountSupport {
         Household household = managed(request);
         return HouseholdPages.page(household, directory.members(household.id()), accounts.accessesTo(household.id()),
                 accounts.pendingInvitations(household.id(), LocalDateTime.now(clock)), request.viewer().userId(), "closed".equals(accounts.signupMode()),
-                notice, link, request.csrf());
+                notice, link, request.csrf(), accounts.usersWithAvatar(), accounts.selfMembers(household.id()));
     }
 
     private static boolean same(Access before, Access after) {

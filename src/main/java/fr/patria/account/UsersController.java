@@ -102,8 +102,9 @@ public final class UsersController extends AccountSupport {
         Map<Long, List<Access>> accesses = accounts.allAccesses();
         Map<Long, java.time.LocalDateTime> logins = log.lastLogins();
         Map<String, LocalDate> twoFactor = twoFactors.twoFactorAccounts();
+        java.util.Set<Long> photos = accounts.usersWithAvatar();
         List<AdminPages.UserLine> all = accounts.userRows().stream().map(row -> new AdminPages.UserLine(row, accesses.getOrDefault(row.user().id(), List.of()),
-                logins.get(row.user().id()), twoFactor.containsKey(TwoFactorStore.account(row.user().id())))).toList();
+                logins.get(row.user().id()), twoFactor.containsKey(TwoFactorStore.account(row.user().id())), photos.contains(row.user().id()))).toList();
         AdminPages.UserStats stats = new AdminPages.UserStats(all.size(),
                 (int) all.stream().filter(line -> line.lastLogin() != null && line.lastLogin().isAfter(now.minusDays(30))).count(),
                 (int) all.stream().filter(line -> line.row().createdOn() != null && java.time.YearMonth.from(line.row().createdOn()).equals(java.time.YearMonth.from(now))).count(),
@@ -135,6 +136,7 @@ public final class UsersController extends AccountSupport {
     private fr.patria.ui.Html userPage(User user, Notice notice, String csrf) {
         List<Access> accesses = accounts.accesses(user.id());
         Map<Long, List<HouseholdDirectory.Member>> members = accesses.stream().collect(Collectors.toMap(Access::householdId, access -> directory.members(access.householdId())));
-        return AdminPages.user(user, accesses, members, accounts.passwordToChange(user.id()).isPresent(), twoFactors.twoFactor(user.id()).enabledOn(), notice, csrf);
+        return AdminPages.user(user, accesses, members, accounts.passwordToChange(user.id()).isPresent(), twoFactors.twoFactor(user.id()).enabledOn(), notice, csrf,
+                accounts.profile(user.id()));
     }
 }

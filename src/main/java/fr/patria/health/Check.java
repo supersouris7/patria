@@ -10,9 +10,9 @@ package fr.patria.health;
 public record Check(String id, Domain domain, Level level, String title, String detail, String link, String linkLabel) {
     /** Domaine du bilan. */
     public enum Domain {
-        FINANCES("Finances", "Budget, reste à vivre, endettement, épargne"),
+        FINANCES("Finances", "Budget, reste à vivre, endettement, pouvoir d'achat"),
         PROPERTIES("Biens", "Valeur, marché, occupation, prêts"),
-        SAVINGS("Épargne", "Précaution, livrets, bourse, pouvoir d'achat"),
+        SAVINGS("Épargne", "Précaution, livrets, bourse, intérêts face à l'inflation"),
         TAXES("Impôts", "Impôt sur le revenu, taxe foncière, revenus fonciers, IFI");
 
         private final String label;

@@ -67,6 +67,7 @@ public final class Sql {
                 case Long number -> statement.setLong(index, number);
                 case Integer number -> statement.setInt(index, number);
                 case String text -> statement.setString(index, text);
+                case byte[] bytes -> statement.setBytes(index, bytes);
                 default -> throw new IllegalArgumentException("Type non pris en charge : " + value.getClass());
             }
         }

@@ -184,7 +184,8 @@ final class WizardBudgetPages {
         return Html.concat(explain("Sur l'avis d'impôt (impots.gouv.fr → Documents), le cadre « Votre prélèvement à la source » donne le taux et le montant "
                         + "mensuel. Avec deux salaires, saisissez un prélèvement par personne (« Pour qui »). Un solde à payer se saisit en ponctuel à sa date."),
                 Components.card(Checklist.TAXES.title(), null, Html.EMPTY, checklist(context, "/assistant/impots/ajouter", List.of(Checklist.TAXES), false, values,
-                        "Ajouter ces impôts")));
+                        "Ajouter ces impôts")),
+                Html.of("<div id=\"fiscal\">%s</div>", Components.card("Revenu fiscal de référence", null, Html.EMPTY, context.taxForm().get())));
     }
 
     static Html transfers(WizardController.Context context, Map<String, String> values) {

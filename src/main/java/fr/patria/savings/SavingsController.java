@@ -61,6 +61,18 @@ public final class SavingsController {
             savings.deleteAccount(account.id());
             return done(request, "supprime", null, account.kind().stocks());
         });
+        router.userPost("/epargne/fiscal", request -> {
+            String back = back(request);
+            try {
+                String raw = request.form().raw("rfr").replace(" ", "").replace("\u00a0", "").replace("\u202f", "");
+                if (raw.isEmpty()) setTaxInfo(null, 0, BigDecimal.ONE);
+                else setTaxInfo(new BigDecimal(raw.replace(',', '.')), Integer.parseInt(request.form().raw("annee").strip()),
+                        new BigDecimal(request.form().raw("parts").strip().replace(',', '.')));
+            } catch (NumberFormatException exception) {
+                throw new ValidationException("Revenu, année et parts : des nombres (ex. 32450, 2026, 2,5).");
+            }
+            return Response.redirect((back == null ? "/epargne" : back) + "?ok=enregistre#fiscal");
+        });
         router.userPost("/epargne/plan", request -> {
             String lep = request.form().raw("lep");
             savings.setPreference("lep", lep.equals("oui") || lep.equals("non") ? lep : "");
@@ -118,7 +130,79 @@ public final class SavingsController {
 
     /** Ce que voit la personne connectee : ses comptes, la vue, le plan (partage avec le bilan). */
     public record Snapshot(Savings.Overview overview, Savings.Plan plan, java.util.Optional<MarketFeeds.Inflation> inflation,
-                           java.util.Optional<Savings.PurchasingPower> power, String lep, List<Person> holders) {
+                           java.util.Optional<Savings.PurchasingPower> power, String lep, List<Person> holders, boolean lepFromTax) {
+        public Snapshot(Savings.Overview overview, Savings.Plan plan, java.util.Optional<MarketFeeds.Inflation> inflation,
+                        java.util.Optional<Savings.PurchasingPower> power, String lep, List<Person> holders) {
+            this(overview, plan, inflation, power, lep, holders, false);
+        }
+    }
+
+    /**
+     * Revenu fiscal de reference du foyer fiscal (avis d'impot), avec l'annee de l'avis et le nombre de parts. Sert a
+     * l'eligibilite au LEP ; saisi dans le Guide (etape Impots), sur la page Epargne ou par la reponse de l'IA.
+     */
+    public record TaxInfo(BigDecimal income, int year, BigDecimal parts) {
+        /** Plafond du LEP pour ce nombre de parts : 1 part, plus une somme par demi-part supplementaire. */
+        public BigDecimal lepCeiling() {
+            BigDecimal halves = parts.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(2)).max(BigDecimal.ZERO);
+            return RegulatedRates.LEP_INCOME_ONE_PART.add(RegulatedRates.LEP_INCOME_HALF_PART.multiply(halves));
+        }
+
+        public boolean lepEligible() {
+            return income.compareTo(lepCeiling()) <= 0;
+        }
+    }
+
+    public java.util.Optional<TaxInfo> taxInfo() {
+        try {
+            String income = savings.preference("rfr");
+            if (income.isEmpty()) return java.util.Optional.empty();
+            return java.util.Optional.of(new TaxInfo(new BigDecimal(income), Integer.parseInt(savings.preference("rfr_annee")), new BigDecimal(savings.preference("parts"))));
+        } catch (NumberFormatException exception) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    /** {@code income} nul : efface. Verifie des valeurs plausibles (avis d'impot francais). */
+    public void setTaxInfo(BigDecimal income, int year, BigDecimal parts) {
+        if (income == null) {
+            savings.setPreference("rfr", "");
+            return;
+        }
+        if (income.signum() < 0 || income.compareTo(BigDecimal.valueOf(10_000_000)) > 0) throw new ValidationException("Revenu fiscal de référence invraisemblable.");
+        if (year < 2015 || year > LocalDate.now(clock).getYear()) throw new ValidationException("Année de l'avis invraisemblable.");
+        if (parts.compareTo(BigDecimal.ONE) < 0 || parts.compareTo(BigDecimal.valueOf(20)) > 0 || parts.remainder(new BigDecimal("0.25")).signum() != 0) {
+            throw new ValidationException("Nombre de parts invalide (1, 1,5, 2, 2,5…).");
+        }
+        savings.setPreference("rfr", income.setScale(0, RoundingMode.HALF_UP).toPlainString());
+        savings.setPreference("rfr_annee", String.valueOf(year));
+        savings.setPreference("parts", parts.stripTrailingZeros().toPlainString());
+    }
+
+    /** Eligibilite au LEP : deduite du revenu fiscal de reference s'il est connu, sinon la reponse donnee (« oui », « non », vide). */
+    String lep() {
+        return taxInfo().map(info -> info.lepEligible() ? "oui" : "non").orElse(savings.preference("lep"));
+    }
+
+    /** Formulaire du revenu fiscal de reference ; {@code back} : page de retour (Guide ou Epargne). */
+    public fr.patria.ui.Html taxForm(String back, String csrf) {
+        java.util.Optional<TaxInfo> info = taxInfo();
+        fr.patria.ui.Html status = info.map(value -> fr.patria.ui.Html.of("<p class=\"%s\">%s</p>", value.lepEligible() ? "notice success" : "muted",
+                        value.lepEligible() ? "Revenu sous le plafond du LEP (" + fr.patria.ui.Format.euroWhole(value.lepCeiling()) + " pour " + fr.patria.ui.Format.number(value.parts(), 2)
+                                + " part" + (value.parts().compareTo(BigDecimal.ONE) > 0 ? "s" : "") + ") : vous pouvez ouvrir un LEP, le livret réglementé le mieux rémunéré."
+                                : "Revenu au-dessus du plafond du LEP (" + fr.patria.ui.Format.euroWhole(value.lepCeiling()) + ") : pas d'ouverture possible cette année."))
+                .orElse(fr.patria.ui.Html.EMPTY);
+        return fr.patria.ui.Html.of("""
+                <form method="post" action="/epargne/fiscal" class="stack">%s<input type="hidden" name="retour" value="%s">\
+                <p class="muted">Sur votre dernier avis d'impôt (impots.gouv.fr → Documents), en haut de la première page : « Revenu fiscal de référence » et « Nombre de parts ».
+                Patria s'en sert pour savoir si vous pouvez ouvrir un LEP.</p>%s<div class="form-grid cols-3">\
+                <label>Revenu fiscal de référence (€)<input name="rfr" inputmode="numeric" value="%s" placeholder="32 450"></label>\
+                <label>Année de l'avis<input name="annee" type="number" min="2015" max="%s" value="%s"></label>\
+                <label>Nombre de parts<input name="parts" inputmode="decimal" value="%s" placeholder="2"></label></div>\
+                <div class="form-actions"><button class="secondary" type="submit">Enregistrer</button></div></form>""",
+                fr.patria.ui.Components.csrfField(csrf), back.isEmpty() ? fr.patria.ui.Html.EMPTY : fr.patria.ui.Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), status, info.map(value -> value.income().toPlainString()).orElse(""), LocalDate.now(clock).getYear(),
+                info.map(value -> String.valueOf(value.year())).orElse(String.valueOf(LocalDate.now(clock).getYear())),
+                info.map(value -> value.parts().toPlainString().replace('.', ',')).orElse(""));
     }
 
     /** Epargne visible, plan et inflation ; {@code scope} non vide : seulement ces membres (perimetre du bilan). */
@@ -137,12 +221,12 @@ public final class SavingsController {
         BigDecimal margin = view.months().isEmpty() ? BigDecimal.ZERO : view.months().stream().map(Forecast.Month::balance).reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(view.months().size()), 0, RoundingMode.HALF_UP);
         List<Person> holders = people.stream().filter(person -> !person.isAccount() && in.test(person.id())).toList();
-        String lep = savings.preference("lep");
+        String lep = lep();
         Savings.Plan plan = Savings.plan(spending, margin, overview, holders.stream().map(Person::id).toList(), months(savings.preference("months")), lep, today);
         java.util.Optional<MarketFeeds.Inflation> inflation = feeds.inflation();
         java.util.Optional<Savings.PurchasingPower> power = Savings.purchasingPower(household.incomes().stream().filter(income -> in.test(income.personId())).toList(),
                 today, inflation);
-        return new Snapshot(overview, plan, inflation, power, lep, holders);
+        return new Snapshot(overview, plan, inflation, power, lep, holders, taxInfo().isPresent());
     }
 
     private fr.patria.ui.Html page(Request request, Notice notice, boolean stocks) {
@@ -152,7 +236,8 @@ public final class SavingsController {
         // Historique : le solde du mois en cours de chaque placement visible (graphique de l'epargne).
         snapshot.overview().lines().forEach(line -> savings.recordHistory(line.account().id(), java.time.YearMonth.from(today), line.value()));
         return stocks ? StocksPages.page(SavingsPages.only(snapshot.overview(), true), notice, request.csrf())
-                : SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf());
+                : SavingsPages.page(snapshot, visibility.people(), history(snapshot, today), feeds.offline(), today, notice, request.csrf(),
+                        taxForm("", request.csrf()));
     }
 
     /** 24 derniers mois, empiles : disponible et long terme, hors bourse (dernier solde connu reporte d'un mois sur l'autre). */

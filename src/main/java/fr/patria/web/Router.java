@@ -73,6 +73,12 @@ public final class Router implements HttpHandler {
         before = hook;
     }
     private final Sessions sessions;
+    /** Jetons d'API : session en lecture seule pour les adresses /api/ (GET seulement), sans cookie ni CSRF. */
+    private java.util.function.Function<String, Optional<Session>> apiTokens = token -> Optional.empty();
+
+    public void useApiTokens(java.util.function.Function<String, Optional<Session>> tokens) {
+        apiTokens = tokens;
+    }
     private final Viewers viewers;
     private final Households households;
 
@@ -146,6 +152,14 @@ public final class Router implements HttpHandler {
                 return;
             }
             session = sessions.find(cookie(exchange)).orElse(null);
+            if (path.startsWith("/api/")) {
+                String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+                if (authorization != null && authorization.startsWith("Bearer ")) session = apiTokens.apply(authorization.substring(7).strip()).orElse(null);
+                if (session == null || !exchange.getRequestMethod().equals("GET")) {
+                    write(exchange, new Response.Text(401, "{\"erreur\":\"Jeton absent ou invalide (en-tête Authorization: Bearer …), ou méthode autre que GET.\"}"));
+                    return;
+                }
+            }
             Viewer viewer = session == null ? null : viewers.of(session).orElse(null);
             if (session != null && viewer == null) {
                 // Compte desactive ou supprime, ou plus aucun foyer : la session est fermee.
@@ -179,7 +193,8 @@ public final class Router implements HttpHandler {
     /** Ce que l'en-tete affiche : nom, foyer et rubriques permises. */
     private static Layout.Chrome chrome(Viewer viewer, boolean insecure, String location) {
         if (viewer == null) return null;
-        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.realEstate(), viewer.realEstate(), viewer.householdManager()),
+        return new Layout.Chrome(new Layout.Chrome.Person(viewer.name(), viewer.isAdministrator(), viewer.realEstate(), viewer.realEstate(), viewer.householdManager(),
+                        viewer.userId(), viewer.signals().avatar()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
                 new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.notice()),
                 location);
@@ -290,7 +305,8 @@ public final class Router implements HttpHandler {
                 send(exchange, page.status(), page.html().toString().getBytes(StandardCharsets.UTF_8));
             }
             case Response.Text text -> {
-                headers.set("Content-Type", "text/plain; charset=utf-8");
+                // Les reponses JSON (etat de la navigation, API des tableaux de bord) sont annoncees comme telles.
+                headers.set("Content-Type", text.body().startsWith("{") ? "application/json; charset=utf-8" : "text/plain; charset=utf-8");
                 send(exchange, text.status(), text.body().getBytes(StandardCharsets.UTF_8));
             }
             case Response.Redirect redirect -> {
@@ -299,6 +315,11 @@ public final class Router implements HttpHandler {
                 exchange.sendResponseHeaders(303, -1);
             }
             case Response.NoContent ignored -> exchange.sendResponseHeaders(204, -1);
+            case Response.Image image -> {
+                headers.set("Content-Type", image.contentType());
+                headers.set("Cache-Control", "private, no-cache");
+                send(exchange, 200, image.body());
+            }
             case Response.Download download -> {
                 headers.set("Content-Type", download.contentType());
                 headers.set("Content-Disposition", "attachment; filename=\"" + download.filename().replaceAll("[^A-Za-z0-9._-]", "_") + "\"");

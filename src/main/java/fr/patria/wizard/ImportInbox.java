@@ -245,6 +245,8 @@ public final class ImportInbox {
                   type : exactement l'un de : %s ; versement mensuel programmé s'il y en a un, sinon vide.
                 BOURSE;compte;code;nom;quantité;prix de revient total
                   compte : le nom donné à la ligne EPARGNE du PEA ou compte-titres ; code : l'ISIN ; titres détenus aujourd'hui.
+                FISCAL;revenu fiscal de référence;année de l'avis;nombre de parts
+                  une seule ligne, d'après le dernier avis d'impôt sur le revenu (première page), ex. FISCAL;32450;2026;2,5
 
                 Valeurs communes :
                 - fréquence : exactement l'une de : Mensuel, Trimestriel, Semestriel, Annuel, Ponctuel ;

@@ -310,7 +310,7 @@ public final class WizardController {
     record Context(boolean admin, boolean manager, Profile profile, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
                    Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
                    java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings,
-                   List<ImportInbox.Item> inbox) {
+                   List<ImportInbox.Item> inbox, java.util.function.Supplier<fr.patria.ui.Html> taxForm, boolean taxKnown) {
         String mode() {
             return review ? "?mode=" + REVIEW : "";
         }
@@ -384,7 +384,8 @@ public final class WizardController {
                 stores.healthScope().scope(request.viewer(), people),
                 request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
                 () -> stores.savings().wizardPanel(request, Step.SAVINGS.path()),
-                stores.inbox().pending(owner(request)));
+                stores.inbox().pending(owner(request)),
+                () -> stores.savings().taxForm(Step.TAXES.path(), request.csrf()), stores.savings().taxInfo().isPresent());
     }
 
     /** Progression propre a la personne connectee : l'administrateur, ou chaque utilisateur. */
@@ -431,6 +432,24 @@ public final class WizardController {
         try {
             String answer = fr.patria.common.CsvText.decode(request.form().uploadedText("csv", "Réponse de l'IA ou export bancaire"));
             List<Person> people = Visibility.of(request.viewer(), stores.household().people()).people();
+            // Revenu fiscal de reference (ligne FISCAL) : enregistre tout de suite, il ne passe pas par la pile a trier.
+            String fiscal = "";
+            StringBuilder others = new StringBuilder();
+            for (String line : answer.split("\\R")) {
+                String[] cells = line.strip().split(";");
+                if (cells.length >= 4 && cells[0].strip().equalsIgnoreCase("FISCAL")) {
+                    try {
+                        stores.savings().setTaxInfo(new java.math.BigDecimal(cells[1].replaceAll("[\\s\u00a0\u202f€]", "").replace(',', '.')), Integer.parseInt(cells[2].strip()),
+                                new java.math.BigDecimal(cells[3].strip().replace(',', '.')));
+                        fiscal = " Revenu fiscal de référence enregistré.";
+                    } catch (NumberFormatException exception) {
+                        fiscal = " Ligne FISCAL illisible : saisissez le revenu fiscal de référence à l'étape Impôts.";
+                    }
+                } else {
+                    others.append(line).append('\n');
+                }
+            }
+            answer = others.toString();
             // Export d'operations bancaires (CSV, OFX, QIF) : les operations regulieres deviennent des lignes, sans IA.
             java.util.Optional<List<BankStatement.Transaction>> statement = BankStatement.read(answer);
             if (statement.isPresent()) {
@@ -442,10 +461,10 @@ public final class WizardController {
                 answer = String.join("\n", lines);
             }
             ImportInbox.Added added = stores.inbox().add(owner(request), answer, people, LocalDate.now(clock));
-            String summary = added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
+            String summary = (added.total() == 0 && !fiscal.isEmpty() ? "" : added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
                     : added.total() + " ligne" + (added.total() > 1 ? "s" : "") + " ajoutée" + (added.total() > 1 ? "s" : "") + " à la pile « À trier » ("
                     + added.counts().entrySet().stream().map(entry -> entry.getValue() + " " + entry.getKey().label().toLowerCase(java.util.Locale.FRENCH))
-                    .collect(java.util.stream.Collectors.joining(", ")) + ").";
+                    .collect(java.util.stream.Collectors.joining(", ")) + ").") + fiscal;
             String errors = added.errors().isEmpty() ? "" : " Ignorées (illisibles) : " + String.join(" ; ", added.errors());
             Notice notice = added.errors().isEmpty() ? Notice.success(summary) : Notice.error(summary + errors);
             return Response.page(render(request, Step.DOCUMENTS, notice, Map.of()));

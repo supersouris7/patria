@@ -253,3 +253,13 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 fieldset.target { border: 1px solid var(--line); border-radius: var(--radius-small); margin: 6px 0; padding: 10px 14px; }
 fieldset.target legend { color: var(--accent-text); font-size: .78rem; font-weight: 750; letter-spacing: .06em; padding: 0 6px; text-transform: uppercase; }
 .form-actions > label.check { flex-basis: 100%; margin-bottom: 4px; }
+/* Inflation et taux : une couleur par serie (bleu, orange, aqua, jaune), lignes de 2 px */
+.rates-chart { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #c98500; }
+.rate-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.rate-line.s1 { stroke: var(--s1); } .rate-line.s2 { stroke: var(--s2); } .rate-line.s3 { stroke: var(--s3); } .rate-line.s4 { stroke: var(--s4); stroke-dasharray: 6 4; }
+.rate-dot { stroke: var(--surface); stroke-width: 2; }
+.rate-dot.s1 { fill: var(--s1); } .rate-dot.s2 { fill: var(--s2); } .rate-dot.s3 { fill: var(--s3); } .rate-dot.s4 { fill: var(--s4); }
+.chart-legend .swatch.s1 { background: #2a78d6; } .chart-legend .swatch.s2 { background: #eb6834; } .chart-legend .swatch.s3 { background: #1baf7a; }
+.chart-legend .swatch.s4 { background: #c98500; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rates-chart { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; } }
+:root[data-theme="dark"] .rates-chart { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; }

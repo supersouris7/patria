@@ -45,11 +45,12 @@ final class AccountPages {
     }
 
     static Html account(String name, String login, boolean admin, Security security, Notice notice, String csrf) {
-        return account(name, login, admin, security, null, false, notice, csrf);
+        return account(name, login, admin, security, null, false, notice, csrf, Html.EMPTY, Html.EMPTY);
     }
 
     /** {@code email} : e-mail du compte (null pour l'administrateur) ; {@code mailActive} : envoi d'e-mails regle. */
-    static Html account(String name, String login, boolean admin, Security security, AccountRepository.Email email, boolean mailActive, Notice notice, String csrf) {
+    static Html account(String name, String login, boolean admin, Security security, AccountRepository.Email email, boolean mailActive, Notice notice, String csrf,
+                        Html profile, Html api) {
         Html body = admin ? Html.raw("""
                 <p class="muted">Vous êtes connecté en administrateur. Ce mot de passe est défini dans l'environnement du serveur (APP_PASSWORD) :
                 il se change dans la configuration (compose.yaml), puis en redémarrant Patria.</p>""")
@@ -59,12 +60,81 @@ final class AccountPages {
                         password("Confirmation", "confirm", "new-password", null)), "Changer le mot de passe");
         Html content = Html.concat(Components.heading("Mon compte", name, login,
                         Html.of("<a class=\"button secondary\" href=\"%s?visite=1\">Revoir la visite guidée</a>", admin ? "/administration/securite" : "/")),
-                Components.notice(notice),
+                Components.notice(notice), profile,
                 Components.card("Mot de passe", null, Html.EMPTY, body),
                 email == null ? Html.EMPTY : Components.card("E-mail", null, Html.EMPTY, emailForm(email, mailActive, csrf)),
                 Components.card("Double authentification", null, Html.EMPTY, twoFactor(security, admin, csrf)),
-                connections(security));
+                connections(security), api);
         return Layout.page("Mon compte · Patria", Layout.Section.ACCOUNT, csrf, content);
+    }
+
+    /**
+     * Profil : photo ronde (ou initiales), prenom, nom, date de naissance, telephone, et le membre du budget que le
+     * compte represente dans le foyer affiche (« Je suis Paul »).
+     */
+    static Html profileCard(long userId, String name, AccountRepository.Profile profile, List<HouseholdDirectory.Member> members, Long selfMember,
+                            String householdName, String csrf) {
+        Html options = members.stream().filter(member -> !member.account()).map(member -> Html.of("<option value=\"%s\"%s>%s</option>", member.id(),
+                Html.raw(selfMember != null && selfMember == member.id() ? " selected" : ""), member.name())).collect(Html.joining());
+        Html photo = Html.of("""
+                <div class="profile-head">%s<div class="stack"><form method="post" action="/compte/photo" enctype="multipart/form-data" class="row-form">%s\
+                <label>Photo (JPEG ou PNG, recadrée en rond)<input type="file" name="photo" accept="image/jpeg,image/png" required></label>\
+                <button class="secondary" type="submit">Envoyer</button></form>%s</div></div>""",
+                Components.avatar(userId, name, profile.avatar(), "avatar-large"), Components.csrfField(csrf),
+                profile.avatar() ? Html.of("<form method=\"post\" action=\"/compte/photo/supprimer\">%s<button class=\"quiet\" type=\"submit\">Retirer la photo</button></form>",
+                        Components.csrfField(csrf)) : Html.raw("<p class=\"muted small\">Sans photo, vos initiales s'affichent.</p>"));
+        Html form = Html.of("""
+                <form method="post" action="/compte/profil" class="stack">%s<div class="form-grid cols-2">\
+                <label>Prénom *<input name="prenom" maxlength="60" required value="%s" autocomplete="given-name"></label>\
+                <label>Nom<input name="nom" maxlength="60" value="%s" autocomplete="family-name"></label>\
+                <label>Date de naissance<input type="date" name="naissance" value="%s" autocomplete="bday"></label>\
+                <label>Téléphone<input type="tel" name="telephone" maxlength="20" value="%s" autocomplete="tel"><small class="muted">Visible de vous et de l'administrateur.</small></label>\
+                <label>Dans le budget « %s », vous êtes<select name="membre"><option value="">Personne en particulier</option>%s</select></label></div>\
+                <div class="form-actions"><button type="submit">Enregistrer le profil</button></div></form>""",
+                Components.csrfField(csrf), profile.firstName() == null ? name : profile.firstName(), profile.lastName() == null ? "" : profile.lastName(),
+                profile.birthDate() == null ? "" : profile.birthDate().toString(), profile.phone() == null ? "" : profile.phone(), householdName, options);
+        return Html.of("<div id=\"profil\">%s</div>", Components.card("Profil", null, Html.EMPTY, Html.concat(photo, form)));
+    }
+
+    /**
+     * Acces en lecture seule pour un tableau de bord (Homepage, Homarr, Dashy) : un jeton par outil, revocable, lie au
+     * foyer affiche. {@code newToken} : celui qui vient d'etre cree, affiche une seule fois.
+     */
+    static Html apiCard(List<AccountRepository.ApiToken> tokens, String householdName, String newToken, String csrf) {
+        Html created = newToken == null ? Html.EMPTY : Html.of("""
+                <div class="notice success"><b>Votre jeton</b> (copiez-le maintenant, il ne sera plus affiché) :<code class="api-token">%s</code></div>""", newToken);
+        Html rows = tokens.stream().map(token -> Html.of("""
+                <tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td><form method="post" action="/compte/api/%s/revoquer">%s\
+                <button class="quiet small" type="submit">Révoquer</button></form></td></tr>""", token.name(), token.householdName(), token.createdAt().replace('T', ' '),
+                token.lastUsedAt() == null ? "jamais" : token.lastUsedAt().replace('T', ' '), token.id(), Components.csrfField(csrf))).collect(Html.joining());
+        Html list = tokens.isEmpty() ? Html.raw("<p class=\"muted\">Aucun jeton.</p>")
+                : Components.table(List.of("Nom", "Foyer", "Créé le", "Dernier accès", ""), rows, false, false);
+        Html body = Html.of("""
+                <p class="muted">Pour afficher vos chiffres dans un tableau de bord (Homepage, Homarr, Dashy) : un jeton en <b>lecture seule</b>, pour le foyer
+                « %s ». Il donne le reste à vivre du mois, le patrimoine net, l'épargne, les alertes du bilan et l'avancement du guide ; rien d'autre, et aucune
+                modification possible. Traitez-le comme un mot de passe.</p>%s%s
+                <form method="post" action="/compte/api" class="row-form">%s<label>Nom du jeton<input name="nom" maxlength="60" required placeholder="Homepage"></label>\
+                <button class="secondary" type="submit">Créer un jeton</button></form>
+                <details><summary>Exemple pour Homepage (widget customapi)</summary><pre><code>- Patria:
+    href: https://votre-patria.example
+    widget:
+      type: customapi
+      url: https://votre-patria.example/api/v1/resume
+      headers:
+        Authorization: Bearer patria_…
+      mappings:
+        - field: reste_a_vivre
+          label: Reste à vivre
+          format: number
+          suffix: €
+        - field: patrimoine_net
+          label: Patrimoine net
+          format: number
+          suffix: €
+        - field: alertes
+          label: Alertes</code></pre></details>""",
+                householdName, created, list, Components.csrfField(csrf));
+        return Html.of("<div id=\"api\">%s</div>", Components.card("Accès API (tableau de bord)", tokens.size(), Html.EMPTY, body));
     }
 
     /** E-mail du compte : etat (confirme ou non) et changement, avec envoi d'un lien quand l'envoi est regle. */

@@ -232,6 +232,18 @@ public final class Components {
      * Avec une IA locale : deposer le document (PDF, CSV ou texte), converti en lignes de l'import {@code kind}
      * (depenses, echeancier, bourse). Le formulaire doit etre en multipart. Rien sans IA locale.
      */
+    /**
+     * Avatar rond d'un compte : sa photo, ou ses initiales sur une couleur stable (calculee depuis son numero). La
+     * photo n'est servie qu'aux comptes qui partagent un foyer avec lui.
+     */
+    public static Html avatar(long userId, String name, boolean photo, String size) {
+        if (photo) return Html.of("<img class=\"avatar %s\" src=\"/compte/avatar/%s\" alt=\"\" width=\"40\" height=\"40\">", size, userId);
+        String[] words = (name == null ? "" : name.strip()).split("\\s+");
+        String initials = (words.length == 0 || words[0].isEmpty() ? "?" : words[0].substring(0, 1)
+                + (words.length > 1 ? words[words.length - 1].substring(0, 1) : "")).toUpperCase(java.util.Locale.FRENCH);
+        return Html.of("<span class=\"avatar %s\" style=\"--avatar-hue:%s\" aria-hidden=\"true\">%s</span>", size, Math.floorMod(userId * 47, 360), initials);
+    }
+
     public static Html localAiInput(String kind) {
         if (!localAi) return Html.EMPTY;
         return Html.of("""

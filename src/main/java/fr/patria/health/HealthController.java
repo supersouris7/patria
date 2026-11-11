@@ -9,11 +9,13 @@ import fr.patria.household.Income;
 import fr.patria.household.Visibility;
 import fr.patria.loan.Renegotiation;
 import fr.patria.portfolio.Portfolio;
+import fr.patria.savings.Savings;
 import fr.patria.savings.SavingsController;
 import fr.patria.ui.Html;
 import fr.patria.web.Request;
 import fr.patria.web.Response;
 import fr.patria.web.Router;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -130,6 +132,23 @@ public final class HealthController {
         long warn = checks.stream().filter(check -> check.level() == Check.Level.WARN).count();
         if (bad == 0 && warn == 0) return Html.EMPTY;
         return HealthPages.summary(bad, warn);
+    }
+
+    /**
+     * Chiffres pour l'API des tableaux de bord (JSON, montants arrondis a l'euro) : le mois en cours du budget visible,
+     * l'epargne, le patrimoine net et les alertes du bilan. Memes droits que les pages.
+     */
+    public String apiSummary(Request request) {
+        Visibility visibility = Visibility.of(request.viewer(), household.people());
+        Forecast.Month month = BudgetScope.view(forecast, visibility, null).months().getFirst();
+        Savings.Overview saved = savings.snapshot(request, Set.of()).overview();
+        Portfolio.Overview estate = request.viewer().realEstate() ? portfolio.overview() : null;
+        BigDecimal assets = saved.total().add(estate == null ? BigDecimal.ZERO : estate.value());
+        BigDecimal net = assets.subtract(estate == null ? BigDecimal.ZERO : estate.debt());
+        java.util.function.Function<BigDecimal, String> euros = amount -> amount.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString();
+        return "\"mois\":\"" + month.month() + "\",\"revenus_mois\":" + euros.apply(month.income()) + ",\"depenses_mois\":" + euros.apply(month.spending())
+                + ",\"reste_a_vivre\":" + euros.apply(month.balance()) + ",\"epargne\":" + euros.apply(saved.total())
+                + ",\"patrimoine_net\":" + euros.apply(net) + ",\"alertes\":" + warningCount(request);
     }
 
     public long warningCount(Request request) {

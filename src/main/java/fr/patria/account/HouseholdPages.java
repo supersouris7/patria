@@ -14,7 +14,7 @@ final class HouseholdPages {
     }
 
     static Html page(Household household, List<HouseholdDirectory.Member> members, Map<User, Access> accesses, List<AccountRepository.Invitation> invitations,
-                     long self, boolean closed, Notice notice, String link, String csrf) {
+                     long self, boolean closed, Notice notice, String link, String csrf, java.util.Set<Long> photos, Map<Long, Long> selfMembers) {
         Html chips = members.isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre pour l'instant.</p>")
                 : Html.of("<div class=\"chips-line\">%s</div>", members.stream().map(member -> Html.of("""
                         <form method="post" action="/foyer/membre/%s/supprimer" class="badge member-chip" data-confirm="Supprimer « %s » et ses lignes propres ? \
@@ -30,7 +30,7 @@ final class HouseholdPages {
         Html content = Html.concat(Components.heading("Gestionnaire", household.name(), "Membres, droits et invitations de votre foyer.", Html.EMPTY),
                 Components.notice(notice), link == null ? Html.EMPTY : Html.of("""
                         <p class="notice success invite-link"><label>Lien d'invitation<input value="%s" readonly></label></p>""", link),
-                membersCard, rights(household, members, accesses, self, csrf), invitations(members, invitations, closed, csrf),
+                membersCard, rights(household, members, accesses, self, csrf, photos, selfMembers), invitations(members, invitations, closed, csrf),
                 Components.disclosure("Nom du foyer", Html.of("""
                         <form method="post" action="/foyer/renommer" class="row-form">%s<label>Nom<input name="name" value="%s" maxlength="60" required></label>\
                         <button class="secondary" type="submit">Renommer</button></form>""", Components.csrfField(csrf), household.name()), false),
@@ -44,7 +44,8 @@ final class HouseholdPages {
     }
 
     /** Une ligne par compte du foyer : ses membres, les totaux, l'immobilier, et s'il gere le foyer. */
-    private static Html rights(Household household, List<HouseholdDirectory.Member> members, Map<User, Access> accesses, long self, String csrf) {
+    private static Html rights(Household household, List<HouseholdDirectory.Member> members, Map<User, Access> accesses, long self, String csrf,
+                               java.util.Set<Long> photos, Map<Long, Long> selfMembers) {
         StringBuilder head = new StringBuilder("<th scope=\"col\">Compte</th>");
         for (HouseholdDirectory.Member member : members) head.append("<th scope=\"col\">").append(escape(member.name())).append("</th>");
         head.append("<th scope=\"col\">Totaux du foyer</th><th scope=\"col\">Immobilier</th><th scope=\"col\">Gestionnaire</th>");
@@ -57,8 +58,11 @@ final class HouseholdPages {
                     box(prefix + "whole", user.name() + " : totaux du foyer", access.wholeHousehold()),
                     box(prefix + "estate", user.name() + " : immobilier", access.realEstate()),
                     box(prefix + "manager", user.name() + " : gestionnaire", access.manager()));
-            return Html.of("<tr><th scope=\"row\">%s <span class=\"muted small\">%s%s</span></th>%s</tr>", user.name(), user.login(),
-                    user.id() == self ? " · vous" : "", cells);
+            String represents = members.stream().filter(member -> selfMembers.get(user.id()) != null && member.id() == selfMembers.get(user.id()))
+                    .map(member -> " · c'est " + member.name() + " dans le budget").findFirst().orElse("");
+            return Html.of("<tr><th scope=\"row\"><div class=\"user-cell\">%s<div>%s <span class=\"muted small\">%s%s%s</span></div></div></th>%s</tr>",
+                    Components.avatar(user.id(), user.name(), photos.contains(user.id()), "avatar-small"), user.name(), user.login(),
+                    user.id() == self ? " · vous" : "", represents, cells);
         }).collect(Html.joining());
         return Html.of("<div id=\"droits\">%s</div>", Components.card("Qui voit quoi", null, Html.EMPTY, Html.of("""
                 <form method="post" action="/foyer/droits" class="rights-form">%s

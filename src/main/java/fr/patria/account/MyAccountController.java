@@ -21,6 +21,25 @@ public final class MyAccountController extends AccountSupport {
     public void register(Router router) {
         router.userGet("/compte", request -> Response.page(accountPage(request, request.confirmation())));
         router.userPost("/compte/mot-de-passe", this::changePassword);
+        router.userPost("/compte/profil", this::saveProfile);
+        router.userPost("/compte/photo", this::savePhoto);
+        router.userPost("/compte/photo/supprimer", request -> {
+            accounts.setAvatar(ownId(request), null);
+            return Response.redirect("/compte?ok=enregistre#profil");
+        });
+        // Photo d'un compte : pour lui-meme, l'administrateur, et les comptes qui partagent un de ses foyers.
+        router.userGet("/compte/avatar/{id}", request -> {
+            long id = request.id();
+            Long viewer = request.viewer().userId();
+            if (viewer != null && !accounts.shareHousehold(viewer, id)) throw new fr.patria.common.NotFoundException("Image introuvable", "Cette image n'existe pas.");
+            byte[] image = accounts.avatar(id).orElseThrow(() -> new fr.patria.common.NotFoundException("Image introuvable", "Cette image n'existe pas."));
+            return new Response.Image("image/jpeg", image);
+        });
+        router.userPost("/compte/api", this::createApiToken);
+        router.userPost("/compte/api/{id}/revoquer", request -> {
+            accounts.revokeApiToken(ownId(request), request.id());
+            return Response.redirect("/compte?ok=enregistre#api");
+        });
         router.userGet("/compte/nouveau-mot-de-passe", request -> Response.page(newPasswordPage(request, null)));
         router.userGet("/compte/double-authentification", request -> Response.page(twoFactorSetup(request, null)));
         router.userPost("/compte/double-authentification/activer", this::enableTwoFactor);
@@ -74,6 +93,11 @@ public final class MyAccountController extends AccountSupport {
     }
 
     private fr.patria.ui.Html accountPage(Request request, Notice notice) {
+        return accountPage(request, notice, null);
+    }
+
+    /** {@code newToken} : jeton d'API cree a l'instant, affiche une seule fois. */
+    private fr.patria.ui.Html accountPage(Request request, Notice notice, String newToken) {
         Long id = request.viewer().userId();
         String login = id == null ? adminLogin : user(id).login();
         List<SecurityLog.LoginEvent> events = log.loginEventsOf(login, LocalDateTime.now(clock).plusMinutes(1), 10);
@@ -82,7 +106,97 @@ public final class MyAccountController extends AccountSupport {
         AccountPages.Security security = new AccountPages.Security(twoFactors.twoFactor(id), id == null && Exposure.exposed(request, log), events, places);
         if (id == null) return AccountPages.account(request.viewer().name(), adminLogin, true, security, notice, request.csrf());
         User user = user(id);
-        return AccountPages.account(user.name(), user.login(), false, security, accounts.email(id), accounts.mail().active(), notice, request.csrf());
+        return AccountPages.account(user.name(), user.login(), false, security, accounts.email(id), accounts.mail().active(), notice, request.csrf(),
+                profileCard(request, id, user), AccountPages.apiCard(accounts.apiTokens(id), request.viewer().household().name(), newToken, request.csrf()));
+    }
+
+    private fr.patria.ui.Html profileCard(Request request, long id, User user) {
+        long household = request.viewer().household().id();
+        return AccountPages.profileCard(id, user.name(), accounts.profile(id), directory.members(household), accounts.selfMember(id, household),
+                request.viewer().household().name(), request.csrf());
+    }
+
+    private long ownId(Request request) {
+        if (request.viewer().isAdministrator()) throw new ValidationException("Le compte administrateur n'a pas de profil.");
+        return request.viewer().userId();
+    }
+
+    /** Prenom, nom, naissance, telephone, et membre du budget que le compte represente dans le foyer affiche. */
+    private Response saveProfile(Request request) {
+        long id = ownId(request);
+        var form = request.form();
+        try {
+            String first = form.raw("prenom").strip();
+            String last = form.raw("nom").strip();
+            if (first.isEmpty()) throw new ValidationException("Indiquez votre prénom.");
+            if (first.length() > 60 || last.length() > 60) throw new ValidationException("Prénom et nom : 60 caractères au plus.");
+            LocalDate birth = form.raw("naissance").isBlank() ? null : form.date("naissance", "Date de naissance");
+            if (birth != null && (birth.isAfter(LocalDate.now(clock)) || birth.getYear() < 1900)) throw new ValidationException("Date de naissance invalide.");
+            String phone = form.raw("telephone").strip();
+            if (!phone.isEmpty() && !phone.matches("[0-9 +().-]{6,20}")) throw new ValidationException("Téléphone invalide (chiffres, espaces, + . - ( )).");
+            long household = request.viewer().household().id();
+            String member = form.raw("membre");
+            Long self = null;
+            if (!member.isBlank()) {
+                long chosen = Long.parseLong(member);
+                if (directory.members(household).stream().noneMatch(candidate -> candidate.id() == chosen && !candidate.account())) {
+                    throw new ValidationException("Membre inconnu.");
+                }
+                self = chosen;
+            }
+            accounts.setProfile(id, first, last, birth, phone);
+            accounts.setSelfMember(id, household, self);
+            return Response.redirect("/compte?ok=enregistre#profil");
+        } catch (NumberFormatException exception) {
+            return Response.invalid(accountPage(request, Notice.error("Membre inconnu.")));
+        } catch (ValidationException exception) {
+            return Response.invalid(accountPage(request, Notice.error(exception.getMessage())));
+        }
+    }
+
+    /**
+     * Photo du compte : JPEG ou PNG, recadree au centre en carre de 256 pixels et reenregistree en JPEG. Le
+     * reencodage retire les metadonnees (lieu de prise de vue, appareil).
+     */
+    private Response savePhoto(Request request) {
+        long id = ownId(request);
+        try {
+            byte[] file = request.form().requiredFile("photo", "Photo");
+            boolean jpeg = file.length > 3 && (file[0] & 0xFF) == 0xFF && (file[1] & 0xFF) == 0xD8;
+            boolean png = file.length > 8 && (file[0] & 0xFF) == 0x89 && file[1] == 'P' && file[2] == 'N' && file[3] == 'G';
+            if (!jpeg && !png) throw new ValidationException("Photo en JPEG ou PNG seulement.");
+            java.awt.image.BufferedImage source = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(file));
+            if (source == null || source.getWidth() < 32 || source.getHeight() < 32) throw new ValidationException("Image illisible ou trop petite.");
+            if ((long) source.getWidth() * source.getHeight() > 40_000_000L) throw new ValidationException("Image trop grande.");
+            int side = Math.min(source.getWidth(), source.getHeight());
+            java.awt.image.BufferedImage square = new java.awt.image.BufferedImage(256, 256, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D graphics = square.createGraphics();
+            graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.setColor(java.awt.Color.WHITE);
+            graphics.fillRect(0, 0, 256, 256);
+            graphics.drawImage(source, 0, 0, 256, 256, (source.getWidth() - side) / 2, (source.getHeight() - side) / 2,
+                    (source.getWidth() + side) / 2, (source.getHeight() + side) / 2, null);
+            graphics.dispose();
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(square, "jpg", out);
+            accounts.setAvatar(id, out.toByteArray());
+            return Response.redirect("/compte?ok=enregistre#profil");
+        } catch (java.io.IOException exception) {
+            return Response.invalid(accountPage(request, Notice.error("Image illisible.")));
+        } catch (ValidationException exception) {
+            return Response.invalid(accountPage(request, Notice.error(exception.getMessage())));
+        }
+    }
+
+    /** Jeton d'API en lecture seule pour le foyer affiche ; montre une seule fois. */
+    private Response createApiToken(Request request) {
+        long id = ownId(request);
+        String name = request.form().raw("nom").strip();
+        if (name.isEmpty() || name.length() > 60) return Response.invalid(accountPage(request, Notice.error("Nommez le jeton (60 caractères au plus), par exemple « Homepage ».")));
+        if (accounts.apiTokens(id).size() >= 10) return Response.invalid(accountPage(request, Notice.error("Dix jetons au plus : révoquez-en un.")));
+        String token = accounts.createApiToken(id, request.viewer().household().id(), name, LocalDateTime.now(clock));
+        audit(request.viewer().name(), "API", request.viewer().household().id(), id, "Jeton d'API « " + name + " » créé.");
+        return Response.page(accountPage(request, Notice.success("Jeton créé. Copiez-le maintenant : il ne sera plus affiché."), token));
     }
 
     private fr.patria.ui.Html twoFactorSetup(Request request, Notice notice) {

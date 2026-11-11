@@ -231,7 +231,10 @@ final class WizardPages {
                     data.charges().stream().anyMatch(charge -> charge.propertyId() == property.id())}));
             case FIXED -> Checklist.FIXED.forEach(group -> items.add(new Object[] {group.title(),
                     group.items().stream().anyMatch(item -> data.item(item.label()).isPresent())}));
-            case TAXES -> items.add(new Object[] {"Le prélèvement à la source", Checklist.TAXES.items().stream().anyMatch(item -> data.item(item.label()).isPresent())});
+            case TAXES -> {
+                items.add(new Object[] {"Le prélèvement à la source", Checklist.TAXES.items().stream().anyMatch(item -> data.item(item.label()).isPresent())});
+                items.add(new Object[] {"Le revenu fiscal de référence (pour le LEP)", context.taxKnown()});
+            }
             case TRANSFERS -> open.stream().filter(person -> !person.isAccount()).forEach(person -> items.add(new Object[] {"Ce que " + person.name() + " verse au compte joint",
                     data.transfers().stream().anyMatch(transfer -> transfer.fromId() == person.id())}));
             case SAVINGS -> items.add(new Object[] {"Vos livrets et placements, avec leur solde", data.hasSavings() || data.hasPositions()});

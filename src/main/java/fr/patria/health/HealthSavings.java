@@ -157,14 +157,14 @@ final class HealthSavings {
         return checks;
     }
 
-    /** Evolution des revenus sur un an face a l'inflation. */
+    /** Evolution des revenus sur un an face a l'inflation : un point du budget (revenus), pas de l'epargne. */
     static Optional<Check> purchasingPower(SavingsController.Snapshot snapshot) {
-        return snapshot.power().map(power -> Check.of("purchasing-power", Domain.SAVINGS, power.power().signum() >= 0 ? Level.GOOD : Level.WARN,
+        return snapshot.power().map(power -> Check.of("purchasing-power", Domain.FINANCES, power.power().signum() >= 0 ? Level.GOOD : Level.WARN,
                 "Pouvoir d'achat : " + Format.signedPercent(power.power()) + " en un an",
                 "Revenus : " + euroWhole(power.yearAgo()) + " → " + euroWhole(power.now()) + " par mois (" + Format.signedPercent(power.income()) + "), prix : "
                         + Format.signedPercent(power.inflation()) + " (INSEE)." + (power.power().signum() < 0
                         ? " Vos revenus progressent moins vite que les prix : un point à aborder lors d'une revue de salaire, ou dans le budget." : ""))
-                .link(LINK, "Voir l'épargne"));
+                .link("/administration/revenus", "Voir les revenus"));
     }
 
     private static boolean looksDiversified(Savings.PositionLine line) {

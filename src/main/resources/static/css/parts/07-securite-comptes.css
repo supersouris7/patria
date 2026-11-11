@@ -166,3 +166,12 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .tour-actions .muted { margin-right: auto; }
 .tour-skip { display: block; font-size: .8rem; margin: 6px auto 0; }
 .tour-target { border-radius: 10px; box-shadow: 0 0 0 3px var(--blue), 0 0 0 9px rgb(26 120 220 / 22%); }
+/* Avatar rond : photo, ou initiales sur une couleur stable */
+.avatar { align-items: center; background: hsl(var(--avatar-hue, 210) 55% 42%); border-radius: 50%; color: #fff; display: inline-flex; flex: none;
+    font-size: .8rem; font-weight: 750; height: 40px; justify-content: center; letter-spacing: .02em; object-fit: cover; width: 40px; }
+.avatar-small { font-size: .62rem; height: 26px; width: 26px; }
+.avatar-large { font-size: 1.6rem; height: 88px; width: 88px; }
+.profile-head { align-items: center; display: flex; gap: 16px; margin-bottom: 14px; }
+.profile-head form { margin: 0; }
+.user-cell { align-items: center; display: flex; gap: 10px; }
+.api-token { display: block; font-size: .95rem; margin: 6px 0; padding: 8px 10px; user-select: all; }

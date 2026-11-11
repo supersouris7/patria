@@ -71,12 +71,16 @@ if (navigationStatus) {
         warnings.hidden = state.warnings === 0;
         warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
       });
-      navigationStatus.querySelectorAll('[data-notification-total]').forEach((badge) => {
-        const total = Number(badge.dataset.notificationTotal) + state.warnings;
+      // Pastille du burger : seulement ce qu'aucun bouton visible ne montre deja (Bilan masque sur smartphone).
+      const burgerBadge = () => navigationStatus.querySelectorAll('[data-notification-total]').forEach((badge) => {
+        const healthShown = Array.from(navigationStatus.querySelectorAll('.nav-health')).some((link) => link.getClientRects().length > 0);
+        const total = Number(badge.dataset.notificationTotal) + (healthShown ? 0 : state.warnings);
         badge.textContent = total;
         badge.hidden = total === 0;
         badge.closest('summary').setAttribute('aria-label', total === 0 ? 'Menu principal' : `Menu principal, ${total} notification(s)`);
       });
+      burgerBadge();
+      addEventListener('resize', burgerBadge);
       showGuideStrip(state.guide);
       navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
         progress.textContent = `${state.progress} %`;
