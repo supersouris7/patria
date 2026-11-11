@@ -486,10 +486,9 @@ class AccountsTest {
         assertTrue(added.body().contains("7 lignes ajoutées à la pile"), added.body().replaceAll("(?s).*?(<p class=\"notice.{0,400}).*", "$1"));
         assertTrue(get(manager, "/administration/depenses").body().contains("Aucune dépense") || !get(manager, "/administration/depenses").body().contains("Netflix"),
                 "rien n'entre dans le budget avant validation");
-        assertEquals("/assistant/membres", location(post(manager, "/assistant/documents/terminer", "")), "Suivant : l'étape juste après");
-        assertEquals("/assistant/revenus", location(post(manager, "/assistant/membres/terminer", "")));
+        assertEquals("/assistant/revenus", location(post(manager, "/assistant/documents/terminer", "")), "Continuer : l'étape juste après");
         assertEquals("/assistant/logement", location(post(manager, "/assistant/revenus/terminer", "")));
-        assertEquals("/assistant/membres", location(post(manager, "/assistant/documents/terminer", "")), "même déjà faite, l'étape suivante n'est pas sautée");
+        assertEquals("/assistant/revenus", location(post(manager, "/assistant/documents/terminer", "")), "même déjà faite, l'étape suivante n'est pas sautée");
 
         String incomes = get(manager, "/assistant/revenus").body();
         assertTrue(incomes.contains("À trier") && incomes.contains("Paul · Salaire"));

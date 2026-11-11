@@ -77,6 +77,7 @@ if (navigationStatus) {
         badge.hidden = total === 0;
         badge.closest('summary').setAttribute('aria-label', total === 0 ? 'Menu principal' : `Menu principal, ${total} notification(s)`);
       });
+      showGuideStrip(state.guide);
       navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
         progress.textContent = `${state.progress} %`;
         progress.hidden = false;
@@ -686,3 +687,40 @@ document.addEventListener("click", (event) => {
   const target = link && link.getAttribute("href").length > 1 ? document.getElementById(link.getAttribute("href").slice(1)) : null;
   for (let details = target?.closest("details"); details; details = details.parentElement?.closest("details")) details.open = true;
 });
+
+// Barre « Guide de saisie » : etape en cours et temps restant, sur toutes les pages hors du guide (le Previsionnel
+// l'affiche deja). « × » la masque pour ce compte.
+const showGuideStrip = (guide) => {
+  const main = document.querySelector("main.shell");
+  if (!guide || !main || location.pathname.startsWith("/assistant") || document.querySelector(".setup-progress")) return;
+  const csrf = document.querySelector('input[name="csrf"]')?.value;
+  const strip = document.createElement("section");
+  strip.className = "guide-strip";
+  strip.setAttribute("aria-label", "Guide de saisie");
+  const text = document.createElement("span");
+  text.innerHTML = "<b>Guide de saisie</b> · ";
+  text.append(`étape ${guide.position} sur ${guide.total} : ${guide.step} `);
+  const minutes = document.createElement("span");
+  minutes.className = "muted";
+  minutes.textContent = `· environ ${guide.minutes} min`;
+  text.append(minutes);
+  const link = document.createElement("a");
+  link.className = "button";
+  link.href = guide.path;
+  link.textContent = "Continuer";
+  strip.append(text, link);
+  if (csrf) {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "quiet";
+    close.textContent = "×";
+    close.title = "Masquer";
+    close.setAttribute("aria-label", "Masquer le guide");
+    close.addEventListener("click", () => {
+      fetch("/assistant/encadre/ignorer", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "csrf=" + encodeURIComponent(csrf) });
+      strip.remove();
+    });
+    strip.append(close);
+  }
+  main.prepend(strip);
+};

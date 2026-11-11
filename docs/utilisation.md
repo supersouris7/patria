@@ -27,60 +27,20 @@ Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Sur la page de
 
 ## Commencer avec le Guide de saisie
 
-L'icône étincelles ouvre un parcours guidé :
+L'icône étincelles ouvre le Guide de saisie. Son accueil n'a qu'un bouton : **Commencer**, puis **Continuer** sur l'étape où vous en êtes (avec le temps restant estimé) ; « Tout revoir », « Revue annuelle » et « Recommencer à zéro » sont rangés dans **Autres actions**.
 
-1. Documents à rassembler : salaires, impôts, relevés, échéanciers, taxes foncières, contrats et abonnements. Le champ **« Où trouver vos documents ? »** cherche votre banque ou organisme (Caisse d'Épargne, Crédit Agricole, BNP Paribas, BoursoBank, Trade Republic, impots.gouv.fr, CAF, France Travail, info-retraite, ameli…) et affiche ses étapes, document par document ; le tutoriel complet est sur `/assistant/documents/aide`.
-2. Membres ; 3. Revenus ; 4. Logement (locataire : loyer, charges, assurance).
-5. Biens ; 6. Prêts ; 7. Charges et loyers des biens.
-8. Dépenses fixes, par thème : énergie, télécoms, enfants, transports, santé, assurances, crédits, vie courante.
-9. Impôts ; 10. Virements ; 11. Répartition ; 12. Récapitulatif.
+1. **Votre situation** (gestionnaire du foyer) : cinq questions en cartes à cliquer. Seul ou en couple avec les prénoms (les personnes du budget sont créées, enfants compris), compte joint, logement (locataire, propriétaire, hébergé), autres biens, épargne. Le guide ne garde ensuite que les étapes qui vous concernent : pas de loyer pour un propriétaire, pas de biens ni de prêts pour un locataire, pas de virements sans compte joint, pas de répartition pour une personne seule. Les réponses se changent en revenant sur l'étape.
+2. **Vos documents** : importer le fichier de la banque, la réponse d'une IA, ou choisir « À la main ».
+3. Puis, selon la situation : Revenus, Logement, Biens, Prêts, Charges et loyers des biens, Dépenses fixes, Impôts, Virements, Répartition, Épargne et bourse, et le **Récapitulatif**.
 
-Chaque étape explique le chiffre attendu et ce que Patria reprend déjà, pour éviter les doublons. Les étapes non pertinentes peuvent être passées. « Reprendre » saute les étapes faites ou passées ; « Tout revoir » les affiche avec les données existantes ; « Recommencer à zéro » efface **la progression, pas les données**. La progression est propre au compte. Les lignes déjà saisies ne sont pas recréées ; les saisies par personne restent proposées avec l'existant.
+Chaque étape affiche en haut **« Étape 3 sur 8 · Revenus · environ 17 min pour finir le guide »**, puis **À faire ici** : la liste de ce qu'il y a à saisir (les revenus de chaque personne, le loyer, le prêt de chaque bien, chaque thème de dépenses…), cochée au fur et à mesure. En bas, un seul bouton : **Continuer : <étape suivante>**. Si rien n'est saisi, l'étape est notée « à compléter » (le guide le dit avant) et le récapitulatif la liste avec un lien direct ; « ← Précédent » reste un lien discret. Un autre compte que le gestionnaire suit un guide réduit à ses propres lignes : documents, revenus, dépenses fixes, impôts, épargne. Le bilan de santé garde son choix de comptes par défaut ; il se change dans le Bilan.
 
-Chacun dispose des étapes correspondant à ses droits ; les biens, prêts et répartitions demandent l'accès Immobilier. Les membres sont créés par le gestionnaire du foyer. Le bandeau de progression du Prévisionnel permet de reprendre la configuration ou de masquer ce rappel.
-
-## Budget : ce qui rentre, ce qui sort, ce qui reste
-
-### Prévisionnel
-
-La page d'accueil montre les revenus, dépenses, reste à vivre du mois et les 12 prochains mois. Cliquez sur un mois du graphique pour son détail ; chaque ligne mène à sa saisie lorsque vos droits le permettent. Les dépenses non mensuelles à venir, mois déficitaires et montant à mettre de côté aident à anticiper.
-
-Les revenus sont saisis **nets avant impôt** : salaire mensuel, primes et 13e mois annuels, revenus ponctuels. Les dépenses ont un montant, une fréquence (mensuelle, trimestrielle, semestrielle, annuelle ou ponctuelle), un premier paiement et une fin facultative. Des modèles préremplissent les dépenses courantes.
-
-### Budget moyen
-
-Le budget moyen lisse les dépenses sur 12 mois et les classe par catégorie. Cliquez sur une catégorie pour voir les lignes. Le sélecteur Foyer / personnes / compte joint reste disponible sur le Prévisionnel et le Budget moyen.
-
-Le taux d'endettement suit un repère bancaire HCSF : crédits divisés par revenus nets avant impôt, loyers retenus à 70 %. Vert sous 33 %, orange entre 33 et 35 %, rouge au-delà ; détail, jauge et marge avant 33 % dans Budget moyen. Ce calcul ne constitue pas une décision d'octroi de crédit.
-
-### Répartitions et compte joint
-
-- Parts égales par défaut, y compris après ajout d'une personne ; pourcentages personnalisés dans les dépenses et Gérer → Répartition pour biens/prêts.
-- Un prêt suit la répartition du bien, sauf répartition propre.
-- Le compte joint est un membre de type « Compte joint » : il reçoit des virements et règle les dépenses attribuées. Il ne participe pas aux parts égales sauf pourcentage explicite.
-- Les virements entre membres sont des dépenses/recettes individuelles et restent neutres au niveau du foyer ; ils n'affectent pas l'endettement. Les crédits payés par le compte joint comptent à parts égales dans le taux de chaque personne.
-- Pour un utilisateur qui n'a pas accès à tous les membres, « parts égales » concerne seulement ses membres accessibles.
-
-### Ce qui est repris de l'immobilier
-
-Ne ressaisissez pas dans les dépenses les mensualités, charges et loyers déjà renseignés sur les biens :
-
-- taxe foncière en octobre, ou janvier à octobre si mensualisée ; payeur choisi dans Répartition (personne ou compte joint) ;
-- taxe d'habitation en novembre ; copropriété chaque trimestre ; assurances et autres charges réparties sur 12 mois ;
-- mensualités de prêts et loyers perçus selon les données renseignées.
-
-## Importer sans exposer vos documents
-
-Vous pouvez créer les CSV vous-même. Les boutons « Copier le prompt IA » proposent une aide facultative ; **aucun document n'est envoyé à une IA par Patria**.
-
-### Le parcours guidé
-
-Le Guide de saisie se suit avec **Précédent / Suivant** (toujours l'étape juste après, sans rien sauter) ; le plan complet reste dans « Plan du guide », replié. Il se fait en deux temps :
+Tant que le guide n'est pas fini, une barre **Guide de saisie · étape x sur y · Continuer** s'affiche en haut des pages ; « × » la masque. La progression est propre au compte ; « Recommencer à zéro » efface la progression et la situation, pas les données. Le guide se fait en deux temps :
 
 1. **Vos documents** : la page demande « Comment voulez-vous remplir Patria ? » et propose trois méthodes, une ouverte à la fois :
    - **Avec le fichier de ma banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → format CSV (ou OFX, QIF), 3 à 12 mois ; déposez le fichier, Patria repère les prélèvements et revenus réguliers ;
    - **Avec une IA** (Le Chat, ChatGPT, Claude ou Gemini) : ouvrez l'IA, « Copier la consigne », collez-la avec vos documents joints, puis collez toute sa réponse dans Patria ;
-   - **À la main** : l'étape est validée et le guide passe aux écrans de saisie, à commencer (pour le gestionnaire) par **Membres du foyer** : les personnes du budget et le compte joint, sans lesquelles aucun revenu ne peut être saisi.
+   - **À la main** : l'étape est validée et le guide passe aux écrans de saisie, en commençant par les revenus de chaque personne.
 
    En dessous, « Quels documents rassembler, et où les trouver ? » liste les documents utiles et cherche, banque par banque, où les télécharger (avec le tutoriel complet).
 2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.
@@ -208,9 +168,9 @@ Le **Bilan** audite l'épargne à chaque ouverture : précaution réelle, argent
 
 ## Revue annuelle et bilan de santé
 
-Le bilan porte par défaut sur votre compte personnel et les comptes joints que vous voyez. Choisissez les comptes pris en compte à l'étape **Bilan de santé** du guide ou dans l'encart **Comptes pris en compte** du bilan. Il signale les grosses sommes ponctuelles (impôts, assurance…) à mensualiser, le mois le plus serré, les virements qui ne couvrent pas un compte joint et les abonnements en double. Cliquez sur une tuile pour aller à la liste correspondante.
+Le bilan porte par défaut sur votre compte personnel et les comptes joints que vous voyez. Changez les comptes pris en compte dans l'encart **Comptes pris en compte** du bilan. Il signale les grosses sommes ponctuelles (impôts, assurance…) à mensualiser, le mois le plus serré, les virements qui ne couvrent pas un compte joint et les abonnements en double. Cliquez sur une tuile pour aller à la liste correspondante.
 
-Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes ; la configuration est un encart repliable. Dans le Guide de saisie, la progression et les étapes précèdent les explications. Le bilan regroupe d'abord tous les points à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
+Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes et la barre du guide. Le bilan regroupe d'abord tous les points à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
 
 Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
 

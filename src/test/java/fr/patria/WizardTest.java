@@ -31,6 +31,12 @@ class WizardTest {
         return TestAccounts.account(client, base, root, "gestion", "Gestion", 1, "access=on&all=on");
     }
 
+    /** « Votre situation » : couple, compte joint, proprietaire avec d'autres biens, epargne ; cree Paul (1), Camille (2), le compte joint (3). */
+    private void situation(Visitor manager) throws Exception {
+        assertEquals("/assistant/documents", location(post(manager, "/assistant/situation/enregistrer",
+                "foyer=couple&prenom=Paul&conjoint=Camille&enfants=&joint=oui&logement=proprietaire&autres=oui&epargne=oui")));
+    }
+
     /** Un compte lie a un membre ({@code membre=1%3A1}), mot de passe provisoire deja change. */
     private Visitor user(String login, String name, String member) throws Exception {
         return TestAccounts.account(client, base, root, login, name, "membre=" + member, 1, null);
@@ -69,6 +75,13 @@ class WizardTest {
         Visitor admin = manager();
         String home = get(admin, "/assistant").body();
         assertTrue(home.contains("Commencer") && home.contains("Tout revoir"));
+        assertTrue(get(admin, "/assistant/situation").body().contains("Qui compose le budget ?"), "le guide commence par la situation");
+        assertEquals(400, post(admin, "/assistant/situation/enregistrer", "foyer=couple&prenom=Paul&joint=non&logement=locataire&autres=non&epargne=non").statusCode(),
+                "le prénom du conjoint est demandé");
+        situation(admin);
+        String path = get(admin, "/assistant").body();
+        assertTrue(path.contains("/assistant/biens") && path.contains("/assistant/virements") && !path.contains("/assistant/logement\""),
+                "propriétaire avec compte joint : biens et virements, pas de loyer");
 
         // 1. Documents : coche manuelle, puis coche automatique
         assertTrue(get(admin, "/assistant/documents").body().contains("Les 3 derniers bulletins de salaire"));
@@ -79,14 +92,12 @@ class WizardTest {
         assertTrue(help.contains("impots.gouv.fr") && help.contains("Trade Republic"));
         assertEquals(303, post(admin, "/assistant/documents/liste", "doc_statements=on").statusCode());
         assertTrue(get(admin, "/assistant/documents").body().contains("name=\"doc_statements\" value=\"on\" checked"), "case cochée gardée");
-        assertEquals("/assistant/membres", location(post(admin, "/assistant/documents/terminer", "")), "le gestionnaire passe par les membres du budget");
-        assertEquals("/assistant/membres", location(post(admin, "/foyer/membres", "name=Paul&kind=PERSON&suite=%2Fassistant%2Fmembres")), "ajout, retour sur l'étape");
-        assertTrue(get(admin, "/assistant/membres").body().contains("Paul"));
-        assertEquals("/assistant/revenus", location(post(admin, "/assistant/membres/terminer", "")));
+        assertEquals("/assistant/revenus", location(post(admin, "/assistant/documents/terminer", "")), "après les documents, les revenus");
+        assertTrue(get(admin, "/assistant/membres").body().contains("Camille"), "membres créés par la situation, visibles du gestionnaire");
+        assertEquals("/assistant/membres", location(post(admin, "/foyer/membres", "name=Leo&kind=PERSON&suite=%2Fassistant%2Fmembres")), "ajout, retour sur l'étape");
+        assertTrue(get(admin, "/assistant/revenus").body().contains("Les revenus de Paul"), "à faire ici : une ligne par personne");
 
         // 2. Membres, 3. Revenus
-        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON").statusCode());
-        assertEquals(303, TestAccounts.member(client, base, admin, 1, "name=Compte+joint&kind=ACCOUNT").statusCode());
         assertEquals(303, post(admin, "/assistant/revenus/ajouter", "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
         assertEquals(400, post(admin, "/assistant/revenus/ajouter", "person=3&kind=SALARY&label=X&amount=1&frequency=MONTHLY&start=2026-01-01").statusCode(),
                 "pas de revenu pour le compte joint ici : seulement les personnes ouvertes");
@@ -120,11 +131,11 @@ class WizardTest {
         assertTrue(documents.contains("name=\"doc_amortization\" value=\"on\" checked disabled") && documents.contains("name=\"doc_property-tax\" value=\"on\" checked disabled"));
 
         // Progression : passer, reprendre, revue
-        assertEquals("/assistant/logement", location(post(admin, "/assistant/revenus/passer", "")), "étape passée, suivante à faire");
-        assertTrue(get(admin, "/assistant").body().contains("href=\"/assistant/logement\""), "Reprendre : la première étape à faire");
-        assertEquals("/assistant/membres?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
+        assertEquals("/assistant/biens", location(post(admin, "/assistant/revenus/passer", "")), "étape passée, suivante à faire (pas de loyer)");
+        assertTrue(get(admin, "/assistant").body().contains("href=\"/assistant/biens\">Continuer"), "Continuer : la première étape à faire");
+        assertEquals("/assistant/revenus?mode=revue", location(post(admin, "/assistant/documents/terminer", "mode=revue")), "revue : l'étape suivante, même faite");
         String summary = get(admin, "/assistant/recapitulatif").body();
-        assertTrue(summary.contains("Passé") && summary.contains("Fait") && summary.contains("À faire"));
+        assertTrue(summary.contains("Il reste") && summary.contains("À compléter") && summary.contains("Fait"), "ce qui reste, en liens directs");
         assertEquals(303, post(admin, "/assistant/recommencer", "").statusCode());
         assertTrue(get(admin, "/assistant").body().contains("Commencer"), "progression effacée");
         assertTrue(get(admin, "/administration/depenses").body().contains("Netflix"), "les données restent");
@@ -133,8 +144,7 @@ class WizardTest {
     @Test
     void possibleErrorsAreCaught() throws Exception {
         Visitor admin = manager();
-        TestAccounts.member(client, base, admin, 1, "name=Paul&kind=PERSON");
-        TestAccounts.member(client, base, admin, 1, "name=Camille&kind=PERSON");
+        situation(admin);
 
         // Double envoi (retour arriere, deux onglets) : pas de doublon
         String netflix = "amount_netflix=13,49&frequency_netflix=MONTHLY&start_netflix=2026-01-01";

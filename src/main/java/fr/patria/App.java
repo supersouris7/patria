@@ -82,6 +82,17 @@ public final class App implements AutoCloseable {
             fr.patria.ui.Components.useLocalAi(localAi.enabled());
             fr.patria.account.AccountRepository.Installation installation = accounts.installation();
             fr.patria.ui.Layout.useInstallation(installation.cloud(), !installation.terms().isBlank(), !installation.notice().isBlank());
+            // Membres crees par le gestionnaire dans « Votre situation » du guide : il les voit, comme depuis Mon foyer.
+            fr.patria.wizard.WizardController.useMemberAccess((request, member) -> {
+                long household = request.viewer().household().id();
+                accounts.accessesTo(household).entrySet().stream().filter(entry -> entry.getKey().id() == request.viewer().userId())
+                        .map(java.util.Map.Entry::getValue).findFirst().ifPresent(own -> {
+                            java.util.Set<Long> members = new java.util.LinkedHashSet<>(own.members());
+                            members.add(member);
+                            accounts.setAccess(own.userId(), household, new fr.patria.account.Access(own.userId(), household, own.householdName(),
+                                    own.wholeHousehold(), members, own.realEstate(), own.manager()));
+                        });
+            });
             // Type d'import (et, pour les revenus, prenoms des membres : « revenus|Paul,Camille ») -> prompt de l'IA locale.
             fr.patria.web.FormData.useConverter((kind, document) -> fr.patria.ai.LocalAi.convert(switch (kind.split("\\|")[0]) {
                 case "echeancier" -> fr.patria.loan.CsvScheduleParser.llmPrompt();

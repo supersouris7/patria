@@ -10,6 +10,7 @@ import java.util.Optional;
  * biens, prets, charges, repartition) ; un utilisateur ne voit que celles qui concernent ses propres lignes.
  */
 public enum Step {
+    SITUATION("situation", "Votre situation", "Quelques clics pour que le guide ne garde que ce qui vous concerne.", false),
     DOCUMENTS("documents", "Vos documents", "Importez vos opérations et vos documents en une fois : avec le fichier de votre banque, avec une IA, ou à la main.", false),
     MEMBERS("membres", "Membres du foyer", "Les personnes du budget, et le compte joint s'il y en a un.", false),
     INCOMES("revenus", "Revenus", "Salaires, primes, pensions, allocations : ce qui rentre chaque mois.", false),
@@ -58,11 +59,39 @@ public enum Step {
     }
 
     /**
-     * Etapes proposees : {@code admin} voit l'immobilier (biens, prets, charges, repartition) ; {@code manager}
-     * (gestionnaire du foyer) ajoute les membres du budget.
+     * Parcours de la personne, dans l'ordre, termine par le recapitulatif. Le gestionnaire commence par sa situation,
+     * qui cree les membres et ecarte ce qui ne le concerne pas (logement loue, biens, compte joint, epargne) ; avant
+     * qu'il y reponde, le parcours courant est propose. Un autre compte ne saisit que ses propres lignes : import,
+     * revenus, depenses fixes, impots, epargne. {@code realEstate} : droit sur l'immobilier. Membres et Bilan de sante
+     * restent ouverts hors parcours (les membres se creent dans la situation, le bilan garde son choix par defaut).
      */
-    public static List<Step> forViewer(boolean admin, boolean manager) {
-        return Arrays.stream(values()).filter(step -> (step != MEMBERS || manager) && (admin || !step.adminOnly)).toList();
+    public static List<Step> path(Profile profile, boolean realEstate, boolean manager) {
+        if (!manager) return List.of(DOCUMENTS, INCOMES, FIXED, TAXES, SAVINGS, SUMMARY);
+        boolean estate = realEstate && profile.set() && (profile.owner() || profile.otherProperty());
+        List<Step> steps = new java.util.ArrayList<>(List.of(SITUATION, DOCUMENTS, INCOMES));
+        if (!profile.set() || profile.tenant()) steps.add(HOUSING);
+        if (estate) steps.addAll(List.of(PROPERTIES, LOANS, CHARGES));
+        steps.addAll(List.of(FIXED, TAXES));
+        if (!profile.set() || profile.joint()) steps.add(TRANSFERS);
+        if (estate && profile.couple()) steps.add(SHARES);
+        if (!profile.set() || profile.savings()) steps.add(SAVINGS);
+        steps.add(SUMMARY);
+        return List.copyOf(steps);
+    }
+
+    /** Etape ouverte meme hors parcours (liens depuis d'autres pages). */
+    boolean outsidePath() {
+        return this == MEMBERS || this == HEALTH;
+    }
+
+    /** Minutes estimees pour faire l'etape, pour le temps restant affiche. */
+    int minutes() {
+        return switch (this) {
+            case SITUATION, SHARES, HEALTH, SUMMARY, MEMBERS -> 1;
+            case DOCUMENTS, FIXED -> 6;
+            case PROPERTIES, LOANS -> 4;
+            default -> 2;
+        };
     }
 
     public static Optional<Step> of(String name) {

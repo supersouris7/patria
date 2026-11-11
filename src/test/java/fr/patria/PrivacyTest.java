@@ -206,9 +206,11 @@ class PrivacyTest {
             assertTrue(visit.contains("Ouvrir le Guide de saisie") && visit.contains("Mon foyer et les droits"), "visite du gestionnaire, puis le guide");
             assertEquals("/", location(post(gestion, "/bienvenue/terminer", "passer=1")), "passer : sans visite");
             String home = get(gestion, "/").body();
-            assertTrue(home.contains("Guide de saisie : 0 % des étapes faites"), "encadré de progression");
+            assertTrue(home.contains("<b>Guide de saisie</b> · étape 1 sur") && home.contains("href=\"/assistant/situation\">Continuer"), "barre du guide : étape et suite");
+            assertTrue(get(gestion, "/navigation/etat").body().contains("\"guide\":{\"step\":\"Votre situation\""), "même barre sur les autres pages");
             assertEquals("/", location(post(gestion, "/assistant/encadre/ignorer", "")));
-            assertFalse(get(gestion, "/").body().contains("Configuration terminée"), "ignoré");
+            assertFalse(get(gestion, "/").body().contains("guide-strip"), "masquée");
+            assertTrue(get(gestion, "/navigation/etat").body().contains("\"guide\":null"));
         }
     }
 }

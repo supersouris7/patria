@@ -23,34 +23,38 @@ final class WizardPages {
         List<Step> steps = context.steps().stream().filter(step -> step != Step.SUMMARY).toList();
         long handled = steps.stream().filter(context.progress()::containsKey).count();
         int percent = steps.isEmpty() ? 0 : (int) (handled * 100 / steps.size());
-        boolean started = handled > 0 || !context.documents().isEmpty();
         Step resume = context.resume();
-        Html actions = Html.concat(
-                Components.button(resume.path(), started ? "Reprendre où j'en étais" : "Commencer"),
-                Components.secondaryButton(Step.DOCUMENTS.path() + "?mode=" + WizardController.REVIEW, "Tout revoir, étape par étape"),
-                Components.secondaryButton("/assistant/revue-annuelle", "Revue annuelle"));
+        boolean started = handled > 0;
+        boolean finished = resume == Step.SUMMARY;
+        // Une seule action principale : commencer, continuer, ou voir le resultat.
+        Html main = finished
+                ? Html.of("""
+                        <section class="card guide-next"><p class="eyebrow">C'est terminé</p><h2>Votre budget est en place</h2>
+                        <p class="muted">Ce qui reste à compléter est listé dans le récapitulatif.</p>
+                        <div class="form-actions"><a class="button" href="/">Voir mon prévisionnel</a><a class="button secondary" href="%s">Récapitulatif</a></div></section>""",
+                        Step.SUMMARY.path())
+                : Html.of("""
+                        <section class="card guide-next"><p class="eyebrow">%s</p><h2>%s</h2><p class="muted">%s</p>%s
+                        <div class="form-actions"><a class="button" href="%s">%s</a></div></section>""",
+                        started ? "Étape " + (steps.indexOf(resume) + 1) + " sur " + steps.size() : "Environ " + context.minutesLeft(steps.getFirst()) + " minutes",
+                        started ? resume.title() : "Remplissez Patria pas à pas",
+                        started ? resume.summary() + " Environ " + context.minutesLeft(resume) + " minutes pour finir."
+                                : "Le guide vous dit à chaque écran quoi faire, et note ce qui est fait. Rien n'est obligatoire : vous pouvez vous arrêter et reprendre.",
+                        started ? Components.progress(percent) : Html.EMPTY, resume.path(), started ? "Continuer" : "Commencer");
         Html list = steps.stream().map(step -> Html.of("""
                         <li class="wizard-overview-item %s"><a href="%s"><span class="wizard-dot" aria-hidden="true">%s</span><span><b>%s</b><small>%s</small></span>\
                         <span class="wizard-state">%s</span></a></li>""",
                 css(context, step), step.path(), dot(context, step), step.title(), step.summary(), state(context, step))).collect(Html.joining());
-        Html intro = Html.raw("""
-                <p class="lead">Le guide vous accompagne pour remplir Patria à partir de vos papiers : d'abord la liste des documents à rassembler,
-                puis, étape par étape, vos revenus, votre logement, vos dépenses fixes et vos impôts. Tout se saisit ici, sans chercher dans les menus.</p>
-                <ul class="wizard-promises"><li><b>Chaque étape peut être passée</b> et reprise plus tard.</li>
-                <li><b>Rien n'est obligatoire</b> : ce que vous saisissez améliore le prévisionnel, le reste peut attendre.</li>
-                <li><b>Votre progression est gardée</b> : « Reprendre » saute ce qui est fait, « Tout revoir » repasse chaque étape avec ce qui est déjà saisi
-                (utile une fois par an).</li>
-                <li>Comptez 15 à 30 minutes avec les documents sous la main.</li>
-                <li><b>Pour aller vite</b>, la première étape importe le fichier des opérations de votre banque (le plus simple, sans IA), ou la réponse d'une IA
-                (Le Chat, ChatGPT, Claude, Gemini) à qui vous donnez vos documents. Patria ne lui envoie rien : <a href="/confidentialite">comment protéger vos données</a>.</li></ul>""");
-        Html content = Html.concat(Components.heading("Patria", "Guide de saisie", context.admin() ? "Pour tout le foyer." : "Pour vos propres revenus et dépenses.",
-                        actions),
-                Components.disclosure("Comment ça marche", intro, !started),
-                Components.card("Les étapes", null, Html.of("<span class=\"muted\">%s sur %s · %s %%</span>".replace("%%", "%"), handled, steps.size(), percent),
-                        Html.concat(Components.progress(percent), Html.of("<ol class=\"wizard-overview\">%s</ol>", list),
-                                Html.of("<form method=\"post\" action=\"/assistant/recommencer\" class=\"wizard-reset\" data-confirm=\"%s\">%s"
-                                                + "<button class=\"quiet\" type=\"submit\">Recommencer à zéro</button><span class=\"muted\">efface la progression, pas les données saisies</span></form>",
-                                         "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())))));
+        Html others = Components.disclosure("Autres actions", Html.of("""
+                <div class="form-actions">%s%s</div>
+                <form method="post" action="/assistant/recommencer" class="wizard-reset" data-confirm="%s">%s\
+                <button class="quiet" type="submit">Recommencer à zéro</button><span class="muted">efface la progression, pas les données saisies</span></form>""",
+                Components.secondaryButton(Step.DOCUMENTS.path() + "?mode=" + WizardController.REVIEW, "Tout revoir, étape par étape"),
+                Components.secondaryButton("/assistant/revue-annuelle", "Revue annuelle"),
+                "Effacer la progression du guide ? Les revenus, dépenses et biens saisis restent.", Components.csrfField(context.csrf())), false);
+        Html content = Html.concat(Components.heading("Patria", "Guide de saisie", context.admin() ? "Pour tout le foyer." : "Pour vos propres revenus et dépenses.", Html.EMPTY),
+                main, Components.card("Votre parcours", null, Html.of("<span class=\"muted\">%s sur %s</span>", handled, steps.size()),
+                        Html.of("<ol class=\"wizard-overview\">%s</ol>", list)), others);
         return Layout.page("Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), content);
     }
 
@@ -58,6 +62,7 @@ final class WizardPages {
 
     static Html step(WizardController.Context context, Step step, Notice notice, Map<String, String> values) {
         Html body = switch (step) {
+            case SITUATION -> situation(context, values);
             case DOCUMENTS -> documents(context, values.getOrDefault("q", ""));
             case MEMBERS -> members(context, values);
             case INCOMES -> incomes(context, values);
@@ -79,18 +84,22 @@ final class WizardPages {
                 step.title(), step.summary(), Html.EMPTY);
         Html bar = Html.of("<div class=\"wizard-bar\">%s<details class=\"wizard-plan\"><summary>Plan du guide</summary><ol class=\"wizard-plan-steps\">%s</ol></details></div>",
                 progressBar(context, step), stepper(context, step));
-        Html content = Html.concat(bar, heading, Components.notice(notice), toSort(context, step), body, step == Step.SUMMARY ? Html.EMPTY : footer(context, step));
+        boolean ownFooter = step == Step.SUMMARY || step == Step.SITUATION;
+        Html content = Html.concat(bar, heading, Components.notice(notice), todo(context, step), toSort(context, step), body, ownFooter ? Html.EMPTY : footer(context, step));
         Html layout = Html.of("<div class=\"wizard wizard-linear\"><div class=\"wizard-body\">%s</div></div>", content);
         return Layout.page(step.title() + " · Guide de saisie · Patria", Layout.Section.ASSISTANT, context.csrf(), layout);
     }
 
-    /** Barre de progression en segments : une case par etape (faite, passee, en cours, a venir), et l'etape en cours nommee. */
+    /** Barre de progression en segments : une case par etape, puis ou l'on en est et le temps restant. */
     static Html progressBar(WizardController.Context context, Step current) {
-        Html segments = context.steps().stream().map(step -> Html.of("<li class=\"%s%s\" title=\"%s\"></li>", css(context, step), step == current ? " current" : "",
+        List<Step> steps = context.steps().stream().filter(step -> step != Step.SUMMARY).toList();
+        Html segments = steps.stream().map(step -> Html.of("<li class=\"%s%s\" title=\"%s\"></li>", css(context, step), step == current ? " current" : "",
                 step.title())).collect(Html.joining());
-        long finished = context.steps().stream().filter(context.progress()::containsKey).count();
-        return Html.of("<div class=\"wizard-progress\"><ol aria-hidden=\"true\">%s</ol><p><b>Étape %s sur %s</b> · %s <span class=\"muted\">· %s faite%s</span></p></div>",
-                segments, context.steps().indexOf(current) + 1, context.steps().size(), current.title(), finished, finished > 1 ? "s" : "");
+        int index = steps.indexOf(current);
+        String where = current == Step.SUMMARY ? "Récapitulatif" : index < 0 ? current.title() : "Étape " + (index + 1) + " sur " + steps.size() + " · " + current.title();
+        int minutes = current == Step.SUMMARY || index < 0 ? 0 : context.minutesLeft(current);
+        return Html.of("<div class=\"wizard-progress\"><ol aria-hidden=\"true\">%s</ol><p><b>%s</b>%s</p></div>", segments, where,
+                minutes == 0 ? Html.EMPTY : Html.of(" <span class=\"muted\">· environ %s min pour finir le guide</span>", minutes));
     }
 
     static Html stepper(WizardController.Context context, Step current) {
@@ -99,15 +108,21 @@ final class WizardPages {
                 Html.raw(step == current ? " aria-current=\"step\"" : ""), dot(context, step), step.title())).collect(Html.joining());
     }
 
-    /** Bas de page : precedent, passer, etape terminee. */
+    /**
+     * Bas de page : un seul bouton, « Continuer ». Rien de saisi : l'etape est notee a completer plus tard, et on le
+     * dit avant. « Precedent » reste un lien discret.
+     */
     static Html footer(WizardController.Context context, Step step) {
         Step previous = context.previous(step);
-        Html back = previous == null ? Html.raw("<span></span>") : Html.of("<a class=\"button secondary\" href=\"%s%s\">← %s</a>", previous.path(), context.mode(), previous.title());
+        Html back = previous == null ? Html.raw("<span></span>") : Html.of("<a class=\"wizard-back\" href=\"%s%s\">← %s</a>", previous.path(), context.mode(), previous.title());
+        Step next = context.next(step);
+        Html hint = context.filled(step) ? Html.EMPTY
+                : Html.raw("<p class=\"muted small wizard-hint\">Rien à saisir ici pour l'instant ? Continuez : l'étape sera notée « à compléter » et vous pourrez y revenir.</p>");
         return Html.of("""
-                <div class="wizard-footer">%s<div class="wizard-next">\
-                <form method="post" action="%s/passer">%s%s<button class="quiet" type="submit">Passer cette étape</button></form>\
-                <form method="post" action="%s/terminer">%s%s<button type="submit">Suivant →</button></form></div></div>""",
-                back, step.path(), Components.csrfField(context.csrf()), modeField(context), step.path(), Components.csrfField(context.csrf()), modeField(context));
+                <div class="wizard-footer">%s<div class="wizard-next">%s<form method="post" action="%s/terminer">%s%s\
+                <button type="submit">Continuer%s →</button></form></div></div>""",
+                back, hint, step.path(), Components.csrfField(context.csrf()), modeField(context),
+                next == Step.SUMMARY ? " vers le récapitulatif" : " : " + next.title());
     }
 
     static Html modeField(WizardController.Context context) {
@@ -130,7 +145,105 @@ final class WizardPages {
 
     static String state(WizardController.Context context, Step step) {
         WizardRepository.Status status = context.progress().get(step);
-        return status == WizardRepository.Status.DONE ? "Fait" : status == WizardRepository.Status.SKIPPED ? "Passé" : "À faire";
+        return status == WizardRepository.Status.DONE ? "Fait" : status == WizardRepository.Status.SKIPPED ? "À compléter" : "À faire";
+    }
+
+    // ---- Votre situation ----
+
+    /**
+     * Premiere etape du gestionnaire : cinq questions en cartes cliquables. Les prenoms creent les membres du budget
+     * ; les reponses choisissent les etapes du guide. Prerempli avec les reponses deja donnees, ou ce qui est saisi.
+     */
+    static Html situation(WizardController.Context context, Map<String, String> values) {
+        Profile profile = context.profile();
+        List<Person> people = context.snapshot().people();
+        List<Person> persons = people.stream().filter(person -> !person.isAccount()).toList();
+        boolean couple = profile.set() ? profile.couple() : persons.size() >= 2;
+        boolean joint = profile.set() ? profile.joint() : people.stream().anyMatch(Person::isAccount);
+        String housing = values.getOrDefault("logement", profile.set() ? profile.tenant() ? "locataire" : profile.owner() ? "proprietaire" : "heberge"
+                : !context.snapshot().properties().isEmpty() ? "proprietaire" : "");
+        Html known = persons.isEmpty() ? Html.EMPTY : Html.of("<p class=\"muted small\">Déjà dans le budget : %s. Ajoutez seulement ceux qui manquent.</p>",
+                String.join(", ", persons.stream().map(Person::name).toList()));
+        Html estate = context.admin() ? Html.concat(
+                choices("Votre logement", "logement", housing, true, new String[][] {
+                        {"locataire", "Locataire", "Je paie un loyer"}, {"proprietaire", "Propriétaire", "J'habite un logement que je possède"},
+                        {"heberge", "Hébergé", "Ni loyer ni crédit"}}),
+                choices("D'autres biens immobiliers ?", "autres", values.getOrDefault("autres", profile.otherProperty() ? "oui" : profile.set() ? "non" : ""), true,
+                        new String[][] {{"oui", "Oui", "Logement loué, résidence secondaire"}, {"non", "Non", "Seulement mon logement"}}))
+                : choices("Votre logement", "logement", housing, true, new String[][] {
+                        {"locataire", "Locataire", "Je paie un loyer"}, {"heberge", "Pas de loyer", "Propriétaire ou hébergé"}});
+        Html form = Html.of("""
+                <form method="post" action="/assistant/situation/enregistrer" class="situation">%s%s
+                %s
+                <div class="situation-names"><label>Votre prénom<input name="prenom" maxlength="60" value="%s" placeholder="Prénom"%s></label>\
+                <label class="partner-name">Prénom de votre conjoint<input name="conjoint" maxlength="60" value="%s" placeholder="Prénom"></label>\
+                <label>Enfants qui ont des frais <small class="muted">(facultatif, séparés par des virgules)</small><input name="enfants" maxlength="200" value="%s" placeholder="Léa, Tom"></label></div>%s
+                %s%s%s
+                <div class="form-actions"><button type="submit">Continuer : %s →</button></div></form>""",
+                Components.csrfField(context.csrf()), modeField(context),
+                choices("Qui compose le budget ?", "foyer", values.getOrDefault("foyer", couple ? "couple" : profile.set() || !persons.isEmpty() ? "seul" : ""), true,
+                        new String[][] {{"seul", "Seul", "Mes revenus et mes dépenses"}, {"couple", "En couple", "Nos revenus et nos dépenses"}}),
+                persons.isEmpty() ? values.getOrDefault("prenom", "") : persons.getFirst().name(), Html.raw(persons.isEmpty() ? " required" : ""),
+                values.getOrDefault("conjoint", persons.size() >= 2 ? persons.get(1).name() : ""), values.getOrDefault("enfants", ""), known,
+                choices("Un compte joint ?", "joint", values.getOrDefault("joint", joint ? "oui" : profile.set() ? "non" : ""), true,
+                        new String[][] {{"oui", "Oui", "Un compte commun alimenté par des virements"}, {"non", "Non", "Chacun ses comptes"}}),
+                estate,
+                choices("De l'épargne ou des placements ?", "epargne", values.getOrDefault("epargne", profile.savings() ? "oui" : profile.set() ? "non" : ""), true,
+                        new String[][] {{"oui", "Oui", "Livret, assurance-vie, PEA, bourse, cryptos"}, {"non", "Non", "Pas pour l'instant"}}),
+                context.next(Step.SITUATION).title());
+        return Html.concat(explain("Cinq questions, en quelques clics. Le guide ne gardera que les étapes qui vous concernent, et créera les personnes du budget. "
+                + "Vous pourrez revenir ici pour changer vos réponses."), Components.card("Votre situation", null, Html.EMPTY, form));
+    }
+
+    /** Une question en cartes cliquables (boutons radio) ; {@code options} : valeur, titre, precision. */
+    private static Html choices(String legend, String name, String selected, boolean required, String[][] options) {
+        return Html.of("<fieldset class=\"choice-cards\"><legend>%s</legend><div>%s</div></fieldset>", legend, java.util.Arrays.stream(options).map(option -> Html.of(
+                "<label class=\"choice-card\"><input type=\"radio\" name=\"%s\" value=\"%s\"%s%s><span><b>%s</b><small>%s</small></span></label>",
+                name, option[0], Html.raw(option[0].equals(selected) ? " checked" : ""), Html.raw(required ? " required" : ""), option[1], option[2])).collect(Html.joining()));
+    }
+
+    // ---- A faire ici ----
+
+    /**
+     * Ce qu'il y a a faire sur l'etape, coche au fil de la saisie : la personne voit quand l'etape est finie, sans se
+     * demander quoi faire. Vide pour les etapes qui sont elles-memes une question (situation, documents, recapitulatif).
+     */
+    static Html todo(WizardController.Context context, Step step) {
+        Snapshot data = context.snapshot();
+        List<Person> open = context.visibility().people();
+        List<Object[]> items = new java.util.ArrayList<>();
+        long pending = context.inbox().stream().filter(item -> belongs(item, step)).count();
+        if (pending > 0) items.add(new Object[] {"Trier les " + pending + " ligne" + (pending > 1 ? "s" : "") + " importée" + (pending > 1 ? "s" : "") + " ci-dessous", false});
+        switch (step) {
+            case INCOMES -> open.stream().filter(person -> !person.isAccount()).forEach(person -> items.add(new Object[] {"Les revenus de " + person.name(),
+                    data.incomes().stream().anyMatch(income -> income.personId() == person.id())}));
+            case HOUSING -> {
+                items.add(new Object[] {"Le loyer", data.hasItemNamed("loyer")});
+                items.add(new Object[] {"L'assurance habitation", data.hasItemNamed("assurance habitation")});
+            }
+            case PROPERTIES -> {
+                if (context.profile().owner()) items.add(new Object[] {"Votre résidence principale", !data.properties().isEmpty()});
+                if (context.profile().otherProperty() || !context.profile().set()) items.add(new Object[] {"Vos autres biens", data.properties().size() > (context.profile().owner() ? 1 : 0)});
+            }
+            case LOANS -> data.properties().forEach(property -> items.add(new Object[] {"Le prêt de « " + property.name() + " », s'il y en a un",
+                    data.loans().stream().anyMatch(loan -> loan.propertyId() == property.id())}));
+            case CHARGES -> data.properties().forEach(property -> items.add(new Object[] {"Taxe foncière et charges de « " + property.name() + " »",
+                    data.charges().stream().anyMatch(charge -> charge.propertyId() == property.id())}));
+            case FIXED -> Checklist.FIXED.forEach(group -> items.add(new Object[] {group.title(),
+                    group.items().stream().anyMatch(item -> data.item(item.label()).isPresent())}));
+            case TAXES -> items.add(new Object[] {"Le prélèvement à la source", Checklist.TAXES.items().stream().anyMatch(item -> data.item(item.label()).isPresent())});
+            case TRANSFERS -> open.stream().filter(person -> !person.isAccount()).forEach(person -> items.add(new Object[] {"Ce que " + person.name() + " verse au compte joint",
+                    data.transfers().stream().anyMatch(transfer -> transfer.fromId() == person.id())}));
+            case SAVINGS -> items.add(new Object[] {"Vos livrets et placements, avec leur solde", data.hasSavings() || data.hasPositions()});
+            default -> { }
+        }
+        if (items.isEmpty()) return Html.EMPTY;
+        long done = items.stream().filter(item -> (boolean) item[1]).count();
+        Html rows = items.stream().map(item -> Html.of("<li class=\"%s\"><span aria-hidden=\"true\">%s</span>%s</li>", (boolean) item[1] ? "done" : "",
+                (boolean) item[1] ? "✓" : "○", item[0])).collect(Html.joining());
+        return Html.of("""
+                <section class="todo-here" aria-label="À faire sur cette étape"><p><b>À faire ici</b> <span class="muted">· %s</span></p><ul>%s</ul></section>""",
+                done == items.size() ? "tout est fait, vous pouvez continuer" : done + " sur " + items.size(), rows);
     }
 
     static Html explain(String text) {
@@ -210,7 +323,7 @@ final class WizardPages {
         Html manual = Html.of("""
                 <p>Le guide vous fait saisir, un écran à la fois, vos revenus, votre logement, vos dépenses fixes et vos impôts. Gardez vos derniers
                 bulletins de salaire et relevés sous la main.</p>
-                <form method="post" action="%s/terminer">%s<button type="submit">Saisir à la main, étape par étape →</button></form>""", Step.DOCUMENTS.path(), csrf);
+                <form method="post" action="%s/terminer">%s<input type="hidden" name="manuel" value="1"><button type="submit">Saisir à la main, étape par étape →</button></form>""", Step.DOCUMENTS.path(), csrf);
         return Html.of("""
                 <p class="muted">Choisissez une méthode. Rien n'entre dans votre budget avant que vous l'ayez validé, ligne par ligne.</p>
                 <div class="import-methods">%s%s%s</div>""",
@@ -395,13 +508,17 @@ final class WizardPages {
         counts.add(new String[]{"Virements", String.valueOf(data.transfers().size())});
         counts.add(new String[]{"Documents rassemblés", ready + " sur " + documents.size()});
         Html figures = counts.stream().map(count -> Html.of("<div><dt>%s</dt><dd>%s</dd></div>", count[0], count[1])).collect(Html.joining());
-        boolean complete = steps.stream().allMatch(context.progress()::containsKey);
-        Html actions = Html.of("<div class=\"heading-actions\">%s%s%s</div>", Components.button("/", "Voir le prévisionnel"),
-                complete ? Html.EMPTY : Components.secondaryButton(context.resume().path(), "Reprendre les étapes à faire"),
+        // Ce qui reste : les etapes pas encore faites ou notees « a completer », chacune en lien direct.
+        List<Step> left = steps.stream().filter(step -> context.progress().get(step) != WizardRepository.Status.DONE).toList();
+        Html actions = Html.of("<div class=\"heading-actions\">%s%s</div>", Components.button("/", "Voir mon prévisionnel"),
                 Components.secondaryButton(Step.DOCUMENTS.path() + "?mode=" + WizardController.REVIEW, "Tout revoir"));
         return Html.concat(
-                complete ? Html.raw("<p class=\"notice success\">Toutes les étapes sont faites ou passées. Le prévisionnel tient compte de tout ce que vous avez saisi.</p>")
-                        : Html.raw("<p class=\"notice warning\">Certaines étapes restent à faire : vous pouvez les reprendre quand vous voulez.</p>"),
+                left.isEmpty() ? Html.raw("<p class=\"notice success\">Tout est fait. Le prévisionnel tient compte de tout ce que vous avez saisi.</p>")
+                        : Html.of("<section class=\"card guide-next\"><p class=\"eyebrow\">Il reste %s étape%s à compléter</p><h2>Quand vous voulez</h2>"
+                                + "<p class=\"muted\">Le prévisionnel fonctionne déjà avec ce qui est saisi ; ces étapes le rendront plus juste.</p><ul class=\"left-steps\">%s</ul>"
+                                + "<div class=\"form-actions\"><a class=\"button\" href=\"/\">Voir mon prévisionnel</a></div></section>",
+                                left.size(), left.size() > 1 ? "s" : "", left.stream().map(step -> Html.of("<li><a href=\"%s\"><b>%s</b></a> <span class=\"muted\">%s</span></li>",
+                                        step.path(), step.title(), step.summary())).collect(Html.joining())),
                 Components.card("Ce qui est saisi", null, Html.EMPTY, Html.of("<dl class=\"calc-grid\">%s</dl>", figures)),
                 Components.card("Étapes", null, Html.EMPTY, Html.concat(Components.table(List.of("Étape", "État"), rows, false, false), actions)));
     }

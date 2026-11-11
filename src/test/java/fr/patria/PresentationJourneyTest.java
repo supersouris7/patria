@@ -27,7 +27,7 @@ class PresentationJourneyTest {
             assertEquals(303, TestAccounts.post(client, base, manager, "/administration/revenus",
                     "person=1&kind=SALARY&label=Salaire&amount=2500&frequency=MONTHLY&start=2026-01-01").statusCode());
             String home = TestAccounts.get(client, base, manager, "/").body();
-            before(home, "class=\"metrics cols-4\"", "class=\"setup-progress\"");
+            before(home, "class=\"metrics cols-4\"", "class=\"guide-strip setup-progress\"");
             before(home, "class=\"metrics cols-4\"", "health-summary");
             String incomes = TestAccounts.get(client, base, manager, "/administration/revenus").body();
             before(incomes, "<summary>Ajouter un revenu", "<h2>Revenus");
@@ -35,7 +35,7 @@ class PresentationJourneyTest {
             before(expenses, "<summary>Ajouter une dépense", "<summary>Importer (réponse d");
             before(expenses, "<summary>Importer (réponse d", "<h2>Dépenses saisies");
             String guide = TestAccounts.get(client, base, manager, "/assistant").body();
-            before(guide, "<summary>Comment ça marche", "<h2>Les étapes");
+            before(guide, "class=\"card guide-next\"", "<h2>Votre parcours");
             String budget = TestAccounts.get(client, base, manager, "/budget").body();
             before(budget, "<h2>Dépenses par catégorie", "<summary>Détail du taux d&#39;endettement");
             String error = TestAccounts.post(client, base, manager, "/administration/revenus",

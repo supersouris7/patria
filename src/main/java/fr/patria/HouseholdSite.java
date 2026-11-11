@@ -86,9 +86,14 @@ final class HouseholdSite implements AutoCloseable {
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope, savings,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
-        router.userGet("/navigation/etat", request -> new fr.patria.web.Response.Text(200,
-                "{\"warnings\":" + health.warningCount(request) + ",\"progress\":"
-                        + wizard.summary(request.viewer().userId(), request.viewer().realEstate(), request.viewer().householdManager()).percent() + "}"));
+        router.userGet("/navigation/etat", request -> {
+            WizardRepository.Summary guideState = wizard.summary(request.viewer().userId(), request.viewer().realEstate(), request.viewer().householdManager());
+            // Barre « Guide de saisie » des pages : pour qui saisit, tant qu'il reste une etape et qu'elle n'est pas masquee.
+            boolean writes = request.viewer().wholeHousehold() || request.viewer().realEstate() || !request.viewer().members().isEmpty();
+            String guideJson = writes && !wizard.guideHidden(request.viewer().userId()) ? guideState.json() : "null";
+            return new fr.patria.web.Response.Text(200, "{\"warnings\":" + health.warningCount(request) + ",\"progress\":" + guideState.percent()
+                    + ",\"guide\":" + guideJson + "}");
+        });
         budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
     }
 

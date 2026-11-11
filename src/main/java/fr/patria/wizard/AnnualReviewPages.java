@@ -25,14 +25,13 @@ final class AnnualReviewPages {
     }
 
     /** Progression secondaire du Previsionnel ; le detail reste dans le guide. */
-    static Html progress(int percent, int finished, int total, Step next, String csrf) {
+    /** Barre du guide sur le Previsionnel (les autres pages l'affichent par app.js) : etape, temps restant, « Continuer ». */
+    static Html progress(WizardRepository.Summary summary, String csrf) {
         return Html.of("""
-                <section class="setup-progress" aria-label="Configuration du foyer"><details><summary>Guide de saisie : %s %% des étapes faites</summary>\
-                <p>%s étape%s sur %s faite%s ou passée%s. Prochaine : %s.</p>\
-                <div class="setup-progress-actions"><a class="button secondary" href="/assistant">Continuer la configuration</a>\
-                <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit">Masquer cet encart</button></form></div></details></section>""".replace("%%", "%"),
-                percent, finished, finished > 1 ? "s" : "", total, finished > 1 ? "s" : "", finished > 1 ? "s" : "", next.title(),
-                fr.patria.ui.Components.csrfField(csrf));
+                <section class="guide-strip setup-progress" aria-label="Guide de saisie"><span><b>Guide de saisie</b> · étape %s sur %s : %s \
+                <span class="muted">· environ %s min</span></span><a class="button" href="%s">Continuer</a>\
+                <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit" aria-label="Masquer le guide" title="Masquer">×</button></form></section>""",
+                summary.position(), summary.total(), summary.next(), summary.minutes(), summary.nextPath(), fr.patria.ui.Components.csrfField(csrf));
     }
 
     static Html reminder(AnnualReview.CalendarMonth month) {

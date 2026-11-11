@@ -42,6 +42,31 @@ public final class WizardRepository {
                 ON CONFLICT (owner, step) DO UPDATE SET status = excluded.status, updated_on = excluded.updated_on""", owner, step.name(), status.name(), today));
     }
 
+    /** Situation du foyer : une ligne « PROFILE » quand elle est repondue, puis une ligne par reponse « oui ». */
+    private static final String PROFILE = "PROFILE";
+    private static final List<String> PROFILE_FLAGS = List.of("COUPLE", "JOINT", "TENANT", "OWNER", "OTHER_PROPERTY", "SAVINGS");
+
+    Profile profile(String owner) {
+        java.util.Set<String> rows = new java.util.HashSet<>(database.query(connection -> Sql.list(connection,
+                "SELECT step FROM wizard_steps WHERE owner = ? AND step LIKE 'PROFILE%'", row -> row.getString(1), owner)));
+        if (!rows.contains(PROFILE)) return Profile.UNSET;
+        java.util.function.Predicate<String> yes = flag -> rows.contains(PROFILE + "_" + flag);
+        return new Profile(true, yes.test("COUPLE"), yes.test("JOINT"), yes.test("TENANT"), yes.test("OWNER"), yes.test("OTHER_PROPERTY"), yes.test("SAVINGS"));
+    }
+
+    void setProfile(String owner, Profile profile, LocalDate today) {
+        boolean[] values = {profile.couple(), profile.joint(), profile.tenant(), profile.owner(), profile.otherProperty(), profile.savings()};
+        database.transaction(connection -> {
+            Sql.update(connection, "DELETE FROM wizard_steps WHERE owner = ? AND step LIKE 'PROFILE%'", owner);
+            Sql.update(connection, "INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)", owner, PROFILE, today);
+            for (int index = 0; index < values.length; index++) {
+                if (values[index]) Sql.update(connection, "INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)",
+                        owner, PROFILE + "_" + PROFILE_FLAGS.get(index), today);
+            }
+            return null;
+        });
+    }
+
     /** Ligne de la table des etapes qui garde la date de la derniere revue annuelle. */
     private static final String ANNUAL_REVIEW = "ANNUAL_REVIEW";
     /** Ligne qui note que l'encadre « configuration terminee a x % » a ete ignore. */
@@ -50,6 +75,11 @@ public final class WizardRepository {
     /** Encadre de progression ignore (« Ignorer ») ; « Recommencer » le fait revenir. */
     boolean bannerHidden(String owner) {
         return !database.query(connection -> Sql.list(connection, "SELECT 1 FROM wizard_steps WHERE owner = ? AND step = ?", row -> row.getInt(1), owner, BANNER_HIDDEN)).isEmpty();
+    }
+
+    /** Barre du guide masquee par ce compte. */
+    public boolean guideHidden(long userId) {
+        return bannerHidden("user:" + userId);
     }
 
     void hideBanner(String owner, LocalDate today) {
@@ -111,21 +141,36 @@ public final class WizardRepository {
     }
 
     /** Avancement du guide d'une personne, sans aucune donnee saisie (page Foyers de l'administrateur). */
-    public record Summary(int done, int skipped, int total, String next, LocalDate reviewedOn) {
+    /**
+     * Avancement : etapes faites, a completer plus tard, total ; {@code next} : prochaine etape a faire ({@code null}
+     * quand tout est fait), sa place dans le parcours, son adresse et les minutes restantes estimees.
+     */
+    public record Summary(int done, int skipped, int total, String next, LocalDate reviewedOn, int position, String nextPath, int minutes) {
         public int percent() {
             return total == 0 ? 100 : (done + skipped) * 100 / total;
         }
+
+        /** Etat pour la barre « Guide de saisie » des pages (JSON) ; {@code null} quand il n'y a plus rien a faire. */
+        public String json() {
+            if (next == null) return "null";
+            return "{\"step\":\"" + next.replace("\\", "\\\\").replace("\"", "\\\"") + "\",\"position\":" + position + ",\"total\":" + total
+                    + ",\"path\":\"" + nextPath + "\",\"minutes\":" + minutes + "}";
+        }
     }
 
-    /** {@code userId} : le compte ; {@code realEstate} : etapes de l'immobilier ; {@code manager} : gestionnaire (membres). */
+    /** {@code userId} : le compte ; {@code realEstate} : etapes de l'immobilier ; {@code manager} : gestionnaire. */
     public Summary summary(long userId, boolean realEstate, boolean manager) {
-        String owner = "user:" + userId;
-        List<Step> steps = Step.forViewer(realEstate, manager).stream().filter(step -> step != Step.SUMMARY).toList();
+        return summary("user:" + userId, realEstate, manager);
+    }
+
+    Summary summary(String owner, boolean realEstate, boolean manager) {
+        List<Step> steps = Step.path(profile(owner), realEstate, manager).stream().filter(step -> step != Step.SUMMARY).toList();
         Map<Step, Status> progress = steps(owner);
         int done = (int) steps.stream().filter(step -> progress.get(step) == Status.DONE).count();
         int skipped = (int) steps.stream().filter(step -> progress.get(step) == Status.SKIPPED).count();
-        String next = steps.stream().filter(step -> !progress.containsKey(step)).map(Step::title).findFirst().orElse(null);
-        return new Summary(done, skipped, steps.size(), next, reviewedOn(owner));
+        Step next = steps.stream().filter(step -> !progress.containsKey(step)).findFirst().orElse(null);
+        int minutes = steps.stream().filter(step -> !progress.containsKey(step)).mapToInt(Step::minutes).sum();
+        return new Summary(done, skipped, steps.size(), next == null ? null : next.title(), reviewedOn(owner), next == null ? 0 : steps.indexOf(next) + 1,
+                next == null ? null : next.path(), minutes);
     }
-
 }

@@ -73,10 +73,14 @@ public final class WizardController {
         });
         for (Step step : Step.values()) {
             // Documents : « q » cherche une banque ou un organisme dans les tutoriels.
-            Router.Handler page = request -> Response.page(render(request, step, request.confirmation(),
-                    request.query("q") == null || request.query("q").isBlank() ? Map.of() : Map.of("q", request.query("q").strip())));
+            // Situation : le prenom du compte est propose ; Documents : « q » cherche une banque dans les tutoriels.
+            Router.Handler page = request -> Response.page(render(request, step, request.confirmation(), step == Step.SITUATION
+                    ? Map.of("prenom", request.viewer().name() == null ? "" : request.viewer().name())
+                    : request.query("q") == null || request.query("q").isBlank() ? Map.of() : Map.of("q", request.query("q").strip())));
             Router.Handler skip = request -> finish(request, step, WizardRepository.Status.SKIPPED);
-            Router.Handler done = request -> finish(request, step, WizardRepository.Status.DONE);
+            // « Continuer » : faite si quelque chose est saisi (ou « A la main » choisi), sinon a completer plus tard.
+            Router.Handler done = request -> finish(request, step, !request.form().raw("manuel").isEmpty() || context(request).filled(step)
+                    ? WizardRepository.Status.DONE : WizardRepository.Status.SKIPPED);
             if (step.adminOnly()) {
                 router.get(step.path(), page);
                 router.post(step.path() + "/passer", skip);
@@ -101,6 +105,7 @@ public final class WizardController {
         router.post("/assistant/occupation/{id}", this::addOccupancy);
         router.userPost("/assistant/virements/ajouter", this::addTransfer);
         router.userPost("/assistant/bilan/enregistrer", this::saveHealthScope);
+        router.userPost("/assistant/situation/enregistrer", this::saveSituation);
 
         // Revue annuelle : ce qui change d'une annee sur l'autre, ligne par ligne.
         router.userGet("/assistant/revue-annuelle", request -> Response.page(annualPage(request, request.confirmation())));
@@ -130,6 +135,52 @@ public final class WizardController {
         return finish(request, Step.HEALTH, WizardRepository.Status.DONE);
     }
 
+    /** Acces du gestionnaire a un membre qu'il vient de creer (renseigne par l'assemblage, qui connait les comptes). */
+    public interface MemberAccess {
+        void grant(Request request, long member);
+    }
+
+    private static volatile MemberAccess memberAccess = (request, member) -> { };
+
+    public static void useMemberAccess(MemberAccess access) {
+        memberAccess = access;
+    }
+
+    /**
+     * « Votre situation » : cree les membres manquants (le gestionnaire les voit), le compte joint s'il est annonce,
+     * et garde les reponses qui choisissent les etapes du guide.
+     */
+    private Response saveSituation(Request request) {
+        if (!request.viewer().householdManager()) throw new ValidationException("Seul le gestionnaire du foyer décrit sa situation.");
+        FormData form = request.form();
+        boolean couple = form.raw("foyer").equals("couple");
+        boolean joint = form.raw("joint").equals("oui");
+        String housing = form.raw("logement");
+        Profile profile = new Profile(true, couple, joint, housing.equals("locataire"), housing.equals("proprietaire"), form.raw("autres").equals("oui"),
+                form.raw("epargne").equals("oui"));
+        List<String> names = new java.util.ArrayList<>();
+        names.add(form.raw("prenom").strip());
+        if (couple) names.add(form.raw("conjoint").strip());
+        for (String child : form.raw("enfants").split(",")) names.add(child.strip());
+        List<Person> people = stores.household().people();
+        try {
+            if (people.stream().noneMatch(person -> !person.isAccount()) && names.getFirst().isEmpty()) throw new ValidationException("Indiquez votre prénom.");
+            if (couple && names.get(1).isEmpty() && people.stream().filter(person -> !person.isAccount()).count() < 2) throw new ValidationException("Indiquez le prénom de votre conjoint.");
+            java.util.Set<String> known = people.stream().map(person -> Snapshot.normalize(person.name())).collect(java.util.stream.Collectors.toSet());
+            for (String name : names) {
+                if (name.isEmpty() || known.contains(Snapshot.normalize(name))) continue;
+                if (name.length() > 60) throw new ValidationException("Prénom trop long (60 caractères au plus).");
+                memberAccess.grant(request, stores.household().addMember(name, Person.Kind.PERSON));
+                known.add(Snapshot.normalize(name));
+            }
+            if (joint && people.stream().noneMatch(Person::isAccount)) memberAccess.grant(request, stores.household().addMember("Compte joint", Person.Kind.ACCOUNT));
+        } catch (ValidationException exception) {
+            return invalid(request, Step.SITUATION, exception);
+        }
+        stores.progress().setProfile(owner(request), profile, LocalDate.now(clock));
+        return finish(request, Step.SITUATION, WizardRepository.Status.DONE);
+    }
+
     // ---- Revue annuelle ----
 
     private Html annualPage(Request request, Notice notice) {
@@ -150,19 +201,17 @@ public final class WizardController {
     }
 
     /**
-     * Encadre du Previsionnel « configuration terminee a x % » : etapes du guide faites ou passees, avec la prochaine
-     * a faire. Vide quand tout est fait, quand il a ete ignore, ou pour un compte qui ne modifie rien (vues en lecture).
+     * Encadre du Previsionnel : etape en cours du guide, temps restant et « Continuer ». Vide quand tout est fait,
+     * quand il a ete masque, ou pour un compte qui ne modifie rien (vues en lecture). Les autres pages affichent la
+     * meme barre par app.js, a partir de /navigation/etat.
      */
     public Html progress(Request request) {
         if (!request.viewer().wholeHousehold() && !request.viewer().realEstate() && request.viewer().members().isEmpty()) return Html.EMPTY;
         String owner = owner(request);
         if (stores.progress().bannerHidden(owner)) return Html.EMPTY;
-        List<Step> steps = Step.forViewer(request.viewer().realEstate(), request.viewer().householdManager()).stream().filter(step -> step != Step.SUMMARY).toList();
-        Map<Step, WizardRepository.Status> progress = stores.progress().steps(owner);
-        long finished = steps.stream().filter(progress::containsKey).count();
-        if (finished == steps.size()) return Html.EMPTY;
-        Step next = steps.stream().filter(step -> !progress.containsKey(step)).findFirst().orElse(Step.SUMMARY);
-        return AnnualReviewPages.progress((int) (finished * 100 / steps.size()), (int) finished, steps.size(), next, request.csrf());
+        WizardRepository.Summary summary = stores.progress().summary(owner, request.viewer().realEstate(), request.viewer().householdManager());
+        if (summary.next() == null) return Html.EMPTY;
+        return AnnualReviewPages.progress(summary, request.csrf());
     }
 
     /** Nouveau montant a partir d'une date, ou arret de la depense (« Arrêtée »). Lignes modifiables seulement. */
@@ -258,7 +307,7 @@ public final class WizardController {
     // ---- Contexte ----
 
     /** Tout ce qu'une page de l'assistant affiche, calcule une fois par requete. */
-    record Context(boolean admin, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
+    record Context(boolean admin, boolean manager, Profile profile, boolean review, List<Step> steps, Map<Step, WizardRepository.Status> progress, Map<String, WizardRepository.DocumentStatus> documents,
                    Snapshot snapshot, Visibility visibility, Map<Shares.Key, Map<Long, Integer>> shares, LocalDate today, String csrf,
                    java.util.Set<Long> healthScope, boolean healthConfigured, java.util.function.Supplier<fr.patria.ui.Html> savings,
                    List<ImportInbox.Item> inbox) {
@@ -266,10 +315,41 @@ public final class WizardController {
             return review ? "?mode=" + REVIEW : "";
         }
 
-        /** Etape suivante : toujours celle juste apres, meme deja faite (« Suivant » ne saute rien). */
+        /** Etape suivante : toujours celle juste apres, meme deja faite (« Continuer » ne saute rien) ; hors parcours, la reprise. */
         Step next(Step current) {
             int index = steps.indexOf(current);
-            return index >= 0 && index + 1 < steps.size() ? steps.get(index + 1) : Step.SUMMARY;
+            if (index < 0) return resume();
+            return index + 1 < steps.size() ? steps.get(index + 1) : Step.SUMMARY;
+        }
+
+        /** Etape ouverte a cette personne : dans son parcours, ou hors parcours (membres pour le gestionnaire, bilan). */
+        boolean allows(Step step) {
+            return steps.contains(step) || step == Step.HEALTH || (step == Step.MEMBERS && manager);
+        }
+
+        /** Quelque chose est saisi pour cette etape : « Continuer » la note faite, sinon a completer plus tard. */
+        boolean filled(Step step) {
+            return switch (step) {
+                case DOCUMENTS -> !inbox.isEmpty() || !snapshot.items().isEmpty() || !snapshot.incomes().isEmpty();
+                case INCOMES -> !snapshot.incomes().isEmpty();
+                case HOUSING -> Checklist.RENT.items().stream().anyMatch(item -> snapshot.item(item.label()).isPresent());
+                case PROPERTIES -> !snapshot.properties().isEmpty();
+                case LOANS -> !snapshot.loans().isEmpty();
+                case CHARGES -> !snapshot.charges().isEmpty() || !snapshot.rents().isEmpty();
+                case FIXED -> Checklist.FIXED.stream().flatMap(group -> group.items().stream()).anyMatch(item -> snapshot.item(item.label()).isPresent())
+                        || snapshot.items().size() > Checklist.RENT.items().stream().filter(item -> snapshot.item(item.label()).isPresent()).count()
+                        + Checklist.TAXES.items().stream().filter(item -> snapshot.item(item.label()).isPresent()).count();
+                case TAXES -> Checklist.TAXES.items().stream().anyMatch(item -> snapshot.item(item.label()).isPresent());
+                case TRANSFERS -> !snapshot.transfers().isEmpty();
+                case SAVINGS -> snapshot.hasSavings() || snapshot.hasPositions();
+                default -> true;
+            };
+        }
+
+        /** Minutes estimees pour finir le guide a partir de cette etape (celles deja faites ne comptent pas). */
+        int minutesLeft(Step from) {
+            int index = Math.max(0, steps.indexOf(from));
+            return steps.subList(index, steps.size()).stream().filter(step -> step == from || !progress.containsKey(step)).mapToInt(Step::minutes).sum();
         }
 
         Step previous(Step current) {
@@ -297,7 +377,9 @@ public final class WizardController {
                 ? new Snapshot(people, incomes, items, stores.properties().all(), stores.loans().all(), stores.charges().all(), stores.rents().all(), transfers,
                         stores.savings().counts(request))
                 : new Snapshot(people, incomes, items, List.of(), List.of(), List.of(), List.of(), transfers, stores.savings().counts(request));
-        return new Context(admin, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.forViewer(admin, request.viewer().householdManager()),
+        boolean manager = request.viewer().householdManager();
+        Profile profile = stores.progress().profile(owner(request));
+        return new Context(admin, manager, profile, REVIEW.equals(request.query("mode")) || REVIEW.equals(request.form().raw("mode")), Step.path(profile, admin, manager),
                 stores.progress().steps(owner(request)), stores.progress().documents(owner(request)), snapshot, visibility, shares, LocalDate.now(clock), request.csrf(),
                 stores.healthScope().scope(request.viewer(), people),
                 request.viewer().userId() != null && stores.healthScope().configured(request.viewer().userId()),
@@ -312,7 +394,7 @@ public final class WizardController {
 
     private Html render(Request request, Step step, Notice notice, Map<String, String> values) {
         Context context = context(request);
-        if (!context.steps().contains(step)) throw new NotFoundException("Étape introuvable", "Cette étape n'est pas proposée pour votre compte.");
+        if (!context.allows(step)) throw new NotFoundException("Étape introuvable", "Cette étape n'est pas proposée pour votre compte.");
         return WizardPages.step(context, step, notice, values);
     }
 

@@ -84,3 +84,31 @@
 .import-method > summary::-webkit-details-marker { display: none; }
 .import-method > summary::after { color: var(--blue); content: "›"; font-size: 1.4rem; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
 .import-method[open] > summary::after { transform: translateY(-50%) rotate(90deg); }
+/* Guide : situation en cartes, a faire ici, prochaine etape, barre des pages */
+.choice-cards { border: 0; margin: 0 0 18px; padding: 0; }
+.choice-cards legend { font-weight: 750; margin-bottom: 8px; }
+.choice-cards > div { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.choice-card { border: 1px solid var(--line-strong); border-radius: var(--radius-small); cursor: pointer; display: flex; gap: 10px; padding: 12px 14px; }
+.choice-card input { flex: none; margin-top: 4px; width: auto; }
+.choice-card b { display: block; }
+.choice-card small { color: var(--muted); }
+.choice-card:has(input:checked) { background: var(--blue-tint); border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.situation-names { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: -6px 0 18px; }
+.situation:not(:has(input[name=foyer][value=couple]:checked)) .partner-name { display: none; }
+.todo-here { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: var(--radius-small); margin: 0 0 16px; padding: 12px 16px; }
+.todo-here p { margin: 0 0 6px; }
+.todo-here ul { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.todo-here li { color: var(--text-soft); display: flex; gap: 8px; }
+.todo-here li span { color: var(--muted); width: 1em; }
+.todo-here li.done { color: var(--muted); text-decoration: line-through; }
+.todo-here li.done span { color: var(--status-good); text-decoration: none; }
+.wizard-back { align-self: center; color: var(--muted); font-size: .9rem; }
+.wizard-next { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.wizard-hint { margin: 0; max-width: 46ch; text-align: right; }
+.guide-next { margin-bottom: 16px; padding: 20px 24px; }
+.guide-next h2 { font-size: 1.4rem; margin: 2px 0 6px; }
+.guide-strip { align-items: center; background: var(--blue-tint); border: 1px solid var(--line); border-radius: var(--radius-small); display: flex; flex-wrap: wrap;
+    gap: 8px 14px; margin: 0 0 16px; padding: 8px 12px; }
+.guide-strip > span { flex: 1 1 260px; }
+.guide-strip form { margin: 0; }
+main > .guide-strip { margin-top: -16px; }
