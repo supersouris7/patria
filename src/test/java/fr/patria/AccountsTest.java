@@ -412,7 +412,7 @@ class AccountsTest {
     @Test
     void signupIsOpenOnInvitationOrClosed() throws Exception {
         Visitor admin = admin();
-        assertTrue(get(null, "/connexion").body().contains("href=\"/inscription\""));
+        assertFalse(get(null, "/connexion").body().contains("href=\"/inscription\""), "sur invitation : pas de lien « Créer un compte »");
         assertTrue(get(null, "/inscription").body().contains("sur invitation"), "par défaut : sur invitation");
         assertEquals("/inscription", TestAccounts.location(post(null, "/inscription", "name=Lou&login=lou&password=loupasse1&confirm=loupasse1")), "pas d'inscription libre");
         assertEquals(303, post(admin, "/administration/inscriptions", "mode=open").statusCode());

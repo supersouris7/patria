@@ -259,3 +259,15 @@ label.check.option b { color: var(--text); display: block; }
     .theme-toggle, .account-bar .logout { padding-inline: 6px; }
 }
 .nav-badge { background: var(--blue-tint); border-radius: 99px; color: var(--accent-text); font-size: .72rem; font-weight: 750; margin-left: 4px; padding: 1px 7px; }
+/* Bouton « + Ajouter » et onglets de Patrimoine */
+.add-menu > summary { align-items: center; background: var(--blue-deep); border-radius: 999px; color: #fff; display: inline-flex; gap: 6px; padding: 8px 14px; }
+.add-menu > summary span[aria-hidden] { font-size: 1.15rem; line-height: 1; }
+.add-menu[open] > summary, .add-menu > summary:hover { background: var(--blue); color: #fff; }
+.add-menu .nav-entries a { display: grid; }
+.add-menu .nav-entries small { color: var(--muted); font-weight: 500; }
+.wealth-tabs { margin: -12px 0 18px; }
+@media (max-width: 600px) {
+    .add-menu .add-label { display: none; }
+    .add-menu > summary { padding: 8px 12px; }
+    .wealth-tabs { display: flex; overflow-x: auto; }
+}

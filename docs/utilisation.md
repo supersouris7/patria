@@ -43,6 +43,7 @@ Tant que le guide n'est pas fini, une barre **Guide de saisie · étape x sur y 
 
 1. **Vos documents** : la page demande « Comment voulez-vous remplir Patria ? » et propose trois méthodes, une ouverte à la fois :
    - **Avec le fichier de ma banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → format CSV (ou OFX, QIF), 3 à 12 mois ; déposez le fichier, Patria repère les prélèvements et revenus réguliers ;
+     Le fichier peut aussi être **glissé sur n'importe quelle page** de Patria : il part au même import. Le résultat est dit tout de suite (« Relevé lu : 214 opérations. 12 régulières trouvées (…), à valider ») avec un seul bouton **Valider maintenant** vers la première étape à trier ; les opérations déjà importées ou saisies ne reviennent pas. Une banque cherchée dans « Où trouver vos documents ? » est retenue : **une fois par mois**, 30 jours après le dernier import, une barre « Relevé du mois » propose d'importer le nouveau relevé, avec les étapes de cette banque ; « × » la repousse de 30 jours.
    - **Avec une IA** (Le Chat, ChatGPT, Claude ou Gemini) : ouvrez l'IA, « Copier la consigne », collez-la avec vos documents joints, puis collez toute sa réponse dans Patria ;
    - **À la main** : l'étape est validée et le guide passe aux écrans de saisie, en commençant par les revenus de chaque personne.
 
@@ -146,9 +147,33 @@ Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (pr�
 
 La page **Patrimoine** montre ce que vous possédez (comptes et livrets, épargne long terme, bourse et cryptos, biens à leur valeur retenue), ce que vous devez (capital restant dû des prêts immobiliers) et le **patrimoine net = ce que vous possédez − ce que vous devez** : ce qui resterait si toutes les dettes étaient remboursées aujourd'hui, sans rien vendre. Les biens y sont comptés avant frais de vente et impôts (la « valeur nette » d'Immobilier → Synthèse les déduit, elle est donc plus basse). Les crédits à la consommation n'y figurent pas : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui voit l'immobilier.
 
+## Affichage et mouvement
+
+- **Chiffres** : montants arrondis à l'euro dans les tuiles, résumés, phrases et graphiques ; centimes seulement dans les listes de lignes et les formulaires. Pourcentages à une décimale au plus.
+- **Mouvement sobre** : passage d'une page à l'autre en fondu (l'en-tête reste en place), dépliants et menus qui s'ouvrent en douceur, chiffres clés qui défilent jusqu'à leur valeur, courbes qui se dessinent, barres qui se remplissent, cartes qui apparaissent en défilant, reflet pendant le chargement d'un graphique. Tout est coupé si l'appareil demande moins d'animations (réglage d'accessibilité du système).
+- **Sur smartphone**, les tableaux deviennent des fiches : une fiche par ligne, chaque valeur avec son intitulé.
+- **Intitulés harmonisés** : chaque page porte le nom de sa rubrique (Budget, Patrimoine, Économies, Bilan, Gérer, Guide de saisie). La page Bourse n'a plus qu'un graphique, « Comparer les performances », qui montre aussi le portefeuille.
+
+## Économies
+
+Le menu a cinq entrées : **Budget**, **Patrimoine** (onglets Vue d'ensemble, Épargne, Bourse, Immobilier), **Économies**, **Bilan** et **Gérer**, plus l'icône du Guide de saisie. Le bouton **+ Ajouter** de l'en-tête ouvre toutes les saisies : relevé bancaire, dépense, revenu, livret, titre en bourse, bien, objectif d'épargne.
+
+La page **Économies** rassemble :
+
+- **Votre niveau** (de « Premiers pas » à « Maître des finances ») et vos **points** : chaque chose utile faite en rapporte (budget complet, relevé importé, contrat renégocié, objectif atteint, mois sans déficit, badge, mission réussie). Une pastille dans l'en-tête montre le niveau et l'avancement ; un niveau gagné est célébré (message et confettis discrets, coupés si l'appareil demande moins d'animations).
+- **Missions** en plusieurs étapes avec leur récompense : Mettre de l'ordre, Chasse aux contrats, Bouclier (1, 3 puis 6 mois de précaution), Un projet. **Séries** : mois d'affilée avec un relevé importé, sans déficit, avec une épargne en hausse ; une série cassée repart de zéro sans retirer de points, et le mois en cours ne la casse pas.
+- **Votre santé financière sur 100** (À construire, Correcte, Solide, Excellente) : 40 points pour le bilan de santé, 30 pour un budget complet, 30 pour l'épargne de précaution (6 mois = tout). Aucune comparaison avec d'autres foyers.
+- **Économies réalisées** (contrats renégociés, sur un an) et **À gagner** (écart entre vos contrats et des offres courantes).
+- **Le défi du mois** : une seule chose à faire, la plus utile (renégocier le contrat au plus gros gain, éviter un mois en déficit, constituer 3 mois de précaution).
+- **Vos contrats**, reconnus dans vos dépenses : électricité, gaz, eau, box internet, forfait mobile, assurance habitation, assurance auto, mutuelle (selon votre âge, d'après la date de naissance de Mon compte), frais bancaires, abonnements, et l'**assurance de prêt** de chaque prêt immobilier. Chacun est comparé à un repère daté et sourcé (tarif réglementé de l'électricité, Arcep, Observatoire des tarifs bancaires, études 2026), avec le gain possible par an, prudent, et la démarche pas à pas (comparateur officiel énergie-info.fr, loi Hamon, loi Lemoine, portabilité du numéro, mobilité bancaire). « J'ai renégocié » enregistre le nouveau montant : le budget le prend à partir du mois suivant (une ligne seule) et l'économie rejoint le compteur. Les contrats où un gain est possible apparaissent aussi dans le Bilan (« Bon à savoir »).
+- **Objectifs d'épargne** illustrés (vacances, voiture, travaux…), qui se remplissent avec le solde du livret choisi.
+- **Badges** : budget en place, sans mois difficile, précaution, première économie, 100 € par mois économisés, objectif atteint, santé excellente. Un badge ou une mission obtenu depuis votre dernière visite est célébré une fois.
+
+Les repères sont indicatifs et revus à chaque version ; rien n'est envoyé à un comparateur.
+
 ## Épargne et Bourse
 
-**Comparer les performances (Bourse).** Le graphique « Comparer les performances » met chaque courbe en base 100 au début de la période (110 = +10 %), sur 1 mois, 1 an ou 5 ans, avec la variation de chacune dans la légende : **Mes lignes** (chaque titre, ETF ou crypto détenu, les 7 plus importants, et le portefeuille en pointillé), **Face à un indice** (le portefeuille face au MSCI World, au S&P 500, au CAC 40 ou à l'Euro Stoxx 50, hors dividendes), **Face à l'épargne** (le portefeuille face au Livret A, au taux moyen de votre épargne et à l'inflation, à leur taux actuel capitalisé sur la période). Le portefeuille est pris à sa composition actuelle ; les cours des titres restent dans leur devise de cotation.
+**Comparer les performances (Bourse).** « Comparer à » met votre portefeuille face au MSCI World, au S&P 500, au CAC 40, à l'Euro Stoxx 50, ou au Livret A et à l'inflation, sur 1 mois, 1 an ou 5 ans. Une phrase donne le résultat (« Sur 1 an, votre portefeuille fait −11,5 % ; MSCI World fait +16,6 %. Moins bien de 28,2 points. »), puis le graphique montre l'évolution en % depuis le début de la période (0 % marqué, graduations rondes), le portefeuille en trait épais ; au survol, toutes les valeurs de la date. Indices hors dividendes ; portefeuille à sa composition actuelle ; Livret A et inflation à leur taux actuel, en ordre de grandeur.
 
 **Inflation et intérêts.** La tuile **Vos intérêts** donne le taux moyen de votre épargne (pondéré par les soldes) et ce qu'il reste après inflation : en rouge, l'épargne perd du pouvoir d'achat. Le graphique **Inflation et taux de l'épargne** compare, mois par mois sur deux ans, l'inflation INSEE au Livret A, au LEP (depuis leur dernière date vérifiée) et à votre taux moyen. Le pouvoir d'achat de vos revenus est passé dans le Bilan, rubrique Finances.
 
@@ -176,11 +201,25 @@ Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, L
 
 Le **Bilan** audite l'épargne à chaque ouverture : précaution réelle, argent qui dort sur les comptes courants, plafonds atteints, LEP possible, livrets sous l'inflation, concentration sur une seule valeur, plus ou moins-values, PEA de moins de 5 ans, changement récent d'un taux, soldes de plus de 6 mois, pouvoir d'achat. En mode hors ligne, cours et inflation ne sont pas récupérés.
 
+## Historique et évolution
+
+Patria garde l'historique, sans détail et dans la base chiffrée du foyer :
+
+- **Montants « à partir du »** : en modifiant un revenu ou une dépense (Gérer), « Nouveau montant valable à partir du » est prérempli au 1er du mois prochain ; l'ancien montant reste avant cette date. Videz le champ pour corriger une simple erreur de saisie.
+- **Un relevé par mois** du foyer (revenus, dépenses, épargne, bourse, immobilier, dettes, score), enregistré à la première visite du mois. Les 36 mois passés sont reconstitués une fois à partir des lignes datées, des soldes d'épargne, des échéanciers et des estimations (marqués « reconstitués » ; la bourse n'y compte que ses espèces).
+- **L'indice des prix INSEE** gardé sur place (depuis 2014), pour corriger les revenus de l'inflation même hors ligne.
+- **Le revenu fiscal de référence année par année.**
+- **Les dépenses réelles** des relevés bancaires importés : totaux par mois et par catégorie seulement ; une opération déjà comptée (même relevé importé deux fois) ne l'est pas deux fois. Aucun libellé n'est gardé.
+- **Les achats et ventes de bourse** des relevés de courtier : la Bourse affiche la **performance réelle** (valeur des titres moins le versé net, achats − ventes ; dividendes non comptés).
+- **Les estimations successives de chaque bien** (fiche du bien → Historique des estimations).
+
+En bas du **Bilan**, **Votre évolution** montre : le **pouvoir d'achat** (revenus réguliers en euros courants et en euros d'aujourd'hui, avec la phrase « Depuis janvier 2021 : revenu mensuel … → …, prix … Pouvoir d'achat : … »), le **patrimoine net**, le **reste à vivre**, les **dépenses prévues face aux réelles**, la **santé financière**, et le **revenu fiscal de référence** par avis. Patrimoine, reste à vivre, prévu/réel et santé financière ne s'affichent qu'à qui voit tout le foyer ; le pouvoir d'achat porte sur les revenus que vous voyez.
+
 ## Revue annuelle et bilan de santé
 
 Le bilan porte par défaut sur votre compte personnel et les comptes joints que vous voyez. Changez les comptes pris en compte dans l'encart **Comptes pris en compte** du bilan. Il signale les grosses sommes ponctuelles (impôts, assurance…) à mensualiser, le mois le plus serré, les virements qui ne couvrent pas un compte joint et les abonnements en double. Cliquez sur une tuile pour aller à la liste correspondante.
 
-Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes et la barre du guide. Le bilan regroupe d'abord tous les points à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
+Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes et la barre du guide. Le bilan regroupe d'abord tous les sujets à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
 
 Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
 

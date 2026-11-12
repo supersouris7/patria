@@ -166,7 +166,7 @@ public final class AuthController {
         Session session = sessions.create(userId, household.getAsLong());
         String secure = request.isHttps() ? "; Secure" : "";
         List<String> cookies = new java.util.ArrayList<>();
-        cookies.add(Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.LIFETIME.toSeconds() + "; HttpOnly; SameSite=Lax" + secure);
+        cookies.add(Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.lifetime().toSeconds() + "; HttpOnly; SameSite=Lax" + secure);
         if (remember) {
             String device = users.trustDevice(userId);
             if (device != null) cookies.add(DEVICE_COOKIE + "=" + device + "; Path=/; Max-Age=" + java.time.Duration.ofDays(DEVICE_DAYS).toSeconds() + "; HttpOnly; SameSite=Lax" + secure);
@@ -265,9 +265,12 @@ public final class AuthController {
                 <form method="post" action="/connexion" class="stack">%s<label>Identifiant
                 <input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label><label>Mot de passe
                 <input name="password" type="password" autocomplete="current-password" required></label>
-                <button type="submit">Ouvrir Patria</button></form><p class="muted login-links">%s<a href="/inscription">Créer un compte</a></p></main>""", Layout.brand(),
+                <button type="submit">Ouvrir Patria</button></form>%s</main>""", Layout.brand(),
                 insecure ? fr.patria.ui.SecurityPages.loginWarning() : Html.EMPTY, Components.notice(notice),
                 next == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"suite\" value=\"%s\">", next),
-                reset ? Html.raw("<a href=\"/connexion/oubli\">Mot de passe oublié ?</a> · ") : Html.EMPTY));
+                // Liens sous le formulaire : « Creer un compte » seulement si les inscriptions sont ouvertes.
+                !reset && !Layout.signupOpen() ? Html.EMPTY : Html.of("<p class=\"muted login-links\">%s%s</p>",
+                        reset ? Html.raw("<a href=\"/connexion/oubli\">Mot de passe oublié ?</a>") : Html.EMPTY,
+                        Layout.signupOpen() ? Html.raw((reset ? " · " : "") + "<a href=\"/inscription\">Créer un compte</a>") : Html.EMPTY)));
     }
 }

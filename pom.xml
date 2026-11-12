@@ -53,7 +53,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
                 <configuration>
-                    <systemPropertyVariables><patria.bcrypt.cost>${patria.test.bcrypt.cost}</patria.bcrypt.cost></systemPropertyVariables>
+                    <systemPropertyVariables><patria.bcrypt.cost>${patria.test.bcrypt.cost}</patria.bcrypt.cost><patria.pwned>off</patria.pwned></systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>

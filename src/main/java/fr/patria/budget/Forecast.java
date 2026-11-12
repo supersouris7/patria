@@ -164,6 +164,18 @@ public final class Forecast {
         this.clock = clock;
     }
 
+    /**
+     * Mois du foyer entier entre {@code from} et {@code to} inclus, passes ou futurs, d'apres les lignes datees (un
+     * montant change « a partir de » une date garde l'ancien avant) : sert a reconstituer l'historique.
+     */
+    public List<Month> months(YearMonth from, YearMonth to) {
+        Data data = load();
+        Scope scope = new Scope(null, null, Set.of(), data);
+        List<Month> result = new ArrayList<>();
+        for (YearMonth month = from; !month.isAfter(to); month = month.plusMonths(1)) result.add(month(month, data, scope));
+        return result;
+    }
+
     /** Previsionnel du foyer entier. */
     public View next12Months() {
         return next12Months(null);

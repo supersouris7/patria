@@ -536,8 +536,18 @@ public final class AccountRepository {
         return !hashes.isEmpty() && BCrypt.checkpw(password == null ? "" : password, hashes.getFirst());
     }
 
+    /** Mot de passe trouve dans des fuites connues (branche au demarrage, sauf hors ligne). */
+    private static volatile java.util.function.Predicate<String> breached = password -> false;
+
+    public static void useBreachCheck(java.util.function.Predicate<String> check) {
+        breached = check;
+    }
+
     private static void checkPassword(String password) {
         if (password == null || password.length() < MIN_PASSWORD) throw new ValidationException("Le mot de passe doit faire au moins " + MIN_PASSWORD + " caractères.");
+        if (breached.test(password)) {
+            throw new ValidationException("Ce mot de passe figure dans des fuites de données connues : choisissez-en un autre (une phrase de quelques mots convient bien).");
+        }
         // bcrypt ne lit que les 72 premiers octets : au-dela, la fin du mot de passe serait ignoree.
         if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
             throw new ValidationException("Le mot de passe est trop long (72 octets au plus, environ 70 caractères sans accents).");
@@ -758,6 +768,7 @@ public final class AccountRepository {
     public void setSignupMode(String mode) {
         database.query(connection -> Sql.update(connection,
                 "INSERT INTO settings (key, value) VALUES ('signup_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", mode));
+        fr.patria.ui.Layout.useSignup("open".equals(mode));
     }
 
     /** Enregistre une demande ; refusee (faux) au-dela de {@code limit} demandes en attente ou si l'identifiant est deja demande. */

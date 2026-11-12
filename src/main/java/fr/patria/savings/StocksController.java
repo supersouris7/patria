@@ -6,7 +6,6 @@ import fr.patria.common.ValidationException;
 import fr.patria.household.HouseholdRepository;
 import fr.patria.household.Person;
 import fr.patria.household.Visibility;
-import fr.patria.ui.Format;
 import fr.patria.ui.Notice;
 import fr.patria.web.FormData;
 import fr.patria.web.Request;
@@ -40,7 +39,7 @@ public final class StocksController {
     }
 
     public void register(Router router) {
-        router.userGet("/bourse", request -> Response.page(StocksPages.page(portfolio(request), request.confirmation(), request.csrf())));
+        router.userGet("/bourse", request -> Response.page(StocksPages.page(portfolio(request), savings.invested(), request.confirmation(), request.csrf())));
         router.userGet("/bourse/ajouter", request -> Response.page(addPage(request, null)));
         router.userPost("/bourse/ajouter", this::add);
         router.userGet("/bourse/importer", request -> Response.page(StocksPages.importForm(portfolio(request).lines(), holders(request), preselect(request), null,
@@ -53,58 +52,29 @@ public final class StocksController {
             savings.deletePosition(position.id());
             return Response.redirect("/bourse?ok=supprime#compte-" + position.accountId());
         });
-        router.userGet("/bourse/graphique", request -> {
-            MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
-            Savings.Overview portfolio = portfolio(request);
-            BigDecimal cash = portfolio.lines().stream().map(Savings.Line::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
-            List<SavingsRepository.Position> positions = portfolio.positions().stream().map(Savings.PositionLine::position).toList();
-            return Response.page(StockCharts.portfolioChart(StockCharts.portfolio(positions, cash, range, symbol -> feeds.history(symbol, range)), range, "/bourse/graphique"));
-        });
-        // Comparaison en base 100 : les lignes entre elles, le portefeuille face a un indice, ou face a l'epargne.
+        // Mon portefeuille face a un indice, ou face au Livret A et a l'inflation.
         router.userGet("/bourse/comparaison", request -> {
             MarketFeeds.Range range = MarketFeeds.Range.parse(request.query("periode"));
-            StockCompare.View view = StockCompare.View.parse(request.query("vue"));
-            StockCompare.Benchmark benchmark = StockCompare.Benchmark.parse(request.query("indice"));
-            Savings.Overview portfolio = portfolio(request);
-            List<Savings.PositionLine> held = portfolio.positions().stream().sorted(java.util.Comparator.comparing(Savings.PositionLine::value).reversed()).toList();
-            List<SavingsRepository.Position> positions = held.stream().map(Savings.PositionLine::position).toList();
+            StockCompare.Target target = StockCompare.Target.parse(request.query("cible"));
+            List<SavingsRepository.Position> positions = portfolio(request).positions().stream().map(Savings.PositionLine::position).toList();
             StockCharts.Series total = StockCharts.portfolio(positions, BigDecimal.ZERO, range, symbol -> feeds.history(symbol, range));
-            // Portefeuille en pointille face a ses propres lignes ; en trait plein face a un indice ou a l'epargne (les taux sont en pointille).
-            StockCompare.Line mine = new StockCompare.Line("Mon portefeuille", total.dates(), total.values(), view == StockCompare.View.LINES);
-            List<StockCompare.Line> lines = new java.util.ArrayList<>();
+            StockCompare.Line mine = new StockCompare.Line("Votre portefeuille", total.dates(), total.values(), false);
+            List<StockCompare.Line> references = new java.util.ArrayList<>();
             String note;
-            switch (view) {
-                case LINES -> {
-                    lines.add(mine);
-                    held.stream().limit(StockCompare.MAX_SERIES - 1).forEach(line -> {
-                        MarketFeeds.History history = feeds.history(line.position().symbol(), range);
-                        lines.add(new StockCompare.Line(line.position().label(), history.dates(), history.closes(), false));
-                    });
-                    note = "Cours de chaque titre dans sa devise de cotation. " + (held.size() > StockCompare.MAX_SERIES - 1
-                            ? "Les " + (StockCompare.MAX_SERIES - 1) + " lignes les plus importantes sont affichées." : "");
+            if (target == StockCompare.Target.SAVINGS) {
+                if (!total.isEmpty()) {
+                    LocalDate start = total.dates().getFirst();
+                    LocalDate end = total.dates().getLast();
+                    RegulatedRates.at(SavingsKind.LIVRET_A, end).ifPresent(rate -> references.add(StockCompare.compounding("le Livret A", start, end, rate.percent())));
+                    feeds.inflation().ifPresent(inflation -> references.add(StockCompare.compounding("l'inflation", start, end, inflation.percent())));
                 }
-                case INDEX -> {
-                    lines.add(mine);
-                    MarketFeeds.History index = feeds.history(benchmark.symbol, range);
-                    lines.add(new StockCompare.Line(benchmark.label, index.dates(), index.closes(), false));
-                    note = "Indice hors dividendes ; portefeuille à sa composition actuelle.";
-                }
-                default -> {
-                    lines.add(mine);
-                    if (!total.isEmpty()) {
-                        LocalDate start = total.dates().getFirst();
-                        LocalDate end = total.dates().getLast();
-                        RegulatedRates.at(SavingsKind.LIVRET_A, end).ifPresent(rate -> lines.add(StockCompare.compounding("Livret A (" + Format.percent(rate.percent()) + ")",
-                                start, end, rate.percent())));
-                        BigDecimal average = savingsController.averageRate(request);
-                        if (average != null) lines.add(StockCompare.compounding("Votre épargne (" + Format.percent(average) + ")", start, end, average));
-                        feeds.inflation().ifPresent(inflation -> lines.add(StockCompare.compounding("Inflation (" + Format.percent(inflation.percent()) + " sur 12 mois)",
-                                start, end, inflation.percent())));
-                    }
-                    note = "Livret A, épargne et inflation à leur taux actuel, capitalisés sur la période : une approximation pour comparer.";
-                }
+                note = "Livret A et inflation à leur taux actuel, appliqués sur toute la période : un ordre de grandeur.";
+            } else {
+                MarketFeeds.History index = feeds.history(target.symbol, range);
+                references.add(new StockCompare.Line(target.label, index.dates(), index.closes(), false));
+                note = "Indice hors dividendes. Portefeuille à sa composition actuelle, aux cours passés.";
             }
-            return Response.page(StockCompare.chart(lines, view, benchmark, range, "/bourse/comparaison", note));
+            return Response.page(StockCompare.chart(mine, references, target, range, "/bourse/comparaison", note));
         });
         router.userGet("/bourse/ligne/{id}/graphique", request -> {
             SavingsRepository.Position position = position(request);
@@ -184,7 +154,9 @@ public final class StocksController {
                 current = savings.positions().stream().filter(position -> position.accountId() == account.id()).toList();
             }
             List<PositionCsv.Row> rows = PositionCsv.parse(content, current, feeds::resolve);
-            return Response.page(StocksPages.preview(name, rows, content, target, cash, request.csrf()));
+            // Achats et ventes dates (performance reelle) : ils voyagent avec l'apercu jusqu'a la validation.
+            String movements = String.join("\n", BrokerExport.movements(text).stream().map(BrokerExport.Movement::line).toList());
+            return Response.page(StocksPages.preview(name, rows, content, target, cash, movements, request.csrf()));
         } catch (ValidationException exception) {
             return Response.invalid(StocksPages.importForm(lines, holders(request), null, Notice.error("Import impossible. " + exception.getMessage()), request.csrf()));
         }
@@ -209,6 +181,12 @@ public final class StocksController {
                 BigDecimal cash = fr.patria.common.CsvText.number(form.raw("especes"));
                 if (cash != null) savings.updateBalance(account.id(), cash.max(BigDecimal.ZERO), LocalDate.now(clock));
             }
+            String movements = new String(java.util.Base64.getUrlDecoder().decode(form.raw("mouvements")), StandardCharsets.UTF_8);
+            try {
+                savings.saveMovements(account.id(), movements.isBlank() ? List.of() : movements.lines().map(BrokerExport.Movement::parse).toList());
+            } catch (RuntimeException exception) {
+                throw new ValidationException("Mouvements illisibles : réimportez le relevé.");
+            }
             return Response.redirect("/bourse?ok=importe#compte-" + account.id());
         } catch (ValidationException exception) {
             return Response.invalid(StocksPages.importForm(portfolio(request).lines(), holders(request), null, Notice.error(exception.getMessage()), request.csrf()));
@@ -226,7 +204,7 @@ public final class StocksController {
             savings.updatePosition(position.id(), quantity, average.multiply(quantity).setScale(2, RoundingMode.HALF_UP));
             return Response.redirect("/bourse?ok=enregistre#compte-" + position.accountId());
         } catch (ValidationException exception) {
-            return Response.invalid(StocksPages.page(portfolio(request), Notice.error(exception.getMessage()), request.csrf()));
+            return Response.invalid(StocksPages.page(portfolio(request), savings.invested(), Notice.error(exception.getMessage()), request.csrf()));
         }
     }
 

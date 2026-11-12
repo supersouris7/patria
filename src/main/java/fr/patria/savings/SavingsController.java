@@ -175,18 +175,9 @@ public final class SavingsController {
             throw new ValidationException("Nombre de parts invalide (1, 1,5, 2, 2,5…).");
         }
         savings.setPreference("rfr", income.setScale(0, RoundingMode.HALF_UP).toPlainString());
+        savings.saveTaxIncome(year, income.setScale(0, RoundingMode.HALF_UP), parts.stripTrailingZeros());
         savings.setPreference("rfr_annee", String.valueOf(year));
         savings.setPreference("parts", parts.stripTrailingZeros().toPlainString());
-    }
-
-    /** Taux moyen de l'epargne visible (hors bourse), pondere par les soldes ; {@code null} sans epargne. */
-    public BigDecimal averageRate(Request request) {
-        Savings.Overview overview = snapshot(request, java.util.Set.of()).overview();
-        List<Savings.Line> lines = overview.lines().stream().filter(line -> !line.account().kind().stocks()).toList();
-        BigDecimal total = lines.stream().map(Savings.Line::value).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (total.signum() <= 0) return null;
-        BigDecimal yearly = lines.stream().map(Savings.Line::yearlyInterest).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return yearly.multiply(BigDecimal.valueOf(100)).divide(total, 2, RoundingMode.HALF_UP);
     }
 
     /** Eligibilite au LEP : deduite du revenu fiscal de reference s'il est connu, sinon la reponse donnee (« oui », « non », vide). */

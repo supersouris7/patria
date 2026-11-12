@@ -19,7 +19,7 @@ import java.util.logging.Logger;
  * fichier est faite automatiquement avant toute migration d'une base existante.
  */
 public final class Migrations {
-    public static final int LATEST = 18;
+    public static final int LATEST = 20;
     private static final Logger LOG = Logger.getLogger(Migrations.class.getName());
 
     private Migrations() {
@@ -55,6 +55,8 @@ public final class Migrations {
             if (version < 16) toVersion16(connection);
             if (version < 17) toVersion17(connection);
             if (version < 18) toVersion18(connection);
+            if (version < 19) toVersion19(connection);
+            if (version < 20) toVersion20(connection);
             return null;
         });
     }
@@ -424,6 +426,96 @@ public final class Migrations {
                     )""");
         }
         setUserVersion(connection, 18);
+    }
+
+    /**
+     * Version 19 : economies realisees (contrat renegocie : montant mensuel avant et apres, pour le compteur) et
+     * objectifs d'epargne illustres (montant vise, compte d'epargne suivi). Ajouts seulement.
+     */
+    private static void toVersion19(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE economies (
+                        id INTEGER PRIMARY KEY,
+                        kind TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        before_monthly INTEGER NOT NULL,
+                        after_monthly INTEGER NOT NULL,
+                        done_on TEXT NOT NULL
+                    )""");
+            statement.execute("""
+                    CREATE TABLE goals (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        emoji TEXT NOT NULL DEFAULT '',
+                        target INTEGER NOT NULL,
+                        account_id INTEGER,
+                        created_on TEXT NOT NULL
+                    )""");
+        }
+        setUserVersion(connection, 19);
+    }
+
+    /**
+     * Version 20 : historique. Releve mensuel (totaux du foyer, {@code rebuilt} : reconstitue apres coup), indice des
+     * prix INSEE garde sur place, revenu fiscal de reference par annee (le dernier saisi est repris), depenses reelles
+     * des releves bancaires (totaux par mois et categorie, empreintes des operations deja comptees, sans libelle),
+     * mouvements de bourse importes, estimations successives des biens (l'actuelle est reprise). Ajouts seulement.
+     */
+    private static void toVersion20(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE monthly_snapshots (
+                        month TEXT PRIMARY KEY,
+                        income INTEGER NOT NULL,
+                        spending INTEGER NOT NULL,
+                        savings INTEGER NOT NULL,
+                        stocks INTEGER NOT NULL,
+                        estate INTEGER NOT NULL,
+                        debts INTEGER NOT NULL,
+                        score INTEGER,
+                        rebuilt INTEGER NOT NULL DEFAULT 0
+                    )""");
+            statement.execute("CREATE TABLE price_index (month TEXT PRIMARY KEY, value TEXT NOT NULL)");
+            statement.execute("CREATE TABLE tax_incomes (year INTEGER PRIMARY KEY, income INTEGER NOT NULL, parts TEXT NOT NULL)");
+            statement.execute("""
+                    INSERT INTO tax_incomes (year, income, parts)
+                    SELECT CAST(y.value AS INTEGER), CAST(r.value AS INTEGER), p.value FROM savings_preferences r
+                    JOIN savings_preferences y ON y.key = 'rfr_annee' JOIN savings_preferences p ON p.key = 'parts'
+                    WHERE r.key = 'rfr' AND r.value <> '' AND y.value <> ''""");
+            statement.execute("""
+                    CREATE TABLE actual_spending (
+                        month TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        amount INTEGER NOT NULL,
+                        PRIMARY KEY (month, category)
+                    )""");
+            statement.execute("CREATE TABLE actual_seen (hash TEXT PRIMARY KEY)");
+            statement.execute("""
+                    CREATE TABLE stock_movements (
+                        hash TEXT PRIMARY KEY,
+                        account_id INTEGER NOT NULL,
+                        day TEXT NOT NULL,
+                        symbol TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        sell INTEGER NOT NULL,
+                        quantity TEXT NOT NULL,
+                        amount INTEGER NOT NULL
+                    )""");
+            statement.execute("""
+                    CREATE TABLE property_estimates (
+                        property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+                        recorded_on TEXT NOT NULL,
+                        low INTEGER,
+                        high INTEGER,
+                        PRIMARY KEY (property_id, recorded_on)
+                    )""");
+            statement.execute("""
+                    INSERT INTO property_estimates (property_id, recorded_on, low, high)
+                    SELECT id, estimate_date, estimate_low_cents, estimate_high_cents FROM properties
+                    WHERE estimate_low_cents IS NOT NULL OR estimate_high_cents IS NOT NULL""");
+        }
+        setUserVersion(connection, 20);
     }
 
     private static void createMarketSales(Statement statement) throws SQLException {

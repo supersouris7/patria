@@ -273,6 +273,16 @@ public final class Components {
                 id, label, id, prompt);
     }
 
+    /**
+     * « A partir de quand ? » d'un montant modifie : prerempli au 1er du mois prochain, l'ancien montant est garde avant
+     * (historique, pouvoir d'achat). Vide : correction de la ligne existante.
+     */
+    public static Html effectiveFrom(java.util.Map<String, String> values, java.time.LocalDate nextMonth) {
+        return Html.of("""
+                <label>Nouveau montant valable à partir du<input type="date" name="effet" value="%s"><span class="help">L'ancien montant reste avant cette date \
+                (historique, pouvoir d'achat). Videz le champ pour corriger une erreur de saisie.</span></label>""", values.getOrDefault("effet", nextMonth.toString()));
+    }
+
     /** Avertissement sur les donnees confiees a un assistant IA commercial. */
     public static Html aiWarning() {
         return Html.raw("""

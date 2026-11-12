@@ -355,7 +355,7 @@ final class BudgetPages {
                 java.util.stream.IntStream.range(0, properties.size()).mapToObj(index -> Html.concat(index == 0 ? Html.EMPTY : Html.raw(" · "),
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 
-        Html content = Html.concat(Components.heading("Gestion", "Dépenses", null, Html.EMPTY), Components.notice(notice),
+        Html content = Html.concat(Components.heading("Gérer", "Dépenses", null, Html.EMPTY), Components.notice(notice),
                 Components.disclosure("Ajouter une dépense", Html.concat(automatic, taxLinks, form), notice != null && notice.error()),
                 Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", Html.concat(Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
                         importForm(csrf)), false),
@@ -475,7 +475,7 @@ final class BudgetPages {
                     back == null ? "/administration/depenses" : back);
         }
         Html page = Html.concat(back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Retour au guide"),
-                Components.heading("Gestion", "Aperçu de l'import", summary, Html.EMPTY),
+                Components.heading("Gérer", "Aperçu de l'import", summary, Html.EMPTY),
                 Components.card("Lignes du fichier", rows.size(), Html.EMPTY, Html.concat(before, Components.table(columns, body, false, false), actions)));
         return Layout.adminSection("Import de dépenses · Patria", csrf, Layout.AdminSection.EXPENSES, page);
     }
@@ -500,7 +500,8 @@ final class BudgetPages {
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/depenses", "Dépenses") : Components.backLink(back, "Budget moyen"),
                 Components.heading("Dépense", item.label(), item.category().label(), Html.EMPTY), Components.notice(notice),
-                Components.card("Dépense", null, Html.EMPTY, Components.formOrView(readOnly, "/depense/" + item.id() + suffix, csrf, fields(values, people), "Enregistrer")),
+                Components.card("Dépense", null, Html.EMPTY, Components.formOrView(readOnly, "/depense/" + item.id() + suffix, csrf,
+                        Html.concat(fields(values, people), Components.effectiveFrom(values, java.time.LocalDate.now().withDayOfMonth(1).plusMonths(1))), "Enregistrer")),
                 readOnly ? Html.EMPTY : Components.dangerZone("Supprimer cette dépense", "Elle ne sera plus comptée dans le budget.", "/depense/" + item.id() + "/supprimer" + suffix,
                         "Supprimer la dépense « " + item.label() + " » ?", "Supprimer la dépense", csrf));
         return Layout.adminSection("Dépense · " + item.label() + " · Patria", csrf, Layout.AdminSection.EXPENSES, content);
@@ -519,7 +520,7 @@ final class BudgetPages {
 
     static Html shares(List<Property> properties, List<Loan> loans, Map<Shares.Key, Map<Long, Integer>> shares, Map<Long, Long> taxPayers,
                        List<Person> people, Notice notice, Rejected rejected, String csrf) {
-        Html heading = Components.heading("Gestion", "Répartition", "Part de chaque personne dans les biens et les prêts : "
+        Html heading = Components.heading("Gérer", "Répartition", "Part de chaque personne dans les biens et les prêts : "
                 + "elle s'applique aux mensualités, charges et loyers dans le budget de chacun.", Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Répartition · Patria", csrf, Layout.AdminSection.SHARES, Html.concat(heading,

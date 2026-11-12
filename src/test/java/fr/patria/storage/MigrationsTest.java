@@ -50,6 +50,12 @@ class MigrationsTest {
             Migrations.apply(database, CLOCK);
             database.query(connection -> {
                 try (Statement statement = connection.createStatement()) {
+                    for (String table : new String[] {"monthly_snapshots", "price_index", "tax_incomes", "actual_spending", "actual_seen", "stock_movements",
+                            "property_estimates"}) {
+                        statement.execute("DROP TABLE " + table);
+                    }
+                    statement.execute("DROP TABLE economies");
+                    statement.execute("DROP TABLE goals");
                     statement.execute("DROP TABLE health_scope");
                     statement.execute("DROP TABLE import_inbox");
                     statement.execute("DROP TABLE savings_history");

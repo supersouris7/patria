@@ -56,7 +56,7 @@ final class WealthPages {
                 Rembourser une mensualité ne change donc presque pas le patrimoine net ; c'est la part de capital remboursée qui l'augmente.</li>
                 <li>La bourse est comptée au cours du jour, les comptes et livrets à leur solde. Les crédits à la consommation ne sont pas comptés : seule leur
                 mensualité est connue.</li></ul>"""), false);
-        Html content = Html.concat(Components.heading("Bilan patrimonial", "Patrimoine", "Ce que vous possédez et ce que vous devez, à la valeur du jour.", Html.EMPTY),
+        Html content = Html.concat(Components.heading("Patrimoine", "Patrimoine", "Ce que vous possédez et ce que vous devez, à la valeur du jour.", Html.EMPTY),
                 tiles, method, composition(assets, totalAssets),
                 Html.of("<div class=\"wealth-grid\">%s%s</div>", table("Ce que vous possédez", assets, totalAssets), table("Ce que vous devez", liabilities, totalLiabilities)));
         return Layout.page("Patrimoine · Patria", Layout.Section.WEALTH, csrf, content);

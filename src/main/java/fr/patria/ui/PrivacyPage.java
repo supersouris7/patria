@@ -21,6 +21,7 @@ public final class PrivacyPage {
                 <tr><td>Banque centrale européenne</td><td>rien de personnel</td><td>taux moyen des crédits, une fois par jour</td></tr>
                 <tr><td>INSEE</td><td>rien de personnel</td><td>indice des prix (inflation), une fois par jour</td></tr>
                 <tr><td>Yahoo Finance</td><td>le code d'une valeur de bourse (ex. AI.PA), jamais la quantité ni le montant</td><td>cours du jour des lignes saisies, au plus une fois par heure</td></tr>
+                <tr><td>Have I Been Pwned</td><td>les 5 premiers caractères de l'empreinte SHA-1 d'un nouveau mot de passe (jamais le mot de passe)</td><td>à la création ou au changement d'un mot de passe, pour refuser un mot de passe déjà fuité</td></tr>
                 <tr><td>ipwho.is</td><td>l'adresse IP d'une connexion (pas l'identifiant)</td><td>une fois par adresse, pour le pays et la ville sur la page Sécurité</td></tr>
                 <tr><td>Google Maps, carte DVF</td><td>les coordonnées d'une vente ou d'un bien</td><td>seulement si vous cliquez sur le lien</td></tr>
                 </tbody></table>

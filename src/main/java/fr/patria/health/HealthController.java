@@ -37,6 +37,20 @@ public final class HealthController {
     private final Clock clock;
     private final SavingsController savings;
 
+    /** Points du bilan venus de la page Economies (contrats a renegocier) ; branche par l'assemblage du foyer. */
+    private java.util.function.Function<Request, List<Check>> economyChecks = request -> List.of();
+
+    void useEconomyChecks(java.util.function.Function<Request, List<Check>> checks) {
+        economyChecks = checks;
+    }
+
+    /** Section « Votre evolution » en bas du Bilan ; branchee par l'assemblage du foyer. */
+    private java.util.function.Function<Request, Html> evolution = request -> Html.EMPTY;
+
+    void useEvolution(java.util.function.Function<Request, Html> section) {
+        evolution = section;
+    }
+
     public HealthController(Forecast forecast, HouseholdRepository household, Portfolio portfolio, HealthRepository preferences,
                             fr.patria.household.HealthScopeRepository scopes, SavingsController savings,
                             Supplier<Renegotiation.Reference> rates, Clock clock) {
@@ -53,7 +67,7 @@ public final class HealthController {
     public void register(Router router) {
         router.userGet("/bilan", request -> {
             Report report = report(request);
-            return Response.page(HealthPages.page(report.owner(), report.checks(), report.ignored(), report.estate(), scopeForm(request), request.csrf()));
+            return Response.page(HealthPages.page(report.owner(), report.checks(), report.ignored(), report.estate(), scopeForm(request), evolution.apply(request), request.csrf()));
         });
         router.userGet("/bilan.pdf", request -> {
             Report report = report(request);
@@ -118,6 +132,14 @@ public final class HealthController {
         List<Check> audit = HealthSavings.audit(saved, today);
         if (!saved.overview().isEmpty()) checks.removeIf(check -> check.id().equals("savings"));
         checks.addAll(audit);
+        // Pouvoir d'achat en baisse et salaire jamais mis a jour disent la meme chose : une seule alerte, qui rappelle la mise a jour.
+        if (checks.stream().anyMatch(check -> check.id().equals("purchasing-power") && check.level() == Check.Level.WARN)
+                && checks.removeIf(check -> check.id().equals("salary-outdated"))) {
+            checks.replaceAll(check -> !check.id().equals("purchasing-power") ? check : new Check(check.id(), check.domain(), check.level(), check.title(),
+                    check.detail() + " Salaire changé depuis plus d'un an ? Mettez-le d'abord à jour.", check.link(), check.linkLabel()));
+        }
+        // Chasse aux economies : les contrats ou un gain est possible (page Economies).
+        checks.addAll(economyChecks.apply(request));
         String owner = !scope.isEmpty() ? "Bilan de " + String.join(", ", people.stream().filter(person -> scope.contains(person.id())).map(fr.patria.household.Person::name).toList())
                 : view.person() == null ? "Budget du foyer" : "Budget de " + view.person().name();
         Set<String> ignored = preferences.ignored(request.viewer().userId());

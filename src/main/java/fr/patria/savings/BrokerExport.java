@@ -30,6 +30,8 @@ final class BrokerExport {
     private static final List<String> AMOUNT = List.of("total amount", "montant en eur", "montant", "amount", "total", "value", "valeur", "subtotal", "betrag");
     private static final List<String> FEE = List.of("fee", "fees", "frais", "frais de courtage", "gebuhr");
     private static final List<String> TYPE = List.of("type", "category", "action", "sens", "transaction type", "operation", "typ");
+    private static final List<String> DATE = List.of("date", "datetime", "timestamp", "date operation", "date d'execution", "execution date", "time", "datum");
+    private static final List<String> ID = List.of("transaction_id", "transaction id", "id", "reference", "order id");
     private static final List<String> SELL = List.of("sell", "vente", "verkauf", "cession");
     private static final List<String> BUY = List.of("buy", "achat", "kauf", "purchase", "savings plan", "sparplan", "plan d'investissement", "reward", "staking", "receive");
 
@@ -90,6 +92,78 @@ final class BrokerExport {
                     + position[1].max(new BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP).toPlainString());
         });
         return out.isEmpty() ? Optional.empty() : Optional.of(String.join("\n", out));
+    }
+
+    /** Achat ou vente d'un releve de courtier : jour, titre, sens, quantite, montant ; {@code key} : identifiant stable. */
+    record Movement(java.time.LocalDate day, String symbol, String name, boolean sell, BigDecimal quantity, BigDecimal amount, String key) {
+        String line() {
+            return day + ";" + symbol + ";" + name.replace(";", " ") + ";" + (sell ? 1 : 0) + ";" + quantity.stripTrailingZeros().toPlainString() + ";"
+                    + amount.setScale(2, RoundingMode.HALF_UP).toPlainString() + ";" + key;
+        }
+
+        static Movement parse(String line) {
+            String[] cells = line.split(";", -1);
+            return new Movement(java.time.LocalDate.parse(cells[0]), cells[1], cells[2], cells[3].equals("1"), new BigDecimal(cells[4]), new BigDecimal(cells[5]), cells[6]);
+        }
+    }
+
+    /**
+     * Mouvements dates d'un releve (achats et ventes), pour la performance reelle (verse net face a la valeur). Vide si le
+     * fichier n'a pas de colonne de date.
+     */
+    static List<Movement> movements(String text) {
+        String[] all = text.replace("\r\n", "\n").split("\n");
+        int start = 0;
+        while (start < Math.min(all.length, 10) && !isHeader(all[start])) start++;
+        if (start >= Math.min(all.length, 10)) return List.of();
+        String[] lines = Arrays.copyOfRange(all, start, all.length);
+        char separator = CsvText.separator(lines[0]);
+        List<String> header = CsvText.cells(lines[0], separator).stream().map(CsvText::normalize).toList();
+        int date = CsvText.column(header, DATE);
+        if (date < 0) return List.of();
+        int code = CsvText.column(header, CODE);
+        int quantity = CsvText.column(header, QUANTITY);
+        int name = CsvText.column(header, NAME);
+        int amount = CsvText.column(header, AMOUNT);
+        int fee = CsvText.column(header, FEE);
+        int type = CsvText.column(header, TYPE);
+        int id = CsvText.column(header, ID);
+        List<Movement> result = new ArrayList<>();
+        Map<String, Integer> seen = new java.util.HashMap<>();
+        for (int index = 1; index < lines.length; index++) {
+            if (lines[index].isBlank()) continue;
+            List<String> row = CsvText.cells(lines[index], separator);
+            String symbol = pairBase(CsvText.cell(row, code).toUpperCase(Locale.ROOT).strip());
+            BigDecimal shares = CsvText.number(CsvText.cell(row, quantity));
+            java.time.LocalDate day = day(CsvText.cell(row, date));
+            if (symbol.isEmpty() || shares == null || shares.signum() == 0 || day == null) continue;
+            String kind = CsvText.normalize(CsvText.cell(row, type));
+            boolean sell;
+            if (type < 0 || kind.isEmpty()) sell = shares.signum() < 0;
+            else if (SELL.stream().anyMatch(kind::contains)) sell = true;
+            else if (BUY.stream().anyMatch(kind::contains)) sell = shares.signum() < 0;
+            else continue;
+            BigDecimal value = Optional.ofNullable(CsvText.number(CsvText.cell(row, amount))).orElse(BigDecimal.ZERO).abs()
+                    .add(sell ? BigDecimal.ZERO : Optional.ofNullable(CsvText.number(CsvText.cell(row, fee))).orElse(BigDecimal.ZERO).abs());
+            String label = name < 0 || CsvText.cell(row, name).isBlank() ? symbol : CsvText.cell(row, name);
+            String natural = day + "|" + symbol + "|" + sell + "|" + shares.abs().stripTrailingZeros().toPlainString() + "|" + value.setScale(2, RoundingMode.HALF_UP);
+            // Identifiant du courtier s'il existe ; sinon le contenu de la ligne, et son rang parmi les lignes identiques.
+            String key = id >= 0 && !CsvText.cell(row, id).isBlank() ? "id:" + CsvText.cell(row, id).strip() : natural + "|" + seen.merge(natural, 1, Integer::sum);
+            result.add(new Movement(day, yahoo(symbol), label, sell, shares.abs(), value, key.replace(";", ",")));
+        }
+        return result;
+    }
+
+    /** Jour d'une cellule de date : AAAA-MM-JJ (avec ou sans heure) ou JJ/MM/AAAA ; vide sinon. */
+    private static java.time.LocalDate day(String value) {
+        String text = value == null ? "" : value.strip();
+        try {
+            if (text.matches("\\d{4}-\\d{2}-\\d{2}.*")) return java.time.LocalDate.parse(text.substring(0, 10));
+            if (text.matches("\\d{2}/\\d{2}/\\d{4}.*")) return java.time.LocalDate.parse(text.substring(0, 10), java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } catch (java.time.format.DateTimeParseException exception) {
+            return null;
+        }
+        return null;
     }
 
     /**

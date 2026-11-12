@@ -27,7 +27,7 @@ final class HouseholdPages {
         Html membersCard = Html.of("<div id=\"membres\">%s</div>", Components.card("Membres du budget", members.size(), Html.EMPTY, Html.concat(Html.raw(
                 "<p class=\"muted\">Les personnes et comptes joints qui ont des revenus et des dépenses. Un membre n'est pas forcément un compte : un enfant, "
                         + "par exemple, n'en a pas.</p>"), chips, addMember)));
-        Html content = Html.concat(Components.heading("Gestionnaire", household.name(), "Membres, droits et invitations de votre foyer.", Html.EMPTY),
+        Html content = Html.concat(Components.heading("Gérer", household.name(), "Membres, droits et invitations de votre foyer.", Html.EMPTY),
                 Components.notice(notice), link == null ? Html.EMPTY : Html.of("""
                         <p class="notice success invite-link"><label>Lien d'invitation<input value="%s" readonly></label></p>""", link),
                 membersCard, rights(household, members, accesses, self, csrf, photos, selfMembers), invitations(members, invitations, closed, csrf),
@@ -73,9 +73,9 @@ final class HouseholdPages {
                 <li><b>Totaux du foyer</b> : le total de tous les membres (les lignes des membres non cochés y apparaissent « Ligne masquée ») et les
                 réglages communs.</li>
                 <li><b>Immobilier</b> : biens, prêts, apports, charges et répartition.</li>
-                <li><b>Gestionnaire</b> : règle les membres, ce tableau et les invitations. Cela ne change pas ce qu'il voit : vos propres cases aussi
-                se décochent (par exemple, ne pas voir les comptes de votre conjoint). Il reste toujours au moins un gestionnaire.</li>
-                <li>Aucune case cochée : le compte n'a plus accès au foyer. Chacun voit le résumé de ce tableau dans l'icône « i » de l'en-tête.</li></ul>
+                <li><b>Gestionnaire</b> : règle les membres, ce tableau et les invitations, sans voir davantage : ses propres cases se décochent aussi.
+                Il reste toujours au moins un gestionnaire.</li>
+                <li>Aucune case cochée : plus d'accès au foyer. Chacun retrouve ses droits dans l'icône « i » de l'en-tête.</li></ul>
                 <div class="form-actions"><button type="submit">Enregistrer les droits</button></div></form>""",
                 Components.csrfField(csrf), Html.raw(head.toString()), rows)));
     }

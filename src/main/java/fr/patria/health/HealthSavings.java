@@ -104,8 +104,8 @@ final class HealthSavings {
             }
             if (loss.compareTo(BigDecimal.TEN) >= 0) {
                 checks.add(Check.of("savings-inflation", Domain.SAVINGS, Level.INFO, "Livrets sous l'inflation (" + Format.signedPercent(inflation.percent()) + ")",
-                        euroWhole(below) + " rapportent moins que la hausse des prix : environ " + euroWhole(loss) + " de pouvoir d'achat perdu par an. C'est le prix de la "
-                                + "disponibilité pour l'épargne de précaution ; au-delà de l'objectif, le long terme (assurance-vie, PEA) vise mieux, avec un risque.")
+                        euroWhole(below) + " rapportent moins que la hausse des prix : environ " + euroWhole(loss) + " de pouvoir d'achat perdus par an. Normal pour l'épargne de précaution ; "
+                                + "au-delà, l'assurance-vie ou le PEA rapportent mieux, avec un risque.")
                         .link(LINK, "Voir mes livrets"));
             }
         });
@@ -163,7 +163,7 @@ final class HealthSavings {
                 "Pouvoir d'achat : " + Format.signedPercent(power.power()) + " en un an",
                 "Revenus : " + euroWhole(power.yearAgo()) + " → " + euroWhole(power.now()) + " par mois (" + Format.signedPercent(power.income()) + "), prix : "
                         + Format.signedPercent(power.inflation()) + " (INSEE)." + (power.power().signum() < 0
-                        ? " Vos revenus progressent moins vite que les prix : un point à aborder lors d'une revue de salaire, ou dans le budget." : ""))
+                        ? " Vos revenus suivent moins vite que les prix : à aborder lors d'une revue de salaire." : ""))
                 .link("/administration/revenus", "Voir les revenus"));
     }
 

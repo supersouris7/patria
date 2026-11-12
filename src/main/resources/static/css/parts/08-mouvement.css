@@ -1,0 +1,117 @@
+/* Copyright (c) 2026 William Iv. SPDX-License-Identifier: Elastic-2.0 (voir LICENSE) */
+/* Mouvement : sobre et rapide, coupe entierement quand l'appareil demande moins d'animations. */
+:root { --ease: cubic-bezier(.2, .7, .2, 1); --fast: 160ms; --mid: 280ms; interpolate-size: allow-keywords; }
+
+/* Passage d'une page a l'autre : fondu court, l'en-tete reste en place. */
+@view-transition { navigation: auto; }
+.topbar { view-transition-name: topbar; }
+::view-transition-old(root) { animation: fade-out 120ms var(--ease) both; }
+::view-transition-new(root) { animation: fade-in 220ms var(--ease) both; }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* Reactions au survol et a l'appui. */
+button, .button, .segmented a, .nav-menu > summary, .nav-entries a, .choice-card, .contract > summary, .metric, .badge-card, .mission, .level-pill,
+.import-method > summary, .audience > summary {
+    transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+        box-shadow var(--mid) var(--ease), transform var(--fast) var(--ease), opacity var(--mid) var(--ease);
+}
+button:active, .button:active, .segmented a:active, .nav-menu > summary:active { transform: scale(.97); }
+a.metric:hover, .choice-card:hover, .contract > summary:hover, .import-method > summary:hover { transform: translateY(-1px); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* Depliants qui s'ouvrent en douceur (navigateurs recents ; ailleurs, ouverture directe). */
+details::details-content { block-size: 0; overflow: clip; transition: block-size var(--mid) var(--ease), content-visibility var(--mid) allow-discrete; }
+details[open]::details-content { block-size: auto; }
+
+/* Menus, bulles et panneaux. */
+.nav-menu[open] > .nav-panel, .audience[open] .audience-panel, .tour { animation: drop var(--mid) var(--ease); }
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
+.notice, .guide-strip, .compare-verdict { animation: fade-in var(--mid) var(--ease); }
+
+/* Apparition au defilement (seulement ce qui est hors de l'ecran au chargement). */
+.reveal { opacity: 0; transform: translateY(12px); }
+.reveal.shown { opacity: 1; transform: none; transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+
+/* Courbes qui se dessinent, barres qui se remplissent. */
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 900ms var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.progress > span { transition: width 800ms var(--ease); }
+.progress.from-zero > span { width: 0 !important; }
+
+/* Chargement d'un fragment : reflet discret plutot qu'un texte qui saute. */
+[data-fragment-src]:not([data-loaded]) > .muted:only-child { background: linear-gradient(90deg, transparent, var(--surface-raised), transparent) 0 0 / 200% 100%;
+    animation: shimmer 1.4s linear infinite; border-radius: 6px; color: transparent; min-height: 180px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Pastille de niveau dans l'en-tete. */
+.level-pill { align-items: center; border: 1px solid var(--line); border-radius: 999px; color: var(--text-soft); display: inline-flex; font-size: .78rem; font-weight: 700;
+    gap: 6px; min-height: 32px; padding: 2px 10px 2px 4px; position: relative; text-decoration: none; }
+.level-pill b { align-items: center; background: var(--blue-deep); border-radius: 50%; color: #fff; display: inline-flex; font-size: .72rem; height: 24px;
+    justify-content: center; width: 24px; }
+.level-pill i { background: var(--blue); border-radius: 2px; bottom: -1px; height: 2px; left: 14px; position: absolute; transition: width 800ms var(--ease); }
+.level-pill:hover { border-color: var(--blue); color: var(--text); }
+@media (max-width: 760px) { .level-pill span { display: none; } .level-pill { padding-right: 4px; } }
+
+/* Niveau, missions, series (page Economies). */
+.level-card { align-items: center; display: flex; gap: 18px; margin-bottom: 16px; padding: 18px 22px; }
+.level-badge { align-items: center; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); border-radius: 50%; color: #fff; display: flex; flex: none;
+    font-size: 1.6rem; font-weight: 800; height: 64px; justify-content: center; width: 64px; }
+.level-text { flex: 1; }
+.level-text h2 { margin: 0 0 8px; }
+.missions { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.mission { border: 1px solid var(--line); border-radius: var(--radius-small); display: grid; gap: 8px; padding: 14px; }
+.mission.done { border-color: var(--status-good); }
+.mission-head { align-items: center; display: flex; gap: 10px; }
+.mission-head div { flex: 1; }
+.mission-head b, .mission-head small { display: block; }
+.mission-head small { color: var(--muted); }
+.mission-icon { font-size: 1.5rem; }
+.mission-steps { display: grid; gap: 3px; list-style: none; margin: 0; padding: 0; }
+.mission-steps li { color: var(--text-soft); display: flex; font-size: .88rem; gap: 6px; }
+.mission-steps li.done { color: var(--muted); text-decoration: line-through; }
+.mission-steps li.done span { color: var(--status-good); }
+.streaks { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.streak { border: 1px solid var(--line); border-radius: var(--radius-small); display: grid; gap: 2px; padding: 12px; }
+.streak span { font-size: 1.3rem; filter: grayscale(1); opacity: .6; }
+.streak.on { border-color: var(--blue); }
+.streak.on span { filter: none; opacity: 1; }
+.streak b { font-size: 1.2rem; }
+.streak small { color: var(--text-soft); font-weight: 700; }
+.streak em { color: var(--muted); font-size: .78rem; font-style: normal; }
+
+/* Celebration : un message en bas, quelques confettis. */
+/* Pile des messages : plusieurs nouveautes a la fois s'empilent au lieu de se recouvrir. */
+.toasts { align-items: center; bottom: 20px; display: flex; flex-direction: column; gap: 8px; left: 16px; pointer-events: none; position: fixed; right: 16px; z-index: 80; }
+.toast { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: 0 16px 40px #0004; max-width: 100%; padding: 12px 18px;
+    pointer-events: auto; text-align: center; animation: toast-in 320ms var(--ease); }
+.toast.leaving { opacity: 0; transform: translateY(8px); transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
+.confetti { border-radius: 2px; height: 10px; left: 0; pointer-events: none; position: fixed; top: 0; width: 6px; z-index: 79; }
+
+/* Tableaux en cartes sur smartphone : chaque ligne devient une fiche, chaque valeur avec son intitule. */
+@media (max-width: 600px) {
+    table.data thead { display: none; }
+    table.data, table.data tbody, table.data tr, table.data td, table.data tfoot { display: block; width: 100%; }
+    table.data tr { border: 1px solid var(--line); border-radius: var(--radius-small); margin-bottom: 10px; padding: 8px 12px; }
+    table.data td { align-items: baseline; border: 0; display: flex; gap: 12px; justify-content: space-between; padding: 4px 0; text-align: right; }
+    table.data td::before { color: var(--muted); content: attr(data-label); font-size: .78rem; font-weight: 700; text-align: left; }
+    table.data td[data-label=""]::before { content: none; }
+    table.data td:first-child { font-weight: 700; justify-content: flex-start; text-align: left; }
+    table.data td:first-child::before { content: none; }
+    .table-wrap { overflow: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    .reveal { opacity: 1; transform: none; }
+    .draw { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+
+/* Impression : tout est visible, meme ce qui n'est pas encore apparu au defilement. */
+@media print {
+    .reveal { opacity: 1 !important; transform: none !important; }
+    .draw { stroke-dashoffset: 0 !important; }
+    .toasts, .confetti, .level-pill { display: none !important; }
+}

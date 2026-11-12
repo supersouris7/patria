@@ -43,7 +43,7 @@ final class TransferPages {
         List<Person> people = visibility.everyone();
         List<Person> formPeople = visibility.people();
         List<Transfer> transfers = allTransfers.stream().filter(transfer -> visibility.canSeeAny(transfer.fromId(), transfer.toId())).toList();
-        Html heading = Components.heading("Gestion", "Virements", EXPLANATION, Html.EMPTY);
+        Html heading = Components.heading("Gérer", "Virements", EXPLANATION, Html.EMPTY);
         if (people.size() < 2) {
             return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, Html.concat(heading, Components.notice(notice),
                     Components.emptyState("Un seul membre dans le foyer", "Un virement va d'un membre à un autre : demandez au gestionnaire du foyer d'ajouter un compte joint ou une deuxième personne.",

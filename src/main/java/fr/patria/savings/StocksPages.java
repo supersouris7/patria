@@ -40,8 +40,13 @@ final class StocksPages {
     // ---- Page principale ----
 
     static Html page(Savings.Overview portfolio, Notice notice, String csrf) {
+        return page(portfolio, java.util.Map.of(), notice, csrf);
+    }
+
+    /** {@code invested} : verse net (achats − ventes) par compte, d'apres les mouvements importes. */
+    static Html page(Savings.Overview portfolio, java.util.Map<Long, SavingsRepository.Invested> invested, Notice notice, String csrf) {
         Html actions = Html.concat(Components.button("/bourse/ajouter", "Ajouter un titre"), Components.secondaryButton("/bourse/importer", "Importer un relevé"));
-        Html heading = Components.heading("Vos placements en bourse", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", portfolio.isEmpty() ? Html.EMPTY : actions);
+        Html heading = Components.heading("Patrimoine", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", portfolio.isEmpty() ? Html.EMPTY : actions);
         if (portfolio.isEmpty()) {
             return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), Html.raw("""
                     <section class="stock-start"><a class="card stock-choice" href="/bourse/importer"><b>Importer un relevé</b><span>Déposez l'export de votre courtier
@@ -59,13 +64,21 @@ final class StocksPages {
                         cost.signum() == 0 ? null : Format.signedPercent(percent(gain, cost)) + " depuis l'achat"),
                 tile("Investi", "Ce que les titres détenus ont coûté (prix de revient).", euroWhole(cost), "", Format.plural(portfolio.positions().size(), "titre", "titres")),
                 tile("Espèces", "Argent déposé chez les courtiers, pas encore investi.", euroWhole(cash), "", null));
-        Html chart = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Évolution du portefeuille", null, Html.EMPTY, Html.raw(
-                "<div data-fragment-src=\"/bourse/graphique\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"
-                        + "<p class=\"muted small\">Titres actuels valorisés aux cours passés : la courbe ignore les dates d'achat.</p>"));
         Html compare = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Comparer les performances", null, Html.EMPTY, Html.raw(
                 "<div data-fragment-src=\"/bourse/comparaison\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"));
+        // Performance reelle : ce que les titres valent face a ce qui a ete verse (achats − ventes importes), compte par compte.
+        Html real = portfolio.lines().stream().filter(line -> invested.containsKey(line.account().id())).map(line -> {
+            SavingsRepository.Invested in = invested.get(line.account().id());
+            BigDecimal titles = line.positions().stream().map(Savings.PositionLine::value).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal gainReal = titles.subtract(in.net());
+            return Html.of("<li><b>%s</b> : versé net %s depuis le %s, titres %s aujourd'hui → <b class=\"%s\">%s</b> <span class=\"muted\">(%s mouvements importés)</span></li>",
+                    line.account().name(), euroWhole(in.net()), Format.date(in.since()), euroWhole(titles), tone(gainReal), Format.signedEuroWhole(gainReal), in.count());
+        }).collect(Html.joining());
+        Html realCard = real.isEmpty() ? Html.EMPTY : Components.card("Performance réelle", null, Html.EMPTY, Html.of("""
+                <p class="muted">D'après les achats et ventes de vos relevés importés : ce que vos titres valent, moins ce que vous y avez mis. Dividendes non comptés.</p>\
+                <ul class="plain-list">%s</ul>""", real));
         Html accounts = portfolio.lines().stream().map(line -> account(line, csrf)).collect(Html.joining());
-        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), tiles, chart, compare, accounts,
+        return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), tiles, compare, realCard, accounts,
                 Html.raw("<p class=\"muted small\">Cours Yahoo Finance, en différé. Valeur indicative : un placement en bourse peut perdre de la valeur. "
                         + "Pas un conseil en investissement.</p>")));
     }
@@ -180,7 +193,7 @@ final class StocksPages {
     }
 
     /** Apercu : une case par titre ; le compte de destination voyage avec le contenu jusqu'a la validation. */
-    static Html preview(String accountName, List<PositionCsv.Row> rows, String content, Target target, BigDecimal cash, String csrf) {
+    static Html preview(String accountName, List<PositionCsv.Row> rows, String content, Target target, BigDecimal cash, String movements, String csrf) {
         long fresh = rows.stream().filter(PositionCsv.Row::fresh).count();
         Html body = rows.stream().map(row -> row.valid() ? Html.of("<tr><td>%s</td><td>%s</td><td><code>%s</code>%s</td><td class=\"num\">%s</td><td class=\"num\">%s</td><td>%s</td></tr>",
                 row.fresh() ? Html.of("<input type=\"checkbox\" name=\"importer_%s\" value=\"on\" form=\"positions-import\" checked aria-label=\"Importer %s\">", row.line(), row.label())
@@ -196,9 +209,10 @@ final class StocksPages {
         boolean withoutQuote = rows.stream().anyMatch(row -> row.valid() && PositionCsv.isIsin(row.symbol()));
         Html actions = fresh == 0 ? Html.raw("<p class=\"muted\">Rien de nouveau à importer.</p>") : Html.of("""
                 <form id="positions-import" method="post" action="/bourse/importer/valider" class="form-actions">%s<input type="hidden" name="contenu" value="%s">\
+                <input type="hidden" name="mouvements" value="%s">\
                 <input type="hidden" name="compte" value="%s"><input type="hidden" name="compte_type" value="%s"><input type="hidden" name="compte_nom" value="%s">\
                 <input type="hidden" name="titulaire" value="%s">%s<a class="button secondary" href="/bourse/importer">Annuler</a><button type="submit">Importer la sélection</button></form>""",
-                Components.csrfField(csrf), encoded, target.account(), target.type(), target.name(), target.holder(), cash == null ? Html.EMPTY : Html.of("""
+                Components.csrfField(csrf), encoded, java.util.Base64.getUrlEncoder().encodeToString(movements.getBytes(java.nio.charset.StandardCharsets.UTF_8)), target.account(), target.type(), target.name(), target.holder(), cash == null ? Html.EMPTY : Html.of("""
                         <input type="hidden" name="especes" value="%s"><label class="check"><input type="checkbox" name="maj_especes" value="on" checked> Espèces du compte : \
                         %s d'après le relevé (versements − achats + ventes, dividendes, frais et impôts)</label>""", cash.toPlainString(), Format.euro(cash)));
         return Layout.page("Aperçu de l'import · Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(Components.backLink("/bourse/importer", "Importer un relevé"),

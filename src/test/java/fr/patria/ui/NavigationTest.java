@@ -35,8 +35,8 @@ class NavigationTest {
             assertTrue(management.contains("Recherche globale"));
             assertTrue(management.contains("href=\"/immobilier/prets\""));
             assertTrue(management.contains("href=\"/immobilier/taxe-fonciere\""));
-            assertTrue(management.indexOf(">Immobilier</a>") < management.indexOf(">Gérer</a>"));
-            assertTrue(management.indexOf(">Gérer</a>") < management.indexOf("aria-label=\"Bilan de santé\""));
+            assertTrue(management.indexOf(">Patrimoine</a>") < management.indexOf(">Économies</a>"));
+            assertTrue(management.indexOf("aria-label=\"Bilan de santé\"") < management.indexOf(">Gérer</a>"), "cinq entrées, Gérer en dernier");
             assertTrue(management.indexOf("class=\"audience\"") < management.indexOf("class=\"account-link"));
             assertTrue(management.contains("aria-label=\"Menu principal\""));
             assertTrue(management.indexOf("class=\"account-link") < management.indexOf("action=\"/deconnexion\""));

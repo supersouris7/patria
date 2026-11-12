@@ -8,6 +8,7 @@ import fr.patria.storage.Sql;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,10 +29,32 @@ public final class PropertyRepository {
     }
 
     public long insert(Property property) {
-        return database.query(connection -> Sql.insert(connection, """
+        long id = database.query(connection -> Sql.insert(connection, """
                 INSERT INTO properties (name, kind, commune, address, area, purchase_cents, purchase_date, estimate_low_cents,
                     estimate_high_cents, estimate_date, sale_fees_rate, selected_value_cents)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", values(property)));
+        recordEstimate(id, property);
+        return id;
+    }
+
+    /** Historique des estimations : une ligne par date d'estimation (la derniere du jour l'emporte). */
+    private void recordEstimate(long id, Property property) {
+        if (property.estimateLow() == null && property.estimateHigh() == null) return;
+        database.query(connection -> Sql.update(connection, """
+                INSERT INTO property_estimates (property_id, recorded_on, low, high) VALUES (?, ?, ?, ?)
+                ON CONFLICT(property_id, recorded_on) DO UPDATE SET low = excluded.low, high = excluded.high""",
+                id, property.estimateDate(), cents(property.estimateLow()), cents(property.estimateHigh())));
+    }
+
+    /** Estimation d'un bien a une date : date, basse, haute. */
+    public record Estimate(LocalDate on, BigDecimal low, BigDecimal high) {
+    }
+
+    /** Estimations successives d'un bien, de la plus ancienne a la plus recente. */
+    public List<Estimate> estimates(long propertyId) {
+        return database.query(connection -> Sql.list(connection, "SELECT recorded_on, low, high FROM property_estimates WHERE property_id = ? ORDER BY recorded_on",
+                row -> new Estimate(LocalDate.parse(row.getString(1)), row.getObject(2) == null ? null : BigDecimal.valueOf(row.getLong(2), 2),
+                        row.getObject(3) == null ? null : BigDecimal.valueOf(row.getLong(3), 2)), propertyId));
     }
 
     public void update(Property property) {
@@ -42,6 +65,7 @@ public final class PropertyRepository {
                 UPDATE properties SET name = ?, kind = ?, commune = ?, address = ?, area = ?, purchase_cents = ?, purchase_date = ?,
                     estimate_low_cents = ?, estimate_high_cents = ?, estimate_date = ?, sale_fees_rate = ?, selected_value_cents = ?
                 WHERE id = ?""", parameters));
+        recordEstimate(property.id(), property);
     }
 
     public void updateSelectedValue(long id, BigDecimal value) {

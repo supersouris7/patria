@@ -45,7 +45,7 @@ final class PropertyPages {
                         Html.raw("<p class=\"muted\">Valeur nette indicative = valeur retenue − frais de vente et fiscalité − capital restant dû.</p>"))));
         if (creating) {
             Html content = Html.concat(Components.backLink("/administration/biens", "Biens et prêts"),
-                    Components.heading("Gestion", "Nouveau bien", null, Html.EMPTY), Components.notice(notice),
+                    Components.heading("Gérer", "Nouveau bien", null, Html.EMPTY), Components.notice(notice),
                     Components.form("/bien", csrf, false, fields, "Créer le bien"));
             return Layout.adminSection("Nouveau bien · Patria", csrf, Layout.AdminSection.PROPERTIES, content);
         }

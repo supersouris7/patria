@@ -67,6 +67,59 @@ public final class WizardRepository {
         });
     }
 
+    /** Dernier import (fichier de la banque ou reponse d'une IA) : sa date, pour le rappel mensuel. */
+    private static final String LAST_IMPORT = "LAST_IMPORT";
+    /** Banque retenue pour les rappels : une ligne « BANK:<nom> ». */
+    private static final String BANK = "BANK:";
+
+    /** Rappel d'import a montrer : 30 jours apres le dernier import, et pas dans les 30 jours qui suivent un « × ». */
+    Long importDue(String owner, LocalDate today) {
+        LocalDate last = lastImport(owner);
+        if (last == null || last.plusDays(30).isAfter(today)) return null;
+        LocalDate hidden = database.query(connection -> Sql.list(connection, "SELECT updated_on FROM wizard_steps WHERE owner = ? AND step = ?",
+                row -> LocalDate.parse(row.getString(1)), owner, BANNER_HIDDEN)).stream().findFirst().orElse(null);
+        if (hidden != null && hidden.plusDays(30).isAfter(today)) return null;
+        return java.time.temporal.ChronoUnit.DAYS.between(last, today);
+    }
+
+    void markImported(String owner, LocalDate today) {
+        database.query(connection -> Sql.update(connection, """
+                INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)
+                ON CONFLICT (owner, step) DO UPDATE SET updated_on = excluded.updated_on""", owner, LAST_IMPORT, today));
+    }
+
+    LocalDate lastImport(String owner) {
+        return database.query(connection -> Sql.list(connection, "SELECT updated_on FROM wizard_steps WHERE owner = ? AND step = ?",
+                row -> LocalDate.parse(row.getString(1)), owner, LAST_IMPORT)).stream().findFirst().orElse(null);
+    }
+
+    void setBank(String owner, String bank, LocalDate today) {
+        database.transaction(connection -> {
+            Sql.update(connection, "DELETE FROM wizard_steps WHERE owner = ? AND step LIKE 'BANK:%'", owner);
+            Sql.update(connection, "INSERT INTO wizard_steps (owner, step, status, updated_on) VALUES (?, ?, 'DONE', ?)", owner, BANK + bank, today);
+            return null;
+        });
+    }
+
+    /** Banque retenue (derniere recherche « ou trouver » qui a abouti), {@code null} sinon. */
+    String bank(String owner) {
+        return database.query(connection -> Sql.list(connection, "SELECT step FROM wizard_steps WHERE owner = ? AND step LIKE 'BANK:%'",
+                row -> row.getString(1).substring(BANK.length()), owner)).stream().findFirst().orElse(null);
+    }
+
+    /**
+     * Rappel mensuel d'import : 30 jours ou plus depuis le dernier import (rien tant qu'aucun import n'a eu lieu). JSON
+     * pour la barre des pages ; {@code null} sinon.
+     */
+    public String importReminderJson(long userId, LocalDate today) {
+        String owner = "user:" + userId;
+        Long days = importDue(owner, today);
+        if (days == null) return "null";
+        String bank = bank(owner);
+        return "{\"days\":" + days + ",\"bank\":" + (bank == null ? "null"
+                : "\"" + bank.replace("\\", "\\\\").replace("\"", "\\\"") + "\"") + "}";
+    }
+
     /** Ligne de la table des etapes qui garde la date de la derniere revue annuelle. */
     private static final String ANNUAL_REVIEW = "ANNUAL_REVIEW";
     /** Ligne qui note que l'encadre « configuration terminee a x % » a ete ignore. */
@@ -103,8 +156,8 @@ public final class WizardRepository {
 
     /** Premier passage dans le guide (plus ancienne etape faite ou passee), {@code null} si aucun. */
     LocalDate firstActivity(String owner) {
-        List<String> dates = database.query(connection -> Sql.list(connection, "SELECT min(updated_on) FROM wizard_steps WHERE owner = ? AND step NOT IN (?, ?)",
-                row -> row.getString(1), owner, ANNUAL_REVIEW, BANNER_HIDDEN));
+        List<String> dates = database.query(connection -> Sql.list(connection, "SELECT min(updated_on) FROM wizard_steps WHERE owner = ? AND step NOT IN (?, ?, ?) AND step NOT LIKE 'BANK:%'",
+                row -> row.getString(1), owner, ANNUAL_REVIEW, BANNER_HIDDEN, LAST_IMPORT));
         return dates.isEmpty() || dates.getFirst() == null ? null : LocalDate.parse(dates.getFirst());
     }
 

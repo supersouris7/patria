@@ -78,14 +78,21 @@ final class HouseholdSite implements AutoCloseable {
                 budgetItems, feeds, clock);
         savings.register(router);
         new fr.patria.savings.StocksController(savings, savings.repository(), household, feeds, clock).register(router);
+        fr.patria.budget.HistoryRepository history = new fr.patria.budget.HistoryRepository(database);
         WizardController guide = new WizardController(new WizardController.Stores(household, budgetItems, shares, properties, loans, expenses, rents, wizard,
-                healthScope, savings, new fr.patria.wizard.ImportInbox(database)), clock);
+                healthScope, savings, new fr.patria.wizard.ImportInbox(database), history), clock);
         guide.register(router);
         // Previsionnel : rappel de la revue annuelle (le budget ne connait pas le guide, l'assemblage les relie).
         healthPreferences = new HealthRepository(database);
         HealthController health = new HealthController(forecast, household, portfolio, healthPreferences, healthScope, savings,
                 () -> rates.current().map(rate -> new Renegotiation.Reference(rate.rate(), rate.month())).orElse(null), clock);
         health.register(router);
+        // Economies : contrats compares a des reperes, score, defi du mois, objectifs et badges ; gains repris dans le Bilan.
+        fr.patria.health.EconomiesController economies = new fr.patria.health.EconomiesController(budgetItems, shares, household,
+                new fr.patria.health.EconomiesRepository(database), loans, health, savings, forecast, clock);
+        economies.register(router);
+        // Historique : releve du mois a la premiere visite du Previsionnel, section « Votre evolution » du Bilan.
+        java.util.function.Consumer<fr.patria.web.Request> recordMonth = economies.useHistory(history, portfolio, properties);
         // API des tableaux de bord (jeton en lecture seule, voir Mon compte) : chiffres du foyer, comme les pages les montrent.
         router.userGet("/api/v1/resume", request -> new fr.patria.web.Response.Text(200, "{\"foyer\":\""
                 + request.viewer().household().name().replace("\\", "\\\\").replace("\"", "\\\"") + "\"," + health.apiSummary(request)
@@ -95,10 +102,15 @@ final class HouseholdSite implements AutoCloseable {
             // Barre « Guide de saisie » des pages : pour qui saisit, tant qu'il reste une etape et qu'elle n'est pas masquee.
             boolean writes = request.viewer().wholeHousehold() || request.viewer().realEstate() || !request.viewer().members().isEmpty();
             String guideJson = writes && !wizard.guideHidden(request.viewer().userId()) ? guideState.json() : "null";
+            // Rappel mensuel d'import du releve, quand le guide n'a plus rien a proposer.
+            String importJson = writes && guideState.next() == null ? wizard.importReminderJson(request.viewer().userId(), java.time.LocalDate.now(clock)) : "null";
             return new fr.patria.web.Response.Text(200, "{\"warnings\":" + health.warningCount(request) + ",\"progress\":" + guideState.percent()
-                    + ",\"guide\":" + guideJson + "}");
+                    + ",\"guide\":" + guideJson + ",\"import\":" + importJson + ",\"level\":" + (writes ? economies.levelJson(request) : "null") + "}");
         });
-        budget.withHomeExtras(request -> fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request))).register(router);
+        budget.withHomeExtras(request -> {
+            recordMonth.accept(request);
+            return fr.patria.ui.Html.concat(health.summary(request), guide.reminder(request), guide.progress(request));
+        }).register(router);
     }
 
     /** Ouvre (ou cree) la base du foyer et la met au dernier schema. */

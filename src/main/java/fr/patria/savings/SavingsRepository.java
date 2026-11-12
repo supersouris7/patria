@@ -124,6 +124,47 @@ public final class SavingsRepository {
     }
 
     /** Reglage du plan d'epargne : {@code lep} (eligible au LEP : oui, non, vide = inconnu), {@code months} (objectif de precaution). */
+    /** Revenu fiscal de reference d'une annee (historique : une ligne par avis d'impot). */
+    public record TaxIncome(int year, BigDecimal income, BigDecimal parts) {
+    }
+
+    public void saveTaxIncome(int year, BigDecimal income, BigDecimal parts) {
+        database.query(connection -> Sql.update(connection, "INSERT INTO tax_incomes (year, income, parts) VALUES (?, ?, ?) "
+                + "ON CONFLICT(year) DO UPDATE SET income = excluded.income, parts = excluded.parts", year, income.longValue(), parts.toPlainString()));
+    }
+
+    public List<TaxIncome> taxIncomes() {
+        return database.query(connection -> Sql.list(connection, "SELECT year, income, parts FROM tax_incomes ORDER BY year",
+                row -> new TaxIncome(row.getInt(1), BigDecimal.valueOf(row.getLong(2)), new BigDecimal(row.getString(3)))));
+    }
+
+    /** Mouvements de bourse importes d'un compte (achats, ventes) ; un mouvement deja connu (meme cle) n'est pas repris. */
+    public int saveMovements(long accountId, List<BrokerExport.Movement> movements) {
+        return database.transaction(connection -> {
+            int added = 0;
+            for (BrokerExport.Movement movement : movements) {
+                added += Sql.update(connection, "INSERT OR IGNORE INTO stock_movements (hash, account_id, day, symbol, label, sell, quantity, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        accountId + ":" + movement.key(), accountId, movement.day(), movement.symbol(), movement.name(), movement.sell() ? 1 : 0,
+                        movement.quantity().toPlainString(), Sql.cents(movement.amount()));
+            }
+            return added;
+        });
+    }
+
+    /** Verse net par compte (achats − ventes) et date du premier mouvement, d'apres les mouvements importes. */
+    public record Invested(BigDecimal net, java.time.LocalDate since, int count) {
+    }
+
+    public java.util.Map<Long, Invested> invested() {
+        java.util.Map<Long, Invested> result = new java.util.HashMap<>();
+        database.query(connection -> Sql.list(connection, """
+                SELECT account_id, SUM(CASE WHEN sell = 1 THEN -amount ELSE amount END), MIN(day), COUNT(*) FROM stock_movements GROUP BY account_id""", row -> {
+            result.put(row.getLong(1), new Invested(BigDecimal.valueOf(row.getLong(2), 2), java.time.LocalDate.parse(row.getString(3)), row.getInt(4)));
+            return null;
+        }));
+        return result;
+    }
+
     public String preference(String key) {
         return database.query(connection -> Sql.list(connection, "SELECT value FROM savings_preferences WHERE key = ?", row -> row.getString(1), key))
                 .stream().findFirst().orElse("");

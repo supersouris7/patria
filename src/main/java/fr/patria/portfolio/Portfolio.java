@@ -37,6 +37,11 @@ import java.util.stream.Collectors;
  */
 public final class Portfolio {
     /** Sources de donnees de chaque module. */
+    /** Estimations successives d'un bien. */
+    public List<PropertyRepository.Estimate> estimates(long propertyId) {
+        return stores.properties().estimates(propertyId);
+    }
+
     public record Stores(PropertyRepository properties, LoanRepository loans, ContributionRepository contributions,
                          ExpenseRepository expenses, RentRepository rents) {
     }

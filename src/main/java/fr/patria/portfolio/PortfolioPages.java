@@ -51,7 +51,7 @@ final class PortfolioPages {
             case "taxe-fonciere" -> "Taxe foncière";
             default -> "Synthèse immobilière";
         };
-        Html heading = Html.concat(Layout.estateNavigation(tab), Components.heading("Votre patrimoine immobilier", title, null,
+        Html heading = Html.concat(Layout.estateNavigation(tab), Components.heading("Patrimoine", title, null,
                 overview.properties().isEmpty() || !tab.equals("patrimoine") ? Html.EMPTY : Components.pdfButton("/immobilier.pdf")));
         if (overview.properties().isEmpty()) {
             return Layout.page("Immobilier · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(heading, Components.emptyState("Aucun bien pour l'instant",
@@ -92,6 +92,12 @@ final class PortfolioPages {
     // ---- Fiche d'un bien : curseur enregistre en direct ----
 
     static Html property(PropertySummary summary, Optional<HousingRate> rate, fr.patria.market.MarketSales sales, java.time.LocalDate today, Notice notice, String csrf) {
+        return property(summary, rate, sales, today, notice, csrf, List.of());
+    }
+
+    /** {@code estimates} : estimations successives du bien (historique). */
+    static Html property(PropertySummary summary, Optional<HousingRate> rate, fr.patria.market.MarketSales sales, java.time.LocalDate today, Notice notice, String csrf,
+                         List<fr.patria.property.PropertyRepository.Estimate> estimates) {
         Property property = summary.property();
         String subtitle = property.kind().label() + (property.commune().isBlank() ? "" : " · " + property.commune())
                 + (property.area() == null ? "" : " · " + area(property.area())) + " · acquis le " + date(property.purchaseDate())
@@ -119,7 +125,11 @@ final class PortfolioPages {
                 Components.card("Apports", summary.contributions().size(), Html.EMPTY,
                         contributionsTable(summary.contributions(), summary.contributed())),
                 balance(revaluationLines(summary.revaluation()), summary.value(), summary.net(), summary.debt(), property.purchase(), summary.gain(),
-                        summary.contributed(), summary.returns()));
+                        summary.contributed(), summary.returns()),
+                estimates.size() < 2 ? Html.EMPTY : Components.disclosure("Historique des estimations (" + estimates.size() + ")", Html.of("<ul class=\"plain-list\">%s</ul>",
+                        estimates.reversed().stream().map(estimate -> Html.of("<li>%s : <b>%s</b>%s</li>", date(estimate.on()),
+                                estimate.low() == null ? "—" : euro(estimate.low()), estimate.high() == null || estimate.high().equals(estimate.low()) ? Html.EMPTY
+                                        : Html.of(" à %s", euro(estimate.high())))).collect(Html.joining())), false));
         return Layout.page(property.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, content);
     }
 
@@ -311,7 +321,7 @@ final class PortfolioPages {
         Html loans = overview.loanCount() == 0 ? Html.raw("<p class=\"empty\">Aucun prêt. Ajoutez-en un depuis « Prêts et apports » d'un bien.</p>")
                 : Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Restant dû", "#Taux actuel", ""), loanRows, true, false);
         Html content = Html.concat(
-                Components.heading("Gestion", "Biens et prêts", null, Components.button("/administration/bien/nouveau", "+ Nouveau bien")),
+                Components.heading("Gérer", "Biens et prêts", null, Components.button("/administration/bien/nouveau", "+ Nouveau bien")),
                 Components.notice(notice),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY, properties),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, loans));
@@ -543,6 +553,6 @@ final class PortfolioPages {
         Html sub = next == null ? Html.text("Aucune échéance à venir")
                 : Html.of("%s%s", Format.month(next.month()) + (next.byLoan().size() > 1 ? " · " + next.byLoan().size() + " prêts" : ""),
                         detailLink == null ? Html.EMPTY : Html.of(" · <a href=\"%s\">Détail</a>", detailLink));
-        return tile("Prochaine mensualité", "Total des échéances du prochain mois, tous prêts confondus.", next == null ? Format.DASH : euro(next.total()), sub);
+        return tile("Prochaine mensualité", "Total des échéances du prochain mois, tous prêts confondus.", next == null ? Format.DASH : euroWhole(next.total()), sub);
     }
 }

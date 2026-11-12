@@ -78,10 +78,6 @@ final class StockCharts {
         return new Series(days, values);
     }
 
-    static Html portfolioChart(Series series, MarketFeeds.Range range, String href) {
-        return frame(series, range, href, null, Format::euroWhole, "Valeur du portefeuille");
-    }
-
     /** Dernier cours connu a cette date ; avant le premier cours, le premier (pas de saut au debut de la courbe). */
     private static BigDecimal at(MarketFeeds.History history, LocalDate day) {
         if (history.isEmpty()) return null;

@@ -110,9 +110,8 @@ final class AccountPages {
         Html list = tokens.isEmpty() ? Html.raw("<p class=\"muted\">Aucun jeton.</p>")
                 : Components.table(List.of("Nom", "Foyer", "Créé le", "Dernier accès", ""), rows, false, false);
         Html body = Html.of("""
-                <p class="muted">Pour afficher vos chiffres dans un tableau de bord (Homepage, Homarr, Dashy) : un jeton en <b>lecture seule</b>, pour le foyer
-                « %s ». Il donne le reste à vivre du mois, le patrimoine net, l'épargne, les alertes du bilan et l'avancement du guide ; rien d'autre, et aucune
-                modification possible. Traitez-le comme un mot de passe.</p>%s%s
+                <p class="muted">Vos chiffres dans un tableau de bord (Homepage, Homarr, Dashy) : un jeton en <b>lecture seule</b> pour le foyer « %s »
+                (reste à vivre, patrimoine net, épargne, alertes du bilan, guide). Traitez-le comme un mot de passe.</p>%s%s
                 <form method="post" action="/compte/api" class="row-form">%s<label>Nom du jeton<input name="nom" maxlength="60" required placeholder="Homepage"></label>\
                 <button class="secondary" type="submit">Créer un jeton</button></form>
                 <details><summary>Exemple pour Homepage (widget customapi)</summary><pre><code>- Patria:

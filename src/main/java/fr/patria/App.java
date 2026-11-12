@@ -81,6 +81,11 @@ public final class App implements AutoCloseable {
             fr.patria.ai.LocalAi.configure(localAi);
             fr.patria.ui.Components.useLocalAi(localAi.enabled());
             fr.patria.account.AccountRepository.Installation installation = accounts.installation();
+            fr.patria.ui.Layout.useSignup("open".equals(accounts.signupMode()));
+            // Mots de passe compromis (k-anonymat) : coupe en mode hors ligne.
+            // (« -Dpatria.pwned=off » : coupe aussi, pour les tests sans reseau).
+            AccountRepository.useBreachCheck(config.offline() || "off".equals(System.getProperty("patria.pwned")) ? password -> false
+                    : fr.patria.common.PwnedPasswords.online()::breached);
             fr.patria.ui.Layout.useInstallation(installation.cloud(), !installation.terms().isBlank(), !installation.notice().isBlank());
             // Membres crees par le gestionnaire dans « Votre situation » du guide : il les voit, comme depuis Mon foyer.
             fr.patria.wizard.WizardController.useMemberAccess((request, member) -> {

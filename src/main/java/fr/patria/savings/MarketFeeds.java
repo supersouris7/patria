@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * </ul>
  */
 public final class MarketFeeds {
-    static final String INFLATION_URL = "https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/011814630?lastNObservations=37";
+    static final String INFLATION_URL = "https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/011814630?lastNObservations=150";
     static final String QUOTE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1d&interval=1d";
     static final String SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search?q=%s&quotesCount=8&newsCount=0";
     static final String HISTORY_URL = "https://query1.finance.yahoo.com/v8/finance/chart/%s?range=%s&interval=%s";
@@ -91,9 +91,9 @@ public final class MarketFeeds {
     }
 
     /** Inflation sur 12 mois (en %) au mois {@code month}, d'apres l'indice des prix INSEE. */
-    public record Inflation(BigDecimal percent, YearMonth month, Map<YearMonth, BigDecimal> history) {
+    public record Inflation(BigDecimal percent, YearMonth month, Map<YearMonth, BigDecimal> history, Map<YearMonth, BigDecimal> index) {
         public Inflation(BigDecimal percent, YearMonth month) {
-            this(percent, month, Map.of(month, percent));
+            this(percent, month, Map.of(month, percent), Map.of());
         }
     }
 
@@ -326,7 +326,7 @@ public final class MarketFeeds {
                 history.put(month, value.divide(previous, 8, RoundingMode.HALF_UP).subtract(BigDecimal.ONE).movePointRight(2).setScale(1, RoundingMode.HALF_UP));
             }
         });
-        return new Inflation(percent, last, java.util.Collections.unmodifiableMap(history));
+        return new Inflation(percent, last, java.util.Collections.unmodifiableMap(history), java.util.Collections.unmodifiableMap(values));
     }
 
     private static String download(String url) throws IOException, InterruptedException {

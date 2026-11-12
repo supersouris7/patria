@@ -123,7 +123,8 @@ class AppTest {
         assertTrue(get("/").body().contains("href=\"/previsionnel.pdf\""), "bouton d'export");
         String header = get("/").body();
         assertTrue(header.contains("href=\"/budget\"") && header.contains(">Gérer</a>"), "navigation directe");
-        assertTrue(header.indexOf(">Gérer</a>") < header.indexOf("aria-label=\"Bilan de santé\""), "gestion entre immobilier et bilan");
+        assertTrue(header.indexOf(">Économies</a>") < header.indexOf("aria-label=\"Bilan de santé\"")
+                && header.indexOf("aria-label=\"Bilan de santé\"") < header.indexOf(">Gérer</a>"), "Budget, Patrimoine, Économies, Bilan, puis Gérer");
         assertTrue(header.contains("href=\"/confidentialite\""), "lien Confidentialité en pied de page");
         assertEquals(200, get("/assistant").statusCode());
         assertTrue(header.contains("aria-label=\"Bilan de santé\""), "icône Bilan de santé");

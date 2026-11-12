@@ -52,9 +52,10 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
      * @param emailToConfirm     e-mail a confirmer avant toute autre page (exige par l'administrateur a la creation du compte)
      */
-    public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm, boolean avatar) {
+    public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm, boolean avatar,
+                          java.time.LocalDate birthDate) {
         public Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm) {
-            this(mustChangePassword, audience, notice, emailToConfirm, false);
+            this(mustChangePassword, audience, notice, emailToConfirm, false, null);
         }
     }
 

@@ -82,6 +82,8 @@ if (navigationStatus) {
       burgerBadge();
       addEventListener('resize', burgerBadge);
       showGuideStrip(state.guide);
+      showLevel(state.level);
+      if (!state.guide && state.import) showImportStrip(state.import);
       navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
         progress.textContent = `${state.progress} %`;
         progress.hidden = false;
@@ -727,4 +729,209 @@ const showGuideStrip = (guide) => {
     strip.append(close);
   }
   main.prepend(strip);
+};
+
+// Rappel mensuel : importer le releve de sa banque (les etapes de la banque retenue).
+const showImportStrip = (reminder) => {
+  const main = document.querySelector("main.shell");
+  if (!main || location.pathname.startsWith("/assistant") || document.querySelector(".setup-progress")) return;
+  const strip = document.createElement("section");
+  strip.className = "guide-strip";
+  strip.setAttribute("aria-label", "Relevé du mois");
+  const text = document.createElement("span");
+  text.innerHTML = "<b>Relevé du mois</b> · ";
+  text.append(`dernier import il y a ${reminder.days} jours. Importez celui de ${reminder.bank || "votre banque"}, ou glissez le fichier sur la page.`);
+  const link = document.createElement("a");
+  link.className = "button";
+  link.href = "/assistant/documents" + (reminder.bank ? "?q=" + encodeURIComponent(reminder.bank) : "") + "#import";
+  link.textContent = "Importer";
+  strip.append(text, link);
+  main.prepend(strip);
+};
+
+// Releve bancaire glisse sur n'importe quelle page : il part a l'import du guide (CSV, OFX, QIF), comme depuis
+// « Avec le fichier de ma banque ». Seulement pour un compte qui saisit (barre de navigation d'un foyer).
+if (navigationStatus) {
+  let overlay = null;
+  const csrf = () => document.querySelector('input[name="csrf"]')?.value;
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+  const hide = () => { overlay?.remove(); overlay = null; };
+  document.addEventListener("dragover", (event) => {
+    if (!hasFiles(event) || !csrf()) return;
+    event.preventDefault();
+    if (overlay) return;
+    overlay = document.createElement("div");
+    overlay.className = "drop-overlay";
+    overlay.innerHTML = "<div><b>Déposez le relevé de votre banque</b><span>CSV, OFX ou QIF : les dépenses et revenus réguliers vous seront proposés, à valider.</span></div>";
+    document.body.append(overlay);
+  });
+  document.addEventListener("dragleave", (event) => { if (!event.relatedTarget) hide(); });
+  document.addEventListener("drop", (event) => {
+    if (!hasFiles(event) || !csrf()) return;
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (!file || !/\.(csv|ofx|qif|txt)$/i.test(file.name)) {
+      overlay.innerHTML = "<div><b>Fichier non pris en charge</b><span>Déposez un export CSV, OFX ou QIF de votre banque.</span></div>";
+      setTimeout(hide, 2500);
+      return;
+    }
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "/assistant/documents/importer";
+    form.enctype = "multipart/form-data";
+    form.hidden = true;
+    const token = document.createElement("input");
+    token.type = "hidden";
+    token.name = "csrf";
+    token.value = csrf();
+    const input = document.createElement("input");
+    input.type = "file";
+    input.name = "csv";
+    const files = new DataTransfer();
+    files.items.add(file);
+    input.files = files.files;
+    form.append(token, input);
+    document.body.append(form);
+    overlay.innerHTML = "<div><b>Lecture du relevé…</b></div>";
+    form.submit();
+  });
+}
+
+// ---- Mouvement, celebrations, tableaux en cartes ----
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Tableaux en cartes sur smartphone : chaque cellule porte l'intitule de sa colonne.
+document.querySelectorAll("table.data").forEach((table) => {
+  const heads = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent.trim());
+  table.querySelectorAll("tbody tr, tfoot tr").forEach((row) => {
+    Array.from(row.children).forEach((cell, index) => { if (!cell.hasAttribute("data-label")) cell.setAttribute("data-label", heads[index] || ""); });
+  });
+});
+
+if (!calm) {
+  // Chiffres cles qui defilent jusqu'a leur valeur (meme format, meme signe, meme unite).
+  const pattern = /^([^0-9−-]*)([−-]?)(\d{1,3}(?:[\s  ]\d{3})*|\d+)(,\d+)?(.*)$/;
+  document.querySelectorAll(".metric strong, .level-badge").forEach((element) => {
+    if (element.children.length) return;
+    const match = element.textContent.trim().match(pattern);
+    if (!match) return;
+    const target = Number(match[3].replace(/[\s  ]/g, "") + (match[4] ? "." + match[4].slice(1) : ""));
+    if (!Number.isFinite(target) || target === 0) return;
+    const decimals = match[4] ? match[4].length - 1 : 0;
+    const format = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    const final = element.textContent;
+    const started = performance.now();
+    const step = (now) => {
+      const progress = Math.min(1, (now - started) / 700);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      element.textContent = match[1] + match[2] + format.format(target * eased) + match[5];
+      if (progress < 1) requestAnimationFrame(step); else element.textContent = final;
+    };
+    requestAnimationFrame(step);
+  });
+
+  // Barres de progression qui se remplissent.
+  document.querySelectorAll(".progress").forEach((bar) => {
+    bar.classList.add("from-zero");
+    requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove("from-zero")));
+  });
+
+  // Apparition au defilement et courbes qui se dessinent, une fois a l'ecran.
+  const draw = (root) => root.querySelectorAll("polyline.compare-line:not(.rate), polyline.rate-line:not(.s4), path.line").forEach((line) => {
+    line.setAttribute("pathLength", "1");
+    line.classList.add("draw");
+  });
+  const observer = "IntersectionObserver" in window ? new IntersectionObserver((entries) => entries.forEach((entry) => {
+    if (!entry.isIntersecting) return;
+    entry.target.classList.add("shown");
+    draw(entry.target);
+    observer.unobserve(entry.target);
+  }), { rootMargin: "0px 0px -8% 0px" }) : null;
+  document.querySelectorAll("main .card, main .metrics, main .missions > li, main .badge-card").forEach((element) => {
+    if (!observer) return;
+    if (element.getBoundingClientRect().top > innerHeight) element.classList.add("reveal");
+    observer.observe(element);
+  });
+  // Graphiques charges plus tard (fragments) : ils se dessinent a leur arrivee.
+  new MutationObserver((mutations) => mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+    if (node.nodeType === 1) draw(node);
+  }))).observe(document.body, { childList: true, subtree: true });
+}
+
+// Celebration : un message, et quelques confettis si l'appareil accepte les animations.
+const celebrate = (text) => {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.setAttribute("role", "status");
+  toast.textContent = text;
+  let stack = document.querySelector(".toasts");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.className = "toasts";
+    document.body.append(stack);
+  }
+  stack.append(toast);
+  setTimeout(() => { toast.classList.add("leaving"); setTimeout(() => toast.remove(), 320); }, 4200);
+  if (calm) return;
+  const colors = ["#2a78d6", "#eb6834", "#1baf7a", "#c98500", "#6250d6"];
+  for (let index = 0; index < 36; index++) {
+    const piece = document.createElement("i");
+    piece.className = "confetti";
+    piece.style.background = colors[index % colors.length];
+    document.body.append(piece);
+    const x = innerWidth / 2 + (Math.random() - 0.5) * innerWidth * 0.6;
+    const drift = (Math.random() - 0.5) * 240;
+    piece.animate([
+      { transform: `translate(${x}px, -20px) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${x + drift}px, ${innerHeight * (0.55 + Math.random() * 0.4)}px) rotate(${Math.random() * 720}deg)`, opacity: 0 },
+    ], { duration: 1400 + Math.random() * 900, easing: "cubic-bezier(.2,.7,.4,1)" }).finished.then(() => piece.remove());
+  }
+};
+
+// Ce qui vient d'etre obtenu depuis la derniere visite (badges, missions, niveau) : celebre une fois, retenu dans ce navigateur.
+const remembered = (key) => {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+};
+const remember = (key, value) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* stockage indisponible : pas de celebration */ }
+};
+document.querySelectorAll("[data-celebrate]").forEach((element) => {
+  const earned = element.dataset.celebrate.split(",").filter(Boolean);
+  const known = remembered("patria-celebrated");
+  if (known) {
+    const fresh = earned.filter((item) => !known.includes(item) && !item.startsWith("niveau-"));
+    // Un message par sorte de nouveaute, qui les nomme toutes.
+    const names = (prefix) => fresh.filter((item) => item.startsWith(prefix)).map((item) => item.slice(prefix.length));
+    const list = (items) => items.length > 1 ? items.slice(0, -1).join(", ") + " et " + items[items.length - 1] : items[0];
+    const badges = names("badge-");
+    const missions = names("mission-");
+    if (badges.length) celebrate((badges.length > 1 ? "Nouveaux badges : " : "Nouveau badge : ") + list(badges));
+    if (missions.length) celebrate((missions.length > 1 ? "Missions réussies : " : "Mission réussie : ") + list(missions));
+  }
+  remember("patria-celebrated", Array.from(new Set([...(known || []), ...earned])));
+});
+
+// Pastille de niveau dans l'en-tete, et celebration d'un niveau gagne (sur n'importe quelle page).
+const showLevel = (level) => {
+  if (!level || document.querySelector(".level-pill")) return;
+  const bar = document.querySelector(".account-bar");
+  const account = bar?.querySelector(".account-link");
+  if (!bar || !account) return;
+  const pill = document.createElement("a");
+  pill.className = "level-pill";
+  pill.href = "/economies";
+  pill.title = `Niveau ${level.number} · ${level.name} · ${level.xp} points`;
+  pill.setAttribute("aria-label", pill.title);
+  const number = document.createElement("b");
+  number.textContent = level.number;
+  const name = document.createElement("span");
+  name.textContent = level.name;
+  const progress = document.createElement("i");
+  progress.style.width = "0";
+  pill.append(number, name, progress);
+  bar.insertBefore(pill, account);
+  requestAnimationFrame(() => requestAnimationFrame(() => { progress.style.width = `calc(${level.percent}% - 18px)`; }));
+  const before = remembered("patria-level");
+  if (before && level.number > before) celebrate(`Niveau ${level.number} atteint : ${level.name}`);
+  remember("patria-level", level.number);
 };

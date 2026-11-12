@@ -281,7 +281,14 @@ final class WizardPages {
                                     document.id(), Html.raw(have ? " checked" : ""), Html.raw(auto ? " disabled" : ""), document.label(),
                                     auto ? Html.raw(" <span class=\"badge paid\">déjà dans Patria</span>") : Html.EMPTY);
                         }).collect(Html.joining()))).collect(Html.joining()));
-        return Html.concat(
+        // Lignes importees en attente : la suite est dite tout de suite, avec un seul bouton vers la premiere etape a trier.
+        Step sortFirst = context.steps().stream().filter(step -> context.inbox().stream().anyMatch(item -> belongs(item, step))).findFirst().orElse(null);
+        Html pending = sortFirst == null ? Html.EMPTY : Html.of("""
+                <section class="card guide-next"><p class="eyebrow">%s ligne%s à valider</p><h2>Vérifiez ce qui a été trouvé</h2>\
+                <p class="muted">Chaque ligne se coche ou se refuse à son étape (revenus, logement, dépenses…). Rien n'entre dans votre budget avant.</p>\
+                <div class="form-actions"><a class="button" href="%s%s#a-trier">Valider maintenant : %s →</a></div></section>""",
+                context.inbox().size(), context.inbox().size() > 1 ? "s" : "", sortFirst.path(), context.mode(), sortFirst.title());
+        return Html.concat(pending,
                 Html.of("<div id=\"import\">%s</div>", Components.card("Comment voulez-vous remplir Patria ?", null, Html.EMPTY, methods)),
                 // La liste et la recherche « ou trouver » s'ouvrent d'elles-memes quand on cherche une banque.
                 Components.disclosure("Quels documents rassembler, et où les trouver ? (" + ready + " sur " + documents.size() + ")",
@@ -302,7 +309,7 @@ final class WizardPages {
                 <li><b>Ouvrez la liste des opérations</b> du compte courant et cherchez « Exporter », « Télécharger » ou une flèche vers le bas.
                 Pas trouvé ? Tapez le nom de votre banque dans <a href="#ou-trouver">Où trouver vos documents ?</a></li>
                 <li><b>Choisissez le format CSV</b> (ou OFX, QIF) sur au moins 3 mois, idéalement 12, puis enregistrez le fichier.</li>
-                <li><b>Déposez-le ici :</b></li></ol>
+                <li><b>Déposez-le ici</b>, ou glissez-le sur n'importe quelle page de Patria :</li></ol>
                 <form method="post" action="/assistant/documents/importer" class="stack" enctype="multipart/form-data">%s
                 <label>Fichier de la banque (CSV, OFX ou QIF)<input name="csv" type="file" accept=".csv,.ofx,.qif,.txt" required></label>
                 <div class="form-actions"><button type="submit">Analyser le fichier</button></div></form>

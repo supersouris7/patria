@@ -84,6 +84,29 @@ class ProfileApiTest {
             String imported = TestAccounts.post(client, base, manager, "/assistant/documents/importer", "texte=FISCAL%3B40+000%3B2026%3B2").body();
             assertTrue(imported.contains("Revenu fiscal de référence enregistré"), "ligne FISCAL de l'IA");
             assertTrue(TestAccounts.get(client, base, manager, "/assistant/impots").body().contains("value=\"40000\""), "repris à l'étape Impôts");
+
+            // Releve bancaire : resultat clair (operations lues, regulieres trouvees), puis un seul bouton vers le tri.
+            String statement = "Date opération;Libellé;Débit;Crédit\n05/09/2026;PRLV FREE MOBILE;19,99;\n05/10/2026;PRLV FREE MOBILE;19,99;\n"
+                    + "05/11/2026;PRLV FREE MOBILE;19,99;\n28/09/2026;VIR SALAIRE ACME;;2450,00\n28/10/2026;VIR SALAIRE ACME;;2450,00\n12/10/2026;CB CARREFOUR;84,20;\n";
+            String read = TestAccounts.upload(client, base, manager, "/assistant/documents/importer", java.util.Map.of(), "csv", "releve.csv", statement).body();
+            assertTrue(read.contains("Relevé lu : 6 opérations") && read.contains("régulières trouvées"), "résultat clair");
+            assertTrue(read.contains("à valider</p>") && read.contains("Valider maintenant : Revenus"), "suite en un bouton");
+            assertTrue(TestAccounts.get(client, base, manager, "/assistant/documents?q=lcl").statusCode() == 200);
+
+            // Economies : contrat reconnu, gain chiffre, renegociation qui met le budget a jour, objectif, Bilan.
+            assertEquals(303, TestAccounts.post(client, base, manager, "/administration/depenses",
+                    "label=Box+fibre&category=TELECOM&amount=49,99&frequency=MONTHLY&start=2026-01-01&share_1=100").statusCode());
+            String economies = TestAccounts.get(client, base, manager, "/economies").body();
+            assertTrue(economies.contains("<b>Box internet</b>") && economies.matches("(?s).*warning-badge\">jusqu.{1,8}240.*"), "gain chiffré");
+            assertTrue(economies.contains("Défi du mois") && economies.contains("Renégociez votre box internet"));
+            assertTrue(TestAccounts.get(client, base, manager, "/bilan").body().contains("Box internet : jusqu"), "repris dans le Bilan");
+            assertEquals(400, TestAccounts.post(client, base, manager, "/economies/renegocie", "contrat=INTERNET&nouveau=60").statusCode(), "plus cher : refusé");
+            assertEquals(303, TestAccounts.post(client, base, manager, "/economies/renegocie", "contrat=INTERNET&nouveau=29,99").statusCode());
+            String after = TestAccounts.get(client, base, manager, "/economies").body();
+            assertTrue(after.matches("(?s).*240.{1,3}€ par an.*") && after.contains("Première économie"), "compteur et badge");
+            assertTrue(TestAccounts.get(client, base, manager, "/administration/depenses").body().contains("29,99"), "le budget prend le nouveau montant");
+            assertEquals(303, TestAccounts.post(client, base, manager, "/economies/objectifs", "emoji=%F0%9F%8F%96%EF%B8%8F&nom=Vacances&montant=2000&compte=").statusCode());
+            assertTrue(TestAccounts.get(client, base, manager, "/economies").body().contains("Vacances"));
         }
     }
 

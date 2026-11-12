@@ -6,7 +6,7 @@ import java.util.List;
 /** Squelette commun des pages : en-tete, navigation principale, contenu. */
 public final class Layout {
     /** Entree active de la navigation principale. */
-    public enum Section { HOME, BUDGET, WEALTH, REAL_ESTATE, SAVINGS, STOCKS, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
+    public enum Section { HOME, BUDGET, WEALTH, REAL_ESTATE, SAVINGS, STOCKS, ECONOMIES, HEALTH, ASSISTANT, ADMINISTRATION, SECURITY, ACCOUNT, NONE }
 
     /** Foyer propose dans le selecteur de l'en-tete ; {@code managed} : la personne connectee en est gestionnaire. */
     public record Choice(long id, String name, boolean managed) {
@@ -167,6 +167,17 @@ public final class Layout {
         return cloud;
     }
 
+    /** Inscriptions ouvertes : le lien « Creer un compte » de la connexion ne s'affiche que dans ce cas. */
+    private static volatile boolean signupOpen;
+
+    public static void useSignup(boolean open) {
+        signupOpen = open;
+    }
+
+    public static boolean signupOpen() {
+        return signupOpen;
+    }
+
     public static void useInstallation(boolean cloudMode, boolean hasTerms, boolean hasNotice) {
         cloud = cloudMode;
         terms = hasTerms;
@@ -219,14 +230,17 @@ public final class Layout {
         Html budget = navLink("/" + scope, "Budget", section == Section.HOME || section == Section.BUDGET);
         Html manage = navLink("/administration", "Gérer", section == Section.ADMINISTRATION || section == Section.SECURITY);
         Html estate = realEstate ? navLink("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY;
-        Html follow = Html.of("""
-                <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>
-                <a href="/assistant"%s aria-label="Assistant" title="Assistant — Guide de saisie">%s<span class="menu-only">Assistant</span><span class="nav-count" data-guide-progress hidden></span></a>""",
-                Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""),
+        Html health = Html.of("""
+                <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>""",
+                Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""));
+        Html guide = Html.of("""
+                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="menu-only">Guide de saisie</span><span class="nav-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
-        Html savings = Html.concat(navLink("/patrimoine", "Patrimoine", section == Section.WEALTH), navLink("/epargne", "Épargne", section == Section.SAVINGS),
-                navLink("/bourse", "Bourse", section == Section.STOCKS));
-        Html allLinks = administrator ? manage : Html.concat(budget, savings, estate, manage, follow);
+        // Cinq entrees : Patrimoine regroupe l'epargne, la bourse et l'immobilier (onglets en haut de ces pages).
+        boolean wealth = section == Section.WEALTH || section == Section.SAVINGS || section == Section.STOCKS || section == Section.REAL_ESTATE;
+        Html savings = navLink("/patrimoine", "Patrimoine", wealth);
+        Html economies = navLink("/economies", "Économies", section == Section.ECONOMIES);
+        Html allLinks = administrator ? manage : Html.concat(budget, savings, economies, health, manage, guide);
         Html links = allLinks;
         // Tablette et smartphone : la navigation principale est remplacee par ce menu, rempli par le serveur avec les memes
         // entrees, pastille du Bilan et % de l'Assistant compris (utilisable sans JavaScript).
@@ -250,22 +264,51 @@ public final class Layout {
                 notifications == 0 ? "Menu principal" : "Menu principal, " + notifications + " notification(s)", BURGER_ICON, String.valueOf(notifications),
                 Html.raw(notifications == 0 ? " hidden" : ""), String.valueOf(notifications), allLinks, section == Section.ACCOUNT ? " active" : "", estateLinks, manageGroup);
         // Tablette et smartphone : le Bilan reste visible hors du menu, avec sa pastille d'alertes.
-        Html health = administrator ? Html.EMPTY : Html.of("""
+        Html healthLink = administrator ? Html.EMPTY : Html.of("""
                 <a class="nav-health%s" href="/bilan" aria-label="Bilan de santé" title="Bilan de santé">%s<span>Bilan</span><span class="nav-count warning" data-warning-count hidden></span></a>""",
                 section == Section.HEALTH ? " active" : "", HEALTH_ICON);
-        Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, estate,
-                        navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Assistant — Guide de saisie", false), estateLinks),
+        Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, navLink("/patrimoine", "Patrimoine", false), navLink("/epargne", "Épargne", false),
+                        navLink("/bourse", "Bourse", false), estate, navLink("/economies", "Économies et contrats", false),
+                        navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Guide de saisie", false), estateLinks),
                 navLink("/administration", "Gérer", false), manageGroup, navLink("/compte", "Mon compte", false));
         Html header = csrf == null ? Html.EMPTY : Html.of("""
                 <header class="topbar"%s><div class="shell navigation">%s%s<nav class="primary-navigation" aria-label="Navigation principale">%s</nav>
                 <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, health), links, search(searchLinks), audience(chrome, csrf), Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, healthLink), links,
+                Html.concat(administrator || chrome == null ? Html.EMPTY : addMenu(realEstate), search(searchLinks)), audience(chrome, csrf),
+                Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         Html tour = csrf == null || chrome == null || chrome.location() == null || !chrome.location().matches(".*[?&]visite=1(&.*)?") ? Html.EMPTY : tour(chrome);
-        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s</main>", accountNotice(chrome, csrf), content), footer(), overlay, tour));
+        Html tabs = administrator || !wealth ? Html.EMPTY : wealthTabs(section, realEstate);
+        return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s%s</main>", accountNotice(chrome, csrf), tabs, content), footer(), overlay, tour));
+    }
+
+    /** Onglets de Patrimoine : vue d'ensemble, epargne, bourse, immobilier. */
+    private static Html wealthTabs(Section section, boolean realEstate) {
+        return Html.of("<nav class=\"segmented wealth-tabs\" aria-label=\"Patrimoine\">%s%s%s%s</nav>", tab("/patrimoine", "Vue d'ensemble", section == Section.WEALTH),
+                tab("/epargne", "Épargne", section == Section.SAVINGS), tab("/bourse", "Bourse", section == Section.STOCKS),
+                realEstate ? tab("/immobilier", "Immobilier", section == Section.REAL_ESTATE) : Html.EMPTY);
+    }
+
+    private static Html tab(String href, String label, boolean active) {
+        return Html.of("<a href=\"%s\"%s>%s</a>", href, Html.raw(active ? " class=\"active\" aria-current=\"page\"" : ""), label);
+    }
+
+    /** Bouton « + Ajouter » : chaque saisie a un seul point d'entree, toujours au meme endroit. */
+    private static Html addMenu(boolean realEstate) {
+        return Html.of("""
+                <details class="nav-menu add-menu" name="navigation"><summary aria-label="Ajouter" title="Ajouter"><span aria-hidden="true">+</span><span class="add-label">Ajouter</span></summary>\
+                <div class="nav-panel"><nav class="nav-entries" aria-label="Ajouter">\
+                <a href="/assistant/documents#import">Un relevé bancaire<small>CSV, OFX ou QIF : les dépenses régulières sont trouvées</small></a>\
+                <a href="/administration/depenses">Une dépense<small>loyer, abonnement, assurance…</small></a>\
+                <a href="/administration/revenus">Un revenu<small>salaire, pension, allocation</small></a>\
+                <a href="/epargne">Un livret ou un placement<small>Livret A, assurance-vie, PEL…</small></a>\
+                <a href="/bourse/ajouter">Un titre en bourse<small>action, ETF, crypto</small></a>%s\
+                <a href="/economies#objectifs">Un objectif d'épargne<small>vacances, voiture, travaux</small></a></nav></div></details>""",
+                realEstate ? Html.raw("<a href=\"/administration/biens\">Un bien immobilier<small>logement, location, prêt</small></a>") : Html.EMPTY);
     }
 
     /**
@@ -294,10 +337,11 @@ public final class Layout {
                     "Toutes les pages sont ici, avec la recherche, Mon compte et le thème. La pastille compte vos notifications."});
             stops.add(new String[] {".primary-navigation > a:first-child", "Budget",
                     "Le Prévisionnel des 12 prochains mois et le Budget moyen, pour tout le foyer ou par personne."});
-            stops.add(new String[] {".primary-navigation a[href='/patrimoine']", "Patrimoine, Épargne, Bourse",
-                    "Ce que vous possédez moins ce que vous devez, vos livrets et placements, vos actions, ETF et cryptos aux cours du jour."});
-            if (chrome.realEstate()) stops.add(new String[] {".primary-navigation a[href='/immobilier']", "Immobilier",
-                    "Biens, prêts, loyers et charges : ils alimentent le budget tout seuls."});
+            stops.add(new String[] {".primary-navigation a[href='/patrimoine']", "Patrimoine",
+                    "Ce que vous possédez moins ce que vous devez. Ses onglets : épargne, bourse" + (chrome.realEstate() ? " et immobilier." : ".")});
+            stops.add(new String[] {".primary-navigation a[href='/economies']", "Économies",
+                    "Vos contrats comparés à des repères (électricité, box, assurances…), le gain possible et la démarche ; votre score et vos objectifs."});
+            stops.add(new String[] {".add-menu > summary", "Ajouter", "Une dépense, un revenu, un relevé bancaire, un placement : tout s'ajoute d'ici."});
             stops.add(new String[] {".primary-navigation a[href='/bilan']", "Bilan de santé",
                     "Endettement, épargne de précaution, impôts à ne pas oublier. La pastille compte les points à corriger."});
             stops.add(new String[] {".audience > summary", "Qui voit quoi", manager
@@ -308,7 +352,7 @@ public final class Layout {
             stops.add(new String[] {".nav-search-menu > summary", "Recherche", "Tapez le nom d'une page ou d'un bien pour y aller directement."});
             stops.add(new String[] {"", manager ? "Et maintenant ?" : "C'est à vous",
                     manager ? "Le Guide de saisie remplit Patria pas à pas : avec un fichier de votre banque, avec une IA, ou à la main. Comptez 15 à 30 minutes."
-                            : "Vos revenus et dépenses apparaissent dans le Prévisionnel dès qu'ils sont saisis. L'Assistant vous guide pas à pas."});
+                            : "Vos revenus et dépenses apparaissent dans le Prévisionnel dès qu'ils sont saisis. Le Guide de saisie vous accompagne pas à pas."});
             finalHref = "/assistant";
             finalLabel = manager ? "Ouvrir le Guide de saisie" : "Ouvrir l'Assistant";
         }

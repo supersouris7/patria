@@ -59,7 +59,7 @@ class HealthPreferencesTest {
             String account = TestAccounts.get(client, base, manager, "/compte").body();
             assertFalse(account.contains("Revoir l'accueil") || account.contains("class=\"last-login"));
             assertTrue(account.contains("id=\"connexions\""), "les connexions de sécurité restent consultables");
-            assertTrue(account.contains("aria-label=\"Bilan de santé\"") && account.contains("aria-label=\"Assistant\""));
+            assertTrue(account.contains("aria-label=\"Bilan de santé\"") && account.contains("aria-label=\"Guide de saisie\""));
         }
     }
 }

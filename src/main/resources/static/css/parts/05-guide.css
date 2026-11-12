@@ -112,3 +112,8 @@
 .guide-strip > span { flex: 1 1 260px; }
 .guide-strip form { margin: 0; }
 main > .guide-strip { margin-top: -16px; }
+/* Releve glisse sur la page */
+.drop-overlay { align-items: center; background: rgb(15 23 42 / 55%); display: flex; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 70; }
+.drop-overlay > div { background: var(--surface); border: 3px dashed var(--blue); border-radius: 18px; display: grid; gap: 6px; max-width: 460px; padding: 32px; text-align: center; }
+.drop-overlay b { font-size: 1.2rem; }
+.drop-overlay span { color: var(--text-soft); }

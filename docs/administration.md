@@ -210,6 +210,8 @@ Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un p
 
 La fiche d'un utilisateur affiche son avatar, sa date de naissance et son téléphone s'il les a renseignés. Chaque compte peut créer des jetons d'API en lecture seule (Mon compte → Accès API) pour un tableau de bord : ils sont liés à un foyer, stockés sous forme d'empreinte, inscrits au journal et supprimés avec le compte.
 
+Un mot de passe choisi à l'inscription, à l'invitation ou au changement est refusé s'il figure dans des fuites connues (service Have I Been Pwned, par k-anonymat : seuls 5 caractères de son empreinte SHA-1 partent ; coupé en mode hors ligne ; une panne du service ne bloque personne). En installation cloud, les sessions durent 4 heures au lieu de 12. « Créer un compte » n'apparaît à la connexion que si les inscriptions sont ouvertes. La page Sécurité rappelle de garder une copie des bases hors du serveur.
+
 La page Sécurité montre les connexions, blocages (15 minutes après 10 échecs par IP ou 30 par identifiant), sessions, mots de passe provisoires, journal des droits et état de l'installation. Les connexions sont conservées 90 jours. Le rôle administrateur n'empêche pas l'exploitant technique du serveur de lire ou modifier les fichiers.
 
 ## IA locale (facultative)

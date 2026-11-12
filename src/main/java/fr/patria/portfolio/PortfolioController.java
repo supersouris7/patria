@@ -44,7 +44,8 @@ public final class PortfolioController {
 
     private fr.patria.ui.Html propertyPage(Request request) {
         Portfolio.PropertySummary summary = portfolio.property(request.id());
-        return PortfolioPages.property(summary, rates.current(), portfolio.sales(summary.property()).orElse(null), portfolio.today(), request.confirmation(), request.csrf());
+        return PortfolioPages.property(summary, rates.current(), portfolio.sales(summary.property()).orElse(null), portfolio.today(), request.confirmation(), request.csrf(),
+                portfolio.estimates(summary.property().id()));
     }
 
     private Response months(Request request) {

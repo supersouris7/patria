@@ -27,13 +27,18 @@ final class HealthPages {
     }
 
     static Html page(String owner, List<Check> checks, List<Check> ignored, boolean estate, Html scope, String csrf) {
+        return page(owner, checks, ignored, estate, scope, Html.EMPTY, csrf);
+    }
+
+    /** {@code evolution} : section « Votre evolution », en bas du Bilan. */
+    static Html page(String owner, List<Check> checks, List<Check> ignored, boolean estate, Html scope, Html evolution, String csrf) {
         Html tiles = Components.metrics(4, Arrays.stream(Check.Level.values()).map(level -> {
             long count = checks.stream().filter(check -> check.level() == level).count();
             // Toute la tuile mene a sa liste (et la deplie) ; sans point, rien a ouvrir.
             return count == 0
                     ? Html.of("<article class=\"metric health-tile %s\"><span class=\"metric-label\">%s</span><strong>0</strong><small>point</small></article>", css(level), level.label())
                     : Html.of("<a class=\"metric health-tile %s\" href=\"#%s\" data-open-target><span class=\"metric-label\">%s</span><strong>%s</strong><small>%s</small></a>",
-                    css(level), anchor(level), level.label(), count, count > 1 ? "points" : "point");
+                    css(level), anchor(level), level.label(), count, count > 1 ? "sujets" : "sujet");
         }).toArray(Html[]::new));
         Html domains = Arrays.stream(Check.Domain.values()).map(domain -> {
             List<Check> own = checks.stream().filter(check -> check.domain() == domain && check.level() == Check.Level.INFO).toList();
@@ -64,7 +69,7 @@ final class HealthPages {
                                 ? Html.raw("<p class=\"muted\">Aucun point ignoré actuellement.</p>")
                                 : Html.of("<ul class=\"health-list\">%s</ul>", ignored.stream().map(check -> item(check, true, csrf)).collect(Html.joining()))),
                 Html.raw("<p class=\"source\">Repères indicatifs, calculés sur les 12 prochains mois et les données saisies : ils ne remplacent pas un conseiller. "
-                        + "Plus les données sont à jour (revue annuelle), plus le bilan est juste.</p>"));
+                        + "Plus les données sont à jour (revue annuelle), plus le bilan est juste.</p>"), evolution);
         return Layout.page("Bilan de santé · Patria", Layout.Section.HEALTH, csrf, content);
     }
 
@@ -112,15 +117,15 @@ final class HealthPages {
 
     /** Encart du Previsionnel. */
     static Html summary(long bad, long warn) {
-        String text = (bad > 0 ? Format.plural(bad, "point à corriger", "points à corriger") : "")
-                + (bad > 0 && warn > 0 ? ", " : "") + (warn > 0 ? Format.plural(warn, "point à surveiller", "points à surveiller") : "");
+        String text = (bad > 0 ? Format.plural(bad, "sujet à corriger", "sujets à corriger") : "")
+                + (bad > 0 && warn > 0 ? ", " : "") + (warn > 0 ? Format.plural(warn, "sujet à surveiller", "sujets à surveiller") : "");
         return Html.of("<section class=\"notice %s health-summary\"><div><b>Bilan de santé</b> : %s.</div><a class=\"button secondary\" href=\"/bilan\">Voir le bilan</a></section>",
                 bad > 0 ? "error" : "warning", text);
     }
 
     static byte[] pdf(String owner, List<Check> checks, List<Check> ignored, LocalDate today) {
         PdfReport report = PdfReport.create("Bilan de santé", owner, today).metrics(Arrays.stream(Check.Level.values())
-                .map(level -> PdfReport.Metric.of(level.label(), String.valueOf(checks.stream().filter(check -> check.level() == level).count()), "points")).toList());
+                .map(level -> PdfReport.Metric.of(level.label(), String.valueOf(checks.stream().filter(check -> check.level() == level).count()), "sujets")).toList());
         for (Check.Domain domain : Check.Domain.values()) {
             List<Check> own = checks.stream().filter(check -> check.domain() == domain).sorted(Comparator.comparing(Check::level)).toList();
             if (own.isEmpty()) continue;

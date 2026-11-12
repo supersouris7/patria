@@ -34,6 +34,16 @@ final class AnnualReviewPages {
                 summary.position(), summary.total(), summary.next(), summary.minutes(), summary.nextPath(), fr.patria.ui.Components.csrfField(csrf));
     }
 
+    /** Rappel mensuel : importer le releve de sa banque (les etapes de la banque retenue, en un clic). */
+    static Html importReminder(long days, String bank, String csrf) {
+        String href = "/assistant/documents" + (bank == null ? "" : "?q=" + java.net.URLEncoder.encode(bank, java.nio.charset.StandardCharsets.UTF_8)) + "#import";
+        return Html.of("""
+                <section class="guide-strip setup-progress import-reminder" aria-label="Relevé du mois"><span><b>Relevé du mois</b> · dernier import il y a %s jours. \
+                Importez celui de %s : les nouvelles dépenses régulières seront proposées.</span><a class="button" href="%s">Importer</a>\
+                <form method="post" action="/assistant/encadre/ignorer">%s<button class="quiet" type="submit" aria-label="Masquer le rappel" title="Masquer">×</button></form></section>""",
+                days, bank == null ? "votre banque" : bank, href, fr.patria.ui.Components.csrfField(csrf));
+    }
+
     static Html reminder(AnnualReview.CalendarMonth month) {
         return Html.of("""
                 <section class="notice warning review-reminder"><div><b>Revue annuelle conseillée</b> : votre dernière mise à jour date de plus d'un an.

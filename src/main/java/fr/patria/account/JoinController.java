@@ -176,7 +176,7 @@ public final class JoinController extends AccountSupport {
     /** Ouvre la session du compte qui vient d'etre cree, sur ce foyer (la confirmation de l'e-mail passe avant, si elle est exigee). */
     private Response signIn(Request request, long userId, long household) {
         Session session = sessions.create(userId, household);
-        String cookie = Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.LIFETIME.toSeconds() + "; HttpOnly; SameSite=Lax"
+        String cookie = Sessions.COOKIE + "=" + session.id() + "; Path=/; Max-Age=" + Sessions.lifetime().toSeconds() + "; HttpOnly; SameSite=Lax"
                 + (request.isHttps() ? "; Secure" : "");
         log.recordLogin(LocalDateTime.now(clock), accounts.user(userId).orElseThrow().login(), userId, true, request.clientAddress());
         // La double authentification est proposee d'abord (« Plus tard » mene a l'accueil).

@@ -12,7 +12,14 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Sessions en memoire : un redemarrage du serveur deconnecte tout le monde. */
 public final class Sessions {
     public static final String COOKIE = "patria_session";
-    public static final Duration LIFETIME = Duration.ofHours(12);
+    private static final Duration LIFETIME = Duration.ofHours(12);
+    /** Installation cloud (ouverte au public) : sessions plus courtes. */
+    private static final Duration CLOUD_LIFETIME = Duration.ofHours(4);
+
+    /** Duree d'une session : 12 heures, 4 heures en installation cloud. */
+    public static Duration lifetime() {
+        return fr.patria.ui.Layout.cloud() ? CLOUD_LIFETIME : LIFETIME;
+    }
     private static final SecureRandom RANDOM = new SecureRandom();
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private final Clock clock;
@@ -25,7 +32,7 @@ public final class Sessions {
     public Session create(Long userId, long householdId) {
         long now = clock.millis();
         sessions.values().removeIf(session -> session.expiresAt() < now);
-        Session session = new Session(token(), token(), now + LIFETIME.toMillis(), userId, householdId, false);
+        Session session = new Session(token(), token(), now + lifetime().toMillis(), userId, householdId, false);
         sessions.put(session.id(), session);
         return session;
     }

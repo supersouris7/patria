@@ -117,7 +117,17 @@ public final class HouseholdController {
     private Response update(Request request) {
         Income current = require(request);
         try {
-            household.updateIncome(read(request.form(), current.id(), visibility(request).people()));
+            Income income = read(request.form(), current.id(), visibility(request).people());
+            java.time.LocalDate from = request.form().raw("effet").isBlank() ? null : request.form().date("effet", "À partir du");
+            boolean changed = income.amount().compareTo(current.amount()) != 0 || income.frequency() != current.frequency();
+            if (changed && from != null && from.isAfter(current.start()) && (current.end() == null || !from.isAfter(current.end()))) {
+                // Revenu change a une date : l'ancien s'arrete la veille (le pouvoir d'achat compare les deux).
+                household.updateIncome(new Income(current.id(), current.personId(), current.label(), current.kind(), current.amount(), current.frequency(),
+                        current.start(), from.minusDays(1)));
+                household.addIncome(new Income(0, income.personId(), income.label(), income.kind(), income.amount(), income.frequency(), from, income.end()));
+            } else {
+                household.updateIncome(income);
+            }
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/revenus?ok=enregistre");
         } catch (ValidationException exception) {

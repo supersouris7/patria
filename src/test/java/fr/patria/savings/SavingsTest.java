@@ -180,6 +180,13 @@ class SavingsTest {
         assertEquals(Optional.of("IE000BI8OT95;Core MSCI World USD (Acc);2;201.00\nBTC;Bitcoin;0.001;51.00"), BrokerExport.toLines(export), "dividende sans achat ignoré");
         assertEquals(Optional.of(new BigDecimal("48.08")), BrokerExport.cash(export), "300 − 201 − 51 + 0,10 − 0,02");
         assertTrue(BrokerExport.cash("Date,Ticker,Type,Quantity\n2026-01-02,AAPL,BUY,2").isEmpty(), "sans les mouvements d'argent, pas d'espèces devinées");
+        List<BrokerExport.Movement> movements = BrokerExport.movements(export);
+        assertEquals(2, movements.size(), "achats seulement : ni virement ni dividende");
+        assertEquals(java.time.LocalDate.of(2026, 1, 5), movements.getFirst().day());
+        assertEquals(new BigDecimal("201.00"), movements.getFirst().amount(), "montant + frais");
+        assertEquals("id:a2", movements.getFirst().key(), "identifiant du courtier : pas de doublon au réimport");
+        assertEquals(movements.getFirst().line(), BrokerExport.Movement.parse(movements.getFirst().line()).line(), "voyage intact de l'aperçu à l'import");
+        assertTrue(BrokerExport.movements("Ticker;Type;Quantity\nAAPL;BUY;2").isEmpty(), "sans date, pas de mouvement");
     }
 
     @Test

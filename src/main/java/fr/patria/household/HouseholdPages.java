@@ -75,7 +75,7 @@ public final class HouseholdPages {
                 : Components.disclosure("Ajouter un revenu",
                         Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"), notice != null && notice.error());
         Html importer = formPeople.isEmpty() ? Html.EMPTY : Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", importForm(formPeople, null, csrf), false);
-        Html content = Html.concat(Components.heading("Gestion", "Revenus", null, Html.EMPTY), Components.notice(notice), addIncome, importer, incomesCard);
+        Html content = Html.concat(Components.heading("Gérer", "Revenus", null, Html.EMPTY), Components.notice(notice), addIncome, importer, incomesCard);
         return Layout.adminSection("Revenus · Patria", csrf, Layout.AdminSection.INCOMES, content);
     }
 
@@ -85,7 +85,8 @@ public final class HouseholdPages {
         Html content = Html.concat(
                 back == null ? Components.backLink("/administration/revenus", "Revenus") : Components.backLink(back, "Budget moyen"),
                 Components.heading("Revenu", income.label(), null, Html.EMPTY), Components.notice(notice),
-                Components.card("Revenu", null, Html.EMPTY, Components.formOrView(readOnly, "/revenu/" + income.id() + suffix, csrf, incomeFields(people, values), "Enregistrer")),
+                Components.card("Revenu", null, Html.EMPTY, Components.formOrView(readOnly, "/revenu/" + income.id() + suffix, csrf,
+                        Html.concat(incomeFields(people, values), Components.effectiveFrom(values, java.time.LocalDate.now().withDayOfMonth(1).plusMonths(1))), "Enregistrer")),
                 readOnly ? Html.EMPTY : Components.dangerZone("Supprimer ce revenu", "Il ne sera plus compté dans le budget.", "/revenu/" + income.id() + "/supprimer" + suffix,
                         "Supprimer le revenu « " + income.label() + " » ?", "Supprimer le revenu", csrf));
         return Layout.adminSection("Revenu · " + income.label() + " · Patria", csrf, Layout.AdminSection.INCOMES, content);
@@ -125,7 +126,7 @@ public final class HouseholdPages {
                 <a class="button secondary" href="%s">Annuler</a><button type="submit">Importer la sélection</button></form>""",
                 Components.csrfField(csrf), encoded, back == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), cancel);
         Html content2 = Html.concat(Components.backLink(cancel, back == null ? "Revenus" : "Retour au guide"),
-                Components.heading("Gestion", "Aperçu de l'import", fresh + " revenu" + (fresh > 1 ? "s" : "") + " à importer. Les lignes en erreur sont ignorées.", Html.EMPTY),
+                Components.heading("Gérer", "Aperçu de l'import", fresh + " revenu" + (fresh > 1 ? "s" : "") + " à importer. Les lignes en erreur sont ignorées.", Html.EMPTY),
                 Components.card("Revenus", rows.size(), Html.EMPTY, Html.concat(Components.table(List.of("Importer", "Personne", "Libellé", "Type", "#Montant", "Fréquence", "État"),
                         body, false, false), actions)));
         return Layout.adminSection("Import des revenus · Patria", csrf, Layout.AdminSection.INCOMES, content2);

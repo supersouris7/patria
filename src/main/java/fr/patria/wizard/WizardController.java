@@ -52,7 +52,8 @@ public final class WizardController {
     /** Depots du foyer utilises par l'assistant. */
     public record Stores(HouseholdRepository household, BudgetRepository items, ShareRepository shares, PropertyRepository properties,
                          LoanRepository loans, ExpenseRepository charges, RentRepository rents, WizardRepository progress,
-                         fr.patria.household.HealthScopeRepository healthScope, fr.patria.savings.SavingsController savings, ImportInbox inbox) {
+                         fr.patria.household.HealthScopeRepository healthScope, fr.patria.savings.SavingsController savings, ImportInbox inbox,
+                         fr.patria.budget.HistoryRepository history) {
     }
 
     static final String REVIEW = "revue";
@@ -74,9 +75,10 @@ public final class WizardController {
         for (Step step : Step.values()) {
             // Documents : « q » cherche une banque ou un organisme dans les tutoriels.
             // Situation : le prenom du compte est propose ; Documents : « q » cherche une banque dans les tutoriels.
-            Router.Handler page = request -> Response.page(render(request, step, request.confirmation(), step == Step.SITUATION
-                    ? Map.of("prenom", request.viewer().name() == null ? "" : request.viewer().name())
-                    : request.query("q") == null || request.query("q").isBlank() ? Map.of() : Map.of("q", request.query("q").strip())));
+            Router.Handler page = request -> {
+                rememberBank(request, step);
+                return pageOf(request, step);
+            };
             Router.Handler skip = request -> finish(request, step, WizardRepository.Status.SKIPPED);
             // « Continuer » : faite si quelque chose est saisi (ou « A la main » choisi), sinon a completer plus tard.
             Router.Handler done = request -> finish(request, step, !request.form().raw("manuel").isEmpty() || context(request).filled(step)
@@ -133,6 +135,32 @@ public final class WizardController {
         if (chosen.isEmpty()) return Response.invalid(render(request, Step.HEALTH, Notice.error("Cochez au moins un compte à prendre en compte dans le bilan."), Map.of()));
         stores.healthScope().save(request.viewer().userId(), chosen);
         return finish(request, Step.HEALTH, WizardRepository.Status.DONE);
+    }
+
+    /** Page d'une etape : situation preremplie du prenom du compte ; documents avec la banque cherchee (ou retenue). */
+    private Response pageOf(Request request, Step step) {
+        String query = request.query("q") == null ? "" : request.query("q").strip();
+        Map<String, String> values = step == Step.SITUATION ? Map.of("prenom", request.viewer().name() == null ? "" : request.viewer().name())
+                : query.isEmpty() ? Map.of() : Map.of("q", query);
+        return Response.page(render(request, step, request.confirmation(), values));
+    }
+
+    /** Recherche « ou trouver » qui designe une banque connue : elle est retenue pour le rappel mensuel d'import. */
+    private void rememberBank(Request request, Step step) {
+        String query = request.query("q");
+        if (step != Step.DOCUMENTS || query == null || query.isBlank() || request.viewer().isAdministrator()) return;
+        String wanted = DocumentGuides.normalize(query);
+        DocumentGuides.forDocument("statements").stream().map(DocumentGuides.Guide::name).filter(name -> DocumentGuides.normalize(name).contains(wanted))
+                .findFirst().ifPresent(bank -> stores.progress().setBank(owner(request), bank, LocalDate.now(clock)));
+    }
+
+    /** Empreinte d'une operation (aucun libelle n'est garde en clair). */
+    private static String sha256(String value) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     /** Acces du gestionnaire a un membre qu'il vient de creer (renseigne par l'assemblage, qui connait les comptes). */
@@ -208,10 +236,11 @@ public final class WizardController {
     public Html progress(Request request) {
         if (!request.viewer().wholeHousehold() && !request.viewer().realEstate() && request.viewer().members().isEmpty()) return Html.EMPTY;
         String owner = owner(request);
-        if (stores.progress().bannerHidden(owner)) return Html.EMPTY;
         WizardRepository.Summary summary = stores.progress().summary(owner, request.viewer().realEstate(), request.viewer().householdManager());
-        if (summary.next() == null) return Html.EMPTY;
-        return AnnualReviewPages.progress(summary, request.csrf());
+        if (summary.next() != null) return stores.progress().bannerHidden(owner) ? Html.EMPTY : AnnualReviewPages.progress(summary, request.csrf());
+        // Guide fini : rappel d'importer le releve du mois, 30 jours apres le dernier import (« × » : pas avant 30 jours).
+        Long days = stores.progress().importDue(owner, LocalDate.now(clock));
+        return days == null ? Html.EMPTY : AnnualReviewPages.importReminder(days, stores.progress().bank(owner), request.csrf());
     }
 
     /** Nouveau montant a partir d'une date, ou arret de la depense (« Arrêtée »). Lignes modifiables seulement. */
@@ -453,6 +482,14 @@ public final class WizardController {
             // Export d'operations bancaires (CSV, OFX, QIF) : les operations regulieres deviennent des lignes, sans IA.
             java.util.Optional<List<BankStatement.Transaction>> statement = BankStatement.read(answer);
             if (statement.isPresent()) {
+                // Depenses reelles : totaux par mois et categorie (graphique prevu / reel du Bilan) ; une operation deja comptee ne l'est pas deux fois.
+                Map<String, Integer> occurrences = new java.util.HashMap<>();
+                stores.history().addOperations(statement.get().stream().map(operation -> {
+                    String natural = operation.date() + "|" + operation.label() + "|" + operation.amount().stripTrailingZeros().toPlainString();
+                    int rank = occurrences.merge(natural, 1, Integer::sum);
+                    return new fr.patria.budget.HistoryRepository.Operation(operation.date(), BankStatement.category(operation.label()), operation.amount(),
+                            sha256(natural + "|" + rank));
+                }).toList());
                 List<String> lines = BankStatement.recurring(statement.get(), people.stream().filter(person -> !person.isAccount()).findFirst().orElse(null));
                 if (lines.isEmpty()) {
                     throw new ValidationException(statement.get().size() + " opérations lues, mais aucune ne revient chaque mois avec le même montant. "
@@ -461,7 +498,13 @@ public final class WizardController {
                 answer = String.join("\n", lines);
             }
             ImportInbox.Added added = stores.inbox().add(owner(request), answer, people, LocalDate.now(clock));
-            String summary = (added.total() == 0 && !fiscal.isEmpty() ? "" : added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
+            stores.progress().markImported(owner(request), LocalDate.now(clock));
+            String read = statement.map(operations -> "Relevé lu : " + operations.size() + " opérations. ").orElse("");
+            String summary = read + (added.total() == 0 && !fiscal.isEmpty() ? "" : added.total() == 0 ? "Aucune nouvelle ligne : tout était déjà importé ou saisi."
+                    : statement.isPresent() ? added.total() + " régulière" + (added.total() > 1 ? "s" : "") + " trouvée" + (added.total() > 1 ? "s" : "") + " ("
+                    + added.counts().entrySet().stream().map(entry -> entry.getValue() + " " + entry.getKey().label().toLowerCase(java.util.Locale.FRENCH))
+                    .collect(java.util.stream.Collectors.joining(", ")) + "), à valider. Rien n'entre dans votre budget avant."
+                    : added.total() == 0 ? "Aucune nouvelle ligne trouvée dans cette réponse."
                     : added.total() + " ligne" + (added.total() > 1 ? "s" : "") + " ajoutée" + (added.total() > 1 ? "s" : "") + " à la pile « À trier » ("
                     + added.counts().entrySet().stream().map(entry -> entry.getValue() + " " + entry.getKey().label().toLowerCase(java.util.Locale.FRENCH))
                     .collect(java.util.stream.Collectors.joining(", ")) + ").") + fiscal;

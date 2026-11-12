@@ -54,7 +54,7 @@ final class SavingsPages {
                                 + "en dessous, elle en perd.", average == null ? "—" : Format.number(average, 2) + " %",
                         real == null ? "" : real.signum() >= 0 ? "positive" : "negative",
                         real == null ? "taux à saisir sur vos comptes" : "soit " + Format.signedPercent(real.setScale(1, java.math.RoundingMode.HALF_UP)) + " après inflation"));
-        Html content = Html.concat(Components.heading("Votre épargne", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.EMPTY),
+        Html content = Html.concat(Components.heading("Patrimoine", "Épargne", "Comptes, livrets et placements à capital garanti ou long terme.", Html.EMPTY),
                 Components.notice(notice), tiles, accounts(saved, today, null, csrf), addAccount(people, null, csrf), planCard(snapshot, csrf), chart(bars),
                 snapshot.inflation().map(value -> inflationChart(value, average, today)).orElse(Html.EMPTY),
                 Html.of("<div id=\"fiscal\">%s</div>", Components.disclosure("Revenu fiscal de référence (éligibilité au LEP)", taxForm, false)),

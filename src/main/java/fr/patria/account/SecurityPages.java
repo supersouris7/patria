@@ -70,6 +70,10 @@ final class SecurityPages {
                                 + SecurityLog.KEPT_DAYS + " jours.", Html.EMPTY),
                 recommended, tiles,
                 Components.card("État de l'installation", null, Html.EMPTY, installation),
+                Components.card("Sauvegardes", null, Html.EMPTY, Html.raw("""
+                        <p>Le chiffrement protège contre le vol, pas contre une panne de disque ou une erreur : gardez une <b>copie des bases hors du serveur</b>
+                        (disque externe, autre machine), au moins une fois par semaine, et vérifiez de temps en temps qu'elle se restaure.</p>
+                        <p class="muted small">Conservez la clé de chiffrement à part, jamais à côté des sauvegardes. Voir le guide administrateur, « Sauvegarder et restaurer ».</p>""")),
                 localAiCard(csrf), mailCard(mail, mailStatus, csrf),
                 Components.card("Bloqués en ce moment", blocked.size(), Html.EMPTY, blockedList),
                 Components.disclosure("Connexions échouées (" + failures.size() + ")", failures.isEmpty() ? Html.raw("<p class=\"empty\">Aucun échec enregistré.</p>")

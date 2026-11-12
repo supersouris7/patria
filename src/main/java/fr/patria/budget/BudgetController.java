@@ -271,8 +271,17 @@ public final class BudgetController {
         try {
             BudgetItem item = read(request.form(), current.id());
             Map<Long, Integer> shares = visibility.normalize(Shares.parse(request.form().values(), visibility.people()));
-            items.update(item);
-            sources.shares().set(Shares.Subject.BUDGET_ITEM, current.id(), shares);
+            java.time.LocalDate from = request.form().raw("effet").isBlank() ? null : request.form().date("effet", "À partir du");
+            boolean changed = item.amount().compareTo(current.amount()) != 0 || item.frequency() != current.frequency();
+            if (changed && from != null && from.isAfter(current.start()) && (current.end() == null || !from.isAfter(current.end()))) {
+                // Montant change a une date : l'ancien s'arrete la veille, le nouveau prend le relais (historique garde).
+                items.update(new BudgetItem(current.id(), current.label(), current.category(), current.amount(), current.frequency(), current.start(), from.minusDays(1)));
+                long id = items.insert(new BudgetItem(0, item.label(), item.category(), item.amount(), item.frequency(), from, item.end()));
+                sources.shares().set(Shares.Subject.BUDGET_ITEM, id, shares);
+            } else {
+                items.update(item);
+                sources.shares().set(Shares.Subject.BUDGET_ITEM, current.id(), shares);
+            }
             String back = back(request);
             return Response.redirect(back != null ? back : "/administration/depenses?ok=enregistre");
         } catch (ValidationException exception) {
