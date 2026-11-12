@@ -809,10 +809,16 @@ document.querySelectorAll("table.data").forEach((table) => {
 });
 
 if (!calm) {
-  // Chiffres cles qui defilent jusqu'a leur valeur (meme format, meme signe, meme unite).
+  // Chiffres cles : ils defilent seulement quand ils ont change depuis la derniere visite de la page (sinon, rien ne bouge).
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem("patria-figures")) || {}; } catch { /* stockage indisponible : aucun defilement */ }
+  const before = seen[location.pathname];
+  const now = [];
   const pattern = /^([^0-9−-]*)([−-]?)(\d{1,3}(?:[\s  ]\d{3})*|\d+)(,\d+)?(.*)$/;
-  document.querySelectorAll(".metric strong, .level-badge").forEach((element) => {
+  document.querySelectorAll(".metric strong, .level-badge").forEach((element, index) => {
     if (element.children.length) return;
+    now[index] = element.textContent.trim();
+    if (!before || before[index] === undefined || before[index] === now[index]) return;
     const match = element.textContent.trim().match(pattern);
     if (!match) return;
     const target = Number(match[3].replace(/[\s  ]/g, "") + (match[4] ? "." + match[4].slice(1) : ""));
@@ -821,14 +827,16 @@ if (!calm) {
     const format = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     const final = element.textContent;
     const started = performance.now();
-    const step = (now) => {
-      const progress = Math.min(1, (now - started) / 700);
+    const step = (time) => {
+      const progress = Math.min(1, (time - started) / 700);
       const eased = 1 - Math.pow(1 - progress, 3);
       element.textContent = match[1] + match[2] + format.format(target * eased) + match[5];
       if (progress < 1) requestAnimationFrame(step); else element.textContent = final;
     };
     requestAnimationFrame(step);
   });
+  seen[location.pathname] = now;
+  try { localStorage.setItem("patria-figures", JSON.stringify(seen)); } catch { /* rien */ }
 
   // Barres de progression qui se remplissent.
   document.querySelectorAll(".progress").forEach((bar) => {
@@ -836,22 +844,17 @@ if (!calm) {
     requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove("from-zero")));
   });
 
-  // Apparition au defilement et courbes qui se dessinent, une fois a l'ecran.
+  // Courbes qui se dessinent, une fois a l'ecran.
   const draw = (root) => root.querySelectorAll("polyline.compare-line:not(.rate), polyline.rate-line:not(.s4), path.line").forEach((line) => {
     line.setAttribute("pathLength", "1");
     line.classList.add("draw");
   });
   const observer = "IntersectionObserver" in window ? new IntersectionObserver((entries) => entries.forEach((entry) => {
     if (!entry.isIntersecting) return;
-    entry.target.classList.add("shown");
     draw(entry.target);
     observer.unobserve(entry.target);
   }), { rootMargin: "0px 0px -8% 0px" }) : null;
-  document.querySelectorAll("main .card, main .metrics, main .missions > li, main .badge-card").forEach((element) => {
-    if (!observer) return;
-    if (element.getBoundingClientRect().top > innerHeight) element.classList.add("reveal");
-    observer.observe(element);
-  });
+  document.querySelectorAll("main .card").forEach((element) => observer?.observe(element));
   // Graphiques charges plus tard (fragments) : ils se dessinent a leur arrivee.
   new MutationObserver((mutations) => mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
     if (node.nodeType === 1) draw(node);
@@ -913,24 +916,18 @@ document.querySelectorAll("[data-celebrate]").forEach((element) => {
 
 // Pastille de niveau dans l'en-tete, et celebration d'un niveau gagne (sur n'importe quelle page).
 const showLevel = (level) => {
-  if (!level || document.querySelector(".level-pill")) return;
-  const bar = document.querySelector(".account-bar");
-  const account = bar?.querySelector(".account-link");
-  if (!bar || !account) return;
-  const pill = document.createElement("a");
-  pill.className = "level-pill";
-  pill.href = "/economies";
-  pill.title = `Niveau ${level.number} · ${level.name} · ${level.xp} points`;
-  pill.setAttribute("aria-label", pill.title);
-  const number = document.createElement("b");
-  number.textContent = level.number;
-  const name = document.createElement("span");
-  name.textContent = level.name;
-  const progress = document.createElement("i");
-  progress.style.width = "0";
-  pill.append(number, name, progress);
-  bar.insertBefore(pill, account);
-  requestAnimationFrame(() => requestAnimationFrame(() => { progress.style.width = `calc(${level.percent}% - 18px)`; }));
+  // Un anneau autour de l'avatar (Mon compte) plutot qu'une pastille de plus dans la barre.
+  const account = document.querySelector(".account-bar .account-link");
+  const picture = account?.querySelector(".avatar, svg");
+  if (!level || !picture || account.querySelector(".level-ring")) return;
+  const ring = document.createElement("span");
+  ring.className = "level-ring";
+  ring.style.setProperty("--level", String(level.percent));
+  picture.replaceWith(ring);
+  ring.append(picture);
+  const label = `Niveau ${level.number} · ${level.name} · ${level.xp} points`;
+  account.title = `Mon compte · ${label}`;
+  account.setAttribute("aria-label", `${account.getAttribute("aria-label") || "Mon compte"}, ${label}`);
   const before = remembered("patria-level");
   if (before && level.number > before) celebrate(`Niveau ${level.number} atteint : ${level.name}`);
   remember("patria-level", level.number);

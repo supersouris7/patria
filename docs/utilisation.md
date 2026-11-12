@@ -150,7 +150,7 @@ La page **Patrimoine** montre ce que vous possédez (comptes et livrets, épargn
 ## Affichage et mouvement
 
 - **Chiffres** : montants arrondis à l'euro dans les tuiles, résumés, phrases et graphiques ; centimes seulement dans les listes de lignes et les formulaires. Pourcentages à une décimale au plus.
-- **Mouvement sobre** : passage d'une page à l'autre en fondu (l'en-tête reste en place), dépliants et menus qui s'ouvrent en douceur, chiffres clés qui défilent jusqu'à leur valeur, courbes qui se dessinent, barres qui se remplissent, cartes qui apparaissent en défilant, reflet pendant le chargement d'un graphique. Tout est coupé si l'appareil demande moins d'animations (réglage d'accessibilité du système).
+- **Mouvement sobre** : passage d'une page à l'autre en fondu (l'en-tête reste en place), dépliants et menus qui s'ouvrent en douceur, chiffres clés qui défilent seulement quand ils ont changé depuis votre dernière visite, courbes qui se dessinent, barres qui se remplissent, reflet pendant le chargement d'un graphique. Tout est coupé si l'appareil demande moins d'animations (réglage d'accessibilité du système).
 - **Sur smartphone**, les tableaux deviennent des fiches : une fiche par ligne, chaque valeur avec son intitulé.
 - **Intitulés harmonisés** : chaque page porte le nom de sa rubrique (Budget, Patrimoine, Économies, Bilan, Gérer, Guide de saisie). La page Bourse n'a plus qu'un graphique, « Comparer les performances », qui montre aussi le portefeuille.
 
@@ -160,7 +160,7 @@ Le menu a cinq entrées : **Budget**, **Patrimoine** (onglets Vue d'ensemble, É
 
 La page **Économies** rassemble :
 
-- **Votre niveau** (de « Premiers pas » à « Maître des finances ») et vos **points** : chaque chose utile faite en rapporte (budget complet, relevé importé, contrat renégocié, objectif atteint, mois sans déficit, badge, mission réussie). Une pastille dans l'en-tête montre le niveau et l'avancement ; un niveau gagné est célébré (message et confettis discrets, coupés si l'appareil demande moins d'animations).
+- **Votre niveau** (de « Premiers pas » à « Maître des finances ») et vos **points** : chaque chose utile faite en rapporte (budget complet, relevé importé, contrat renégocié, objectif atteint, mois sans déficit, badge, mission réussie). Un anneau autour de votre avatar, dans l'en-tête, montre l'avancement vers le niveau suivant (le détail au survol) ; un niveau gagné est célébré (message et confettis discrets, coupés si l'appareil demande moins d'animations).
 - **Missions** en plusieurs étapes avec leur récompense : Mettre de l'ordre, Chasse aux contrats, Bouclier (1, 3 puis 6 mois de précaution), Un projet. **Séries** : mois d'affilée avec un relevé importé, sans déficit, avec une épargne en hausse ; une série cassée repart de zéro sans retirer de points, et le mois en cours ne la casse pas.
 - **Votre santé financière sur 100** (À construire, Correcte, Solide, Excellente) : 40 points pour le bilan de santé, 30 pour un budget complet, 30 pour l'épargne de précaution (6 mois = tout). Aucune comparaison avec d'autres foyers.
 - **Économies réalisées** (contrats renégociés, sur un an) et **À gagner** (écart entre vos contrats et des offres courantes).

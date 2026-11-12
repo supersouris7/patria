@@ -11,7 +11,7 @@
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } }
 
 /* Reactions au survol et a l'appui. */
-button, .button, .segmented a, .nav-menu > summary, .nav-entries a, .choice-card, .contract > summary, .metric, .badge-card, .mission, .level-pill,
+button, .button, .segmented a, .nav-menu > summary, .nav-entries a, .choice-card, .contract > summary, .metric, .badge-card, .mission,
 .import-method > summary, .audience > summary {
     transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), border-color var(--fast) var(--ease),
         box-shadow var(--mid) var(--ease), transform var(--fast) var(--ease), opacity var(--mid) var(--ease);
@@ -29,10 +29,6 @@ details[open]::details-content { block-size: auto; }
 @keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
 .notice, .guide-strip, .compare-verdict { animation: fade-in var(--mid) var(--ease); }
 
-/* Apparition au defilement (seulement ce qui est hors de l'ecran au chargement). */
-.reveal { opacity: 0; transform: translateY(12px); }
-.reveal.shown { opacity: 1; transform: none; transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
-
 /* Courbes qui se dessinent, barres qui se remplissent. */
 .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 900ms var(--ease) forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -44,14 +40,15 @@ details[open]::details-content { block-size: auto; }
     animation: shimmer 1.4s linear infinite; border-radius: 6px; color: transparent; min-height: 180px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-/* Pastille de niveau dans l'en-tete. */
-.level-pill { align-items: center; border: 1px solid var(--line); border-radius: 999px; color: var(--text-soft); display: inline-flex; font-size: .78rem; font-weight: 700;
-    gap: 6px; min-height: 32px; padding: 2px 10px 2px 4px; position: relative; text-decoration: none; }
-.level-pill b { align-items: center; background: var(--blue-deep); border-radius: 50%; color: #fff; display: inline-flex; font-size: .72rem; height: 24px;
-    justify-content: center; width: 24px; }
-.level-pill i { background: var(--blue); border-radius: 2px; bottom: -1px; height: 2px; left: 14px; position: absolute; transition: width 800ms var(--ease); }
-.level-pill:hover { border-color: var(--blue); color: var(--text); }
-@media (max-width: 760px) { .level-pill span { display: none; } .level-pill { padding-right: 4px; } }
+/* Niveau dans l'en-tete : un anneau fin autour de l'avatar, rempli selon l'avancement vers le niveau suivant. */
+.level-ring { background: conic-gradient(var(--blue) calc(var(--level, 0) * 1%), var(--line-strong) 0); border-radius: 50%; display: inline-flex; flex: none; padding: 4px; }
+.level-ring > .avatar, .level-ring > svg { box-shadow: 0 0 0 2px var(--topbar); }
+
+/* Barre du haut sobre : seul « Ajouter » porte la couleur, le reste est neutre et du meme gris. */
+.navigation .nav-count.warning { background: var(--surface-raised); color: var(--text-soft); }
+.navigation .audience summary { color: var(--muted); }
+.navigation .audience summary:hover { color: var(--text); }
+.navigation .audience-dot { background: var(--blue); }
 
 /* Niveau, missions, series (page Economies). */
 .level-card { align-items: center; display: flex; gap: 18px; margin-bottom: 16px; padding: 18px 22px; }
@@ -104,14 +101,12 @@ details[open]::details-content { block-size: auto; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-    .reveal { opacity: 1; transform: none; }
     .draw { stroke-dashoffset: 0; }
 }
 @media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
 
 /* Impression : tout est visible, meme ce qui n'est pas encore apparu au defilement. */
 @media print {
-    .reveal { opacity: 1 !important; transform: none !important; }
     .draw { stroke-dashoffset: 0 !important; }
-    .toasts, .confetti, .level-pill { display: none !important; }
+    .toasts, .confetti { display: none !important; }
 }
