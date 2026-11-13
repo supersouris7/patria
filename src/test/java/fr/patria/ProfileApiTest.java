@@ -103,7 +103,7 @@ class ProfileApiTest {
             assertEquals(400, TestAccounts.post(client, base, manager, "/economies/renegocie", "contrat=INTERNET&nouveau=60").statusCode(), "plus cher : refusé");
             assertEquals(303, TestAccounts.post(client, base, manager, "/economies/renegocie", "contrat=INTERNET&nouveau=29,99").statusCode());
             String after = TestAccounts.get(client, base, manager, "/economies").body();
-            assertTrue(after.matches("(?s).*240.{1,3}€ par an.*") && after.contains("Première économie"), "compteur et badge");
+            assertTrue(after.matches("(?s).*240.{1,3}€</strong><small>par an · 1 contrat.*") && after.contains("Première économie"), "compteur et badge");
             assertTrue(TestAccounts.get(client, base, manager, "/administration/depenses").body().contains("29,99"), "le budget prend le nouveau montant");
             assertEquals(303, TestAccounts.post(client, base, manager, "/economies/objectifs", "emoji=%F0%9F%8F%96%EF%B8%8F&nom=Vacances&montant=2000&compte=").statusCode());
             assertTrue(TestAccounts.get(client, base, manager, "/economies").body().contains("Vacances"));

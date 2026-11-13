@@ -19,15 +19,19 @@ import java.util.Locale;
 final class StockCompare {
     /** A quoi comparer le portefeuille (indices : symboles Yahoo Finance, hors dividendes). */
     enum Target {
-        WORLD("CW8.PA", "MSCI World"), SP500("^GSPC", "S&P 500"), CAC40("^FCHI", "CAC 40"), STOXX50("^STOXX50E", "Euro Stoxx 50"),
-        SAVINGS(null, "Livret A et inflation");
+        WORLD("CW8.PA", "MSCI World", "Environ 1 500 grandes entreprises de 23 pays riches : le repère le plus courant d'un placement en actions diversifié."),
+        SP500("^GSPC", "S&P 500", "Les 500 plus grandes entreprises américaines, qui pèsent près des deux tiers du MSCI World."),
+        CAC40("^FCHI", "CAC 40", "Les 40 plus grandes entreprises françaises : utile si vous détenez surtout des actions françaises."),
+        SAVINGS(null, "Livret A et inflation", "Ce que l'argent aurait rapporté sans risque sur un Livret A, et ce qu'il faut gagner pour ne pas perdre en pouvoir d'achat.");
 
         final String symbol;
         final String label;
+        final String why;
 
-        Target(String symbol, String label) {
+        Target(String symbol, String label, String why) {
             this.symbol = symbol;
             this.label = label;
+            this.why = why;
         }
 
         static Target parse(String value) {
@@ -89,8 +93,8 @@ final class StockCompare {
         Html periods = java.util.Arrays.stream(MarketFeeds.Range.values()).map(option -> link(href, target, option, option.label(), option == range))
                 .collect(Html.joining());
         Html controls = Html.of("""
-                <div class="compare-controls"><div class="compare-target"><span class="muted small">Comparer à</span><nav class="segmented small" aria-label="Comparer à">%s</nav></div>\
-                <nav class="segmented small" aria-label="Période">%s</nav></div>""", targets, periods);
+                <div class="compare-controls"><div class="compare-target">%s<nav class="segmented small" aria-label="Comparer à">%s</nav></div>\
+                <nav class="segmented small" aria-label="Période">%s</nav></div>""", help(), targets, periods);
         List<Line> others = references.stream().filter(Line::usable).toList();
         if (!mine.usable() || others.isEmpty()) {
             return Html.of("<div class=\"stock-chart\">%s<p class=\"muted\">Pas assez de cours pour comparer (titre inconnu de Yahoo Finance, ou mode hors ligne).</p></div>",
@@ -203,8 +207,19 @@ final class StockCompare {
     }
 
     private static Html link(String href, Target target, MarketFeeds.Range range, String label, boolean active) {
-        return Html.of("<a href=\"%s?cible=%s&amp;periode=%s\" data-fragment-link%s>%s</a>", href, target.name().toLowerCase(Locale.ROOT), range.code(),
-                Html.raw(active ? " class=\"active\" aria-current=\"true\"" : ""), label);
+        return Html.of("<a href=\"%s?cible=%s&amp;periode=%s\" data-fragment-link title=\"%s\"%s>%s</a>", href, target.name().toLowerCase(Locale.ROOT), range.code(),
+                target.why, Html.raw(active ? " class=\"active\" aria-current=\"true\"" : ""), label);
+    }
+
+    /** Bulle « i » : pourquoi ces points de comparaison, et pourquoi faire mieux que l'inflation. */
+    private static Html help() {
+        Html lines = java.util.Arrays.stream(Target.values()).map(target -> Html.of("<li><b>%s</b> : %s</li>", target.label, target.why)).collect(Html.joining());
+        return Html.of("""
+                <details class="metric-help compare-help"><summary class="muted small">Comparer à <span class="help-dot" aria-hidden="true">i</span></summary>\
+                <div><p>Un repère dit si vos choix valent l'effort : un fonds indiciel mondial s'achète en un clic, pour presque rien.</p><ul>%s</ul>\
+                <p><b>Pourquoi faire mieux que l'inflation ?</b> Les prix montent chaque année : un placement qui rapporte moins que l'inflation \
+                vous fait perdre du pouvoir d'achat, même si son solde augmente. À 2 % d'inflation, 10 000 € qui dorment n'achètent plus \
+                que l'équivalent d'environ 8 200 € au bout de 10 ans.</p></div></details>""", lines);
     }
 
     private static String escape(String text) {

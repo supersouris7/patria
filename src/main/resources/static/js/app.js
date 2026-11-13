@@ -69,25 +69,25 @@ if (navigationStatus) {
       navigationStatus.querySelectorAll('[data-warning-count]').forEach((warnings) => {
         warnings.textContent = state.warnings;
         warnings.hidden = state.warnings === 0;
-        warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} points à corriger ou surveiller`);
+        warnings.closest('a').setAttribute('aria-label', `Bilan de santé, ${state.warnings} sujets à corriger ou surveiller`);
       });
-      // Pastille du burger : seulement ce qu'aucun bouton visible ne montre deja (Bilan masque sur smartphone).
-      const burgerBadge = () => navigationStatus.querySelectorAll('[data-notification-total]').forEach((badge) => {
-        const healthShown = Array.from(navigationStatus.querySelectorAll('.nav-health')).some((link) => link.getClientRects().length > 0);
-        const total = Number(badge.dataset.notificationTotal) + (healthShown ? 0 : state.warnings);
+      // Pastille du burger (tablette et smartphone, ou le Bilan est dans le menu) : avis du serveur et alertes du Bilan.
+      navigationStatus.querySelectorAll('[data-notification-total]').forEach((badge) => {
+        const total = Number(badge.dataset.notificationTotal) + state.warnings;
         badge.textContent = total;
         badge.hidden = total === 0;
         badge.closest('summary').setAttribute('aria-label', total === 0 ? 'Menu principal' : `Menu principal, ${total} notification(s)`);
       });
-      burgerBadge();
-      addEventListener('resize', burgerBadge);
       showGuideStrip(state.guide);
       showLevel(state.level);
       if (!state.guide && state.import) showImportStrip(state.import);
-      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((progress) => {
-        progress.textContent = `${state.progress} %`;
-        progress.hidden = false;
-        progress.closest('a').setAttribute('aria-label', `Assistant, guide complété à ${state.progress} %`);
+      // Guide : icone seule, l'avancement en anneau autour (le detail au survol).
+      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((ring) => {
+        ring.style.setProperty('--level', String(state.progress));
+        ring.classList.add('ready');
+        const link = ring.closest('a');
+        link.title = `Guide de saisie : ${state.progress} % complété`;
+        link.setAttribute('aria-label', link.title);
       });
     } catch {
       navigationStatus.querySelectorAll('[data-warning-count]').forEach((element) => { element.closest('a').title = 'Indicateur indisponible — ouvrir le bilan de santé'; });
@@ -809,35 +809,6 @@ document.querySelectorAll("table.data").forEach((table) => {
 });
 
 if (!calm) {
-  // Chiffres cles : ils defilent seulement quand ils ont change depuis la derniere visite de la page (sinon, rien ne bouge).
-  let seen = {};
-  try { seen = JSON.parse(localStorage.getItem("patria-figures")) || {}; } catch { /* stockage indisponible : aucun defilement */ }
-  const before = seen[location.pathname];
-  const now = [];
-  const pattern = /^([^0-9−-]*)([−-]?)(\d{1,3}(?:[\s  ]\d{3})*|\d+)(,\d+)?(.*)$/;
-  document.querySelectorAll(".metric strong, .level-badge").forEach((element, index) => {
-    if (element.children.length) return;
-    now[index] = element.textContent.trim();
-    if (!before || before[index] === undefined || before[index] === now[index]) return;
-    const match = element.textContent.trim().match(pattern);
-    if (!match) return;
-    const target = Number(match[3].replace(/[\s  ]/g, "") + (match[4] ? "." + match[4].slice(1) : ""));
-    if (!Number.isFinite(target) || target === 0) return;
-    const decimals = match[4] ? match[4].length - 1 : 0;
-    const format = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    const final = element.textContent;
-    const started = performance.now();
-    const step = (time) => {
-      const progress = Math.min(1, (time - started) / 700);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      element.textContent = match[1] + match[2] + format.format(target * eased) + match[5];
-      if (progress < 1) requestAnimationFrame(step); else element.textContent = final;
-    };
-    requestAnimationFrame(step);
-  });
-  seen[location.pathname] = now;
-  try { localStorage.setItem("patria-figures", JSON.stringify(seen)); } catch { /* rien */ }
-
   // Barres de progression qui se remplissent.
   document.querySelectorAll(".progress").forEach((bar) => {
     bar.classList.add("from-zero");
@@ -918,13 +889,9 @@ document.querySelectorAll("[data-celebrate]").forEach((element) => {
 const showLevel = (level) => {
   // Un anneau autour de l'avatar (Mon compte) plutot qu'une pastille de plus dans la barre.
   const account = document.querySelector(".account-bar .account-link");
-  const picture = account?.querySelector(".avatar, svg");
-  if (!level || !picture || account.querySelector(".level-ring")) return;
-  const ring = document.createElement("span");
-  ring.className = "level-ring";
-  ring.style.setProperty("--level", String(level.percent));
-  picture.replaceWith(ring);
-  ring.append(picture);
+  if (!level || !account) return;
+  account.classList.add("level-ring");
+  account.style.setProperty("--level", String(level.percent));
   const label = `Niveau ${level.number} · ${level.name} · ${level.xp} points`;
   account.title = `Mon compte · ${label}`;
   account.setAttribute("aria-label", `${account.getAttribute("aria-label") || "Mon compte"}, ${label}`);

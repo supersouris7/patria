@@ -33,7 +33,8 @@ public final class EconomiesController {
     /** Ce que la page montre, calcule une fois par requete. */
     record State(List<Contracts.Contract> contracts, List<Loan> loans, List<EconomiesRepository.Economy> done, List<EconomiesRepository.Goal> goals,
                  Map<Long, BigDecimal> balances, Map<Long, String> accounts, Score score, Challenge challenge, List<Badge> badges, boolean canEdit,
-                 Progression.Level level, List<Progression.Streak> streaks, List<Progression.Mission> missions) {
+                 Progression.Level level, List<Progression.Streak> streaks, List<Progression.Mission> missions,
+                 java.util.Optional<fr.patria.savings.Savings.PurchasingPower> power) {
         BigDecimal saved() {
             return done.stream().map(EconomiesRepository.Economy::monthly).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(BigDecimal.valueOf(12));
         }
@@ -200,7 +201,7 @@ public final class EconomiesController {
                 java.time.YearMonth.from(today));
         List<Progression.Mission> missions = Progression.missions(facts);
         return new State(contracts, borrowed, done, goals, balances, accounts, score, challenge, badges, canEdit(request),
-                Progression.level(Progression.xp(facts, missions)), Progression.streaks(facts), missions);
+                Progression.level(Progression.xp(facts, missions)), Progression.streaks(facts), missions, saved.power());
     }
 
     /**

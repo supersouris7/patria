@@ -149,7 +149,6 @@ public final class Layout {
     private static final Html ACCOUNT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>");
 
     private static final Html ASSISTANT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z\"/><path d=\"M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z\"/></svg>");
-    private static final Html HEALTH_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z\"/><path d=\"M3.5 12h4l2-3 3 6 2-3h6\"/></svg>");
     private static final Html INFO_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg>");
     private static final Html SHIELD_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>");
     private static final Html BURGER_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>");
@@ -234,8 +233,8 @@ public final class Layout {
                 <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""));
         Html guide = Html.of("""
-                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="menu-only">Guide de saisie</span><span class="nav-count" data-guide-progress hidden></span></a>""",
-                Html.raw(section == Section.ASSISTANT ? " class=\"active\" aria-current=\"page\"" : ""), ASSISTANT_ICON);
+                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie"><span class="guide-ring" data-guide-progress>%s</span><span class="menu-only">Guide de saisie</span></a>""",
+                Html.raw(section == Section.ASSISTANT ? " class=\"nav-guide active\" aria-current=\"page\"" : " class=\"nav-guide\""), ASSISTANT_ICON);
         // Cinq entrees : Patrimoine regroupe l'epargne, la bourse et l'immobilier (onglets en haut de ces pages).
         boolean wealth = section == Section.WEALTH || section == Section.SAVINGS || section == Section.STOCKS || section == Section.REAL_ESTATE;
         Html savings = navLink("/patrimoine", "Patrimoine", wealth);
@@ -256,17 +255,10 @@ public final class Layout {
         Html burger = Html.of("""
                 <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="%s" title="Menu principal">%s\
                 <span class="nav-count warning burger-count" data-notification-total="%s"%s>%s</span></summary>\
-                <div class="nav-panel"><label class="nav-search phone-only"><span class="visually-hidden">Rechercher dans les pages et les biens accessibles</span>\
-                <input type="search" placeholder="Rechercher partout…" autocomplete="off"></label>\
-                <nav class="nav-entries" aria-label="Menu principal">%s<a class="phone-only%s" href="/compte">Mon compte</a><div class="nav-deep" hidden>%s%s</div></nav>\
-                <p class="nav-empty muted" role="status" hidden>Aucun résultat.</p>\
+                <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s<a class="phone-only%s" href="/compte">Mon compte</a><div class="nav-deep" hidden>%s%s</div></nav>\
                 <button class="quiet theme-toggle phone-only" type="button" data-theme-toggle><span data-theme-label>Thème</span></button></div></details>""",
                 notifications == 0 ? "Menu principal" : "Menu principal, " + notifications + " notification(s)", BURGER_ICON, String.valueOf(notifications),
                 Html.raw(notifications == 0 ? " hidden" : ""), String.valueOf(notifications), allLinks, section == Section.ACCOUNT ? " active" : "", estateLinks, manageGroup);
-        // Tablette et smartphone : le Bilan reste visible hors du menu, avec sa pastille d'alertes.
-        Html healthLink = administrator ? Html.EMPTY : Html.of("""
-                <a class="nav-health%s" href="/bilan" aria-label="Bilan de santé" title="Bilan de santé">%s<span>Bilan</span><span class="nav-count warning" data-warning-count hidden></span></a>""",
-                section == Section.HEALTH ? " active" : "", HEALTH_ICON);
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, navLink("/patrimoine", "Patrimoine", false), navLink("/epargne", "Épargne", false),
                         navLink("/bourse", "Bourse", false), estate, navLink("/economies", "Économies et contrats", false),
                         navLink("/bilan", "Bilan de santé", false), navLink("/assistant", "Guide de saisie", false), estateLinks),
@@ -276,8 +268,8 @@ public final class Layout {
                 <div class="account-bar">%s%s%s
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
-                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, healthLink), links,
-                Html.concat(administrator || chrome == null ? Html.EMPTY : addMenu(realEstate), search(searchLinks)), audience(chrome, csrf),
+                Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, search(searchLinks)), links,
+                administrator || chrome == null ? Html.EMPTY : addMenu(realEstate), audience(chrome, csrf),
                 Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);

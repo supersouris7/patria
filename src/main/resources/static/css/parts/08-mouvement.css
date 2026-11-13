@@ -40,15 +40,48 @@ details[open]::details-content { block-size: auto; }
     animation: shimmer 1.4s linear infinite; border-radius: 6px; color: transparent; min-height: 180px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-/* Niveau dans l'en-tete : un anneau fin autour de l'avatar, rempli selon l'avancement vers le niveau suivant. */
-.level-ring { background: conic-gradient(var(--blue) calc(var(--level, 0) * 1%), var(--line-strong) 0); border-radius: 50%; display: inline-flex; flex: none; padding: 4px; }
-.level-ring > .avatar, .level-ring > svg { box-shadow: 0 0 0 2px var(--topbar); }
-
-/* Barre du haut sobre : seul « Ajouter » porte la couleur, le reste est neutre et du meme gris. */
-.navigation .nav-count.warning { background: var(--surface-raised); color: var(--text-soft); }
-.navigation .audience summary { color: var(--muted); }
-.navigation .audience summary:hover { color: var(--text); }
+/* ---- Barre du haut : fixe, des boutons ronds tous de la meme taille ---- */
+html { scrollbar-gutter: stable; } /* la barre ne se decale plus quand une page a (ou n'a pas) de defilement */
+.navigation .nav-menu > summary, .navigation .audience > summary, .navigation .theme-toggle, .navigation .logout, .primary-navigation a.nav-guide {
+    align-items: center; border-radius: 50%; display: inline-flex; flex: none; height: 40px; justify-content: center; min-height: 40px; min-width: 40px;
+    padding: 0; position: relative; width: 40px; }
+.navigation .nav-menu > summary:hover, .navigation .audience > summary:hover, .navigation .theme-toggle:hover, .navigation .logout:hover,
+.primary-navigation a.nav-guide:hover { background: var(--surface-raised); color: var(--text); }
+.navigation .audience > summary { color: var(--muted); }
 .navigation .audience-dot { background: var(--blue); }
+/* Pastilles de nombre : jaunes, posees sur le coin, sans pousser les voisins. */
+.navigation .nav-count { font-size: .68rem; font-weight: 750; line-height: 1; min-width: 18px; padding: 3px 5px; position: absolute; right: -4px; text-align: center; top: 0; }
+.navigation .nav-count.warning { background: var(--warn-bg); box-shadow: 0 0 0 2px var(--topbar); color: var(--warn-text); }
+.primary-navigation a { position: relative; }
+.primary-navigation a:has(> .nav-count) { padding-right: 18px; } /* place reservee : la pastille arrive sans rien decaler */
+/* Ajouter : rond bleu ; le libelle apparait au survol, par-dessus, sans rien deplacer. */
+.navigation .add-menu > summary { background: var(--blue-deep); color: #fff; font-size: 1.3rem; gap: 0; }
+.navigation .add-menu > summary:hover, .navigation .add-menu[open] > summary { background: var(--blue); color: #fff; }
+.navigation .add-menu .add-label { background: var(--blue-deep); border-radius: 999px; color: #fff; display: block; font-size: .86rem; opacity: 0; padding: 8px 14px;
+    pointer-events: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translate(6px, -50%); transition: opacity var(--mid) var(--ease), transform var(--mid) var(--ease);
+    white-space: nowrap; }
+.navigation .add-menu > summary:hover .add-label, .navigation .add-menu > summary:focus-visible .add-label { opacity: 1; transform: translate(0, -50%); }
+.navigation .add-menu[open] .add-label { opacity: 0; }
+/* Anneaux d'avancement (niveau autour de l'avatar, guide autour de son icone) : dessines par-dessus, la taille ne change pas. */
+.account-link.level-ring { position: relative; }
+.account-link.level-ring::before, .guide-ring.ready::before { background: conic-gradient(var(--blue) calc(var(--level, 0) * 1%), var(--line-strong) 0); border-radius: 50%; content: "";
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    pointer-events: none; position: absolute; }
+.account-link.level-ring::before { height: 34px; left: 6px; top: calc(50% - 17px); width: 34px; }
+.guide-ring { display: inline-flex; position: relative; }
+.guide-ring.ready::before { inset: -9px; }
+@media (max-width: 600px) {
+    .navigation .add-menu .add-label { display: none; }
+    .navigation .nav-search-menu { display: inline-block; }
+}
+
+/* Selecteurs : toujours une seule ligne aux bords ronds ; trop longs, ils defilent au lieu de passer a la ligne. */
+.segmented { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.segmented::-webkit-scrollbar { display: none; }
+.segmented a { flex: none; }
+select { border-radius: 999px; padding-inline: 14px 32px; }
+.compare-help { display: inline-block; }
+.compare-help ul { margin: 6px 0; padding-left: 18px; }
 
 /* Niveau, missions, series (page Economies). */
 .level-card { align-items: center; display: flex; gap: 18px; margin-bottom: 16px; padding: 18px 22px; }

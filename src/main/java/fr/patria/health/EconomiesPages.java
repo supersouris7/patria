@@ -20,16 +20,17 @@ final class EconomiesPages {
     }
 
     static Html page(EconomiesController.State state, Notice notice, String csrf) {
-        Html tiles = Components.metrics(3,
+        Html tiles = Components.metrics(4,
                 tile("Santé financière", "Sur 100 : " + String.join(" ; ", state.score().parts()) + ". À ne pas confondre avec le niveau, qui mesure vos progrès.",
                         state.score().value() + " / 100", "accent",
                         state.score().level()),
-                tile("Économies réalisées", "Contrats renégociés, sur un an.", Format.euroWhole(state.saved()) + " par an",
-                        state.saved().signum() > 0 ? "positive" : "", state.done().isEmpty() ? "renégociez un premier contrat" : state.done().size() + " contrat"
+                tile("Économies réalisées", "Contrats renégociés, sur un an.", Format.euroWhole(state.saved()),
+                        state.saved().signum() > 0 ? "positive" : "", state.done().isEmpty() ? "par an · renégociez un premier contrat" : "par an · " + state.done().size() + " contrat"
                                 + (state.done().size() > 1 ? "s" : "")),
                 tile("À gagner", "Écart entre vos contrats et des offres courantes, d'après des repères datés. Indicatif.",
-                        state.potential().signum() > 0 ? "jusqu'à " + Format.euroWhole(state.potential()) + " par an" : "rien d'évident",
-                        state.potential().signum() > 0 ? "warning" : "positive", "sur les contrats reconnus"));
+                        state.potential().signum() > 0 ? Format.euroWhole(state.potential()) : "—",
+                        state.potential().signum() > 0 ? "warning" : "positive", state.potential().signum() > 0 ? "par an, contrats reconnus" : "rien d'évident"),
+                purchasingPower(state));
         Html content = Html.concat(Components.heading("Économies", "Économies", "Où vous pouvez payer moins, et ce que vous avez déjà gagné.", Html.EMPTY),
                 Components.notice(notice), level(state), tiles, challenge(state.challenge()), missions(state.missions()), streaks(state.streaks()),
                 contracts(state, csrf), done(state, csrf), goals(state, csrf), badges(state.badges()),
@@ -43,6 +44,17 @@ final class EconomiesPages {
      * Niveau et points : la barre avance vers le niveau suivant. Les attributs {@code data-celebrate} listent ce qui est
      * obtenu : app.js celebre (discretement) ce qui vient d'etre gagne depuis la derniere visite.
      */
+    /** Pouvoir d'achat sur un an : vos revenus face aux prix (detail en courbe dans le Bilan). */
+    private static Html purchasingPower(EconomiesController.State state) {
+        String hint = "Évolution de vos revenus réguliers sur un an, moins la hausse des prix (INSEE). Au-dessus de zéro, vos revenus achètent plus "
+                + "qu'il y a un an. Faire mieux que l'inflation compte aussi pour l'épargne : un livret qui rapporte moins que la hausse des prix "
+                + "fait perdre du pouvoir d'achat, même si son solde monte. La courbe détaillée est dans le Bilan.";
+        return state.power().map(power -> tile("Pouvoir d'achat", hint, Format.signedPercent(power.power()),
+                        power.power().signum() >= 0 ? "positive" : "warning",
+                        "sur un an · revenus " + Format.signedPercent(power.income()) + ", prix " + Format.signedPercent(power.inflation())))
+                .orElseGet(() -> tile("Pouvoir d'achat", hint, "—", "", "saisissez vos revenus depuis plus d'un an"));
+    }
+
     private static Html level(EconomiesController.State state) {
         Progression.Level level = state.level();
         String earned = String.join(",", java.util.stream.Stream.concat(java.util.stream.Stream.of("niveau-" + level.number()),
