@@ -233,7 +233,7 @@ public final class Layout {
                 <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""));
         Html guide = Html.of("""
-                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="menu-only">Guide de saisie</span><span class="nav-count guide-count" data-guide-progress hidden></span></a>""",
+                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="nav-count guide-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.ASSISTANT ? " class=\"nav-guide active\" aria-current=\"page\"" : " class=\"nav-guide\""), ASSISTANT_ICON);
         // Cinq entrees : Patrimoine regroupe l'epargne, la bourse et l'immobilier (onglets en haut de ces pages).
         boolean wealth = section == Section.WEALTH || section == Section.SAVINGS || section == Section.STOCKS || section == Section.REAL_ESTATE;

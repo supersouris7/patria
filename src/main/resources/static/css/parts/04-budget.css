@@ -148,13 +148,13 @@ tfoot small { font-weight: 400; }
 .watch li.serious::before { color: var(--danger); content: "▲"; font-size: .75rem; top: 7px; }
 
 /* ---- Budget : foyer ou personne ---- */
-.scope-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 99px; display: inline-flex; flex-wrap: wrap; gap: 4px; margin: -6px 0 18px; padding: 4px; }
-.scope-tabs a { border-radius: 99px; color: var(--muted); font-size: .88rem; font-weight: 700; max-width: 100%; overflow-wrap: anywhere; padding: 6px 16px; text-decoration: none; white-space: normal; }
+.scope-tabs { background: var(--segmented-bg); border: 1px solid var(--line); border-radius: 999px; display: inline-flex; flex-wrap: wrap; gap: 2px; margin: -6px 0 18px; padding: 3px; }
+.scope-tabs a { border-radius: 999px; color: var(--text-soft); font-weight: 650; max-width: 100%; overflow-wrap: anywhere; padding: 6px 16px; text-decoration: none; white-space: normal; }
 .scope-tabs a:hover { color: var(--text); }
 .scope-tabs a.active { background: var(--blue-deep); color: #fff; }
-/* Smartphone : les noms passent sur deux lignes, un cadre rectangulaire reste net */
+/* Smartphone : toute la largeur, toujours arrondi comme le choix Prévisionnel / Moyen */
 @media (max-width: 560px) {
-    .scope-tabs { border-radius: var(--radius-small); display: flex; }
+    .scope-tabs { display: flex; }
     .scope-tabs a { flex: 1 1 auto; text-align: center; }
 }
 

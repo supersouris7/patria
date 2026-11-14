@@ -1,5 +1,5 @@
 #!/bin/bash
-# Captures de la documentation (docs/captures) : foyer fictif, theme sombre, cadre de navigateur.
+# Captures de la documentation (docs/captures) : foyer fictif, theme sombre, fenetre de navigateur sur fond transparent.
 # Prerequis : target/patria.jar construit (mvn -q package -DskipTests), chromium, node 22 ou plus.
 # Usage : scripts/captures/make.sh   (depuis la racine du depot)
 set -euo pipefail
@@ -27,7 +27,7 @@ LOCK='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="curren
 for page in "${PAGES[@]}"; do
     name=${page%%:*}; path=${page#*:}
     sed -e "s|{{IMAGE}}|$WORK/shots/$name.png|" -e "s|{{URL}}|patria.maison$path|" -e "s|{{LOCK}}|$LOCK|" "$SCRIPTS/cadre.html" >"$WORK/$name.html"
-    chromium --headless --no-sandbox --hide-scrollbars --force-device-scale-factor=1 --window-size=1440,980 \
+    chromium --headless --no-sandbox --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,845 --default-background-color=00000000 \
         --screenshot="docs/captures/$name.png" "file://$WORK/$name.html" 2>/dev/null
     echo "docs/captures/$name.png"
 done

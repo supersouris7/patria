@@ -18,14 +18,14 @@ Serveur HTTP natif du JDK, SQLite, montants au centime, HTML généré côté se
 
 ## Captures de la documentation
 
-Les captures de `docs/captures` (README et guide d'utilisation) montrent un foyer fictif, en thème sombre, dans un cadre de navigateur. Pour les refaire après un changement d'interface :
+Les captures de `docs/captures` (README et guide d'utilisation) montrent un foyer fictif, en thème sombre, dans une fenêtre de navigateur, sans fond d'écran. Pour les refaire après un changement d'interface :
 
 ```bash
 mvn -q package -DskipTests
 scripts/captures/make.sh
 ```
 
-Le script lance Patria sur une base temporaire (port 8096, `PORT` pour en changer), crée le foyer fictif (`seed.sh` : Claire, Thomas, compte joint, revenus, dépenses, épargne, bourse, un appartement et son prêt `pret.csv`), capture chaque page connectée avec Chromium (`shoot.mjs`, protocole DevTools : les graphiques chargés en JavaScript sont inclus), la pose dans `cadre.html`, puis efface la base. Il faut `chromium` et Node 22 ou plus. Les cours de bourse viennent de Yahoo Finance : sans réseau, le graphique de la Bourse reste vide.
+Le script lance Patria sur une base temporaire (port 8096, `PORT` pour en changer), crée le foyer fictif (`seed.sh` : Claire, Thomas, compte joint, revenus, dépenses, épargne, bourse, un appartement et son prêt `pret.csv`), capture chaque page connectée avec Chromium (`shoot.mjs`, protocole DevTools : les graphiques chargés en JavaScript sont inclus), la pose dans une fenêtre de navigateur (`cadre.html`, fond transparent), puis efface la base. Il faut `chromium` et Node 22 ou plus. Les cours de bourse viennent de Yahoo Finance : sans réseau, le graphique de la Bourse reste vide.
 
 ## Maintenance des coefficients
 
