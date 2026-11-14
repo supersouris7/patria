@@ -193,9 +193,16 @@ public final class Layout {
         return Html.of("""
                 <footer class="shell site-footer"><span>Patria · vos données restent sur votre serveur</span><a href="/confidentialite">Confidentialité</a>%s%s\
                 <a href="/licence">© 2026 William Iv · Licence Elastic 2.0</a>\
-                <span class="version" title="Version et commit de cette installation">v%s · %s</span>%s</footer>""",
+                <span class="version">%s · %s</span>%s</footer>""",
                 terms ? Html.raw("<a href=\"/conditions\">Conditions d'utilisation</a>") : Html.EMPTY,
-                legalNotice ? Html.raw("<a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY, BuildInfo.version(), BuildInfo.shortCommit(), support);
+                legalNotice ? Html.raw("<a href=\"/mentions-legales\">Mentions légales</a>") : Html.EMPTY, external(BuildInfo.imageUrl(), "v" + BuildInfo.version(), "Image Docker de cette version"),
+                external(BuildInfo.commitUrl(), BuildInfo.shortCommit(), "Modifications de ce commit sur GitHub"), support);
+    }
+
+    /** Lien vers un site externe (nouvel onglet), ou simple texte si {@code url} est {@code null}. */
+    private static Html external(String url, String text, String title) {
+        return url == null ? Html.of("%s", text)
+                : Html.of("<a href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"%s\">%s</a>", url, title, text);
     }
 
     private Layout() {

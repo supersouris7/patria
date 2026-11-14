@@ -41,6 +41,24 @@ public final class BuildInfo {
         return commit.matches("[0-9a-f]{8,40}") ? commit.substring(0, 7) : commit;
     }
 
+    static final String REPOSITORY = "https://github.com/supersouris7/patria";
+    static final String IMAGE = "https://hub.docker.com/r/supersouris7/patria/tags?name=";
+
+    /** Page GitHub du commit, ou {@code null} pour une compilation locale. */
+    public static String commitUrl() {
+        String commit = commit();
+        return commit.matches("[0-9a-f]{7,40}") ? REPOSITORY + "/commit/" + commit : null;
+    }
+
+    /**
+     * Image Docker Hub de cette version : le tag X.Y.Z pour une version stable, {@code unstable} pour la branche main ;
+     * {@code null} pour une compilation locale (rien de publie).
+     */
+    public static String imageUrl() {
+        if (commitUrl() == null) return null;
+        return IMAGE + ("stable".equals(value("channel", "")) ? version() : "unstable");
+    }
+
     private static String value(String key, String fallback) {
         String value = PROPERTIES.getProperty(key, "").trim();
         return value.isEmpty() || value.startsWith("${") ? fallback : value;

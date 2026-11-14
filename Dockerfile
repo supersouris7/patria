@@ -10,7 +10,7 @@ COPY LICENSE LICENSE.fr ./
 ARG GIT_COMMIT=dev
 # Version affichee : le numero du tag stable (X.Y.Z) ; vide pour unstable, qui garde celle du pom.xml.
 ARG APP_VERSION=
-RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT} ${APP_VERSION:+-Dapp.version=$APP_VERSION} \
+RUN mvn --batch-mode package -DskipTests -Dgit.commit=${GIT_COMMIT} ${APP_VERSION:+-Dapp.version=$APP_VERSION -Dapp.channel=stable} \
     && mkdir -p /out/data /out/native \
     # Bibliotheque native de SQLite extraite ici : le conteneur peut tourner en lecture seule, /tmp non executable.
     && arch="$(uname -m)" \

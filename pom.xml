@@ -22,6 +22,8 @@
         <git.commit>dev</git.commit>
         <!-- Version affichee en pied de page ; l'image d'un tag stable la remplace par son numero (APP_VERSION). -->
         <app.version>${project.version}</app.version>
+        <!-- Image Docker de cette version : stable (tag X.Y.Z) ou unstable (branche main) ; lien du pied de page. -->
+        <app.channel>unstable</app.channel>
     </properties>
 
     <dependencies>
