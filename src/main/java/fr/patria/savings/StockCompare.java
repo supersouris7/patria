@@ -215,7 +215,7 @@ final class StockCompare {
     private static Html help() {
         Html lines = java.util.Arrays.stream(Target.values()).map(target -> Html.of("<li><b>%s</b> : %s</li>", target.label, target.why)).collect(Html.joining());
         return Html.of("""
-                <details class="metric-help compare-help"><summary class="muted small">Est-ce que vos efforts valent le coup ? <span class="help-dot" aria-hidden="true">i</span></summary>\
+                <details class="metric-help compare-help"><summary class="muted small">Pourquoi ces repères ? <span class="help-dot" aria-hidden="true">i</span></summary>\
                 <div><p>Un repère dit si vos choix valent l'effort : un fonds indiciel mondial s'achète en un clic, pour presque rien.</p><ul>%s</ul>\
                 <p><b>Pourquoi faire mieux que l'inflation ?</b> Les prix montent chaque année : un placement qui rapporte moins que l'inflation \
                 vous fait perdre du pouvoir d'achat, même si son solde augmente. À 2 % d'inflation, 10 000 € qui dorment n'achètent plus \

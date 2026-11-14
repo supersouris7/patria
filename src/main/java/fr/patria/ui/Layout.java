@@ -233,7 +233,7 @@ public final class Layout {
                 <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""));
         Html guide = Html.of("""
-                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="nav-count guide-count" data-guide-progress hidden></span><span class="menu-only">Guide de saisie</span></a>""",
+                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="menu-only">Guide de saisie</span><span class="nav-count guide-count" data-guide-progress hidden></span></a>""",
                 Html.raw(section == Section.ASSISTANT ? " class=\"nav-guide active\" aria-current=\"page\"" : " class=\"nav-guide\""), ASSISTANT_ICON);
         // Cinq entrees : Patrimoine regroupe l'epargne, la bourse et l'immobilier (onglets en haut de ces pages).
         boolean wealth = section == Section.WEALTH || section == Section.SAVINGS || section == Section.STOCKS || section == Section.REAL_ESTATE;
@@ -255,8 +255,7 @@ public final class Layout {
         Html burger = Html.of("""
                 <details class="nav-menu nav-hamburger" name="navigation"><summary aria-label="%s" title="Menu principal">%s\
                 <span class="nav-count warning burger-count" data-notification-total="%s"%s>%s</span></summary>\
-                <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s<a class="phone-only%s" href="/compte">Mon compte</a><div class="nav-deep" hidden>%s%s</div></nav>\
-                <button class="quiet theme-toggle phone-only" type="button" data-theme-toggle><span data-theme-label>Thème</span></button></div></details>""",
+                <div class="nav-panel"><nav class="nav-entries" aria-label="Menu principal">%s<a class="phone-only%s" href="/compte">Mon compte</a><div class="nav-deep" hidden>%s%s</div></nav></div></details>""",
                 notifications == 0 ? "Menu principal" : "Menu principal, " + notifications + " notification(s)", BURGER_ICON, String.valueOf(notifications),
                 Html.raw(notifications == 0 ? " hidden" : ""), String.valueOf(notifications), allLinks, section == Section.ACCOUNT ? " active" : "", estateLinks, manageGroup);
         Html searchLinks = Html.concat(administrator ? Html.EMPTY : Html.concat(budget, navLink("/patrimoine", "Patrimoine", false), navLink("/epargne", "Épargne", false),
@@ -327,7 +326,7 @@ public final class Layout {
         } else {
             boolean manager = chrome.householdManager();
             stops.add(new String[] {".nav-hamburger > summary", "Le menu",
-                    "Toutes les pages sont ici, avec la recherche, Mon compte et le thème. La pastille compte vos notifications."});
+                    "Toutes les pages sont ici, avec la recherche et Mon compte. La pastille compte vos notifications."});
             stops.add(new String[] {".primary-navigation > a:first-child", "Budget",
                     "Le Prévisionnel des 12 prochains mois et le Budget moyen, pour tout le foyer ou par personne."});
             stops.add(new String[] {".primary-navigation a[href='/patrimoine']", "Patrimoine",

@@ -250,7 +250,7 @@ label.check.option b { color: var(--text); display: block; }
     .nav-panel { padding: 16px; }
     .nav-health > span:not(.nav-count) { display: none; }
     /* Smartphone : la barre garde le logo, le burger, « Qui voit quoi » et la deconnexion ; le reste est dans le burger. */
-    .nav-health, .nav-search-menu, .account-bar > .theme-toggle, .account-bar > .account-link { display: none; }
+    .nav-health, .nav-search-menu, .account-bar > .account-link { display: none; }
     .nav-hamburger .phone-only { display: flex; }
     .nav-hamburger .theme-toggle { gap: 8px; justify-content: flex-start; }
 }
