@@ -81,11 +81,11 @@ if (navigationStatus) {
       showGuideStrip(state.guide);
       showLevel(state.level);
       if (!state.guide && state.import) showImportStrip(state.import);
-      // Guide : icone seule, l'avancement en anneau autour (le detail au survol).
-      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((ring) => {
-        ring.style.setProperty('--level', String(state.progress));
-        ring.classList.add('ready');
-        const link = ring.closest('a');
+      // Guide : icone seule, l'avancement en pastille (pourcentage).
+      navigationStatus.querySelectorAll('[data-guide-progress]').forEach((badge) => {
+        badge.textContent = `${state.progress} %`;
+        badge.hidden = false;
+        const link = badge.closest('a');
         link.title = `Guide de saisie : ${state.progress} % complété`;
         link.setAttribute('aria-label', link.title);
       });
@@ -887,11 +887,9 @@ document.querySelectorAll("[data-celebrate]").forEach((element) => {
 
 // Pastille de niveau dans l'en-tete, et celebration d'un niveau gagne (sur n'importe quelle page).
 const showLevel = (level) => {
-  // Un anneau autour de l'avatar (Mon compte) plutot qu'une pastille de plus dans la barre.
+  // Le niveau s'affiche au survol de l'avatar (Mon compte), sans anneau ni pastille de plus.
   const account = document.querySelector(".account-bar .account-link");
   if (!level || !account) return;
-  account.classList.add("level-ring");
-  account.style.setProperty("--level", String(level.percent));
   const label = `Niveau ${level.number} · ${level.name} · ${level.xp} points`;
   account.title = `Mon compte · ${label}`;
   account.setAttribute("aria-label", `${account.getAttribute("aria-label") || "Mon compte"}, ${label}`);

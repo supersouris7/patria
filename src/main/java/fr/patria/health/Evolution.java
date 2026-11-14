@@ -135,6 +135,7 @@ final class Evolution {
         record(request);
         List<Html> cards = new ArrayList<>();
         cards.add(purchasingPower(request));
+        if (seesAll(request)) cards.add(score(request));
         if (seesAll(request)) {
             SortedMap<YearMonth, HistoryRepository.Snapshot> snapshots = history.snapshots();
             if (snapshots.size() >= 2) {
@@ -158,7 +159,7 @@ final class Evolution {
                 SortedMap<YearMonth, BigDecimal> scores = new TreeMap<>();
                 snapshots.values().stream().filter(snapshot -> snapshot.score() != null).forEach(snapshot -> scores.put(snapshot.month(), BigDecimal.valueOf(snapshot.score())));
                 if (scores.size() >= 2) {
-                    cards.add(chartCard("Santé financière", "Votre santé financière sur 100 (page Économies), relevée chaque mois.",
+                    cards.add(chartCard("Note de santé, mois après mois", "Votre note sur 100, relevée chaque mois.",
                             List.of(new TrendChart.Series("Santé financière", "mine", scores, false)), value -> value.setScale(0, RoundingMode.HALF_UP) + " / 100", null));
                 }
             }
@@ -170,6 +171,13 @@ final class Evolution {
                             Format.number(tax.parts(), 2), tax.parts().compareTo(BigDecimal.ONE) > 0 ? "s" : "")).collect(Html.joining()))));
         }
         return Html.of("<section id=\"evolution\" class=\"evolution\"><h2 class=\"section-heading\">Votre évolution</h2>%s</section>", Html.concat(cards.toArray(Html[]::new)));
+    }
+
+    /** Note de sante sur 100 : ce qu'elle regarde, en clair (le niveau, lui, mesure les progres dans Economies). */
+    private Html score(Request request) {
+        EconomiesController.Score score = economies.state(request).score();
+        return Components.card("Note de santé : " + score.value() + " / 100", null, Html.of("<span class=\"muted\">%s</span>", score.level()),
+                Html.of("<ul class=\"plain-list\">%s</ul>", score.parts().stream().map(part -> Html.of("<li>%s</li>", part)).collect(Html.joining())));
     }
 
     /** Patrimoine net des mois connus : un mois reconstitue sans aucun solde ni bien connu n'est pas trace (ce serait un faux zero). */
@@ -210,18 +218,14 @@ final class Evolution {
         if (incomes.isEmpty()) return Html.EMPTY;
         YearMonth start = incomes.stream().map(income -> YearMonth.from(income.start())).min(YearMonth::compareTo).orElse(now);
         if (start.isBefore(now.minusYears(10))) start = now.minusYears(10);
-        if (start.isBefore(now.minusMonths(12))) {
-            // Assez de recul : on part au plus tot du premier mois ou l'indice est connu.
-            if (!index.isEmpty() && start.isBefore(index.firstKey())) start = index.firstKey();
-        } else {
-            return Components.card("Pouvoir d'achat", null, Html.EMPTY, Html.raw("""
-                    <p class="muted">Il faut au moins un an d'historique de revenus. Quand un salaire change, modifiez-le « à partir du » mois du changement (Gérer → Revenus) :
-                    l'ancien montant est gardé, et ce graphique compare vos revenus à la hausse des prix.</p>"""));
-        }
+        // Moins d'un an de revenus saisis : pas besoin d'historique, on suppose les memes revenus qu'aujourd'hui sur un an.
+        boolean same = !start.isBefore(now.minusMonths(12));
+        if (same) start = now.minusMonths(12);
+        else if (!index.isEmpty() && start.isBefore(index.firstKey())) start = index.firstKey();
         SortedMap<YearMonth, BigDecimal> nominal = new TreeMap<>();
         for (YearMonth month = start; !month.isAfter(now); month = month.plusMonths(1)) {
             LocalDate day = month.atDay(15);
-            BigDecimal total = incomes.stream().filter(income -> !income.start().isAfter(day) && (income.end() == null || !income.end().isBefore(day)))
+            BigDecimal total = incomes.stream().filter(income -> (same || !income.start().isAfter(day)) && (income.end() == null || !income.end().isBefore(day)))
                     .map(income -> income.frequency().monthly(income.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
             nominal.put(month, total.setScale(2, RoundingMode.HALF_UP));
         }
@@ -250,8 +254,8 @@ final class Evolution {
         series.add(new TrendChart.Series("En euros courants", "ref1", nominal, true));
         if (!real.isEmpty()) series.add(new TrendChart.Series("En euros d'aujourd'hui", "mine", real, false));
         return Components.card("Pouvoir d'achat", null, Html.EMPTY, Html.concat(verdict, TrendChart.render(series, Format::euroWhole),
-                Html.raw("<p class=\"muted small\">« En euros d'aujourd'hui » : corrigés de la hausse des prix (INSEE), primes lissées sur l'année. "
-                        + "Si cette courbe baisse, vos revenus achètent moins qu'avant.</p>")));
+                Html.of("<p class=\"muted small\">« En euros d'aujourd'hui » : corrigés de la hausse des prix (INSEE), primes lissées sur l'année. "
+                        + "Si cette courbe baisse, vos revenus achètent moins qu'avant.%s</p>", same ? " Moins d'un an de revenus saisis : on suppose qu'ils étaient les mêmes." : "")));
     }
 
     private static String tone(double value) {

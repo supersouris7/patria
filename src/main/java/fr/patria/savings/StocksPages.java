@@ -45,7 +45,7 @@ final class StocksPages {
 
     /** {@code invested} : verse net (achats − ventes) par compte, d'apres les mouvements importes. */
     static Html page(Savings.Overview portfolio, java.util.Map<Long, SavingsRepository.Invested> invested, Notice notice, String csrf) {
-        Html actions = Html.concat(Components.button("/bourse/ajouter", "Ajouter un titre"), Components.secondaryButton("/bourse/importer", "Importer un relevé"));
+        Html actions = Components.secondaryButton("/bourse/importer", "Importer un relevé");
         Html heading = Components.heading("Patrimoine", "Bourse", "PEA, comptes-titres et cryptos, au cours du jour.", portfolio.isEmpty() ? Html.EMPTY : actions);
         if (portfolio.isEmpty()) {
             return Layout.page("Bourse · Patria", Layout.Section.STOCKS, csrf, Html.concat(heading, Components.notice(notice), Html.raw("""
@@ -60,11 +60,11 @@ final class StocksPages {
         Html tiles = Components.metrics(4,
                 tile("Valeur", "Titres au cours du jour, plus les espèces des comptes.", euroWhole(portfolio.total()), "accent",
                         Format.plural(portfolio.lines().size(), "compte", "comptes")),
-                tile("Plus-value latente", "Valeur des titres − ce qu'ils ont coûté. Rien n'est gagné ou perdu avant la vente.", Format.signedEuroWhole(gain), tone(gain),
+                tile("Gain si vous vendiez aujourd'hui", "Valeur des titres − ce qu'ils ont coûté. Rien n'est gagné ou perdu avant la vente.", Format.signedEuroWhole(gain), tone(gain),
                         cost.signum() == 0 ? null : Format.signedPercent(percent(gain, cost)) + " depuis l'achat"),
                 tile("Investi", "Ce que les titres détenus ont coûté (prix de revient).", euroWhole(cost), "", Format.plural(portfolio.positions().size(), "titre", "titres")),
-                tile("Espèces", "Argent déposé chez les courtiers, pas encore investi.", euroWhole(cash), "", null));
-        Html compare = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Comparer les performances", null, Html.EMPTY, Html.raw(
+                tile("Argent non placé", "Espèces : argent déposé chez les courtiers, pas encore investi.", euroWhole(cash), "", null));
+        Html compare = portfolio.positions().isEmpty() ? Html.EMPTY : Components.card("Est-ce que vos efforts valent le coup ?", null, Html.EMPTY, Html.raw(
                 "<div data-fragment-src=\"/bourse/comparaison\" data-fragment-auto><p class=\"muted\">Chargement des cours…</p></div>"));
         // Performance reelle : ce que les titres valent face a ce qui a ete verse (achats − ventes importes), compte par compte.
         Html real = portfolio.lines().stream().filter(line -> invested.containsKey(line.account().id())).map(line -> {
@@ -74,7 +74,7 @@ final class StocksPages {
             return Html.of("<li><b>%s</b> : versé net %s depuis le %s, titres %s aujourd'hui → <b class=\"%s\">%s</b> <span class=\"muted\">(%s mouvements importés)</span></li>",
                     line.account().name(), euroWhole(in.net()), Format.date(in.since()), euroWhole(titles), tone(gainReal), Format.signedEuroWhole(gainReal), in.count());
         }).collect(Html.joining());
-        Html realCard = real.isEmpty() ? Html.EMPTY : Components.card("Performance réelle", null, Html.EMPTY, Html.of("""
+        Html realCard = real.isEmpty() ? Html.EMPTY : Components.card("Ce que vos placements ont vraiment rapporté", null, Html.EMPTY, Html.of("""
                 <p class="muted">D'après les achats et ventes de vos relevés importés : ce que vos titres valent, moins ce que vous y avez mis. Dividendes non comptés.</p>\
                 <ul class="plain-list">%s</ul>""", real));
         Html accounts = portfolio.lines().stream().map(line -> account(line, csrf)).collect(Html.joining());

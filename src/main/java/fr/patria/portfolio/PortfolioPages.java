@@ -69,7 +69,7 @@ final class PortfolioPages {
                 <p class="notice info simulate-hint"><b>Et si je vendais ?</b> Ouvrez un bien et faites glisser « Valeur retenue » : Patria calcule ce qu'il \
                 vous resterait après frais, impôts et remboursement du prêt.</p>""");
         Html propertyTable = Html.of("<div id=\"biens\">%s%s</div>", simulate, Components.card("Biens", overview.properties().size(), Html.EMPTY,
-                Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Capital restant dû"), rows, true, tab.equals("biens"))));
+                Components.table(List.of("Bien", "Commune", "#Surface", "#Valeur retenue", "#Prix m²", "#Marché m²", "#Reste à rembourser"), rows, true, tab.equals("biens"))));
         Html loans = Html.of("<div id=\"prets\">%s%s</div>", loanTiles(overview),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, Html.concat(allLoansTable(overview, rate), rateSource(rate))));
         Html taxes = Html.of("<div id=\"taxe-fonciere\">%s</div>", Components.card("Taxes foncières", null, Html.EMPTY, propertyTaxTable(overview.propertyTaxes())));
@@ -115,7 +115,7 @@ final class PortfolioPages {
                 Components.metrics(4,
                         netTile(summary.net(), "Valeur retenue − frais de vente et fiscalité (" + Format.ratioPercent(property.saleFeesRate()) + ") − capital restant dû.", null),
                         realGainTile(summary.returns()),
-                        tile("Capital restant dû", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()),
+                        tile("Reste à rembourser", "Capital restant dû à aujourd'hui, d'après les échéanciers.", euroWhole(summary.debt()),
                                 summary.borrowed().signum() == 0 ? null : "sur " + euroWhole(summary.borrowed()) + " empruntés"),
                         nextMonthTile(summary.nextMonth(), "/bien/" + property.id() + "/mensualites")),
                 marketCard(summary, csrf),
@@ -239,7 +239,7 @@ final class PortfolioPages {
         LoanSummary last = loans.stream().filter(item -> item.status().lastDate() != null).max(java.util.Comparator.comparing(item -> item.status().lastDate())).orElse(null);
         int repaid = borrowed.signum() == 0 ? 0 : borrowed.subtract(remaining).multiply(BigDecimal.valueOf(100)).divide(borrowed, 0, java.math.RoundingMode.HALF_UP).intValue();
         return Components.metrics(4,
-                tile("Capital restant dû", "Somme du capital qu'il reste à rembourser sur tous les prêts, d'après les échéanciers.", euroWhole(remaining),
+                tile("Reste à rembourser", "Somme du capital qu'il reste à rembourser sur tous les prêts, d'après les échéanciers.", euroWhole(remaining),
                         repaid + " % remboursé sur " + euroWhole(borrowed)),
                 tile("Mensualités", "Somme des prochaines échéances de chaque prêt (assurance comprise si elle figure dans l'échéancier).", euroWhole(monthly),
                         Format.plural(loans.size(), "prêt", "prêts")),
@@ -321,7 +321,7 @@ final class PortfolioPages {
         Html loans = overview.loanCount() == 0 ? Html.raw("<p class=\"empty\">Aucun prêt. Ajoutez-en un depuis « Prêts et apports » d'un bien.</p>")
                 : Components.table(List.of("Prêt", "Bien", "#Emprunté", "#Restant dû", "#Taux actuel", ""), loanRows, true, false);
         Html content = Html.concat(
-                Components.heading("Gérer", "Biens et prêts", null, Components.button("/administration/bien/nouveau", "+ Nouveau bien")),
+                Components.heading("Gérer", "Biens et prêts", null, Html.EMPTY),
                 Components.notice(notice),
                 Components.card("Biens", overview.properties().size(), Html.EMPTY, properties),
                 Components.card("Prêts", overview.loanCount(), Html.EMPTY, loans));
@@ -471,9 +471,9 @@ final class PortfolioPages {
                         ? "Résidence principale : plus-value exonérée d'impôt, seuls les frais d'agence comptent (environ 5 %). Taux modifiable avec « Modifier le bien »."
                         : "Pourcentage défini sur chaque bien. Hors résidence principale, inclure l'impôt sur la plus-value (19 % + 17,2 %, réduit selon la durée de détention).",
                         derived("sale-fees", minus(saleFees))),
-                Line.of("Capital restant dû", null, Html.text(minus(debt))),
+                Line.of("Reste à rembourser", null, Html.text(minus(debt))),
                 Line.total("Valeur nette indicative", "Ce que vous toucheriez en vendant aujourd'hui.", derived("net", euroWhole(net))).echo(),
-                Line.note("Plus-value latente", "Valeur retenue − coût d'acquisition, hors frais de vente.", signed("gain", gain))));
+                Line.note("Gain si vous vendiez aujourd'hui", "Valeur retenue − coût d'acquisition, hors frais de vente.", signed("gain", gain))));
         Html netBreakdown = Components.breakdown("Valeur nette", netLines);
         Html gainBreakdown = Components.breakdown("Enrichissement réel depuis l'achat", List.of(
                 Line.lead("Valeur après frais de vente", null, derived("after-sale", euroWhole(afterSale))),

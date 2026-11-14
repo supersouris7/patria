@@ -30,9 +30,9 @@ class PresentationJourneyTest {
             before(home, "class=\"metrics cols-4\"", "class=\"guide-strip setup-progress\"");
             before(home, "class=\"metrics cols-4\"", "health-summary");
             String incomes = TestAccounts.get(client, base, manager, "/administration/revenus").body();
-            before(incomes, "<summary>Ajouter un revenu", "<h2>Revenus");
+            before(incomes, "class=\"card section add-form\" id=\"ajouter\"><h2>Ajouter un revenu", "<h2>Revenus");
             String expenses = TestAccounts.get(client, base, manager, "/administration/depenses").body();
-            before(expenses, "<summary>Ajouter une dépense", "<summary>Importer (réponse d");
+            before(expenses, "add-form\" id=\"ajouter\"><h2>Ajouter une dépense", "<summary>Importer (réponse d");
             before(expenses, "<summary>Importer (réponse d", "<h2>Dépenses saisies");
             String guide = TestAccounts.get(client, base, manager, "/assistant").body();
             before(guide, "class=\"card guide-next\"", "<h2>Votre parcours");
@@ -40,7 +40,7 @@ class PresentationJourneyTest {
             before(budget, "<h2>Dépenses par catégorie", "<summary>Détail du taux d&#39;endettement");
             String error = TestAccounts.post(client, base, manager, "/administration/revenus",
                     "person=1&kind=SALARY&label=Salaire&amount=invalide&frequency=MONTHLY&start=2026-01-01").body();
-            assertTrue(error.contains("<details open><summary>Ajouter un revenu"), "formulaire ouvert apres une erreur");
+            assertTrue(error.contains("add-form shown\" id=\"ajouter\"><h2>Ajouter un revenu"), "formulaire ouvert apres une erreur");
         }
     }
 

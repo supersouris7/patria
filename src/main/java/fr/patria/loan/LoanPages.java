@@ -44,9 +44,9 @@ final class LoanPages {
                         Layout.manages() ? Components.secondaryButton("/pret/" + loan.id() + "/gerer", "Gérer le prêt") : Html.EMPTY)),
                 Components.notice(notice),
                 Components.metrics(3,
-                        tile("Capital emprunté", "Total des déblocages de l'échéancier.", Format.euroWhole(status.borrowed()), null),
-                        tile("Capital restant dû", "Capital restant dû à aujourd'hui. Avant la première échéance, c'est le capital emprunté.", Format.euroWhole(status.remaining()), status.progressPercent() + " % remboursé"),
-                        tile("Capital remboursé", "Part de capital des échéances déjà passées.", Format.euroWhole(status.repaid()), null),
+                        tile("Somme empruntée", "Total des déblocages de l'échéancier.", Format.euroWhole(status.borrowed()), null),
+                        tile("Reste à rembourser", "Capital restant dû à aujourd'hui. Avant la première échéance, c'est le capital emprunté.", Format.euroWhole(status.remaining()), status.progressPercent() + " % remboursé"),
+                        tile("Déjà remboursé", "Part de capital des échéances déjà passées.", Format.euroWhole(status.repaid()), null),
                         tile("Taux actuel", "Taux annuel de la dernière échéance passée.", percent(status.currentRate()),
                                 renegotiation.map(item -> "marché : " + percent(item.marketRate())).orElse(null)),
                         tile("Prochaine échéance", null, next == null ? Format.DASH : Format.euroWhole(next.amount()), next == null ? "Aucune échéance à venir" : date(next.date())),
@@ -56,7 +56,7 @@ final class LoanPages {
                         status.progressPercent(), Components.progress(status.progressPercent())),
                 interestCard(status),
                 renegotiation.map(LoanPages::marketCard).orElse(Html.EMPTY),
-                Components.card("Échéancier", lines.size(), Html.EMPTY, table));
+                Components.card("Calendrier des remboursements", lines.size(), Html.EMPTY, table));
         return Layout.page("Prêt · " + loan.name() + " · Patria", Layout.Section.REAL_ESTATE, csrf, Html.concat(Layout.estateNavigation("prets"), content));
     }
 

@@ -143,7 +143,7 @@ public final class Layout {
     /** Bascule de theme (systeme, clair, sombre), geree par app.js. */
     private static final Html THEME_TOGGLE = Html.raw("<button class=\"quiet theme-toggle\" type=\"button\" data-theme-toggle aria-label=\"Thème : système\" title=\"Thème : système\">"
             + "<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" "
-            + "stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 4a8 8 0 0 1 0 16z\" fill=\"currentColor\"/></svg></button>");
+            + "stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 2a10 10 0 0 1 0 20z\" fill=\"currentColor\"/></svg></button>");
     private static final Html LOGOUT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/><path d=\"M16 17l5-5-5-5\"/><path d=\"M21 12H9\"/></svg>");
 
     private static final Html ACCOUNT_ICON = Html.raw("<svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>");
@@ -233,7 +233,7 @@ public final class Layout {
                 <a href="/bilan"%s aria-label="Bilan de santé" title="Bilan de santé">Bilan<span class="nav-count warning" data-warning-count hidden></span></a>""",
                 Html.raw(section == Section.HEALTH ? " class=\"active\" aria-current=\"page\"" : ""));
         Html guide = Html.of("""
-                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie"><span class="guide-ring" data-guide-progress>%s</span><span class="menu-only">Guide de saisie</span></a>""",
+                <a href="/assistant"%s aria-label="Guide de saisie" title="Guide de saisie">%s<span class="nav-count guide-count" data-guide-progress hidden></span><span class="menu-only">Guide de saisie</span></a>""",
                 Html.raw(section == Section.ASSISTANT ? " class=\"nav-guide active\" aria-current=\"page\"" : " class=\"nav-guide\""), ASSISTANT_ICON);
         // Cinq entrees : Patrimoine regroupe l'epargne, la bourse et l'immobilier (onglets en haut de ces pages).
         boolean wealth = section == Section.WEALTH || section == Section.SAVINGS || section == Section.STOCKS || section == Section.REAL_ESTATE;
@@ -292,15 +292,16 @@ public final class Layout {
     /** Bouton « + Ajouter » : chaque saisie a un seul point d'entree, toujours au meme endroit. */
     private static Html addMenu(boolean realEstate) {
         return Html.of("""
-                <details class="nav-menu add-menu" name="navigation"><summary aria-label="Ajouter" title="Ajouter"><span aria-hidden="true">+</span><span class="add-label">Ajouter</span></summary>\
+                <details class="nav-menu add-menu" name="navigation"><summary><span aria-hidden="true">+</span><span class="add-label">Ajouter</span></summary>\
                 <div class="nav-panel"><nav class="nav-entries" aria-label="Ajouter">\
                 <a href="/assistant/documents#import">Un relevé bancaire<small>CSV, OFX ou QIF : les dépenses régulières sont trouvées</small></a>\
-                <a href="/administration/depenses">Une dépense<small>loyer, abonnement, assurance…</small></a>\
-                <a href="/administration/revenus">Un revenu<small>salaire, pension, allocation</small></a>\
-                <a href="/epargne">Un livret ou un placement<small>Livret A, assurance-vie, PEL…</small></a>\
+                <a href="/administration/depenses#ajouter">Une dépense<small>loyer, abonnement, assurance…</small></a>\
+                <a href="/administration/revenus#ajouter">Un revenu<small>salaire, pension, allocation</small></a>\
+                <a href="/epargne#ajouter">Un livret ou un placement<small>Livret A, assurance-vie, PEL…</small></a>\
                 <a href="/bourse/ajouter">Un titre en bourse<small>action, ETF, crypto</small></a>%s\
-                <a href="/economies#objectifs">Un objectif d'épargne<small>vacances, voiture, travaux</small></a></nav></div></details>""",
-                realEstate ? Html.raw("<a href=\"/administration/biens\">Un bien immobilier<small>logement, location, prêt</small></a>") : Html.EMPTY);
+                <a href="/administration/virements#ajouter">Un virement entre membres<small>argent de poche, participation aux frais</small></a>\
+                <a href="/economies#ajouter">Un objectif d'épargne<small>vacances, voiture, travaux</small></a></nav></div></details>""",
+                realEstate ? Html.raw("<a href=\"/administration/bien/nouveau\">Un bien immobilier<small>logement, location, prêt</small></a>") : Html.EMPTY);
     }
 
     /**

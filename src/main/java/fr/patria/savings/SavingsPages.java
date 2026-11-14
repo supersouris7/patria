@@ -49,7 +49,7 @@ final class SavingsPages {
                         overview.stocks().signum() == 0 ? null : "hors bourse (" + euroWhole(overview.stocks()) + ")"),
                 tile("Précaution", "Disponible tout de suite (comptes, livrets). Repère : 3 à 6 mois de dépenses.", euroWhole(overview.available()), cushionTone,
                         plan.spending().signum() == 0 ? null : Format.number(months, 1) + " mois de dépenses"),
-                tile("Inflation", "Hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
+                tile("Hausse des prix", "Inflation : hausse des prix sur 12 mois (INSEE).", inflation, snapshot.inflation().isPresent() ? "warning" : "", inflationSub),
                 tile("Vos intérêts", "Taux moyen de votre épargne (pondéré par les soldes), comparé à l'inflation : au-dessus, votre épargne gagne en valeur réelle ; "
                                 + "en dessous, elle en perd.", average == null ? "—" : Format.number(average, 2) + " %",
                         real == null ? "" : real.signum() >= 0 ? "positive" : "negative",
@@ -263,7 +263,7 @@ final class SavingsPages {
                     left + months.indexOf(month) * step, y.applyAsDouble(inflation.history().get(month).doubleValue()), escape(Format.month(month)),
                     escape(Format.number(inflation.history().get(month), 1))));
         }
-        return Components.card("Inflation et taux de l'épargne", null, Html.of("<span class=\"muted\">%s à %s</span>", Format.month(first), Format.month(last)), Html.of("""
+        return Components.card("Hausse des prix et taux des livrets", null, Html.of("<span class=\"muted\">%s à %s</span>", Format.month(first), Format.month(last)), Html.of("""
                 <p class="muted">Quand un taux passe sous la courbe de l'inflation, l'argent placé perd du pouvoir d'achat : les intérêts ne compensent pas la hausse des prix.</p>
                 <div class="chart-legend">%s</div><div class="chart-scroll"><svg class="chart rates-chart" viewBox="0 0 %s %s" role="img" aria-label="Inflation et taux de l'épargne">%s</svg></div>
                 <p class="muted small">Inflation : INSEE, indice des prix à la consommation, glissement sur 12 mois. Livret A et LEP : taux depuis leur dernière date vérifiée.</p>""",
@@ -356,7 +356,7 @@ final class SavingsPages {
                         .help("Rempli d'office pour un livret réglementé (taux officiel) ; à saisir pour une assurance-vie ou un livret bancaire"), Map.of()),
                 Components.input(Input.of("Date d'ouverture", "opened_on", Field.DATE).help("Utile pour un PEA (5 ans)"), Map.of())));
         fields.add(Components.input(Input.of("Versement mensuel (facultatif)", "montant", Field.MONEY).help("Virement programmé : le solde avancera tout seul"), Map.of()));
-        return Components.disclosure("Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
+        return Components.addForm("Ajouter un placement", Components.form("/epargne/compte", csrf, false, Html.concat(back == null ? Html.EMPTY
                         : Html.of("<input type=\"hidden\" name=\"retour\" value=\"%s\">", back), Components.fields(3, fields.toArray(Html[]::new))),
                 "Ajouter le placement"), back != null);
     }

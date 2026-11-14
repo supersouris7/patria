@@ -121,9 +121,9 @@ final class PortfolioReports {
         report.section("Valeur nette").lines(List.of(
                 new String[]{"Valeur retenue", euroWhole(value)},
                 new String[]{"Frais de vente et fiscalité", minus(saleFees)},
-                new String[]{"Capital restant dû", minus(debt)},
+                new String[]{"Reste à rembourser", minus(debt)},
                 new String[]{"Valeur nette indicative", euroWhole(net)}), true);
-        report.note("Plus-value latente (valeur − coût d'acquisition, hors frais de vente) : " + Format.signedEuroWhole(gain) + ".");
+        report.note("Gain si vous vendiez aujourd'hui (valeur − coût d'acquisition, hors frais de vente) : " + Format.signedEuroWhole(gain) + ".");
         report.section("Enrichissement réel depuis l'achat").lines(List.of(
                 new String[]{"Valeur après frais de vente", euroWhole(value.subtract(saleFees))},
                 new String[]{"Coût d'acquisition", minus(purchase)},

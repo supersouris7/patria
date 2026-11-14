@@ -33,12 +33,12 @@ final class LoanReports {
                        LocalDate today) {
         ScheduleLine next = status.nextInstallment();
         PdfReport report = PdfReport.create("Prêt · " + loan.name(), "Finance « " + property.name() + " »", today).metrics(List.of(
-                Metric.of("Capital emprunté", euro(status.borrowed()), "taux actuel " + Format.percent(status.currentRate())),
-                Metric.of("Capital restant dû", euro(status.remaining()), status.progressPercent() + " % remboursé"),
+                Metric.of("Somme empruntée", euro(status.borrowed()), "taux actuel " + Format.percent(status.currentRate())),
+                Metric.of("Reste à rembourser", euro(status.remaining()), status.progressPercent() + " % remboursé"),
                 Metric.of("Prochaine échéance", next == null ? Format.DASH : euro(next.amount()), next == null ? "aucune échéance à venir" : Format.date(next.date())),
                 Metric.of("Durée restante", Format.duration(status.remainingMonths()), status.lastDate() == null ? null : "fin le " + Format.date(status.lastDate()))));
         report.section("Situation au " + Format.date(today)).lines(List.of(
-                new String[]{"Capital remboursé", euro(status.repaid())},
+                new String[]{"Déjà remboursé", euro(status.repaid())},
                 new String[]{"Intérêts payés", euro(status.interestPaid())},
                 new String[]{"Intérêts restant à payer", euro(status.interestToPay())},
                 new String[]{"Intérêts sur toute la durée", euro(status.interestTotal())},

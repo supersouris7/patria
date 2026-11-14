@@ -57,7 +57,7 @@ final class TransferPages {
         Html list = transfers.isEmpty() ? Html.raw("<p class=\"empty\">Aucun virement.</p>")
                 : Components.table(List.of("Virement", "Libellé", "#Montant", "Fréquence", "Période", ""), rows, true, false);
         Html content = Html.concat(heading, Components.notice(notice), formPeople.size() < 2 ? Html.EMPTY
-                        : Components.disclosure("Ajouter un virement", Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement"), notice != null && notice.error()),
+                        : Components.addForm("Ajouter un virement", Components.form("/administration/virements", csrf, false, fields(formPeople, values), "Ajouter le virement"), notice != null && notice.error()),
                 Components.card("Virements", transfers.size(), Html.EMPTY, list));
         return Layout.adminSection("Virements · Patria", csrf, Layout.AdminSection.TRANSFERS, content);
     }

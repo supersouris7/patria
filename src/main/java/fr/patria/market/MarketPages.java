@@ -62,7 +62,7 @@ final class MarketPages {
                 Format.perSquareMeter(price.median()), Format.perSquareMeter(price.low()), Format.perSquareMeter(price.high()), Format.date(price.computedOn()));
         Html summary = Components.metrics(4,
                 Components.tile("Ventes affichées", null, shown.size() + (filter.active() ? " / " + data.sales().size() : ""), filter.active() ? "avec ces filtres" : "toutes les ventes retenues"),
-                Components.tile("Médiane", "Prix au m² médian des ventes affichées, actualisé.", median == null ? Format.DASH : Format.perSquareMeter(median), "la moitié au-dessus, la moitié en dessous"),
+                Components.tile("Prix du milieu", "Prix au m² médian des ventes affichées, actualisé.", median == null ? Format.DASH : Format.perSquareMeter(median), "la moitié au-dessus, la moitié en dessous"),
                 Components.tile("Votre bien", "Valeur retenue ÷ surface.", yours == null ? Format.DASH : Format.perSquareMeter(yours),
                         yours == null || median == null ? "surface inconnue" : gap(yours, median)),
                 Components.tile("Période", null, price.period(), price.scope() == null ? "" : price.scope().label()));
@@ -124,7 +124,7 @@ final class MarketPages {
         fr.patria.ui.PdfReport report = fr.patria.ui.PdfReport.create("Ventes du secteur · " + property.name(),
                 data.price().place() + " · " + data.price().period(), today).metrics(List.of(
                 fr.patria.ui.PdfReport.Metric.of("Ventes", String.valueOf(shown.size()), filter.active() ? "avec filtres, sur " + data.sales().size() : "toutes les ventes retenues"),
-                fr.patria.ui.PdfReport.Metric.of("Médiane", median == null ? Format.DASH : Format.perSquareMeter(median), "prix au m² actualisé"),
+                fr.patria.ui.PdfReport.Metric.of("Prix du milieu", median == null ? Format.DASH : Format.perSquareMeter(median), "prix au m² actualisé"),
                 fr.patria.ui.PdfReport.Metric.of("Fourchette (retenues)", Format.perSquareMeter(data.price().low()) + " – " + Format.perSquareMeter(data.price().high()), "1er à 3e quartile"),
                 fr.patria.ui.PdfReport.Metric.of("Zone", data.price().scope() == null ? "" : data.price().scope().label(), data.price().place())));
         report.section("Ventes").table(List.of("Date", "Adresse", "#Surface", "#Prix", "#Prix au m²", "#Distance"), shown.stream().map(sale -> fr.patria.ui.PdfReport.row(

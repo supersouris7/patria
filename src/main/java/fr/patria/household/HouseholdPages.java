@@ -70,9 +70,9 @@ public final class HouseholdPages {
                 ? Html.raw("<p class=\"empty\">Aucun revenu saisi.</p>")
                 : Components.table(List.of("Personne", "Libellé", "Type", "#Montant", "Fréquence", "Période", ""), incomeRows, true, false));
         Html addIncome = formPeople.isEmpty()
-                ? Components.card("Ajouter un revenu", null, Html.EMPTY, Html.raw(
-                        "<p class=\"empty\">Aucun membre ne vous est accessible : demandez au gestionnaire du foyer de cocher vos membres dans le tableau des droits.</p>"))
-                : Components.disclosure("Ajouter un revenu",
+                ? Components.addForm("Ajouter un revenu", Html.raw(
+                        "<p class=\"empty\">Aucun membre ne vous est accessible : demandez au gestionnaire du foyer de cocher vos membres dans le tableau des droits.</p>"), false)
+                : Components.addForm("Ajouter un revenu",
                         Components.form("/administration/revenus", csrf, false, incomeFields(formPeople, values), "Ajouter le revenu"), notice != null && notice.error());
         Html importer = formPeople.isEmpty() ? Html.EMPTY : Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", importForm(formPeople, null, csrf), false);
         Html content = Html.concat(Components.heading("Gérer", "Revenus", null, Html.EMPTY), Components.notice(notice), addIncome, importer, incomesCard);

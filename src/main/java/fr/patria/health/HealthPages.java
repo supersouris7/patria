@@ -32,14 +32,14 @@ final class HealthPages {
 
     /** {@code evolution} : section « Votre evolution », en bas du Bilan. */
     static Html page(String owner, List<Check> checks, List<Check> ignored, boolean estate, Html scope, Html evolution, String csrf) {
-        Html tiles = Components.metrics(4, Arrays.stream(Check.Level.values()).map(level -> {
+        // Bilan : un diagnostic, pas des tuiles chiffrees (c'est le role d'Economies) ; une ligne de pastilles menant aux listes.
+        Html tiles = Html.of("<nav class=\"health-chips\" aria-label=\"Résumé du bilan\">%s</nav>", Arrays.stream(Check.Level.values()).map(level -> {
             long count = checks.stream().filter(check -> check.level() == level).count();
-            // Toute la tuile mene a sa liste (et la deplie) ; sans point, rien a ouvrir.
             return count == 0
-                    ? Html.of("<article class=\"metric health-tile %s\"><span class=\"metric-label\">%s</span><strong>0</strong><small>point</small></article>", css(level), level.label())
-                    : Html.of("<a class=\"metric health-tile %s\" href=\"#%s\" data-open-target><span class=\"metric-label\">%s</span><strong>%s</strong><small>%s</small></a>",
-                    css(level), anchor(level), level.label(), count, count > 1 ? "sujets" : "sujet");
-        }).toArray(Html[]::new));
+                    ? Html.of("<span class=\"health-chip %s empty\"><b>0</b> %s</span>", css(level), level.label().toLowerCase(java.util.Locale.FRENCH))
+                    : Html.of("<a class=\"health-chip %s\" href=\"#%s\" data-open-target><b>%s</b> %s</a>", css(level), anchor(level), count,
+                    level.label().toLowerCase(java.util.Locale.FRENCH));
+        }).collect(Html.joining()));
         Html domains = Arrays.stream(Check.Domain.values()).map(domain -> {
             List<Check> own = checks.stream().filter(check -> check.domain() == domain && check.level() == Check.Level.INFO).toList();
             if (own.isEmpty()) {
@@ -52,7 +52,7 @@ final class HealthPages {
                     domain.label(), domain.summary(), own.stream().map(check -> item(check, false, csrf)).collect(Html.joining()));
         }).collect(Html.joining());
         Html content = Html.concat(
-                Components.heading(owner, "Bilan de santé", "Vos finances, vos biens et vos impôts passés en revue, à partir de ce qui est saisi.",
+                Components.heading(owner, "Bilan de santé", "Est-ce que vos finances vont bien ? Ce qui cloche, ce qui est à surveiller et ce qui va bien, à partir de ce que vous avez saisi.",
                         Components.pdfButton("/bilan.pdf")),
                 scope, tiles,
                 Html.of("<div id=\"%s\">%s</div>", anchor(Check.Level.BAD), priority("À traiter en priorité", Check.Level.BAD, checks, csrf)),

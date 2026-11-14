@@ -35,6 +35,14 @@ public final class Components {
                 Html.raw(open ? " open" : ""), title, body);
     }
 
+    /**
+     * Formulaire d'ajout d'une page : cache, il ne s'ouvre que depuis le bouton general « + Ajouter » (ancre
+     * {@code #ajouter}, sans JavaScript) ou quand {@code shown} (erreur de saisie a corriger, retour du guide).
+     */
+    public static Html addForm(String title, Html body, boolean shown) {
+        return Html.of("<section class=\"card section add-form%s\" id=\"ajouter\"><h2>%s</h2>%s</section>", Html.raw(shown ? " shown" : ""), title, body);
+    }
+
     public static Html emptyState(String title, String text, Html action) {
         return Html.of("<section class=\"card empty-state\"><h2>%s</h2><p class=\"muted\">%s</p>%s</section>", title, text, action);
     }

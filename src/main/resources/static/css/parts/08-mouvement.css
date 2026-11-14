@@ -42,10 +42,10 @@ details[open]::details-content { block-size: auto; }
 
 /* ---- Barre du haut : fixe, des boutons ronds tous de la meme taille ---- */
 html { scrollbar-gutter: stable; } /* la barre ne se decale plus quand une page a (ou n'a pas) de defilement */
-.navigation .nav-menu > summary, .navigation .audience > summary, .navigation .theme-toggle, .navigation .logout, .primary-navigation a.nav-guide {
+.navigation .nav-menu > summary, .navigation .audience > summary, .navigation .account-bar > .theme-toggle, .navigation .logout, .primary-navigation a.nav-guide {
     align-items: center; border-radius: 50%; display: inline-flex; flex: none; height: 40px; justify-content: center; min-height: 40px; min-width: 40px;
     padding: 0; position: relative; width: 40px; }
-.navigation .nav-menu > summary:hover, .navigation .audience > summary:hover, .navigation .theme-toggle:hover, .navigation .logout:hover,
+.navigation .nav-menu > summary:hover, .navigation .audience > summary:hover, .navigation .account-bar > .theme-toggle:hover, .navigation .logout:hover,
 .primary-navigation a.nav-guide:hover { background: var(--surface-raised); color: var(--text); }
 .navigation .audience > summary { color: var(--muted); }
 .navigation .audience-dot { background: var(--blue); }
@@ -54,22 +54,24 @@ html { scrollbar-gutter: stable; } /* la barre ne se decale plus quand une page 
 .navigation .nav-count.warning { background: var(--warn-bg); box-shadow: 0 0 0 2px var(--topbar); color: var(--warn-text); }
 .primary-navigation a { position: relative; }
 .primary-navigation a:has(> .nav-count) { padding-right: 18px; } /* place reservee : la pastille arrive sans rien decaler */
-/* Ajouter : rond bleu ; le libelle apparait au survol, par-dessus, sans rien deplacer. */
-.navigation .add-menu > summary { background: var(--blue-deep); color: #fff; font-size: 1.3rem; gap: 0; }
+/* Ajouter : « + Ajouter », simple, sans animation, de la hauteur de l'avatar. */
+.navigation .add-menu > summary { background: var(--blue-deep); border-radius: 999px; color: #fff; font-size: .9rem; font-weight: 650; gap: 6px; height: 32px;
+    min-height: 32px; padding: 0 14px; width: auto; }
+.navigation .add-menu > summary span[aria-hidden] { font-size: 1.1rem; }
+.navigation .add-menu > summary, .add-menu[open] > .nav-panel { animation: none; transition: none; }
 .navigation .add-menu > summary:hover, .navigation .add-menu[open] > summary { background: var(--blue); color: #fff; }
-.navigation .add-menu .add-label { background: var(--blue-deep); border-radius: 999px; color: #fff; display: block; font-size: .86rem; opacity: 0; padding: 8px 14px;
-    pointer-events: none; position: absolute; right: calc(100% + 6px); top: 50%; transform: translate(6px, -50%); transition: opacity var(--mid) var(--ease), transform var(--mid) var(--ease);
-    white-space: nowrap; }
-.navigation .add-menu > summary:hover .add-label, .navigation .add-menu > summary:focus-visible .add-label { opacity: 1; transform: translate(0, -50%); }
-.navigation .add-menu[open] .add-label { opacity: 0; }
-/* Anneaux d'avancement (niveau autour de l'avatar, guide autour de son icone) : dessines par-dessus, la taille ne change pas. */
-.account-link.level-ring { position: relative; }
-.account-link.level-ring::before, .guide-ring.ready::before { background: conic-gradient(var(--blue) calc(var(--level, 0) * 1%), var(--line-strong) 0); border-radius: 50%; content: "";
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
-    pointer-events: none; position: absolute; }
-.account-link.level-ring::before { height: 34px; left: 6px; top: calc(50% - 17px); width: 34px; }
-.guide-ring { display: inline-flex; position: relative; }
-.guide-ring.ready::before { inset: -9px; }
+.navigation .account-link .avatar-small, .navigation .account-link > svg { height: 32px; width: 32px; }
+.navigation .account-link .avatar-small { font-size: .78rem; }
+/* Guide : l'icone seule, le pourcentage en pastille. */
+.navigation .guide-count { background: var(--blue-tint); box-shadow: 0 0 0 2px var(--topbar); color: var(--accent-text); right: -10px; top: -2px; }
+/* Formulaires d'ajout des pages : ouverts seulement depuis « + Ajouter » (#ajouter) ou apres une erreur. */
+.add-form:not(:target):not(.shown) { display: none; }
+/* Bilan : une ligne de pastilles, pas des tuiles. */
+.health-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.health-chip { border: 1px solid var(--line); border-radius: 999px; color: var(--text); font-size: .9rem; padding: 6px 12px; text-decoration: none; }
+.health-chip b { font-size: 1rem; }
+.health-chip.empty { color: var(--muted); }
+a.health-chip:hover { background: var(--surface-raised); }
 @media (max-width: 600px) {
     .navigation .add-menu .add-label { display: none; }
     .navigation .nav-search-menu { display: inline-block; }

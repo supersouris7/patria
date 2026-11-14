@@ -356,7 +356,7 @@ final class BudgetPages {
                         Components.link("/administration/bien/" + properties.get(index).id() + "/charges", properties.get(index).name()))).collect(Html.joining()));
 
         Html content = Html.concat(Components.heading("Gérer", "Dépenses", null, Html.EMPTY), Components.notice(notice),
-                Components.disclosure("Ajouter une dépense", Html.concat(automatic, taxLinks, form), notice != null && notice.error()),
+                Components.addForm("Ajouter une dépense", Html.concat(automatic, taxLinks, form), notice != null && notice.error()),
                 Components.disclosure("Importer (réponse d'une IA ou fichier CSV)", Html.concat(Components.secondaryButton("/administration/depenses/modele.csv", "Télécharger le modèle"),
                         importForm(csrf)), false),
                 Components.card("Dépenses saisies", items.size(), Html.EMPTY, table));
