@@ -146,6 +146,9 @@ class AppTest {
         assertTrue(get("/immobilier/biens").body().contains("Fourchette"));
         String loans = get("/immobilier/prets").body();
         assertTrue(loans.contains("Intérêts restant à payer") && loans.contains("Fin du dernier prêt"), "tuiles des prêts");
+        String wealth = get("/patrimoine").body();
+        assertTrue(wealth.contains("<h2>Ce que vous devez</h2>") && wealth.contains("role=\"progressbar\"") && wealth.contains("Moyenne de tous vos prêts"),
+                "barre de remboursement des prêts sous la répartition");
         assertFalse(dashboard.contains("Et si je vendais"), "seulement dans Mes biens");
         assertTrue(dashboard.contains("199 500 €"), "capital restant dû au 15/06/2026");
         assertTrue(get(propertyPath).body().contains("value=\"350000\""));

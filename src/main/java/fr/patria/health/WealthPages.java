@@ -57,7 +57,7 @@ final class WealthPages {
                 <li>La bourse est comptée au cours du jour, les comptes et livrets à leur solde. Les crédits à la consommation ne sont pas comptés : seule leur
                 mensualité est connue.</li></ul>"""), false);
         Html content = Html.concat(Components.heading("Patrimoine", "Patrimoine", "Ce que vous possédez et ce que vous devez, à la valeur du jour.", Html.EMPTY),
-                tiles, method, composition(assets, totalAssets),
+                tiles, method, composition(assets, totalAssets), debts(estate),
                 Html.of("<div class=\"wealth-grid\">%s%s</div>", table("Ce que vous possédez", assets, totalAssets), table("Ce que vous devez", liabilities, totalLiabilities)));
         return Layout.page("Patrimoine · Patria", Layout.Section.WEALTH, csrf, content);
     }
@@ -82,6 +82,35 @@ final class WealthPages {
                 .collect(Html.joining());
         return Components.card("Répartition de ce que vous possédez", null, Html.EMPTY, Html.of("<div class=\"wealth-bar\" role=\"img\" aria-label=\"Répartition des actifs\">%s</div>"
                 + "<ul class=\"chart-legend\">%s</ul>", bar, legend));
+    }
+
+    /**
+     * Ce que vous devez : avancement du remboursement de tous les prets ensemble (moyenne ponderee par les montants :
+     * capital rembourse / capital emprunte), taux moyen pondere par le restant du, et date de fin du dernier pret.
+     */
+    private static Html debts(Portfolio.Overview estate) {
+        if (estate == null) return Html.EMPTY;
+        List<Portfolio.LoanSummary> loans = estate.properties().stream().flatMap(property -> property.loans().stream()).toList();
+        BigDecimal borrowed = loans.stream().map(loan -> loan.status().borrowed()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (loans.isEmpty() || borrowed.signum() <= 0) return Html.EMPTY;
+        BigDecimal repaid = loans.stream().map(loan -> loan.status().repaid()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remaining = loans.stream().map(loan -> loan.status().remaining()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        int percent = repaid.multiply(BigDecimal.valueOf(100)).divide(borrowed, 0, RoundingMode.DOWN).min(BigDecimal.valueOf(100)).intValue();
+        BigDecimal rate = remaining.signum() <= 0 ? null : loans.stream().filter(loan -> loan.status().currentRate() != null)
+                .map(loan -> loan.status().currentRate().multiply(loan.status().remaining())).reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(remaining, 2, RoundingMode.HALF_UP);
+        java.time.LocalDate end = loans.stream().map(loan -> loan.status().lastDate()).filter(java.util.Objects::nonNull).max(java.time.LocalDate::compareTo).orElse(null);
+        String average = Format.plural(loans.size(), "prêt", "prêts") + " · " + Format.euroWhole(repaid) + " remboursés sur " + Format.euroWhole(borrowed) + " empruntés"
+                + (rate == null ? "" : " · taux moyen " + Format.percent(rate)) + (end == null ? "" : " · tout remboursé en " + Format.month(java.time.YearMonth.from(end))
+                .toLowerCase(java.util.Locale.FRENCH));
+        // Meme barre que la repartition : la part remboursee, puis ce qu'il reste a rembourser.
+        Html bar = Html.of("<div class=\"wealth-bar debt-bar\" role=\"progressbar\" aria-valuenow=\"%s\" aria-valuemin=\"0\" aria-valuemax=\"100\" "
+                + "aria-label=\"Prêts remboursés à %s %\"><i class=\"debt-paid\" style=\"flex-grow:%s\"></i><i class=\"debt-left\" style=\"flex-grow:%s\"></i></div>",
+                percent, percent, repaid.setScale(0, RoundingMode.HALF_UP).toPlainString(), remaining.max(BigDecimal.ZERO).setScale(0, RoundingMode.HALF_UP).toPlainString());
+        Html legend = Html.of("<ul class=\"chart-legend\"><li><i class=\"debt-paid\"></i>Déjà remboursé <b>%s %</b></li><li><i class=\"debt-left\"></i>Reste à rembourser "
+                + "<b>%s</b></li></ul>", percent, Format.euroWhole(remaining));
+        return Components.card("Ce que vous devez", null, Html.EMPTY, Html.concat(bar, legend,
+                Html.of("<p class=\"muted small\">%s. Moyenne de tous vos prêts, pondérée par leur montant.</p>", average)));
     }
 
     private static Html table(String title, List<Row> rows, BigDecimal total) {

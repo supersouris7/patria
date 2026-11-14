@@ -203,6 +203,9 @@ tr.contribution details { display: inline-block; margin-left: 8px; }
 /* Patrimoine : barre de repartition des actifs, actifs et passifs cote a cote */
 .wealth-bar { border-radius: 99px; display: flex; gap: 2px; height: 14px; margin: 4px 0 12px; overflow: hidden; }
 .wealth-bar i { min-width: 4px; }
+.debt-paid { background: var(--success); }
+.debt-left { background: var(--line-strong); }
+.chart-legend i.debt-paid, .chart-legend i.debt-left { border-radius: 3px; display: inline-block; height: 10px; margin-right: 6px; width: 10px; }
 .chart-legend li i[class^="series-"] { border-radius: 3px; display: inline-block; height: 10px; margin-right: 6px; width: 10px; }
 .wealth-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .wealth-grid .card { margin: 0; }
