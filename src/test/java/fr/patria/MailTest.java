@@ -117,9 +117,9 @@ class MailTest {
             HttpResponse<String> joined = TestAccounts.post(client, base, null, "/invitation", "jeton=" + invitation
                     + "&name=Paul&login=paul&email=paul%40test.fr&password=paulpasse1&confirm=paulpasse1");
             TestAccounts.Visitor first = new TestAccounts.Visitor(joined.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0], "", 0);
-            assertEquals("/compte/email", TestAccounts.location(TestAccounts.get(client, base, first, "/")));
-            assertEquals("/compte/securiser", TestAccounts.location(TestAccounts.get(client, base, null, link())));
-            assertEquals(200, TestAccounts.get(client, base, first, "/").statusCode(), "accès ouvert");
+            // L'adresse de l'invitation est deja prouvee (le lien y a ete recu) : confirmee d'office, sans second e-mail.
+            assertTrue(mails.poll(1, TimeUnit.SECONDS) == null, "pas d'e-mail de confirmation pour l'adresse invitée");
+            assertFalse(TestAccounts.location(TestAccounts.get(client, base, first, "/")).startsWith("/compte/email"), "e-mail déjà confirmé");
             assertEquals(400, TestAccounts.post(client, base, null, "/invitation", "jeton=" + invitation
                     + "&name=Autre&login=autre&email=a%40test.fr&password=autrepasse1&confirm=autrepasse1").statusCode(), "invitation à usage unique");
 
@@ -137,6 +137,25 @@ class MailTest {
                     "lien déjà utilisé");
             assertEquals("/connexion", TestAccounts.location(TestAccounts.get(client, base, first, "/")).replaceAll("\\?.*", ""), "anciennes sessions fermées");
             TestAccounts.login(client, base, "paul", "nouveaupasse1");
+
+        }
+    }
+
+    @Test
+    void optionalConfirmationStillAllowsPasswordReset() throws Exception {
+        try (ServerSocket smtp = fakeSmtp(); App app = App.start(new Config("secret", "admin", directory.resolve("patria.sqlite3"), 0, TestData.CLOCK))) {
+            String base = "http://127.0.0.1:" + app.port();
+            TestAccounts.Visitor admin = TestAccounts.admin(client, base);
+            TestAccounts.post(client, base, admin, "/administration/inscriptions", "mode=open");
+            // Confirmation non exigee : l'e-mail reste obligatoire et un lien de confirmation part quand meme (sinon pas de mot de passe oublie)
+            TestAccounts.post(client, base, admin, "/administration/securite/email", "host=127.0.0.1&port=" + smtp.getLocalPort()
+                    + "&securite=NONE&expediteur=patria%40test.fr&adresse=" + base);
+            assertEquals(400, TestAccounts.post(client, base, null, "/inscription", "name=Zoe&login=zoe&password=zoepasse1&confirm=zoepasse1").statusCode(), "e-mail exigé");
+            HttpResponse<String> zoe = TestAccounts.post(client, base, null, "/inscription", "name=Zoe&login=zoe&email=zoe%40test.fr&password=zoepasse1&confirm=zoepasse1");
+            assertEquals("/compte/securiser", TestAccounts.location(zoe), "inscription");
+            TestAccounts.get(client, base, null, link());
+            TestAccounts.post(client, base, null, "/connexion/oubli", "compte=zoe");
+            assertTrue(link().contains("reinitialiser"), "mot de passe oublié possible");
         }
     }
 }

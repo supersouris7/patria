@@ -57,7 +57,7 @@ public final class JoinController extends AccountSupport {
             limit(request);
             String name = form.requiredText("name", "Votre prénom", 60);
             String householdName = form.raw("foyer").isBlank() ? "Foyer de " + name : form.requiredText("foyer", "Nom du foyer", 60);
-            long userId = createAccount(request, form, name);
+            long userId = createAccount(request, form, name, null);
             Household household = newHousehold(userId, name, householdName);
             audit(name, "USER", household.id(), userId, "Compte « " + accounts.user(userId).orElseThrow().login() + " » créé par inscription, avec son foyer « "
                     + household.name() + " ».");
@@ -79,9 +79,12 @@ public final class JoinController extends AccountSupport {
         AccountRepository.Invitation invitation = accounts.invitation(token, now)
                 .orElseThrow(() -> new ValidationException("Invitation expirée ou déjà utilisée : demandez un nouveau lien."));
         try {
+            if ("closed".equals(accounts.signupMode())) {
+                throw new ValidationException("Les nouveaux comptes sont fermés sur ce Patria. Si vous avez déjà un compte, connectez-vous pour accepter l'invitation.");
+            }
             limit(request);
             String name = form.requiredText("name", "Votre prénom", 60);
-            long userId = createAccount(request, form, name);
+            long userId = createAccount(request, form, name, invitation.email());
             long household = join(userId, name, invitation, form.raw("foyer"));
             return signIn(request, userId, household);
         } catch (ValidationException exception) {
@@ -155,20 +158,28 @@ public final class JoinController extends AccountSupport {
         return household;
     }
 
-    /** Compte cree par la personne : identifiant, e-mail (exige et confirme si l'administrateur l'a regle), mot de passe choisi. */
-    private long createAccount(Request request, FormData form, String name) {
+    /**
+     * Compte cree par la personne : identifiant, e-mail, mot de passe choisi. Avec l'envoi d'e-mails regle, l'e-mail est
+     * exige (pour retrouver son mot de passe) et confirme : directement s'il est celui de l'invitation recue (la personne
+     * a ouvert le lien), sinon par un lien. La confirmation ne bloque l'acces que si l'administrateur l'exige ; un echec
+     * d'envoi ne bloque pas la creation (le lien se redemande depuis Mon compte).
+     */
+    private long createAccount(Request request, FormData form, String name, String invitedEmail) {
         String login = login(form.raw("login"));
         if (!form.raw("password").equals(form.raw("confirm"))) throw new ValidationException("La confirmation ne correspond pas au mot de passe.");
         if (Layout.hasTerms() && !"on".equals(form.raw("conditions"))) throw new ValidationException("Acceptez les conditions d'utilisation pour créer votre compte.");
         String email = Mails.address(form.raw("email"));
         AccountRepository.Mail mail = accounts.mail();
-        boolean confirm = mail.required() && mail.active();
-        if (confirm && email.isEmpty()) throw new ValidationException("Indiquez votre e-mail : un lien de confirmation vous sera envoyé.");
-        long id = accounts.registerUser(login, name, form.raw("password"), LocalDate.now(clock), email.isEmpty() ? null : email, confirm);
-        if (confirm) {
+        if (mail.active() && email.isEmpty()) throw new ValidationException("Indiquez votre e-mail : il sert à retrouver votre mot de passe.");
+        boolean known = !email.isEmpty() && email.equalsIgnoreCase(invitedEmail == null ? "" : invitedEmail);
+        boolean blocking = mail.required() && mail.active() && !known;
+        long id = accounts.registerUser(login, name, form.raw("password"), LocalDate.now(clock), email.isEmpty() ? null : email, blocking);
+        if (known) {
+            accounts.setEmail(id, email, true);
+        } else if (mail.active()) {
             String token = accounts.createToken(id, "verify", email, LocalDateTime.now(clock).plusHours(24));
-            Mails.send(mail, email, "Patria : confirmez votre e-mail", "Bonjour " + name + ",\n\nPour confirmer votre e-mail, ouvrez ce lien (valable 24 heures) :\n"
-                    + Mails.link(mail, "/compte/email/confirmer?jeton=" + token));
+            Mails.trySend(mail, email, "Patria : confirmez votre e-mail", "Bonjour " + name + ",\n\nConfirmez votre e-mail pour pouvoir retrouver votre mot de passe "
+                    + "si vous l'oubliez. Ouvrez ce lien, valable 24 heures :\n" + Mails.link(mail, "/compte/email/confirmer?jeton=" + token), "Confirmer mon e-mail");
         }
         return id;
     }
@@ -220,8 +231,11 @@ public final class JoinController extends AccountSupport {
         }
         AccountRepository.Invitation invitation = found.get();
         String target = invitation.householdId() == null ? null : accounts.household(invitation.householdId()).map(Household::name).orElse(null);
-        Html intro = Html.of("<p>%s</p>", target == null ? "Vous êtes invité à créer votre foyer sur ce Patria : vous en serez le gestionnaire."
-                : "Vous êtes invité à rejoindre le foyer « " + target + " »" + (invitation.manager() ? ", en tant que gestionnaire" : "") + ".");
+        String inviter = invitation.createdBy() == null || invitation.createdBy().equals(ADMIN) ? "L'administrateur" : invitation.createdBy();
+        Html intro = target == null
+                ? Html.of("<p>%s vous invite à créer votre foyer sur ce Patria : vous en serez le gestionnaire et y inviterez vos proches.</p>", inviter)
+                : Html.of("<p>%s vous invite à rejoindre le foyer « %s ».</p><p class=\"muted\">Vous y verrez : %s.</p>", inviter, target,
+                HouseholdController.rights(invitation, directory.members(invitation.householdId())));
         Html body;
         if (request.viewer() != null && !request.viewer().isAdministrator()) {
             body = Html.of("""
@@ -229,8 +243,13 @@ public final class JoinController extends AccountSupport {
                     <button type="submit">%s avec mon compte (%s)</button></form>""", Components.csrfField(request.csrf()), token,
                     target == null ? Html.raw("<label>Nom du foyer<input name=\"foyer\" maxlength=\"60\"></label>") : Html.EMPTY,
                     target == null ? "Créer ce foyer" : "Rejoindre", request.viewer().name());
+        } else if ("closed".equals(accounts.signupMode())) {
+            body = Html.of("<p>Les nouveaux comptes sont fermés sur ce Patria. Si vous avez déjà un compte, <a href=\"/connexion?suite=%s\">connectez-vous</a> "
+                    + "pour accepter l'invitation.</p>", fr.patria.web.LocalPath.encode("/invitation?jeton=" + token));
         } else {
-            body = Html.concat(accountForm("/invitation", token, values, target == null),
+            Map<String, String> filled = values.containsKey("email") || invitation.email() == null ? values : new java.util.HashMap<>(values);
+            if (filled != values) filled.put("email", invitation.email());
+            body = Html.concat(accountForm("/invitation", token, filled, target == null),
                     Html.of("<p class=\"muted\">Vous avez déjà un compte ? <a href=\"/connexion?suite=%s\">Connectez-vous</a> pour accepter l'invitation.</p>",
                             fr.patria.web.LocalPath.encode("/invitation?jeton=" + token)));
         }
@@ -242,7 +261,7 @@ public final class JoinController extends AccountSupport {
     /** Formulaire de creation de compte ; {@code household} : demande aussi le nom du nouveau foyer. */
     private Html accountForm(String action, String token, Map<String, String> values, boolean household) {
         AccountRepository.Mail mail = accounts.mail();
-        boolean emailRequired = mail.required() && mail.active();
+        boolean emailRequired = mail.active();
         return Html.of("""
                 <form method="post" action="%s" class="stack">%s
                 <label>Votre prénom<input name="name" maxlength="60" required autocomplete="given-name" value="%s"></label>
@@ -254,7 +273,7 @@ public final class JoinController extends AccountSupport {
                 <button type="submit">Créer mon compte</button></form>""",
                 action, token == null ? Html.EMPTY : Html.of("<input type=\"hidden\" name=\"jeton\" value=\"%s\">", token),
                 values.getOrDefault("name", ""), values.getOrDefault("login", ""),
-                emailRequired ? " (un lien de confirmation vous sera envoyé)" : " (facultatif, pour retrouver votre mot de passe)", Html.raw(emailRequired ? " required" : ""),
+                emailRequired ? " (pour retrouver votre mot de passe)" : " (facultatif)", Html.raw(emailRequired ? " required" : ""),
                 values.getOrDefault("email", ""), AccountRepository.MIN_PASSWORD,
                 household ? Html.of("<label>Nom de votre foyer<input name=\"foyer\" maxlength=\"60\" placeholder=\"Foyer Martin\" value=\"%s\"></label>",
                         values.getOrDefault("foyer", "")) : Html.EMPTY,

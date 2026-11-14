@@ -265,8 +265,9 @@ public final class MyAccountController extends AccountSupport {
             sent.add(now);
             accounts.setEmail(id, address, false);
             String token = accounts.createToken(id, "verify", address, now.plusHours(24));
-            Mails.send(mail, address, "Patria : confirmez votre e-mail", "Bonjour " + request.viewer().name() + ",\n\nPour confirmer votre e-mail, ouvrez ce lien "
-                    + "(valable 24 heures) :\n" + Mails.link(mail, "/compte/email/confirmer?jeton=" + token));
+            Mails.send(mail, address, "Patria : confirmez votre e-mail", "Bonjour " + request.viewer().name() + ",\n\nConfirmez votre e-mail pour pouvoir "
+                    + "retrouver votre mot de passe si vous l'oubliez. Ouvrez ce lien, valable 24 heures :\n" + Mails.link(mail, "/compte/email/confirmer?jeton=" + token),
+                    "Confirmer mon e-mail");
             log.audit(now, request.viewer().name(), "USER", null, id, "E-mail du compte changé, lien de confirmation envoyé.");
             Notice notice = Notice.success("Lien envoyé à " + address + " : ouvrez-le pour confirmer.");
             return Response.page(request.viewer().emailToConfirm() ? AccountPages.emailRequired(accounts.email(id), notice, request.csrf()) : accountPage(request, notice));

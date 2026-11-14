@@ -73,21 +73,32 @@ public final class HouseholdsController extends AccountSupport {
     private Response invitation(Request request, Household household, String email) {
         String token = token(request, household, email);
         String link = link(request, "/invitation?jeton=" + token);
-        boolean sent = !email.isEmpty() && accounts.mail().active();
-        return Response.page(page(request, Notice.success((sent ? "Lien envoyé à " + email + ". " : "") + "Transmettez ce lien (valable "
-                + HouseholdController.INVITATION_DAYS + " jours, une seule fois)."), link));
+        String hand = "Transmettez ce lien (valable " + HouseholdController.INVITATION_DAYS + " jours, une seule fois).";
+        Notice notice = Notice.success(hand);
+        if (!email.isEmpty()) {
+            AccountRepository.Mail mail = accounts.mail();
+            // Le lien existe deja : un echec d'envoi le laisse a transmettre soi-meme, au lieu de le perdre.
+            boolean sent = mail.active() && Mails.trySend(mail, email, "Patria : créez votre compte et votre foyer", """
+                    Bonjour,
+
+                    L'administrateur de ce Patria vous invite à créer votre compte. Patria est une application de budget et de patrimoine pour la famille, \
+                    installée sur un serveur privé : vos données y restent.
+
+                    Vous serez gestionnaire de votre foyer : vous saisirez votre budget, puis inviterez vos proches en choisissant ce que chacun voit.
+
+                    Créez votre compte avec ce lien, valable %s jours et une seule fois :
+                    %s""".formatted(HouseholdController.INVITATION_DAYS, link), "Créer mon compte");
+            notice = sent ? Notice.success("Lien envoyé à " + email + ". Vous pouvez aussi le transmettre vous-même.")
+                    : Notice.error((mail.active() ? "L'e-mail n'a pas pu partir. " : "L'envoi d'e-mails n'est pas réglé. ") + hand);
+        }
+        return Response.page(page(request, notice, link));
     }
 
-    /** Cree le lien (et l'envoie par e-mail si l'envoi est regle et l'adresse donnee) ; renvoie le jeton. */
+    /** Cree le lien ; renvoie le jeton. */
     private String token(Request request, Household household, String email) {
         LocalDateTime now = LocalDateTime.now(clock);
         String token = accounts.createInvitation(new AccountRepository.Invitation(0, household == null ? null : household.id(), null, null, true, true, true,
                 email.isEmpty() ? null : email, ADMIN, null), now, HouseholdController.INVITATION_DAYS);
-        AccountRepository.Mail mail = accounts.mail();
-        if (!email.isEmpty() && mail.active()) {
-            Mails.send(mail, email, "Patria : créez votre foyer", "Vous êtes invité à créer votre compte et votre foyer sur Patria.\n\nOuvrez ce lien, valable "
-                    + HouseholdController.INVITATION_DAYS + " jours :\n" + link(request, "/invitation?jeton=" + token));
-        }
         audit("ACCESS", household == null ? null : household.id(), null, household == null ? "Lien « créer son foyer » créé." : "Lien de gestion du foyer « "
                 + household.name() + " » créé.");
         return token;
@@ -123,7 +134,7 @@ public final class HouseholdsController extends AccountSupport {
         int unmanaged = (int) all.stream().filter(line -> !line.managed()).count();
         int created = (int) all.stream().filter(line -> line.createdOn() != null && java.time.YearMonth.from(line.createdOn()).equals(java.time.YearMonth.from(now))).count();
         return AdminPages.households(page, listing, all.size(), unmanaged, created, accounts.pendingInvitations(null, now), directory.archives(), recommend, link, notice,
-                request.csrf());
+                request.csrf(), accounts.mail().active());
     }
 
     /** Foyers et comptes qui y ont acces, en trois requetes. */

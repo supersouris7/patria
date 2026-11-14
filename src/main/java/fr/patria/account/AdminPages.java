@@ -101,7 +101,7 @@ final class AdminPages {
     // ---- Foyers ----
 
     static Html households(List<HouseholdLine> lines, Listing listing, int total, int unmanaged, int newThisMonth, List<AccountRepository.Invitation> invitations,
-                           List<HouseholdDirectory.Archive> archives, boolean recommendTwoFactor, String link, Notice notice, String csrf) {
+                           List<HouseholdDirectory.Archive> archives, boolean recommendTwoFactor, String link, Notice notice, String csrf, boolean mail) {
         Html tiles = Components.metrics(3,
                 Components.tile("Foyers", null, String.valueOf(total), Format.plural(newThisMonth, "créé ce mois", "créés ce mois")),
                 Components.tile("Sans gestionnaire", "Personne ne peut y régler les membres et les droits : nommez un gestionnaire ou créez un lien de gestion.",
@@ -125,8 +125,9 @@ final class AdminPages {
                 <div class="table-wrap"><table class="data admin-list"><thead><tr><th>Foyer</th><th class="num">Comptes</th><th>Gestionnaires</th><th>Créé le</th></tr></thead>\
                 <tbody>%s</tbody></table></div>%s""", rows, pagination("/administration/foyers", listing, "foyer", "foyers"));
         Html invite = Html.of("""
-                <form method="post" action="/administration/foyers/lien" class="row-form">%s<label>E-mail (facultatif)<input name="email" type="email" maxlength="254"></label>\
+                <form method="post" action="/administration/foyers/lien" class="row-form">%s%s\
                 <button class="secondary" type="submit">Créer le lien</button></form>%s""", Components.csrfField(csrf),
+                mail ? Html.raw("<label>E-mail (facultatif : le lien y sera envoyé)<input name=\"email\" type=\"email\" maxlength=\"254\"></label>") : Html.EMPTY,
                 invitations.isEmpty() ? Html.EMPTY : Html.of("<p class=\"eyebrow\">En attente</p><ul class=\"plain-list\">%s</ul>", invitations.stream().map(invitation -> Html.of("""
                         <li>Nouveau foyer%s · jusqu'au %s <form method="post" action="/administration/foyers/lien/%s/annuler" class="pending-form">%s\
                         <button class="quiet small" type="submit">Annuler</button></form></li>""", invitation.email() == null ? "" : " (" + invitation.email() + ")",

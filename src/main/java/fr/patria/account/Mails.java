@@ -25,13 +25,35 @@ final class Mails {
 
     /** Envoie ou explique l'echec (sans detail technique pour la personne ; le detail va au journal). */
     static void send(AccountRepository.Mail mail, String to, String subject, String body) {
+        send(mail, to, subject, body, "Ouvrir le lien");
+    }
+
+    /** Comme {@link #send(AccountRepository.Mail, String, String, String)} ; {@code button} : libelle du bouton du lien. */
+    static void send(AccountRepository.Mail mail, String to, String subject, String body, String button) {
         if (!mail.active()) throw new ValidationException("L'envoi d'e-mails n'est pas réglé sur cette installation.");
         try {
-            Smtp.send(mail.smtp(), to, subject, body + "\n\n-- \n" + FOOTER, html(subject, body));
+            Smtp.send(mail.smtp(), to, subject, body + "\n\n-- \n" + FOOTER, html(subject, body, button));
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Envoi d'e-mail impossible", exception);
-            throw new ValidationException("L'e-mail n'a pas pu partir (" + exception.getMessage() + "). Réessayez plus tard ou prévenez l'administrateur.");
+            throw new ValidationException("L'e-mail n'a pas pu partir. Réessayez plus tard ou prévenez l'administrateur.");
         }
+    }
+
+    /** Envoi qui ne bloque pas le parcours : faux si l'e-mail n'a pas pu partir (detail dans le journal). */
+    static boolean trySend(AccountRepository.Mail mail, String to, String subject, String body, String button) {
+        try {
+            send(mail, to, subject, body, button);
+            return true;
+        } catch (ValidationException exception) {
+            return false;
+        }
+    }
+
+    /** Texte d'une invitation : qui invite, ou, ce que la personne verra, et le lien. */
+    static String invitation(String inviter, String household, String rights, String link, int days) {
+        return "Bonjour,\n\n" + inviter + " vous invite à rejoindre le foyer « " + household + " » sur Patria, l'application de budget "
+                + "et de patrimoine de la famille, installée sur son propre serveur.\n\nVous y verrez : " + rights + ". Le gestionnaire du foyer peut changer "
+                + "ces accès à tout moment.\n\nCréez votre compte (ou utilisez le vôtre) avec ce lien, valable " + days + " jours et une seule fois :\n" + link;
     }
 
     private static final String FOOTER = "Patria, votre budget sur votre serveur. Si vous n'êtes pas à l'origine de ce message, ignorez-le.";
@@ -41,6 +63,10 @@ final class Mails {
      * par les messageries). Le texte vient de Patria, mais il est echappe quand meme.
      */
     static String html(String subject, String body) {
+        return html(subject, body, "Ouvrir le lien");
+    }
+
+    static String html(String subject, String body, String button) {
         StringBuilder content = new StringBuilder();
         for (String paragraph : body.replace("\r\n", "\n").split("\n\\s*\n")) {
             StringBuilder text = new StringBuilder();
@@ -54,7 +80,7 @@ final class Mails {
             if (!text.isEmpty()) content.append("<p style=\"margin:0 0 16px;line-height:1.5\">").append(text.substring(0, text.length() - 4)).append("</p>");
             if (link != null) {
                 content.append("<p style=\"margin:8px 0 24px\"><a href=\"").append(escape(link)).append("\" style=\"background:#1a78dc;border-radius:8px;color:#ffffff;")
-                        .append("display:inline-block;font-weight:700;padding:12px 20px;text-decoration:none\">Ouvrir le lien</a></p>")
+                        .append("display:inline-block;font-weight:700;padding:12px 20px;text-decoration:none\">").append(escape(button)).append("</a></p>")
                         .append("<p style=\"color:#637284;font-size:12px;margin:0 0 16px;word-break:break-all\">").append(escape(link)).append("</p>");
             }
         }

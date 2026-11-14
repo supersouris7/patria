@@ -69,6 +69,7 @@ public final class HouseholdController extends AccountSupport {
             accounts.cancelInvitation(request.id(), household.id());
             return Response.redirect("/foyer?ok=supprime#invitations");
         });
+        router.userPost("/foyer/invitation/{id}/renvoyer", this::resend);
         router.userPost("/foyer/supprimer", request -> {
             Household household = managed(request);
             if (!request.form().raw("confirmation").strip().equals(household.name())) {
@@ -159,17 +160,9 @@ public final class HouseholdController extends AccountSupport {
                     "on".equals(form.get("estate")), "on".equals(form.get("manager")), email.isEmpty() ? null : email, request.viewer().name(), null);
             String token = accounts.createInvitation(invitation, now, INVITATION_DAYS);
             String link = link(request, "/invitation?jeton=" + token);
-            AccountRepository.Mail mail = accounts.mail();
-            boolean sent = false;
-            if (!email.isEmpty() && mail.active()) {
-                Mails.send(mail, email, "Patria : invitation au foyer « " + household.name() + " »", request.viewer().name() + " vous invite à rejoindre le foyer « "
-                        + household.name() + " » sur Patria.\n\nPour créer votre compte (ou utiliser le vôtre), ouvrez ce lien, valable " + INVITATION_DAYS + " jours :\n" + link);
-                sent = true;
-            }
             audit(request.viewer().name(), "ACCESS", household.id(), null, "Invitation créée pour le foyer « " + household.name() + " »"
                     + (memberName != null ? " (" + memberName + ")" : "") + ".");
-            return Response.page(page(request, Notice.success(sent ? "Invitation envoyée à " + email + ". Vous pouvez aussi transmettre le lien ci-dessous."
-                    : "Invitation créée : transmettez ce lien à la personne (valable " + INVITATION_DAYS + " jours, une seule fois)."), link));
+            return Response.page(page(request, sent(request, household, invitation, email, link), link));
         } catch (NumberFormatException exception) {
             return Response.invalid(page(request, Notice.error("Membre invalide."), null));
         } catch (ValidationException exception) {
@@ -177,11 +170,54 @@ public final class HouseholdController extends AccountSupport {
         }
     }
 
+    /**
+     * Envoie l'invitation si une adresse est donnee ; l'invitation existe deja : un echec d'envoi laisse le lien a
+     * transmettre soi-meme, au lieu de le perdre.
+     */
+    private Notice sent(Request request, Household household, AccountRepository.Invitation invitation, String email, String link) {
+        String hand = "transmettez ce lien à la personne (valable " + INVITATION_DAYS + " jours, une seule fois).";
+        if (email.isEmpty()) return Notice.success("Invitation créée : " + hand);
+        AccountRepository.Mail mail = accounts.mail();
+        if (!mail.active()) return Notice.error("Invitation créée, mais l'envoi d'e-mails n'est pas réglé : " + hand);
+        boolean sent = Mails.trySend(mail, email, "Patria : " + request.viewer().name() + " vous invite au foyer « " + household.name() + " »",
+                Mails.invitation(request.viewer().name(), household.name(), rights(invitation, directory.members(household.id())), link, INVITATION_DAYS), "Rejoindre le foyer");
+        return sent ? Notice.success("Invitation envoyée à " + email + ". Vous pouvez aussi transmettre le lien ci-dessous.")
+                : Notice.error("Invitation créée, mais l'e-mail n'a pas pu partir : " + hand);
+    }
+
+    /** Ce que la personne invitee verra, en clair. */
+    static String rights(AccountRepository.Invitation invitation, List<HouseholdDirectory.Member> members) {
+        List<String> parts = new java.util.ArrayList<>();
+        String member = invitation.memberName() != null ? invitation.memberName() : members.stream()
+                .filter(candidate -> invitation.memberId() != null && candidate.id() == invitation.memberId()).map(HouseholdDirectory.Member::name).findFirst().orElse(null);
+        if (member != null) parts.add("les revenus et dépenses de " + member);
+        if (invitation.wholeHousehold()) parts.add("les totaux du foyer");
+        if (invitation.realEstate()) parts.add("l'immobilier");
+        if (invitation.manager()) parts.add("la gestion du foyer (membres, accès, invitations)");
+        if (parts.isEmpty()) return "ce que le gestionnaire vous ouvrira";
+        return parts.size() == 1 ? parts.get(0) : String.join(", ", parts.subList(0, parts.size() - 1)) + " et " + parts.get(parts.size() - 1);
+    }
+
+    /** Renvoyer : l'ancien lien est annule (seule son empreinte est gardee), un nouveau part a la meme adresse, memes droits. */
+    private Response resend(Request request) {
+        Household household = managed(request);
+        AccountRepository.Invitation old = accounts.pendingInvitations(household.id(), LocalDateTime.now(clock)).stream()
+                .filter(candidate -> candidate.id() == request.id()).findFirst()
+                .orElseThrow(() -> new ValidationException("Invitation introuvable, déjà utilisée ou expirée."));
+        if (old.email() == null) throw new ValidationException("Cette invitation n'a pas d'e-mail : annulez-la et créez-en une avec l'adresse.");
+        accounts.cancelInvitation(old.id(), household.id());
+        AccountRepository.Invitation fresh = new AccountRepository.Invitation(0, household.id(), old.memberId(), old.memberName(), old.wholeHousehold(), old.realEstate(),
+                old.manager(), old.email(), request.viewer().name(), null);
+        String link = link(request, "/invitation?jeton=" + accounts.createInvitation(fresh, LocalDateTime.now(clock), INVITATION_DAYS));
+        audit(request.viewer().name(), "ACCESS", household.id(), null, "Invitation renvoyée à " + old.email() + ".");
+        return Response.page(page(request, sent(request, household, fresh, old.email(), link), link));
+    }
+
     private fr.patria.ui.Html page(Request request, Notice notice, String link) {
         Household household = managed(request);
         return HouseholdPages.page(household, directory.members(household.id()), accounts.accessesTo(household.id()),
                 accounts.pendingInvitations(household.id(), LocalDateTime.now(clock)), request.viewer().userId(), "closed".equals(accounts.signupMode()),
-                notice, link, request.csrf(), accounts.usersWithAvatar(), accounts.selfMembers(household.id()));
+                notice, link, request.csrf(), accounts.usersWithAvatar(), accounts.selfMembers(household.id()), accounts.mail().active());
     }
 
     private static boolean same(Access before, Access after) {

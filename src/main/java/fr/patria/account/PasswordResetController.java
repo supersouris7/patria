@@ -53,7 +53,7 @@ public final class PasswordResetController extends AccountSupport {
             try {
                 Mails.send(mail, address, "Patria : réinitialiser votre mot de passe", "Bonjour " + user.name() + ",\n\nPour choisir un nouveau mot de passe, "
                         + "ouvrez ce lien (valable 30 minutes) :\n" + Mails.link(mail, "/connexion/reinitialiser?jeton=" + token)
-                        + "\n\nVous n'avez rien demandé ? Ignorez ce message : votre mot de passe ne change pas.");
+                        + "\n\nVous n'avez rien demandé ? Ignorez ce message : votre mot de passe ne change pas.", "Choisir un nouveau mot de passe");
                 log.audit(now, user.name(), "USER", null, user.id(), "Lien de réinitialisation du mot de passe envoyé à « " + user.login() + " ».");
             } catch (ValidationException ignored) {
                 // Meme reponse dans tous les cas ; l'echec est dans le journal du serveur.

@@ -14,7 +14,7 @@ final class HouseholdPages {
     }
 
     static Html page(Household household, List<HouseholdDirectory.Member> members, Map<User, Access> accesses, List<AccountRepository.Invitation> invitations,
-                     long self, boolean closed, Notice notice, String link, String csrf, java.util.Set<Long> photos, Map<Long, Long> selfMembers) {
+                     long self, boolean closed, Notice notice, String link, String csrf, java.util.Set<Long> photos, Map<Long, Long> selfMembers, boolean mail) {
         Html chips = members.isEmpty() ? Html.raw("<p class=\"muted\">Aucun membre pour l'instant.</p>")
                 : Html.of("<div class=\"chips-line\">%s</div>", members.stream().map(member -> Html.of("""
                         <form method="post" action="/foyer/membre/%s/supprimer" class="badge member-chip" data-confirm="Supprimer « %s » et ses lignes propres ? \
@@ -30,7 +30,7 @@ final class HouseholdPages {
         Html content = Html.concat(Components.heading("Gérer", household.name(), "Membres, droits et invitations de votre foyer.", Html.EMPTY),
                 Components.notice(notice), link == null ? Html.EMPTY : Html.of("""
                         <p class="notice success invite-link"><label>Lien d'invitation<input value="%s" readonly></label></p>""", link),
-                membersCard, rights(household, members, accesses, self, csrf, photos, selfMembers), invitations(members, invitations, closed, csrf),
+                membersCard, rights(household, members, accesses, self, csrf, photos, selfMembers), invitations(members, invitations, closed, mail, csrf),
                 Components.disclosure("Nom du foyer", Html.of("""
                         <form method="post" action="/foyer/renommer" class="row-form">%s<label>Nom<input name="name" value="%s" maxlength="60" required></label>\
                         <button class="secondary" type="submit">Renommer</button></form>""", Components.csrfField(csrf), household.name()), false),
@@ -81,7 +81,7 @@ final class HouseholdPages {
     }
 
     /** Inviter : prenom (nouveau membre) ou membre existant, e-mail facultatif, droits ; invitations en attente. */
-    private static Html invitations(List<HouseholdDirectory.Member> members, List<AccountRepository.Invitation> pending, boolean closed, String csrf) {
+    private static Html invitations(List<HouseholdDirectory.Member> members, List<AccountRepository.Invitation> pending, boolean closed, boolean mail, String csrf) {
         Html body;
         if (closed) {
             body = Html.raw("<p class=\"muted\">Les nouveaux comptes sont fermés sur ce Patria (réglage de l'administrateur).</p>");
@@ -95,17 +95,21 @@ final class HouseholdPages {
                     <form method="post" action="/foyer/invitations" class="stack">%s
                     <div class="form-grid cols-3"><label>Dans le budget<select name="membre">%s</select></label>
                     <label>Prénom (nouveau membre)<input name="name" maxlength="60" placeholder="Camille"></label>
-                    <label>E-mail (facultatif)<input name="email" type="email" maxlength="254" placeholder="camille@example.fr"></label></div>
+                    %s</div>
                     <div class="check-line"><label class="check"><input type="checkbox" name="whole" value="on"> Totaux du foyer</label>
                     <label class="check"><input type="checkbox" name="estate" value="on"> Immobilier</label>
                     <label class="check"><input type="checkbox" name="manager" value="on"> Gestionnaire</label></div>
-                    <div class="form-actions"><button type="submit">Créer l'invitation</button></div></form>""", Components.csrfField(csrf), options);
+                    <div class="form-actions"><button type="submit">Créer l'invitation</button></div></form>""", Components.csrfField(csrf), options,
+                    mail ? Html.raw("<label>E-mail (facultatif : l'invitation y sera envoyée)<input name=\"email\" type=\"email\" maxlength=\"254\" placeholder=\"camille@example.fr\"></label>")
+                            : Html.raw("<p class=\"muted small\">L'envoi d'e-mails n'est pas réglé : vous transmettrez le lien vous-même.</p>"));
         }
         Html list = pending.isEmpty() ? Html.EMPTY : Html.of("<p class=\"eyebrow\">En attente</p><ul class=\"plain-list\">%s</ul>", pending.stream().map(invitation -> Html.of("""
-                <li>%s%s · jusqu'au %s <form method="post" action="/foyer/invitation/%s/annuler" class="pending-form">%s<button class="quiet small" type="submit">Annuler</button></form></li>""",
+                <li>%s%s · jusqu'au %s %s<form method="post" action="/foyer/invitation/%s/annuler" class="pending-form">%s<button class="quiet small" type="submit">Annuler</button></form></li>""",
                 invitation.memberName() != null ? invitation.memberName() : members.stream().filter(member -> invitation.memberId() != null && member.id() == invitation.memberId())
                         .map(HouseholdDirectory.Member::name).findFirst().orElse("Invitation"),
                 invitation.email() == null ? "" : " (" + invitation.email() + ")", invitation.expiresAt().substring(0, 10).replaceAll("(\\d{4})-(\\d{2})-(\\d{2})", "$3/$2/$1"),
+                !mail || invitation.email() == null ? Html.EMPTY : Html.of("<form method=\"post\" action=\"/foyer/invitation/%s/renvoyer\" class=\"pending-form\">%s"
+                        + "<button class=\"quiet small\" type=\"submit\">Renvoyer</button></form>", invitation.id(), Components.csrfField(csrf)),
                 invitation.id(), Components.csrfField(csrf))).collect(Html.joining()));
         return Html.of("<div id=\"invitations\">%s</div>", Components.card("Inviter quelqu'un", pending.size(), Html.EMPTY, Html.concat(body, list)));
     }
