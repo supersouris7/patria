@@ -177,7 +177,7 @@ final class WizardPages {
                 %s
                 <div class="situation-names"><label>Votre prénom<input name="prenom" maxlength="60" value="%s" placeholder="Prénom"%s></label>\
                 <label class="partner-name">Prénom de votre conjoint<input name="conjoint" maxlength="60" value="%s" placeholder="Prénom"></label>\
-                <label>Enfants qui ont des frais <small class="muted">(facultatif, séparés par des virgules)</small><input name="enfants" maxlength="200" value="%s" placeholder="Léa, Tom"></label></div>%s
+                <label>Enfants qui ont des frais<input name="enfants" maxlength="200" value="%s" placeholder="Léa, Tom"><span class="help">Facultatif, séparés par des virgules</span></label></div>%s
                 %s%s%s
                 <div class="form-actions"><button type="submit">Continuer : %s →</button></div></form>""",
                 Components.csrfField(context.csrf()), modeField(context),

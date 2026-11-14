@@ -144,7 +144,11 @@ tr.highlight td { background: var(--blue-tint); }
 tfoot td { border-top: 1px solid var(--line-strong); color: var(--text); font-weight: 750; }
 td.actions { text-align: right; white-space: nowrap; }
 td.actions a + a { margin-left: 14px; }
-td.actions form { display: inline; margin: 0; }
+td.actions form { display: inline; margin: 0 0 0 14px; }
+/* Bouton qui se lit comme un lien (Supprimer dans une liste) : sans fond ni bordure, rouge seulement s'il detruit. */
+button.link-button { background: none; border: 0; box-shadow: none; color: var(--accent-text); cursor: pointer; font: inherit; font-weight: 650; min-height: 0; padding: 0; }
+button.link-button:hover { background: none; text-decoration: underline; }
+button.link-button.danger-link { color: var(--err-text); }
 td.actions button.quiet { font-size: .85rem; padding: 0 4px; }
 th[tabindex] { cursor: pointer; user-select: none; }
 th[tabindex]:hover { color: var(--text); }

@@ -83,7 +83,9 @@ a.health-chip:hover { background: var(--surface-raised); }
 .segmented { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
 .segmented::-webkit-scrollbar { display: none; }
 .segmented a { flex: none; }
-select { border-radius: 999px; padding-inline: 14px 32px; }
+select { padding-inline: 10px 32px; } /* meme arrondi que les champs de saisie */
+/* Listes et champs cote a cote : la meme hauteur (sans priorite, chaque composant peut la changer). */
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]), select) { min-height: 44px; }
 .compare-help { display: inline-block; }
 .compare-help ul { margin: 6px 0; padding-left: 18px; }
 

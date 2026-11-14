@@ -173,7 +173,7 @@ final class WizardBudgetPages {
                         + "transports. Une dépense variable (courses, loisirs) se saisit avec un budget moyen. Cochez ce que vous payez, indiquez le montant "
                         + "d'un paiement et sa fréquence : Patria calcule les 12 prochains mois. Inutile de saisir ce que Patria reprend de l'immobilier "
                         + "(mensualités des prêts immobiliers, taxe foncière, copropriété, assurance d'un bien possédé)."),
-                quick, Html.raw("<p class=\"notice\"><b>Faites le tour de ce que l'IA ne voit pas</b> : garde d'enfants, cantine, pension alimentaire, "
+                quick, Html.raw("<p class=\"notice info\"><b>Faites le tour de ce que l'IA ne voit pas</b> : garde d'enfants, cantine, pension alimentaire, "
                         + "carburant, abonnement de transport… payés en espèces, retenus sur le salaire ou réglés par l'autre parent. Ils sont regroupés "
                         + "en tête de la liste ci-dessous.</p>"), saved(context, "/assistant/depenses"),
                 Components.card("Ajouter à la main", null, Html.EMPTY,
@@ -224,10 +224,10 @@ final class WizardBudgetPages {
             Map<Long, Integer> shares = context.shares().getOrDefault(new Shares.Key(Shares.Subject.BUDGET_ITEM, item.id()), Map.of());
             boolean editable = context.visibility().canEdit(shares);
             Html actions = !editable ? Html.raw("<span class=\"muted small\">Lecture seule</span>") : Html.of("""
-                    <a href="/depense/%s">Modifier</a><form method="post" action="/depense/%s/supprimer?retour=%s" class="inline-form">%s\
+                    <a href="/depense/%s">Modifier</a><form method="post" action="/depense/%s/supprimer?retour=%s">%s\
                     <button class="link-button danger-link" type="submit" aria-label="Supprimer %s">Supprimer</button></form>""",
                     item.id(), item.id(), back, Components.csrfField(context.csrf()), item.label());
-            return Html.of("<tr><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td>%s</td></tr>", item.label(), item.category().label(), euro(item.amount()),
+            return Html.of("<tr><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td class=\"actions\">%s</td></tr>", item.label(), item.category().label(), euro(item.amount()),
                     item.frequency().label(), actions);
         }).collect(Html.joining());
         return Components.card("Déjà saisies", items.size(), Html.EMPTY, Html.concat(
