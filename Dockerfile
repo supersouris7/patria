@@ -1,5 +1,5 @@
 # Compilation seulement : Maven et le JDK complet ne vont pas dans l'image finale.
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 
 WORKDIR /build
 COPY pom.xml .
