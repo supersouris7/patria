@@ -1,23 +1,34 @@
 # Patria
 
-**Anticipez votre budget et comprenez votre patrimoine immobilier, sans connecter vos comptes bancaires.**
+**Savoir combien il vous reste chaque mois, préparer les grosses dépenses et comprendre ce que vous possédez, sans connecter vos comptes bancaires.**
 
-Patria est une application web française gratuite, auto-hébergée. Elle réunit le budget du foyer et l'immobilier pour voir ce qui reste à vivre aujourd'hui, préparer les mois à venir et comprendre ce que rapportent réellement vos biens.
+Patria est une application web française, gratuite, que vous installez sur votre propre serveur. Elle réunit le budget de la famille, l'épargne, la bourse et l'immobilier, et explique les chiffres avec des mots simples.
+
+![Budget prévisionnel de Patria, en thème sombre : revenus, dépenses, reste à vivre et taux d'endettement du mois, avec des données fictives.](docs/captures/previsionnel.png)
 
 ## Ce que Patria vous apporte
 
-- **Anticiper plutôt que subir** : prévisionnel sur 12 mois, dépenses non mensuelles, mois en déficit et montant à mettre de côté.
-- **Comprendre où va l'argent** : budget moyen par catégorie, revenus, dépenses récurrentes et bilan de santé avec liens pour corriger.
-- **Partager sans tout mélanger** : budget du foyer, de chaque personne et du compte joint ; dépenses réparties selon vos choix, accès selon les droits accordés.
-- **Relier budget et immobilier** : mensualités, charges et loyers repris automatiquement, sans double saisie ; prêts, capital restant dû et enrichissement réel.
-- **Éclairer vos décisions** : comparaison aux ventes réelles du secteur (DVF), taux du marché et repère de renégociation, synthèses PDF.
-- **Commencer accompagné** : guide de saisie, imports CSV et revue annuelle. L'IA peut aider à préparer les fichiers, mais reste facultative.
+- **Voir venir** : le budget des 12 prochains mois, les dépenses qui ne tombent pas tous les mois (assurance annuelle, vacances, Noël), les mois difficiles et la somme à mettre de côté chaque mois.
+- **Savoir où va l'argent** : un mois type par catégorie, pour le foyer, chaque personne ou le compte joint.
+- **Savoir si tout va bien** : le **Bilan de santé** passe vos finances en revue (épargne de précaution, endettement, abonnements, impôts, immobilier) et dit quoi corriger, avec un lien.
+- **Payer moins** : la page **Économies** compare vos contrats (énergie, box, mobile, assurances, mutuelle, assurance de prêt) à des repères datés, avec la démarche pas à pas, et suit vos objectifs d'épargne.
+- **Comprendre ce que vous possédez** : le **Patrimoine** additionne livrets, épargne, bourse et biens, retire ce que vous devez, et montre l'avancement du remboursement des prêts. En bourse, une question simple : « Est-ce que vos efforts valent le coup ? » face au MSCI World, au CAC 40 ou au Livret A.
+- **Suivre vos biens** : prêts et reste à rembourser, charges et loyers repris dans le budget sans double saisie, comparaison aux ventes réelles du quartier (DVF), taux du marché pour une renégociation, synthèses PDF.
+- **Commencer facilement** : un guide de saisie pas à pas, l'import du relevé de votre banque (CSV, OFX, QIF) ou de l'export de votre courtier. Une IA peut aider à préparer les fichiers, sans obligation.
+- **Partager sans tout mélanger** : chacun a son compte ; le gestionnaire du foyer invite ses proches par e-mail et choisit ce que chacun voit.
 
-Locataire ou propriétaire, seul, en couple ou en famille : le budget fonctionne sans bien immobilier. Une installation peut accueillir plusieurs foyers avec des bases séparées.
+Seul, en couple ou en famille, locataire ou propriétaire : le budget fonctionne sans bien immobilier. Une installation peut accueillir plusieurs foyers, chacun dans sa propre base.
 
-![Prévisionnel Patria : revenus, dépenses, reste à vivre et graphique sur 12 mois, avec des données fictives.](docs/captures/previsionnel.png)
+| | |
+|---|---|
+| ![Patrimoine : ce que vous possédez, ce que vous devez et le remboursement des prêts.](docs/captures/patrimoine.png) | ![Bilan de santé : les points à surveiller, expliqués avec un lien pour corriger.](docs/captures/bilan.png) |
+| **Patrimoine** : possédé, dû, net, et l'avancement des prêts | **Bilan de santé** : ce qui va, ce qui est à surveiller |
+| ![Bourse : « Est-ce que vos efforts valent le coup ? », portefeuille face au MSCI World.](docs/captures/bourse.png) | ![Économies : déjà économisé, encore à gagner et le défi du mois.](docs/captures/economies.png) |
+| **Bourse** : vos placements face à un repère simple | **Économies** : vos contrats, vos objectifs, vos progrès |
+| ![Synthèse immobilière : valeur, valeur nette, enrichissement réel et prochaine mensualité.](docs/captures/immobilier.png) | ![Guide de saisie : les étapes pour tout remplir, avec le temps estimé.](docs/captures/guide.png) |
+| **Immobilier** : valeur, prêts et enrichissement réel | **Guide de saisie** : tout remplir pas à pas |
 
-*Exemple fictif : une dépense annuelle en décembre apparaît dans les prévisions et le montant mensuel à mettre de côté.*
+*Toutes les captures montrent un foyer fictif.*
 
 ## Choisir votre parcours
 
@@ -34,7 +45,7 @@ Pas de connexion bancaire, de publicité, de traceur ni de service d'analyse d'u
 
 **Auto-hébergé ne signifie pas automatiquement sécurisé.** Configurez HTTPS pour l'accès distant et le chiffrement des bases **avant la première saisie**. Sans `DB_ENCRYPTION_KEY`, les fichiers restent lisibles ; après activation, perdre la clé rend les bases chiffrées irrécupérables. [Installation pas à pas](docs/administration.md#première-installation-docker).
 
-Pour les données de marché, Patria transmet une adresse ou commune à l'API Adresse, des codes géographiques à DVF et une requête sans chiffres personnels à la BCE et à l'INSEE (inflation), et les codes des valeurs de bourse saisies à Yahoo Finance (jamais les quantités). Les IP de connexion sont transmises à ipwho.is pour la localisation de sécurité. `OFFLINE=true` coupe ces appels. Les liens Google Maps, carte DVF et Ko-fi ne sont ouverts que sur clic.
+Pour les données de marché, Patria transmet une adresse ou commune à l'API Adresse, des codes géographiques à DVF et une requête sans chiffres personnels à la BCE et à l'INSEE (inflation), et les codes des valeurs de bourse saisies à Yahoo Finance (jamais les quantités). Les IP de connexion sont transmises à ipwho.is pour la localisation de sécurité. Les e-mails (invitations, mot de passe oublié) passent par le serveur d'e-mails que vous réglez. `OFFLINE=true` coupe ces appels. Les liens Google Maps, carte DVF et Ko-fi ne sont ouverts que sur clic.
 
 Les imports proposent un prompt à copier dans un assistant IA, dont la réponse se colle dans Patria ; Patria ne lui envoie rien. Attention aux données confiées à une IA commerciale. Avec une IA locale facultative (Ollama installé à côté), le document déposé est analysé sur votre serveur : rien ne sort.
 

@@ -28,8 +28,10 @@ Un cookie de session, supprimé à la déconnexion ou expirant après 12 heures 
 | `ipwho.is` | IP publique d'une connexion, pas l'identifiant | Localisation pays/ville du journal de sécurité, une fois par IP, cache local |
 | Google Maps / carte DVF | Coordonnées associées au lien et données de connexion du navigateur | Seulement sur clic |
 | Ko-fi | Données de connexion du navigateur | Seulement sur clic sur Soutenir, si le lien est configuré |
+| Serveur d'e-mails réglé par l'administrateur (SMTP) | Adresse du destinataire et texte de l'e-mail : prénom, nom du foyer, nom de qui invite, ce que la personne verra (prénom du membre, « totaux du foyer », « immobilier »), lien à usage unique. Jamais de montant | Invitation, confirmation d'e-mail, mot de passe oublié, e-mail de test |
+| Have I Been Pwned (`api.pwnedpasswords.com`) | 5 premiers caractères de l'empreinte SHA-1 du mot de passe choisi, jamais le mot de passe | Création ou changement de mot de passe ; coupé par `OFFLINE=true` |
 
-Tout appel réseau révèle aussi l'IP du serveur à son destinataire, et les clics externes celle du navigateur. Patria n'envoie ni nom de membre, ni revenu, dépense ou montant de prêt à ces services. Les journaux d'erreurs du marché n'incluent pas l'adresse du bien dans les paramètres d'URL.
+Tout appel réseau révèle aussi l'IP du serveur à son destinataire, et les clics externes celle du navigateur. Patria n'envoie aucun revenu, dépense ou montant de prêt à ces services ; seuls les e-mails contiennent des prénoms et le nom du foyer. Les journaux d'erreurs du marché n'incluent pas l'adresse du bien dans les paramètres d'URL.
 
 `OFFLINE=true` coupe les appels **automatiques** au marché, aux taux et à la localisation des IP ; plus de mise à jour du marché ou des estimations par l'indice. Cela ne bloque pas les liens externes sur lesquels vous cliquez ni vos propres envois à une IA. Les connexions restent enregistrées localement pendant 90 jours.
 

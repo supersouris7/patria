@@ -59,6 +59,21 @@ class AccountsTest {
     }
 
     @Test
+    void closedSignupKeepsOnlyAdministratorLinks() throws Exception {
+        Visitor admin = admin();
+        Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");
+        String invited = post(manager, "/foyer/invitations", "membre=nouveau&name=Lou&whole=on").body();
+        java.util.regex.Matcher old = java.util.regex.Pattern.compile("invitation\\?jeton=([A-Za-z0-9_-]+)").matcher(invited);
+        assertTrue(old.find(), "lien d'invitation affiché");
+        assertEquals(303, post(admin, "/administration/inscriptions", "mode=closed").statusCode());
+        assertTrue(get(null, "/invitation?jeton=" + old.group(1)).body().contains("Les nouveaux comptes sont fermés"), "pas de formulaire de compte");
+        assertEquals(400, post(null, "/invitation", "jeton=" + old.group(1) + "&name=Lou&login=lou&password=loupasse12&confirm=loupasse12").statusCode(),
+                "ancienne invitation de foyer : plus de nouveau compte");
+        String link = post(admin, "/administration/foyers/lien", "").body();
+        TestAccounts.join(client, base, link, "neuf", "Neuf", "Foyer neuf");
+    }
+
+    @Test
     void userSeesOnlyTheViewsOpenedByTheAdministrator() throws Exception {
         Visitor admin = admin();
         Visitor manager = account(admin, "gestion", "Gestion", "", 1, "access=on&all=on");

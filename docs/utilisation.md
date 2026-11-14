@@ -2,237 +2,238 @@
 
 [Présentation](../README.md) · [Installation et administration](administration.md) · [Confidentialité](confidentialite.md)
 
-Patria vous aide à prévoir votre reste à vivre, répartir les dépenses et suivre votre immobilier. Pas besoin de connecter une banque ni de posséder un bien pour utiliser le budget.
+Patria vous aide à savoir combien il vous reste chaque mois, à préparer les grosses dépenses et à suivre ce que vous possédez. Pas besoin de connecter une banque, ni d'avoir un bien immobilier : le budget fonctionne seul.
+
+Les captures de cette page montrent un foyer fictif (Claire, Thomas et leur compte joint).
 
 ## Première connexion
 
-Vous créez votre compte vous-même : avec le lien d'invitation reçu du gestionnaire de votre foyer (vous le rejoignez avec les droits qu'il a choisis), ou par « Créer un compte » sur la page de connexion si les inscriptions sont ouvertes (vous créez votre foyer et en êtes gestionnaire). Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) guide l'arrivée : confirmation de l'e-mail si l'installation l'exige, proposition de double authentification, puis un écran d'accueil adapté à votre rôle. « Visiter Patria » pose ensuite des bulles sur les vrais éléments de l'interface (Budget, Patrimoine, Bilan, Qui voit quoi, Gérer, recherche ; sur smartphone, le menu) ; « Passer » l'évite. Mon compte → « Revoir la visite guidée » la relance.
+**Créer son compte.** Chacun crée son propre compte :
 
-Un **membre** est une personne du budget ou un compte joint. Un **utilisateur** est un compte de connexion. Le **gestionnaire** d'un foyer (un ou plusieurs) gère ses membres, invite les autres et règle qui voit quoi (Gérer → Mon foyer et les droits). L'**administrateur** supervise l'installation et dépanne les comptes, sans voir les finances.
+- avec le **lien d'invitation** reçu du gestionnaire de votre foyer (par e-mail ou transmis à la main) : la page dit qui vous invite et ce que vous verrez, et vous arrivez avec ces droits ;
+- ou avec **« Créer un compte »** sur la page de connexion, si les inscriptions sont ouvertes : vous créez votre foyer et vous en êtes le gestionnaire.
 
-- Le gestionnaire coche, pour chaque compte, les membres auxquels il a accès, les **totaux du foyer**, l'**immobilier** et s'il est **gestionnaire**. Chaque case donne l'accès complet : voir et modifier. Un gestionnaire règle aussi ses propres cases (il peut choisir de ne pas tout voir).
-- Une ligne partagée avec un membre auquel vous n'avez pas accès est en lecture seule. Dans les totaux du foyer, les lignes de ces membres apparaissent « Ligne masquée ».
-- Les totaux du foyer donnent aussi les réglages communs ; l'immobilier, les biens, prêts, apports et la répartition.
-- L'icône jaune « qui voit quoi », à côté du foyer, indique les accès et leurs changements récents. Cela ne protège pas contre l'exploitant du serveur : [limites de confidentialité](confidentialite.md).
+Quand l'installation sait envoyer des e-mails, l'**e-mail est obligatoire** : il sert à retrouver votre mot de passe. Un lien de confirmation vous est envoyé ; si vous créez votre compte avec l'adresse où vous avez reçu l'invitation, elle est confirmée d'office. Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) vous accompagne : confirmation de l'e-mail si l'administrateur l'exige, proposition de double authentification, puis un écran d'accueil.
 
-Sélectionnez le foyer dans l'en-tête si vous en avez plusieurs. Sur la page de connexion, « Afficher » montre le mot de passe saisi ; à la création, une jauge indique sa solidité. Mon compte permet de changer le mot de passe. Déconnexion ferme la session ; elle expire au bout de 12 heures.
+**La visite guidée.** « Visiter Patria » pose des bulles sur les vrais boutons de l'écran ; « Passer » l'évite. Mon compte → « Revoir la visite guidée » la relance.
 
-**Profil et avatar.** Mon compte → Profil : prénom et nom (le nom affiché devient « Prénom Nom »), date de naissance, téléphone (visible de vous et de l'administrateur), et le membre du budget que vous êtes dans le foyer affiché (« c'est Paul dans le budget » apparaît dans le tableau des droits). Votre avatar rond montre vos initiales sur une couleur fixe, ou une photo JPEG/PNG : Patria la recadre en carré de 256 pixels et la réenregistre, ce qui retire ses métadonnées (lieu, appareil). La photo n'est visible que des comptes qui partagent un de vos foyers et de l'administrateur. L'avatar s'affiche dans l'en-tête, la liste des utilisateurs et le tableau des droits.
+**Qui est qui :**
 
-**Accès API (tableau de bord).** Mon compte → Accès API : créez un jeton en lecture seule pour Homepage, Homarr ou Dashy (il ne s'affiche qu'une fois, se révoque à tout moment, dix au plus). `GET /api/v1/resume` avec l'en-tête `Authorization: Bearer patria_…` renvoie en JSON le foyer, le mois, revenus, dépenses et reste à vivre du mois, l'épargne, le patrimoine net, le nombre d'alertes du bilan et l'avancement du guide (montants arrondis à l'euro, mêmes droits que vos pages). Le jeton n'ouvre que `/api/`, en lecture ; ailleurs il ne vaut rien. Un exemple de configuration Homepage est affiché sous le formulaire.
+| Mot | Ce que c'est |
+|---|---|
+| **Membre** | Une personne du budget (vous, votre conjoint, un enfant) ou un compte joint. |
+| **Utilisateur** | Un compte de connexion. Un membre n'a pas forcément de compte. |
+| **Gestionnaire** | Gère les membres du foyer, invite les autres et règle qui voit quoi (Gérer → Mon foyer et les droits). Un foyer peut en avoir plusieurs. |
+| **Administrateur** | S'occupe de l'installation et dépanne les comptes. Il ne voit pas vos finances dans l'interface. |
 
-**Connexions.** Mon compte liste vos 10 dernières connexions, réussies ou non, avec l'adresse IP et le lieu. Une connexion que vous ne reconnaissez pas : changez votre mot de passe et activez la double authentification. Il n'y a plus de bouton horloge dans la barre de navigation.
+**Qui voit quoi.** Pour chaque compte, le gestionnaire coche les membres visibles, les **totaux du foyer**, l'**immobilier** et le rôle de **gestionnaire**. Chaque case donne l'accès complet (voir et modifier). Une ligne partagée avec un membre que vous ne voyez pas est en lecture seule ; dans les totaux, elle s'affiche « Ligne masquée ». L'icône « i » de l'en-tête (« Qui voit quoi ») résume les accès du foyer et signale par un point les changements récents. Ces réglages ne protègent pas contre l'exploitant du serveur : [limites](confidentialite.md).
 
-**Navigation et consultation.** Les accès sont directs : logo (Prévisionnel), Budget, Épargne, Immobilier, Gérer, Bilan et icône Assistant. À droite : loupe de recherche globale, icône jaune « Qui voit quoi » sans cadre, compte avec son nom, déconnexion. Sur tablette, les pages passent dans le menu burger ; le Bilan, la recherche et le compte restent dans la barre. Sur smartphone, la barre ne garde que le logo, le burger, « Qui voit quoi » et la déconnexion : le burger contient la recherche (les pages de second niveau et les biens apparaissent en tapant), les pages, Mon compte et le thème. La pastille à côté du burger totalise les notifications : alertes du Bilan, changements d'accès et avis à lire. La recherche retrouve les pages et les biens accessibles, quelle que soit la page ouverte, sans tenir compte des accents. Dans Immobilier, les onglets Patrimoine, Mes biens (liste filtrable), Prêts et Taxe foncière sont toujours visibles ; le détail Bilan du patrimoine est tout en bas. Gérer ouvre une page avec les rubriques autorisées à gauche et le sélecteur de foyer ; sur petit écran, ce menu passe au-dessus du contenu. L'administrateur y retrouve Foyers, Utilisateurs et Sécurité, sans accès aux finances. Les listes viennent avant les formulaires : ouvrez « Ajouter… » ou « Importer… » lorsque nécessaire. Une erreur de saisie rouvre le formulaire. Les aides des indicateurs s'ouvrent par appui, ou avec Entrée au clavier. Dans **Budget**, une barre à gauche choisit **Prévisionnel** ou **Moyen**, à côté du choix du compte (Foyer, une personne).
+## Se repérer
 
-**Bulles de navigation.** Bilan affiche le nombre de points « À corriger » et « À surveiller », hors points ignorés ; la bulle disparaît à zéro. L'Assistant affiche la progression personnelle du guide dans le foyer affiché (étapes faites ou passées). Ces indicateurs se chargent avec JavaScript ; si leur chargement échoue, les pages restent accessibles sans afficher de chiffre incertain.
+L'en-tête est le même sur toutes les pages :
 
-**Double authentification.** Mon compte → « Activer la double authentification » : scannez le QR code avec une application d'authentification (Aegis, 2FAS, Google Authenticator…), puis tapez le code affiché. Ensuite, la connexion demande ce code après le mot de passe ; cochez « Se souvenir de cet appareil 30 jours » sur vos appareils personnels. Téléphone perdu : demandez à l'administrateur de la retirer ; Patria vous le signalera.
+- à gauche : le logo, la **loupe** de recherche, puis **Budget**, **Patrimoine**, **Économies**, **Bilan** (avec le nombre de points à traiter), **Gérer** et l'icône étincelles du **Guide de saisie** (avec son pourcentage d'avancement) ;
+- à droite : **+ Ajouter**, l'icône « i » **Qui voit quoi**, le **thème** clair / sombre, votre **avatar** (Mon compte) et la déconnexion.
 
-## Commencer avec le Guide de saisie
+**+ Ajouter** est l'unique point d'entrée pour saisir quelque chose : un relevé bancaire, une dépense, un revenu, un livret ou un placement, un titre en bourse, un virement entre membres, un bien immobilier, un objectif d'épargne. Il ouvre directement le bon formulaire ; les pages, elles, servent à consulter.
 
-L'icône étincelles ouvre le Guide de saisie. Son accueil n'a qu'un bouton : **Commencer**, puis **Continuer** sur l'étape où vous en êtes (avec le temps restant estimé) ; « Tout revoir », « Revue annuelle » et « Recommencer à zéro » sont rangés dans **Autres actions**.
+La **recherche** retrouve les pages et vos biens, sans tenir compte des accents. Sur tablette, les pages passent dans le **menu** (trois traits) ; sur téléphone, le menu contient aussi la recherche et Mon compte, et sa pastille compte vos notifications (alertes du Bilan, changements d'accès). Sur téléphone, les tableaux deviennent des fiches, une par ligne.
 
-1. **Votre situation** (gestionnaire du foyer) : cinq questions en cartes à cliquer. Seul ou en couple avec les prénoms (les personnes du budget sont créées, enfants compris), compte joint, logement (locataire, propriétaire, hébergé), autres biens, épargne. Le guide ne garde ensuite que les étapes qui vous concernent : pas de loyer pour un propriétaire, pas de biens ni de prêts pour un locataire, pas de virements sans compte joint, pas de répartition pour une personne seule. Les réponses se changent en revenant sur l'étape.
-2. **Vos documents** : importer le fichier de la banque, la réponse d'une IA, ou choisir « À la main ».
-3. Puis, selon la situation : Revenus, Logement, Biens, Prêts, Charges et loyers des biens, Dépenses fixes, Impôts, Virements, Répartition, Épargne et bourse, et le **Récapitulatif**.
+**Gérer** rassemble les listes et réglages : Mon foyer et les droits, Revenus, Dépenses, Virements, Biens et prêts, Répartition. Si vous avez plusieurs foyers, choisissez-le dans Gérer.
 
-Chaque étape affiche en haut **« Étape 3 sur 8 · Revenus · environ 17 min pour finir le guide »**, puis **À faire ici** : la liste de ce qu'il y a à saisir (les revenus de chaque personne, le loyer, le prêt de chaque bien, chaque thème de dépenses…), cochée au fur et à mesure. En bas, un seul bouton : **Continuer : <étape suivante>**. Si rien n'est saisi, l'étape est notée « à compléter » (le guide le dit avant) et le récapitulatif la liste avec un lien direct ; « ← Précédent » reste un lien discret. Un autre compte que le gestionnaire suit un guide réduit à ses propres lignes : documents, revenus, dépenses fixes, impôts, épargne. Le bilan de santé garde son choix de comptes par défaut ; il se change dans le Bilan.
+Les montants sont arrondis à l'euro dans les tuiles et les phrases, au centime dans les listes et les formulaires. Le bouton **thème** passe de « système » à clair, puis sombre ; le choix est gardé sur l'appareil.
 
-Tant que le guide n'est pas fini, une barre **Guide de saisie · étape x sur y · Continuer** s'affiche en haut des pages ; « × » la masque. La progression est propre au compte ; « Recommencer à zéro » efface la progression et la situation, pas les données. Le guide se fait en deux temps :
+## Budget
 
-1. **Vos documents** : la page demande « Comment voulez-vous remplir Patria ? » et propose trois méthodes, une ouverte à la fois :
-   - **Avec le fichier de ma banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → format CSV (ou OFX, QIF), 3 à 12 mois ; déposez le fichier, Patria repère les prélèvements et revenus réguliers ;
-     Le fichier peut aussi être **glissé sur n'importe quelle page** de Patria : il part au même import. Le résultat est dit tout de suite (« Relevé lu : 214 opérations. 12 régulières trouvées (…), à valider ») avec un seul bouton **Valider maintenant** vers la première étape à trier ; les opérations déjà importées ou saisies ne reviennent pas. Une banque cherchée dans « Où trouver vos documents ? » est retenue : **une fois par mois**, 30 jours après le dernier import, une barre « Relevé du mois » propose d'importer le nouveau relevé, avec les étapes de cette banque ; « × » la repousse de 30 jours.
-   - **Avec une IA** (Le Chat, ChatGPT, Claude ou Gemini) : ouvrez l'IA, « Copier la consigne », collez-la avec vos documents joints, puis collez toute sa réponse dans Patria ;
-   - **À la main** : l'étape est validée et le guide passe aux écrans de saisie, en commençant par les revenus de chaque personne.
+![Budget prévisionnel : revenus, dépenses, reste à vivre et taux d'endettement du mois, avec les mois à surveiller.](captures/previsionnel.png)
 
-   En dessous, « Quels documents rassembler, et où les trouver ? » liste les documents utiles et cherche, banque par banque, où les télécharger (avec le tutoriel complet).
-2. **Le tri, catégorie par catégorie** : chaque étape (Revenus, Logement, Dépenses fixes, Impôts, Virements, Épargne) commence par ses lignes « À trier », cochées d'avance sauf les doublons possibles, les dépenses résiliées et ce qui est déjà saisi. « Valider la sélection » enregistre ce qui est coché et écarte le reste ; on corrige ensuite un montant dans « Déjà saisies » ou on complète à la main.
+Le **Budget** répond à une question : combien me reste-t-il ? En haut, choisissez :
 
-Les échéanciers de prêts immobiliers restent à part, à l'étape Prêts (un prompt dédié, rattaché au bien).
+- **Prévisionnel** : le mois en cours et les 12 suivants, mois par mois. Les dépenses qui ne tombent pas tous les mois (assurance annuelle, cadeaux de Noël, vacances) apparaissent le mois où elles tombent, et Patria indique **combien mettre de côté chaque mois** pour les absorber ;
+- **Moyen** : un mois type, par catégorie, toutes les dépenses ramenées au mois.
 
-1. **Copiez le prompt** dans votre assistant IA avec le document (relevés de tous les comptes, 12 mois si possible). L'IA demande d'abord ce qui manque, puis liste ce qu'elle trouve.
-2. **Collez sa réponse** dans le champ prévu (plus besoin de fichier ; les balises de code sont retirées). Un fichier CSV reste accepté.
-3. **Cochez ce que vous gardez** dans l'aperçu : seules les lignes cochées sont importées, puis vous revenez à l'étape.
-4. **Complétez à la main** : la liste « Déjà saisies » permet de modifier ou supprimer une ligne importée ; la liste à cocher ajoute le reste.
+À droite, choisissez le budget de tout le **foyer**, d'une personne ou du **compte joint**. Les tuiles donnent les revenus, les dépenses, le **reste à vivre** (ce qui reste après toutes les dépenses du mois) et le **taux d'endettement** (la part des revenus qui part en crédits, à garder sous 33 %). En dessous, **À surveiller** liste les mois difficiles.
 
-**Attention aux données confiées à une IA commerciale** (ChatGPT, Claude, Gemini, Le Chat…) : elle reçoit tout ce que vous lui envoyez (noms, adresses, IBAN, montants) et peut, selon ses conditions, le conserver ou s'en servir pour s'entraîner. Retirez vous-même les informations sensibles et réglez l'assistant avant d'envoyer : conversation temporaire, entraînement refusé, aucun lien de partage public, mémoire désactivée, conversation effacée après usage ([détail](confidentialite.md#régler-lassistant-ia-avant-denvoyer)), ou préférez un modèle local. Si l'administrateur a installé une **IA locale**, chaque import propose aussi de **déposer le document** (PDF texte, CSV ou texte) : Patria le fait analyser sur votre serveur, sans rien envoyer à l'extérieur, puis affiche directement l'aperçu. Comptez quelques minutes ; un scan sans texte n'est pas lisible.
+**Montants qui changent.** Quand un salaire ou un abonnement change, modifiez-le dans Gérer : « Nouveau montant valable à partir du » est prérempli au 1er du mois prochain, et l'ancien montant reste avant cette date (utile pour l'historique et le pouvoir d'achat). Videz ce champ pour corriger une simple faute de frappe.
 
-Le prompt demandant des libellés génériques ne protège pas l'original que vous auriez déjà envoyé. Une conversation temporaire ne garantit pas l'absence de conservation chez le fournisseur ; vérifiez ses conditions, ou utilisez un modèle réellement local sans service distant. [Détails](confidentialite.md).
+## Guide de saisie
 
-### Dépenses CSV
+![Guide de saisie : les étapes à suivre pour remplir Patria, avec le temps estimé.](captures/guide.png)
 
-Gérer → Dépenses → Importer un fichier CSV. **Aucune ligne d'en-tête** ; ordre des colonnes :
+L'icône étincelles ouvre le **Guide de saisie**, qui vous fait tout remplir pas à pas. Un seul bouton : **Commencer**, puis **Continuer** là où vous en êtes, avec le temps restant estimé. « Tout revoir », « Revue annuelle » et « Recommencer à zéro » sont dans **Autres actions**.
+
+1. **Votre situation** (gestionnaire) : cinq questions à cliquer (seul ou en couple, compte joint, logement, autres biens, épargne). Le guide ne garde ensuite que les étapes qui vous concernent, et crée les personnes du budget.
+2. **Vos documents** : la façon la plus rapide de tout remplir (voir ci-dessous).
+3. Puis, selon votre situation : **Revenus**, **Logement**, **Biens**, **Prêts**, **Charges et loyers des biens**, **Dépenses fixes**, **Impôts**, **Virements**, **Répartition**, **Épargne et bourse**, et le **Récapitulatif**.
+
+Chaque étape indique « Étape 3 sur 8 · Revenus · environ 17 min pour finir le guide », puis **À faire ici** : ce qu'il reste à saisir, coché au fur et à mesure. Dans les listes de dépenses, cochez ce que vous payez, indiquez le montant, la fréquence, la date et qui paie. Les lignes déjà saisies se modifient ou se suppriment juste au-dessus. Une étape laissée vide est notée « à compléter » et le récapitulatif y renvoie.
+
+Tant que le guide n'est pas fini, une barre en haut des pages propose de continuer ; « × » la masque. L'avancement est propre à chaque compte. « Recommencer à zéro » efface l'avancement, pas vos données. Un compte qui n'est pas gestionnaire suit un guide réduit à ses propres lignes.
+
+### Remplir Patria depuis vos documents
+
+À l'étape **Vos documents**, trois façons, au choix :
+
+- **Avec le fichier de votre banque** (le plus simple, sans IA) : sur le site de la banque, liste des opérations → « Exporter » ou « Télécharger » → CSV (ou OFX, QIF), sur 3 à 12 mois. Déposez-le : Patria repère les prélèvements et revenus qui reviennent. Vous pouvez aussi **glisser le fichier sur n'importe quelle page**. Le résultat s'affiche tout de suite (« 214 opérations lues, 12 régulières trouvées ») avec un bouton **Valider maintenant**. Les opérations déjà importées ne reviennent pas. Si vous avez indiqué votre banque, Patria vous propose chaque mois d'importer le nouveau relevé.
+- **Avec une IA** (Le Chat, ChatGPT, Claude, Gemini…) : « Copier la consigne », collez-la dans l'IA avec vos documents, puis collez toute sa réponse dans Patria.
+- **À la main** : le guide passe directement aux écrans de saisie.
+
+« Quels documents rassembler, et où les trouver ? » liste les documents utiles et, banque par banque, où les télécharger.
+
+Ensuite, chaque étape commence par ses lignes **À trier**, cochées d'avance (sauf les doublons possibles, les abonnements résiliés et ce qui est déjà saisi). « Valider la sélection » enregistre ce qui est coché.
+
+**Attention à ce que vous confiez à une IA commerciale** : elle reçoit tout ce que vous lui envoyez (noms, adresses, IBAN, montants) et peut, selon ses conditions, le garder ou s'en servir pour s'entraîner. Retirez les informations sensibles et réglez l'assistant avant d'envoyer (conversation temporaire, entraînement refusé, pas de lien de partage, mémoire désactivée) : [comment faire](confidentialite.md#régler-lassistant-ia-avant-denvoyer). Si l'administrateur a installé une **IA locale**, vous pouvez à la place **déposer le document** (PDF avec du texte, CSV ou texte) : il est lu sur votre serveur, sans rien envoyer à l'extérieur. Comptez quelques minutes ; un scan sans texte n'est pas lisible.
+
+## Patrimoine
+
+![Patrimoine : ce que vous possédez, ce que vous devez, la répartition et l'avancement du remboursement des prêts.](captures/patrimoine.png)
+
+La page **Patrimoine** répond à : qu'est-ce que je possède vraiment ? Ses onglets : **Vue d'ensemble**, **Épargne**, **Bourse**, **Immobilier**.
+
+La vue d'ensemble donne trois chiffres :
+
+- **Ce que vous possédez** : comptes et livrets, épargne long terme, bourse et cryptos, biens à leur valeur retenue ;
+- **Ce que vous devez** : ce qu'il reste à rembourser sur les prêts immobiliers ;
+- **Patrimoine net** = ce que vous possédez − ce que vous devez : ce qui vous resterait si vous remboursiez toutes vos dettes aujourd'hui, sans rien vendre.
+
+En dessous, une barre montre la **répartition** de ce que vous possédez, puis une barre **Ce que vous devez** montre la part déjà remboursée de tous vos prêts (moyenne pondérée par leur montant), avec le taux moyen et la date de fin du dernier prêt. Les biens sont comptés avant frais de vente et impôts. Les crédits à la consommation ne sont pas comptés : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui y a accès.
+
+### Épargne
+
+Les placements de chaque membre : compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER… Un placement appartient à un membre : le voient ceux qui voient ce membre. Saisissez le solde, puis mettez-le à jour quand il change.
+
+- **Taux** : ceux des livrets réglementés sont fournis et datés par Patria (source service-public.gouv.fr). Pour une assurance-vie ou un livret bancaire, saisissez-le.
+- **Versement programmé** : un montant par mois fait avancer le solde tout seul (plafonds respectés) et apparaît dans le budget.
+- **Tuiles** : épargne totale, **épargne de précaution** (en mois de dépenses), **hausse des prix** sur 12 mois (INSEE) et **vos intérêts** : le taux moyen de votre épargne et ce qu'il reste une fois la hausse des prix déduite. En rouge, votre épargne perd du pouvoir d'achat.
+- **Plan d'épargne de sécurité** : l'objectif (6 mois de dépenses par défaut), ce qui manque, un versement mensuel conseillé et l'ordre de remplissage (LEP si vous y avez droit, Livret A, LDDS, puis le long terme).
+- **Hausse des prix et taux des livrets** : un graphique sur deux ans compare l'inflation au Livret A, au LEP et à votre taux moyen.
+- **Historique** : les 24 derniers mois en barres (disponible, bourse, long terme).
+- **Revenu fiscal de référence** : saisi ici ou à l'étape Impôts du guide. Avec le nombre de parts, Patria sait seul si vous avez droit au LEP.
+
+### Bourse
+
+![Bourse : valeur du portefeuille, gain si vous vendiez aujourd'hui et la question « Est-ce que vos efforts valent le coup ? ».](captures/bourse.png)
+
+Le PEA, les comptes-titres et les cryptos ont leur propre page, parce que leur valeur peut baisser.
+
+- **Tuiles** : valeur au cours du jour, **gain si vous vendiez aujourd'hui** (rien n'est gagné ni perdu tant que vous ne vendez pas), montant investi, **argent non placé** (les espèces chez le courtier).
+- **Est-ce que vos efforts valent le coup ?** Votre portefeuille face à un repère simple : MSCI World, S&P 500, CAC 40, ou Livret A et inflation, sur 1 mois, 1 an ou 5 ans. Une phrase donne le verdict (« Sur 1 an, votre portefeuille fait +18,4 % ; MSCI World fait +17,6 %. Mieux de 0,8 point. »). « Pourquoi ces repères ? » explique chacun, et pourquoi il faut faire mieux que l'inflation. Indices hors dividendes, portefeuille à sa composition actuelle.
+- **Importer un relevé** : choisissez le courtier (les étapes pour obtenir l'export sont rappelées) et déposez le fichier tel quel (Trade Republic, Degiro, Revolut, BoursoBank, Binance, Coinbase…). Patria reconnaît les colonnes, cumule achats et ventes et montre un aperçu ; redéposer un export récent met les lignes à jour. Avec l'export complet de Trade Republic, les espèces sont aussi calculées.
+- **Ajouter un titre** (par + Ajouter) : cherchez-le par son nom, son ISIN ou son code (« MSCI World », `FR0010315770`, `BTC`), puis indiquez la quantité et le prix moyen par part.
+- **Ce que vos placements ont vraiment rapporté** : avec des relevés importés, la valeur des titres moins ce que vous avez versé (achats − ventes).
+
+Chaque titre se déplie sur la courbe de son cours, avec votre prix moyen en pointillé. Les cours viennent de Yahoo Finance, en différé ; une valeur en dollars est convertie en euros.
+
+### Immobilier
+
+![Synthèse immobilière : valeur estimée, valeur nette, enrichissement réel et prochaine mensualité.](captures/immobilier.png)
+
+Un compte avec l'accès Immobilier crée les biens (type, adresse, surface, achat, estimations, frais de vente), leurs prêts et leurs apports. Les onglets : **Synthèse**, **Mes biens**, **Prêts**, **Taxe foncière**.
+
+**À qui appartient un bien.** Un bien appartient à **un seul foyer**, avec ses prêts, charges et loyers. La part de chacun et le payeur de la taxe foncière se règlent dans Gérer → Répartition. L'accès Immobilier ouvre tous les biens du foyer ; sans lui, les mensualités et charges comptent quand même dans votre budget. Un compte qui a l'immobilier dans deux foyers peut déplacer un bien de l'un à l'autre.
+
+**Valeur.** Vous donnez une estimation prudente et une optimiste ; Patria les actualise avec l'indice des ventes du département. Choisissez la **valeur retenue** : prudente, prix du marché (prix médian du m² de la commune × surface), fourchette, optimiste ou libre. La **valeur nette indicative** = valeur − frais de vente − reste à rembourser.
+
+**Prêts.** Importez le tableau d'amortissement (voir le format plus bas). Patria calcule à la date du jour le **reste à rembourser**, le taux, la prochaine échéance, les intérêts payés et à payer. Sur la fiche du prêt, Patria compare votre taux à la moyenne actuelle des nouveaux prêts (Banque de France) : mensualité au taux du marché, économie d'intérêts, puis économie après pénalités de remboursement anticipé. À partir de 0,7 point d'écart, demander une simulation à votre banque peut valoir le coup. Ce n'est pas une offre bancaire.
+
+**Charges, location, rentabilité.** Saisissez les charges par année (taxe foncière, copropriété, assurance…) ; une seule année suffit, la taxe foncière est revalorisée chaque année. Indiquez les périodes de location (loyer perçu) ou d'habitation (loyer économisé). L'**enrichissement réel** = valeur après frais de vente − prix d'achat − coût du crédit − charges + loyers. C'est un repère, pas un calcul fiscal.
+
+**Prix au m² et ventes du secteur.** Patria compare votre bien aux ventes réelles proches (données publiques DVF) : même type, surface comparable, 3 dernières années, dans un rayon de 500 m à 2 km puis la commune. Vous obtenez le prix médian, la fourchette, 5 ventes comparables et une page détaillée avec carte. Pas de données en Alsace-Moselle ni à Mayotte. Hors ligne, le reste de Patria fonctionne, mais le marché n'est plus actualisé.
+
+## Économies
+
+![Économies : niveau et points, déjà économisé, encore à gagner et le défi du mois.](captures/economies.png)
+
+La page **Économies** répond à : comment payer moins ? Pour savoir si vos finances vont bien, c'est le **Bilan**.
+
+- **Déjà économisé** (contrats renégociés, sur un an) et **Encore à gagner** (l'écart entre vos contrats et des offres courantes).
+- **Le défi du mois** : la seule chose la plus utile à faire maintenant.
+- **Vos contrats**, reconnus dans vos dépenses : électricité, gaz, eau, box, mobile, assurances, mutuelle (selon votre âge), frais bancaires, abonnements, et l'**assurance de chaque prêt**. Chacun est comparé à un repère daté et sourcé, avec le gain possible par an et la démarche pas à pas (comparateur officiel énergie-info.fr, loi Hamon, loi Lemoine, portabilité du numéro, mobilité bancaire). « J'ai renégocié » (ou « J'ai changé d'assurance » pour un prêt) enregistre le nouveau montant : le budget le prend le mois suivant et l'économie s'ajoute au compteur.
+- **Objectifs d'épargne** (vacances, voiture, travaux…), qui se remplissent avec le solde du livret choisi. On en ajoute par + Ajouter.
+- **Votre niveau**, vos **points**, **missions**, **séries** (mois d'affilée sans déficit, avec un relevé importé, avec une épargne en hausse) et **badges** : chaque chose utile faite rapporte des points. Le niveau s'affiche au survol de votre avatar.
+
+Les repères sont indicatifs ; rien n'est envoyé à un comparateur.
+
+## Bilan de santé
+
+![Bilan de santé : pastilles du résumé, puis les points à surveiller avec un lien pour corriger.](captures/bilan.png)
+
+Le **Bilan** répond à : est-ce que mes finances vont bien ? Une ligne de pastilles résume les points **à corriger**, **à surveiller**, **bon à savoir** et **en bonne santé** ; un clic mène à la liste. Chaque point explique le problème en clair et propose un lien pour le régler.
+
+Il regarde :
+
+- **le budget** : reste à vivre, mois en déficit, endettement, part des dépenses fixes, abonnements, grosses dépenses à mensualiser, virements qui ne couvrent pas le compte joint, salaires pas mis à jour ;
+- **l'épargne** : précaution, argent qui dort sur le compte courant, plafonds atteints, LEP possible, livrets qui rapportent moins que la hausse des prix, trop d'argent sur une seule action, PEA de moins de 5 ans ;
+- **l'immobilier** : estimations anciennes, occupation, rendement, taux des prêts ;
+- **les impôts** : prélèvement à la source, taxe foncière, loyers à déclarer, repère IFI ;
+- **les contrats** où un gain est possible (page Économies).
+
+Par défaut, il porte sur votre compte et les comptes joints que vous voyez ; changez-le dans **Comptes pris en compte**. **Ignorer pour moi** retire un point des compteurs, pour vous seul ; **Points ignorés** → **Rétablir** le remet. Un point qui s'aggrave réapparaît.
+
+**Votre évolution**, en bas du Bilan :
+
+- **Note de santé sur 100** et ce qui la compose (bilan, budget complet, épargne de précaution), avec sa courbe mois après mois ;
+- **pouvoir d'achat** : vos revenus réguliers comparés à la hausse des prix. Avec moins d'un an de revenus saisis, Patria suppose qu'ils étaient les mêmes avant ;
+- **patrimoine net**, **reste à vivre**, **dépenses prévues face aux réelles** (avec les relevés importés) et **revenu fiscal de référence** par année.
+
+Le patrimoine, le reste à vivre, le prévu/réel et la note ne s'affichent qu'à qui voit tout le foyer. Ce diagnostic est un repère, pas un conseil fiscal ou financier.
+
+## Revue annuelle et historique
+
+**Revue annuelle** (Guide de saisie → Autres actions) : pour chaque revenu et dépense, nouveau montant et date, ou arrêt ; avec l'immobilier, taxe foncière de l'année et estimations des biens. Le Budget la rappelle après un an.
+
+Patria garde un **historique** sans détail, dans la base chiffrée du foyer : un relevé par mois (revenus, dépenses, épargne, bourse, immobilier, dettes, note), les 36 mois passés reconstitués à la première visite, l'indice des prix INSEE (pour calculer le pouvoir d'achat même hors ligne), le revenu fiscal de référence année par année, les totaux des dépenses réelles des relevés (sans aucun libellé), les achats et ventes de bourse, et les estimations successives de chaque bien.
+
+## Mon compte
+
+- **Profil** : prénom et nom, date de naissance (utile pour comparer la mutuelle), téléphone, et le membre du budget que vous êtes. Votre **avatar** montre vos initiales ou une photo, recadrée et nettoyée de ses métadonnées (lieu, appareil) ; seuls les comptes de vos foyers et l'administrateur la voient.
+- **E-mail** : changer d'adresse envoie un lien de confirmation. Une adresse confirmée permet « Mot de passe oublié » sur la page de connexion.
+- **Mot de passe** et **double authentification** : scannez le QR code avec une application (Aegis, 2FAS, Google Authenticator…), puis tapez le code. Cochez « Se souvenir de cet appareil 30 jours » sur vos appareils. Téléphone perdu : l'administrateur peut la retirer.
+- **Connexions** : vos 10 dernières, réussies ou non, avec le lieu. Une connexion inconnue : changez de mot de passe et activez la double authentification.
+- **Accès API** : un jeton en lecture seule pour un tableau de bord (Homepage, Homarr, Dashy). `GET /api/v1/resume` avec `Authorization: Bearer patria_…` renvoie en JSON le reste à vivre du mois, l'épargne, le patrimoine net, le nombre d'alertes et l'avancement du guide, avec vos droits. Le jeton ne s'affiche qu'une fois et se révoque à tout moment.
+
+La session se ferme au bout de 12 heures.
+
+## Inviter vos proches (gestionnaires)
+
+Gérer → Mon foyer et les droits → **Inviter quelqu'un** : choisissez le membre du budget (ou un nouveau, à son prénom), les cases (totaux du foyer, immobilier, gestionnaire) et, si l'installation envoie des e-mails, l'adresse de la personne. Elle reçoit un lien valable 7 jours et une seule fois ; l'e-mail dit qui l'invite et ce qu'elle verra. Le lien s'affiche aussi à l'écran, pour le transmettre vous-même si l'e-mail n'arrive pas. Une invitation en attente peut être **renvoyée** (un nouveau lien remplace l'ancien) ou **annulée**. Si les inscriptions sont fermées par l'administrateur, seule une personne qui a déjà un compte peut encore accepter.
+
+## Formats d'import
+
+### Dépenses (CSV)
+
+Gérer → Dépenses → Importer. **Pas de ligne d'en-tête** ; colonnes dans cet ordre :
 
 ```text
 libelle;categorie;montant;frequence;debut;fin
 ```
 
-Cette ligne décrit le format ; **ne la mettez pas dans le fichier**. Exemple de contenu :
+Exemple de contenu :
 
 ```csv
 Mutuelle;Santé;35,69;Mensuel;01/01/2026;
 Assurance emprunteur;Crédits;17,68;Mensuel;01/01/2026;05/09/2042
 ```
 
-- Fin facultative, vide ou absente : sans fin. Dates `31/01/2026` ou `2026-01-31`.
-- 7e colonne facultative, **repères** séparés par des virgules : Abonnement, Télécom, Streaming, Ponctuel, Hausse récente, Doublon possible, Résilié, À vérifier, etc. Le prompt IA les fait remplir.
-- Catégorie/fréquence : libellés de l'application sans sensibilité aux accents ou majuscules, ou codes (`HEALTH`, `MONTHLY`).
-- Montants avec virgule ou point, espaces et symbole euro acceptés.
-- Point-virgule recommandé ; virgule possible si les montants n'en contiennent pas. Guillemets autour des libellés acceptés ; maximum 500 lignes.
-- Modèle téléchargeable et prompt IA disponibles. La copie automatique du prompt nécessite HTTPS ou localhost ; sinon sélection du texte pour Ctrl+C.
+- Fin facultative. Dates `31/01/2026` ou `2026-01-31`.
+- 7e colonne facultative, des **repères** séparés par des virgules (Abonnement, Télécom, Ponctuel, Doublon possible, Résilié, À vérifier…) ; la consigne IA les fait remplir.
+- Catégorie et fréquence : les noms affichés dans Patria (accents et majuscules indifférents) ou les codes (`HEALTH`, `MONTHLY`).
+- Montants avec virgule ou point, espaces et « € » acceptés. Point-virgule conseillé ; 500 lignes au plus.
 
-L'aperçu a une case par dépense, et des boutons « Tout », « Rien », par détection (ex. Télécom, Doublon possible) et par catégorie pour garder ou ignorer un groupe d'un clic ; les doublons possibles et les dépenses résiliées sont décochés d'avance. Seules les lignes cochées sont importées. L'aperçu permet aussi de choisir la répartition pour tout le fichier puis ligne par ligne. Une erreur bloque l'import sans rien enregistrer. Une dépense déjà saisie (mêmes libellé, montant, fréquence et début) est ignorée pour éviter les doublons. Chaque ligne enregistrée reste modifiable dans son formulaire.
+L'aperçu a une case par dépense et des boutons pour cocher ou décocher par groupe (Tout, Rien, Télécom, Doublon possible, par catégorie). Les doublons possibles et les abonnements résiliés sont décochés d'avance. La répartition se choisit pour tout le fichier, puis ligne par ligne. Une dépense déjà saisie (même libellé, montant, fréquence et début) est ignorée. Une erreur bloque l'import sans rien enregistrer.
 
-### Échéanciers de prêts CSV
+### Tableau d'amortissement d'un prêt (CSV)
 
-Dans Prêts et apports d'un bien → Ajouter un prêt, ou Gérer le prêt pour remplacer l'échéancier : CSV UTF-8 (BOM accepté), maximum 1 Mio. **Un import valide remplace toutes les anciennes lignes de ce prêt.**
-
-En-tête canonique :
+Prêts du bien → Ajouter un prêt, ou Gérer le prêt pour remplacer le tableau. CSV UTF-8, 1 Mio au plus. **Un import remplace toutes les anciennes lignes de ce prêt.**
 
 ```csv
 date,type,montant,capital_rembourse,interets,frais,capital_restant_du,taux_annuel_pct
 ```
 
-`date` et `type` obligatoires ; autres colonnes facultatives, au moins une valeur financière par ligne. Types : `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION`, `AJUSTEMENT` (casse indifférente). Virgule ou point-virgule, décimales avec point ou virgule.
+`date` et `type` sont obligatoires, plus au moins un montant par ligne. Types : `DEBLOCAGE`, `ECHEANCE`, `REMBOURSEMENT_ANTICIPE`, `CONSOLIDATION`, `AJUSTEMENT`. Virgule ou point-virgule ; décimales avec point ou virgule. [Trois exemples](examples/) sont fournis. Une consigne IA aide à convertir le PDF de la banque : vérifiez toujours les dates et montants obtenus.
 
-Les anciens en-têtes `pretId`, `tauxAnnuelPct`, `capitalRembourse`, `autres`, `capitalRestantDu` restent convertis automatiquement. [Trois exemples](examples/) sont fournis. Vérifiez les dates et montants renvoyés par une IA ; ils déterminent les calculs du prêt.
-
-## Immobilier
-
-Un compte avec l'accès Immobilier crée les biens (type, adresse, commune, surface, acquisition, estimations, frais), leurs prêts et apports.
-
-**À qui appartient un bien.** Chaque bien appartient à **un seul foyer**, avec ses prêts, échéanciers, apports, charges et loyers. La part de chaque membre et le payeur de la taxe foncière se règlent dans Gérer → Répartition. Le droit « Tous les biens du foyer » est **tout ou rien** : il ouvre tous les biens de ce foyer en lecture seule ; sans lui, les mensualités et charges restent comptées dans votre budget, mais les fiches ne s'ouvrent pas. Un compte avec l'accès Immobilier dans deux foyers peut déplacer un bien de l'un à l'autre (« Foyer du bien »).
-
-### Valeur et situation des prêts
-
-- Estimations prudente et optimiste, actualisées selon l'indice mensuel DVF départemental du même type de bien depuis la date d'estimation.
-- Curseur de valeur retenue : prudent, prix du marché (prix médian du m² de la commune × surface, quand il est connu), fourchette, optimiste ou valeur libre, enregistrée directement ; retour au prudent si les estimations changent.
-- Vue d'ensemble : somme des valeurs retenues, capital restant dû, valeur nette indicative, plus-value latente et prochaine mensualité.
-- Valeur nette indicative = valeur estimée − frais de vente/fiscalité renseignés − capital restant dû. Les charges récurrentes annuelles ne sont pas déduites de cette valeur.
-- Taux actuel, capital restant dû et prochaine échéance calculés à la date du jour depuis l'échéancier. Un prêt futur compte pour la totalité du capital emprunté.
-- Intérêts payés et total des intérêts du prêt, hors assurance et frais, sur les fiches et tableaux ; apports personnels par bien.
-
-### Charges, occupation, rentabilité
-
-Saisissez les charges par année (taxe foncière, habitation, copropriété, assurance, autres). Une année suffit : taxe foncière revalorisée selon le coefficient légal, autres charges constantes pour les années absentes. Les coefficients doivent être [maintenus chaque année](developpement.md#maintenance-des-coefficients).
-
-Définissez les périodes de location (loyer perçu) ou de résidence principale (loyer de référence économisé). Les jours sans période sont vacants ; les périodes ne peuvent pas se chevaucher. Le rendement brut ne retient que les loyers perçus.
-
-La rentabilité depuis l'achat inclut le coût du crédit payé (intérêts/frais des échéances passées), les charges et les loyers perçus/économisés. Enrichissement réel = valeur après frais de vente − coût d'acquisition − coût du crédit − charges + loyers perçus et économisés. Le multiple compare la valeur nette à l'argent sorti de votre poche. Ces repères dépendent des données saisies et ne calculent pas une fiscalité personnelle complète.
-
-Modifier ou supprimer un bien, un prêt ou un apport se fait dans ses pages de gestion. La suppression d'un bien supprime aussi les données liées. Un compte avec l'accès Immobilier dans deux foyers peut déplacer un bien : prêts, échéanciers, apports, charges, occupation et marché suivent ; la répartition repart à parts égales.
-
-### Prix au m² et ventes du secteur
-
-Comparaison du prix au m² du bien et du coût d'acquisition au marché : DVF géolocalisées DGFiP/Etalab et statistiques mensuelles, API Adresse pour situer le bien, sans clé API.
-
-- Même type, surface comparable (±40 %), 3 dernières années publiées.
-- Rayon 500 m, puis 1 km, 2 km, puis commune tant qu'il manque 30 ventes ; uniquement les ventes de la commune ou de l'arrondissement à Paris, Lyon, Marseille.
-- Actualisation départementale et exclusion des extrêmes ; médiane et quartiles, cache 30 jours, recalcul après changement adresse/type/surface, bouton Actualiser.
-- Carte de synthèse avec répartition et 5 ventes comparables ; page détaillée avec filtres période/surface/distance, tris, plan local sans fond tiers, liens Google Maps/carte DVF sur clic et synthèse PDF.
-
-Calcul en arrière-plan à l'ouverture de la fiche. Absence de DVF en Alsace-Moselle (57, 67, 68) et à Mayotte. Ce sont des comparables indicatifs, pas une expertise. Sans accès réseau ou en mode hors ligne, le reste de Patria fonctionne, mais le marché n'est plus actualisé.
-
-### Taux du marché et renégociation
-
-Comparaison à la moyenne BCE/Banque de France des nouveaux prêts français à taux fixe sur plus de 10 ans, taux nominal hors assurance ; donnée actualisée quotidiennement, publication décalée d'environ deux mois.
-
-Sur la fiche du prêt : mensualité recalculée au taux du marché à capital/durée restants identiques, économie d'intérêts, puis économie après indemnité au plafond légal (6 mois d'intérêts, au plus 3 % du capital restant dû). À partir de 0,7 point d'écart avec économie nette, demander une simulation à sa banque peut être utile.
-
-Limites : moyenne nationale regroupant toutes les durées de plus de 10 ans (précision d'environ 0,3 point), comparaison indicative s'il reste moins de 10 ans ; assurance, garantie et frais de dossier exclus. Ce n'est pas une offre bancaire.
-
-## Patrimoine
-
-La page **Patrimoine** montre ce que vous possédez (comptes et livrets, épargne long terme, bourse et cryptos, biens à leur valeur retenue), ce que vous devez (capital restant dû des prêts immobiliers) et le **patrimoine net = ce que vous possédez − ce que vous devez** : ce qui resterait si toutes les dettes étaient remboursées aujourd'hui, sans rien vendre. Les biens y sont comptés avant frais de vente et impôts (la « valeur nette » d'Immobilier → Synthèse les déduit, elle est donc plus basse). Les crédits à la consommation n'y figurent pas : seule leur mensualité est connue. L'immobilier n'apparaît que pour qui voit l'immobilier.
-
-## Affichage et mouvement
-
-- **Chiffres** : montants arrondis à l'euro dans les tuiles, résumés, phrases et graphiques ; centimes seulement dans les listes de lignes et les formulaires. Pourcentages à une décimale au plus.
-- **Mouvement sobre** : passage d'une page à l'autre en fondu (l'en-tête reste en place), dépliants et menus qui s'ouvrent en douceur, chiffres clés qui défilent seulement quand ils ont changé depuis votre dernière visite, courbes qui se dessinent, barres qui se remplissent, reflet pendant le chargement d'un graphique. Tout est coupé si l'appareil demande moins d'animations (réglage d'accessibilité du système).
-- **Sur smartphone**, les tableaux deviennent des fiches : une fiche par ligne, chaque valeur avec son intitulé.
-- **Intitulés harmonisés** : chaque page porte le nom de sa rubrique (Budget, Patrimoine, Économies, Bilan, Gérer, Guide de saisie). La page Bourse n'a plus qu'un graphique, « Comparer les performances », qui montre aussi le portefeuille.
-
-## Économies
-
-Le menu a cinq entrées : **Budget**, **Patrimoine** (onglets Vue d'ensemble, Épargne, Bourse, Immobilier), **Économies**, **Bilan** et **Gérer**, plus l'icône du Guide de saisie. Le bouton **+ Ajouter** de l'en-tête ouvre toutes les saisies : relevé bancaire, dépense, revenu, livret, titre en bourse, bien, objectif d'épargne.
-
-La page **Économies** rassemble :
-
-- **Votre niveau** (de « Premiers pas » à « Maître des finances ») et vos **points** : chaque chose utile faite en rapporte (budget complet, relevé importé, contrat renégocié, objectif atteint, mois sans déficit, badge, mission réussie). Un anneau autour de votre avatar, dans l'en-tête, montre l'avancement vers le niveau suivant (le détail au survol) ; un niveau gagné est célébré (message et confettis discrets, coupés si l'appareil demande moins d'animations).
-- **Missions** en plusieurs étapes avec leur récompense : Mettre de l'ordre, Chasse aux contrats, Bouclier (1, 3 puis 6 mois de précaution), Un projet. **Séries** : mois d'affilée avec un relevé importé, sans déficit, avec une épargne en hausse ; une série cassée repart de zéro sans retirer de points, et le mois en cours ne la casse pas.
-- **Votre santé financière sur 100** (À construire, Correcte, Solide, Excellente) : 40 points pour le bilan de santé, 30 pour un budget complet, 30 pour l'épargne de précaution (6 mois = tout). Aucune comparaison avec d'autres foyers.
-- **Économies réalisées** (contrats renégociés, sur un an) et **À gagner** (écart entre vos contrats et des offres courantes).
-- **Le défi du mois** : une seule chose à faire, la plus utile (renégocier le contrat au plus gros gain, éviter un mois en déficit, constituer 3 mois de précaution).
-- **Vos contrats**, reconnus dans vos dépenses : électricité, gaz, eau, box internet, forfait mobile, assurance habitation, assurance auto, mutuelle (selon votre âge, d'après la date de naissance de Mon compte), frais bancaires, abonnements, et l'**assurance de prêt** de chaque prêt immobilier. Chacun est comparé à un repère daté et sourcé (tarif réglementé de l'électricité, Arcep, Observatoire des tarifs bancaires, études 2026), avec le gain possible par an, prudent, et la démarche pas à pas (comparateur officiel énergie-info.fr, loi Hamon, loi Lemoine, portabilité du numéro, mobilité bancaire). « J'ai renégocié » enregistre le nouveau montant : le budget le prend à partir du mois suivant (une ligne seule) et l'économie rejoint le compteur. Les contrats où un gain est possible apparaissent aussi dans le Bilan (« Bon à savoir »).
-- **Objectifs d'épargne** illustrés (vacances, voiture, travaux…), qui se remplissent avec le solde du livret choisi.
-- **Badges** : budget en place, sans mois difficile, précaution, première économie, 100 € par mois économisés, objectif atteint, santé excellente. Un badge ou une mission obtenu depuis votre dernière visite est célébré une fois.
-
-Les repères sont indicatifs et revus à chaque version ; rien n'est envoyé à un comparateur.
-
-## Épargne et Bourse
-
-**Comparer les performances (Bourse).** « Comparer à » met votre portefeuille face au MSCI World, au S&P 500, au CAC 40, ou au Livret A et à l'inflation (la bulle « i » explique chaque repère et pourquoi il faut faire mieux que l'inflation), sur 1 mois, 1 an ou 5 ans. Une phrase donne le résultat (« Sur 1 an, votre portefeuille fait −11,5 % ; MSCI World fait +16,6 %. Moins bien de 28,2 points. »), puis le graphique montre l'évolution en % depuis le début de la période (0 % marqué, graduations rondes), le portefeuille en trait épais ; au survol, toutes les valeurs de la date. Indices hors dividendes ; portefeuille à sa composition actuelle ; Livret A et inflation à leur taux actuel, en ordre de grandeur.
-
-**Inflation et intérêts.** La tuile **Vos intérêts** donne le taux moyen de votre épargne (pondéré par les soldes) et ce qu'il reste après inflation : en rouge, l'épargne perd du pouvoir d'achat. Le graphique **Inflation et taux de l'épargne** compare, mois par mois sur deux ans, l'inflation INSEE au Livret A, au LEP (depuis leur dernière date vérifiée) et à votre taux moyen. Le pouvoir d'achat de vos revenus est passé dans le Bilan, rubrique Finances.
-
-**Revenu fiscal de référence.** À saisir à l'étape Impôts du guide, sur la page Épargne (« Revenu fiscal de référence ») ou par la ligne `FISCAL;revenu;année;parts` de la réponse de l'IA. Avec le nombre de parts, Patria en déduit seul l'éligibilité au LEP (plafond d'une part, plus un montant par demi-part) : plus besoin de répondre à la question « Éligible au LEP ? ». Le PEL n'a pas de condition de revenu.
-
-L'**Épargne** (comptes, livrets, assurance-vie, PER, PEL) et la **Bourse** (PEA, comptes-titres, cryptos) ont chacune leur page : l'une est disponible ou garantie, l'autre peut perdre de la valeur.
-
-Sur la page **Bourse**, deux boutons suffisent :
-
-- **Importer un relevé** : choisissez le courtier (les étapes pour obtenir l'export sont rappelées), le compte (existant, ou nouveau : type PEA ou compte-titres, nom, titulaire) et déposez le fichier tel quel. Patria reconnaît les colonnes, cumule achats et ventes et montre un aperçu ; un titre déjà présent est mis à jour, l'ISIN est converti en cotation en euros quand elle existe. Avec l'export complet de **Trade Republic** (Profil → Relevés de compte → Export des transactions), les **espèces** du compte sont aussi calculées (versements − achats + ventes, dividendes, frais et impôts). Un PDF passe par le prompt IA, en second choix.
-- **Ajouter un titre** : cherchez-le (nom, ISIN ou code : « MSCI World », `FR0010315770`, `BTC`), choisissez-le, puis indiquez la quantité et le **prix moyen par part** (ou le total payé) et le compte. Un nouvel achat d'un titre déjà détenu s'ajoute à sa ligne.
-
-Aucun solde à saisir : un compte de bourse naît avec 0 € d'**espèces** (l'argent non investi), modifiable dans son menu Gérer. Chaque titre se modifie (quantité, prix moyen) ou se supprime depuis son menu Gérer. Tuiles : valeur, plus-value latente, montant investi, espèces. La **courbe du portefeuille** (1 mois, 1 an, 5 ans) valorise les titres actuels aux cours passés ; chaque titre se déplie sur la **courbe de son cours**, avec le prix moyen en pointillé. Source : Yahoo Finance, en différé.
-
-
-Menu **Épargne** : les placements de chaque membre (compte courant, Livret A, LDDS, LEP, livret jeune, CEL, PEL, assurance-vie, PER, PEA, compte-titres). Chaque placement appartient à un membre : il est visible et modifiable par les comptes qui ont accès à ce membre. Saisissez le solde, puis « Mettre à jour » quand il change.
-
-- **Taux** : ceux des livrets réglementés sont fournis par Patria, datés (source service-public.gouv.fr ; aucune API publique ne les donne livret par livret). Pour une assurance-vie ou un livret bancaire, saisissez le taux.
-- **Bourse** : sur un PEA ou un compte-titres, ajoutez des lignes avec leur code Yahoo Finance (ex. `AI.PA`, `CW8.PA`), la quantité et le prix de revient, ou **déposez l'export CSV** de votre courtier ou plateforme crypto tel quel (Trade Republic, Revolut, Degiro, Boursorama, Binance, Coinbase…) : Patria reconnaît les colonnes, cumule achats et ventes, et affiche un aperçu ; une ligne déjà présente est **mise à jour** (quantité et prix de revient), donc il suffit de redéposer un export récent. Les **cryptos** sont des lignes comme les autres (code `BTC`, `ETH`… coté en euros `BTC-EUR`). Pour un PDF ou un format non reconnu, le prompt IA reste disponible : lignes `code;nom;quantité;prix de revient total`, l'ISIN étant converti en code de cotation. Un montant exporté dans une autre devise (dollars chez Revolut) est repris tel quel comme prix de revient : corrigez-le si besoin. Le cours du jour est récupéré automatiquement ; une valeur cotée en dollars ou en livres est convertie en euros.
-- **Taux** : pré-rempli avec le taux officiel quand vous choisissez un livret réglementé.
-- **Versement programmé** : sur un placement, un montant et une fréquence font avancer le solde tout seul (plafond des livrets respecté) ; le versement apparaît dans le budget (Virements), donc dans le reste à vivre, sans gonfler l'objectif de précaution.
-- **Historique** : graphique en barres empilées des 24 derniers mois (disponible, bourse, long terme), rempli à chaque mise à jour et chaque mois.
-- **Tuiles** : épargne totale, épargne de précaution (en mois de dépenses), inflation sur 12 mois (INSEE) et **pouvoir d'achat** : l'évolution de vos revenus sur un an corrigée de l'inflation (sans revenus connus il y a un an, à revenus constants face à l'inflation des 12 derniers mois).
-- **Plan d'épargne de sécurité** : objectif de précaution (6 mois de dépenses par défaut, réglable), ce qui manque, un versement mensuel conseillé (combler en un an sans dépasser la moitié du reste mensuel) et l'ordre de remplissage : LEP si vous y êtes éligible, Livret A, LDDS, puis le long terme. Indicatif, pas un conseil en investissement.
-
-Le **Bilan** audite l'épargne à chaque ouverture : précaution réelle, argent qui dort sur les comptes courants, plafonds atteints, LEP possible, livrets sous l'inflation, concentration sur une seule valeur, plus ou moins-values, PEA de moins de 5 ans, changement récent d'un taux, soldes de plus de 6 mois, pouvoir d'achat. En mode hors ligne, cours et inflation ne sont pas récupérés.
-
-## Historique et évolution
-
-Patria garde l'historique, sans détail et dans la base chiffrée du foyer :
-
-- **Montants « à partir du »** : en modifiant un revenu ou une dépense (Gérer), « Nouveau montant valable à partir du » est prérempli au 1er du mois prochain ; l'ancien montant reste avant cette date. Videz le champ pour corriger une simple erreur de saisie.
-- **Un relevé par mois** du foyer (revenus, dépenses, épargne, bourse, immobilier, dettes, score), enregistré à la première visite du mois. Les 36 mois passés sont reconstitués une fois à partir des lignes datées, des soldes d'épargne, des échéanciers et des estimations (marqués « reconstitués » ; la bourse n'y compte que ses espèces).
-- **L'indice des prix INSEE** gardé sur place (depuis 2014), pour corriger les revenus de l'inflation même hors ligne.
-- **Le revenu fiscal de référence année par année.**
-- **Les dépenses réelles** des relevés bancaires importés : totaux par mois et par catégorie seulement ; une opération déjà comptée (même relevé importé deux fois) ne l'est pas deux fois. Aucun libellé n'est gardé.
-- **Les achats et ventes de bourse** des relevés de courtier : la Bourse affiche la **performance réelle** (valeur des titres moins le versé net, achats − ventes ; dividendes non comptés).
-- **Les estimations successives de chaque bien** (fiche du bien → Historique des estimations).
-
-En bas du **Bilan**, **Votre évolution** montre : le **pouvoir d'achat** (revenus réguliers en euros courants et en euros d'aujourd'hui, avec la phrase « Depuis janvier 2021 : revenu mensuel … → …, prix … Pouvoir d'achat : … »), le **patrimoine net**, le **reste à vivre**, les **dépenses prévues face aux réelles**, la **santé financière**, et le **revenu fiscal de référence** par avis. Patrimoine, reste à vivre, prévu/réel et santé financière ne s'affichent qu'à qui voit tout le foyer ; le pouvoir d'achat porte sur les revenus que vous voyez.
-
-## Revue annuelle et bilan de santé
-
-Le bilan porte par défaut sur votre compte personnel et les comptes joints que vous voyez. Changez les comptes pris en compte dans l'encart **Comptes pris en compte** du bilan. Il signale les grosses sommes ponctuelles (impôts, assurance…) à mensualiser, le mois le plus serré, les virements qui ne couvrent pas un compte joint et les abonnements en double. Cliquez sur une tuile pour aller à la liste correspondante.
-
-Le Prévisionnel présente d'abord les chiffres du mois, puis les alertes et la barre du guide. Le bilan regroupe d'abord tous les sujets à corriger, puis ceux à surveiller, quel que soit leur domaine ; les points rassurants sont repliables.
-
-Dans le bilan, **Ignorer pour moi** retire un avertissement ou un conseil des compteurs et du résumé du Prévisionnel, sans modifier les finances. Le choix est conservé pour votre compte et ce foyer, sans affecter les autres utilisateurs. Ouvrez **Points ignorés**, puis **Rétablir** pour le remettre. Une alerte dont le niveau de gravité augmente réapparaît. Les points ignorés restent indiqués séparément dans la synthèse PDF : ils ne sont pas présentés comme résolus. Si un problème disparaît, il n'est plus listé ; votre choix reste mémorisé pour son retour au même niveau.
-
-Guide de saisie → Revue annuelle : pour chaque revenu/dépense récurrente, nouveau montant et date d'effet, ou arrêt. L'ancien montant s'arrête la veille et la répartition est reprise. Avec l'accès Immobilier : taxe foncière de l'année et estimation ancienne des biens. Calendrier des mises à jour et rappel sur le Prévisionnel après un an.
-
-L'icône cœur ouvre le bilan : reste à vivre, déficit, endettement, épargne de précaution (3 à 6 mois), dépenses fixes, abonnements et salaires anciens ; estimations, occupation, rendement, dette et taux des prêts ; prélèvement à la source, foncier, loyers à déclarer et repère IFI. Chaque signal explique le problème et propose un lien ; il respecte les vues ouvertes à votre compte. Ce diagnostic est indicatif, pas un conseil fiscal ou financier.
-
-## Affichage
-
-Thème **clair** ou **sombre** : par défaut celui du système ; le bouton demi-cercle de l'en-tête passe de système à clair, puis sombre. Le choix est gardé sur l'appareil.
+La copie automatique d'une consigne IA demande HTTPS (ou localhost) ; sinon, sélectionnez le texte et faites Ctrl+C.
 
 ## Synthèses PDF
 
-Exporter en PDF produit une synthèse A4 de la vue et des droits affichés : Prévisionnel (mois et 12 mois), Budget moyen (catégories et lignes), Immobilier (valeurs, enrichissement, prêts/taxes), bien (bilan, comparables), prêt (années et échéancier), bilan de santé et ventes du secteur. La génération se fait sur votre serveur, sans service externe.
-
-Les PDF téléchargés contiennent des données financières : protégez-les et vérifiez leur contenu avant partage. L'import/export global JSON n'est pas disponible à ce jour.
+« Exporter en PDF » produit une synthèse A4 de la page, avec vos droits : Budget prévisionnel et moyen, Immobilier, un bien (avec les ventes comparables), un prêt (années et échéancier), Bilan de santé. Les PDF sont produits sur votre serveur, sans service extérieur. Ils contiennent des données financières : protégez-les avant de les partager. Il n'y a pas d'export global des données à ce jour.

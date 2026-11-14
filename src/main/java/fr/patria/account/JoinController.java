@@ -79,7 +79,8 @@ public final class JoinController extends AccountSupport {
         AccountRepository.Invitation invitation = accounts.invitation(token, now)
                 .orElseThrow(() -> new ValidationException("Invitation expirée ou déjà utilisée : demandez un nouveau lien."));
         try {
-            if ("closed".equals(accounts.signupMode())) {
+            // Fermees : seuls les liens de l'administrateur creent encore un compte (une ancienne invitation de foyer, non).
+            if ("closed".equals(accounts.signupMode()) && !ADMIN.equals(invitation.createdBy())) {
                 throw new ValidationException("Les nouveaux comptes sont fermés sur ce Patria. Si vous avez déjà un compte, connectez-vous pour accepter l'invitation.");
             }
             limit(request);
@@ -243,7 +244,7 @@ public final class JoinController extends AccountSupport {
                     <button type="submit">%s avec mon compte (%s)</button></form>""", Components.csrfField(request.csrf()), token,
                     target == null ? Html.raw("<label>Nom du foyer<input name=\"foyer\" maxlength=\"60\"></label>") : Html.EMPTY,
                     target == null ? "Créer ce foyer" : "Rejoindre", request.viewer().name());
-        } else if ("closed".equals(accounts.signupMode())) {
+        } else if ("closed".equals(accounts.signupMode()) && !ADMIN.equals(invitation.createdBy())) {
             body = Html.of("<p>Les nouveaux comptes sont fermés sur ce Patria. Si vous avez déjà un compte, <a href=\"/connexion?suite=%s\">connectez-vous</a> "
                     + "pour accepter l'invitation.</p>", fr.patria.web.LocalPath.encode("/invitation?jeton=" + token));
         } else {

@@ -165,9 +165,12 @@ La même page porte l'adresse publique et deux textes facultatifs : **Conditions
 
 Sécurité → **E-mail** : serveur SMTP de votre fournisseur (Brevo, OVH, Gmail avec un mot de passe d'application…), port et chiffrement (STARTTLS 587 ou TLS 465), expéditeur, et **adresse publique** de Patria (`https://…`), qui sert aux liens des e-mails : Patria ne prend jamais l'adresse dans la requête, qu'un tiers pourrait falsifier. « Tester » envoie un e-mail de contrôle. Les e-mails partent en deux versions, texte et HTML (bouton pour le lien).
 
-- Sans réglage : l'e-mail des comptes est facultatif et rien n'est envoyé.
-- Avec réglage : **Mot de passe oublié** apparaît sur la page de connexion (lien valable 30 minutes vers l'e-mail confirmé, même réponse que le compte existe ou non, envois limités ; la double authentification reste demandée).
-- « Exiger un e-mail confirmé » : une inscription ou une invitation demande une adresse, à confirmer à la première connexion avant toute autre page. Les comptes existants ne sont pas concernés.
+- Sans réglage : l'e-mail des comptes est facultatif, rien n'est envoyé, et les champs « E-mail » des invitations sont masqués (le lien se transmet à la main).
+- Avec réglage : l'**e-mail devient obligatoire** à la création d'un compte, pour pouvoir retrouver son mot de passe. Un lien de confirmation part toujours ; l'adresse à laquelle une invitation a été envoyée est confirmée d'office. **Mot de passe oublié** apparaît sur la page de connexion (lien valable 30 minutes vers l'e-mail confirmé, même réponse que le compte existe ou non, envois limités ; la double authentification reste demandée).
+- « Exiger un e-mail confirmé » : en plus, la personne doit confirmer son adresse avant d'accéder à toute autre page. Les comptes existants ne sont pas concernés.
+- Si un e-mail ne part pas (serveur SMTP en panne), rien n'est bloqué : le compte est créé quand même (le lien de confirmation se redemande depuis Mon compte), et une invitation affiche son lien à transmettre soi-même. Le détail de l'erreur va au journal du serveur, pas à l'écran.
+
+Chaque e-mail (invitation, création de foyer, confirmation, mot de passe oublié) dit en clair qui l'envoie et à quoi il sert, avec un bouton nommé selon l'action (« Rejoindre le foyer », « Créer mon compte », « Confirmer mon e-mail », « Choisir un nouveau mot de passe »). L'invitation d'un gestionnaire précise ce que la personne verra.
 
 Après le premier mot de passe, chaque nouveau compte se voit **proposer la double authentification** (« Activer maintenant » ou « Plus tard »).
 
@@ -179,7 +182,7 @@ Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et n
 
 1. **Inscription** (« Créer un compte » sur la page de connexion, si les inscriptions sont ouvertes) : prénom, identifiant, mot de passe, e-mail (exigé et confirmé si vous l'avez réglé), nom du foyer. Patria crée le compte **et son foyer**, avec un membre à son nom ; la personne en est **gestionnaire**.
 2. **Invitation** : un lien valable 7 jours, à usage unique. La personne crée son compte depuis ce lien (ou, si elle en a déjà un, se connecte et l'accepte). Deux sortes de liens :
-   - le **gestionnaire d'un foyer** invite à le rejoindre (Gérer → Mon foyer et les droits → Inviter quelqu'un), en choisissant le membre du budget (existant, nouveau à son prénom, ou aucun) et les droits de départ ; l'e-mail part tout seul si l'envoi est réglé, sinon il transmet le lien ;
+   - le **gestionnaire d'un foyer** invite à le rejoindre (Gérer → Mon foyer et les droits → Inviter quelqu'un), en choisissant le membre du budget (existant, nouveau à son prénom, ou aucun) et les droits de départ ; l'e-mail part tout seul si l'envoi est réglé, sinon il transmet le lien. Une invitation en attente peut être **renvoyée** (nouveau lien, mêmes droits, ancien lien annulé) ;
    - l'**administrateur** invite à **créer son foyer** (Foyers → « Inviter une personne à créer son foyer »), ou à **reprendre un foyer sans gestionnaire** (« Créer un lien de gestion »).
 
 **Réglage des inscriptions** (Utilisateurs → Inscriptions) :
@@ -188,7 +191,7 @@ Chaque foyer se gère lui-même. L'administrateur **ne crée aucun compte** et n
 |---|---|---|
 | **Sur invitation** (par défaut) | les invités d'un gestionnaire, et vos liens « créer son foyer » | auto-hébergement familial |
 | **Ouvertes** | tout le monde (son propre foyer), plus les invitations | inscriptions publiques, quel que soit l'hébergement |
-| **Fermées** | personne, sauf vos liens « créer son foyer » | geler une installation |
+| **Fermées** | personne, sauf vos liens « créer son foyer » et « de gestion » ; une invitation de gestionnaire n'est plus acceptée que par un compte existant | geler une installation |
 
 Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un piège à robots. Pour une installation ouverte, réglez l'envoi d'e-mails et cochez « Exiger un e-mail confirmé ».
 
@@ -196,7 +199,7 @@ Les inscriptions sont limitées à 5 comptes par heure et par adresse, avec un p
 
 - les **membres du budget** (personnes, comptes joints ; un enfant peut être un membre sans compte) ;
 - le tableau **Qui voit quoi** : une ligne par compte, une colonne par membre, puis **Totaux du foyer**, **Immobilier** et **Gestionnaire**. Chaque case donne l'accès complet (voir et modifier) : un membre, ses lignes (une ligne partagée avec un membre non coché reste en lecture seule) ; les totaux, le total de tous les membres (lignes masquées comprises) et les réglages communs ; l'immobilier, biens, prêts, apports, charges et répartition. Aucune case : plus d'accès ;
-- les **invitations** en attente (annulables) et le nom du foyer.
+- les **invitations** en attente (renvoyables par e-mail, annulables) et le nom du foyer.
 
 Être gestionnaire ne change pas ce qu'on voit : il coche aussi ses propres cases et peut choisir de ne pas voir tout le foyer. Il reste toujours au moins un gestionnaire. Chacun voit le résumé de ce tableau dans l'icône « i » de l'en-tête, avec les changements récents ; tout est inscrit au journal.
 
