@@ -195,7 +195,10 @@ class PrivacyTest {
             assertEquals("/administration/securite?visite=1", location(post(admin, "/bienvenue/terminer", "visite=1")));
             String tour = get(admin, "/administration/securite?visite=1").body();
             assertTrue(tour.contains("<template id=\"visite\"") && tour.contains("Vous supervisez, sans saisir"), "visite de l'administrateur");
-            assertFalse(get(admin, "/administration/securite").body().contains("id=\"visite\""), "pas de visite sans la demander");
+            assertEquals(204, post(admin, "/visites/vues", "visites=admin").statusCode());
+            assertFalse(get(admin, "/administration/securite").body().contains("id=\"visite\""), "visite vue : elle ne revient pas");
+            post(admin, "/visites/revoir", "");
+            assertTrue(get(admin, "/administration/securite").body().contains("id=\"visite\""), "Mon compte : revoir les visites");
             assertEquals("/", location(post(null, "/connexion", "login=admin&password=secret")), "une seule fois");
             assertTrue(get(admin, "/administration/securite").body().contains("class=\"version\""), "version en pied de page");
 
@@ -209,7 +212,7 @@ class PrivacyTest {
             assertTrue(home.contains("<b>Guide de saisie</b> · étape 1 sur") && home.contains("href=\"/assistant/situation\">Continuer"), "barre du guide : étape et suite");
             assertTrue(get(gestion, "/navigation/etat").body().contains("\"guide\":{\"step\":\"Votre situation\""), "même barre sur les autres pages");
             assertEquals("/", location(post(gestion, "/assistant/encadre/ignorer", "")));
-            assertFalse(get(gestion, "/").body().contains("guide-strip"), "masquée");
+            assertFalse(get(gestion, "/").body().contains("class=\"guide-strip"), "masquée");
             assertTrue(get(gestion, "/navigation/etat").body().contains("\"guide\":null"));
         }
     }

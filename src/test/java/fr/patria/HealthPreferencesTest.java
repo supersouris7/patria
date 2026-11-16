@@ -35,7 +35,7 @@ class HealthPreferencesTest {
             String ignored = TestAccounts.get(client, base, manager, "/bilan").body();
             assertFalse(ignored.substring(0, ignored.indexOf("id=\"ignores\"")).contains("Prélèvement à la source absent"));
             assertTrue(ignored.contains("Points ignorés (1)") && ignored.contains("Rétablir"));
-            assertFalse(TestAccounts.get(client, base, manager, "/").body().contains("health-summary"));
+            assertFalse(TestAccounts.get(client, base, manager, "/").body().contains("warning health-summary"));
             assertTrue(TestAccounts.get(client, base, manager, "/navigation/etat").body().contains("\"warnings\":0"));
             assertTrue(TestAccounts.get(client, base, reader, "/navigation/etat").body().contains("\"warnings\":1"));
             assertEquals(303, TestAccounts.post(client, base, manager, "/assistant/documents/passer", "").statusCode());

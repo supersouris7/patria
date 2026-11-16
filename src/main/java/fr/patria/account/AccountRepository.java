@@ -24,7 +24,7 @@ import org.mindrot.jbcrypt.BCrypt;
  */
 public final class AccountRepository {
     static final int MIN_PASSWORD = 8;
-    private static final int LATEST = 7;
+    private static final int LATEST = 8;
     /** Hache de reference : un identifiant inconnu coute le meme temps qu'un mauvais mot de passe. */
     /** Cout de bcrypt : 12 ; la propriete systeme {@code patria.bcrypt.cost} l'abaisse pour les tests (4 a 31). */
     private static final int COST = Math.clamp(Integer.getInteger("patria.bcrypt.cost", 12), 4, 31);
@@ -216,6 +216,39 @@ public final class AccountRepository {
                 statement.execute("PRAGMA user_version = 7");
             }
         }
+        if (version < 8) {
+            // Visites guidees deja vues (une par page, separees par des virgules) ; l'administrateur dans settings.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE users ADD COLUMN tours_seen TEXT NOT NULL DEFAULT ''");
+                statement.execute("PRAGMA user_version = 8");
+            }
+        }
+    }
+
+    // ---- Visites guidees ----
+
+    /** Visites deja vues par l'utilisateur, ou par l'administrateur ({@code userId} nul). */
+    public Set<String> toursSeen(Long userId) {
+        List<String> rows = database.query(connection -> userId == null
+                ? Sql.list(connection, "SELECT value FROM settings WHERE key = 'admin_tours_seen'", row -> row.getString(1))
+                : Sql.list(connection, "SELECT tours_seen FROM users WHERE id = ?", row -> row.getString(1), userId));
+        if (rows.isEmpty() || rows.getFirst().isBlank()) return Set.of();
+        return Set.of(rows.getFirst().split(","));
+    }
+
+    /** Ajoute des visites vues ; {@code null} : les oublie toutes, pour les revoir. */
+    public void setToursSeen(Long userId, java.util.Collection<String> tours) {
+        java.util.TreeSet<String> seen = new java.util.TreeSet<>(tours == null ? Set.of() : toursSeen(userId));
+        if (tours != null) tours.stream().filter(tour -> tour.matches("[a-z-]{1,40}")).forEach(seen::add);
+        String value = String.join(",", seen);
+        if (value.isEmpty()) {
+            database.query(connection -> userId == null ? Sql.update(connection, "DELETE FROM settings WHERE key = 'admin_tours_seen'")
+                    : Sql.update(connection, "UPDATE users SET tours_seen = '' WHERE id = ?", userId));
+            return;
+        }
+        database.query(connection -> userId == null
+                ? Sql.update(connection, "INSERT INTO settings (key, value) VALUES ('admin_tours_seen', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", value)
+                : Sql.update(connection, "UPDATE users SET tours_seen = ? WHERE id = ?", value, userId));
     }
 
     // ---- Profil du compte ----

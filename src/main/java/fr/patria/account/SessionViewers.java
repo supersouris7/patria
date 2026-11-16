@@ -33,7 +33,7 @@ public final class SessionViewers {
         if (session.isAdmin()) {
             List<Viewer.Household> households = accounts.households().stream().map(household -> new Viewer.Household(household.id(), household.name())).toList();
             if (households.isEmpty()) return Optional.empty();
-            return Optional.of(Viewer.admin("Admin", households.getFirst(), households));
+            return Optional.of(Viewer.admin("Admin", households.getFirst(), households, accounts.toursSeen(null)));
         }
         Optional<AccountRepository.AccountState> state = accounts.state(session.userId()).filter(found -> found.user().active());
         if (state.isEmpty()) return Optional.empty();
@@ -56,7 +56,7 @@ public final class SessionViewers {
         Viewer.Rights rights = Viewer.Rights.user(access.wholeHousehold(), access.members(), access.realEstate(), access.manager());
         return Optional.of(new Viewer(user.id(), user.name(), new Viewer.Household(access.householdId(), access.householdName(), access.realEstate()), households,
                 rights, new Viewer.Signals(state.get().mustChangePassword(), audience, notice, emailToConfirm(user.id()),
-                profile.avatar(), profile.birthDate())));
+                profile.avatar(), profile.birthDate(), accounts.toursSeen(user.id()))));
     }
 
     /** E-mail exige a la creation et pas encore confirme ; plus rien d'exige si l'administrateur a coupe l'envoi. */

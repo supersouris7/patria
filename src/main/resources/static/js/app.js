@@ -596,40 +596,104 @@ document.querySelectorAll(".login-card input[type=password]").forEach((input) =>
   input.addEventListener("input", update);
 });
 
-// Visite guidee (?visite=1) : une bulle par element de l'interface, saute ceux qui ne sont pas affiches.
+// Visites guidees : une par page, lancee seule la premiere fois (le serveur n'envoie le gabarit que si elle n'a pas ete
+// vue). Un voile assombrit la page sauf l'element montre, entoure d'un halo ; une fleche rebondit vers lui. Les etapes
+// dont l'element n'est pas affiche sont sautees. Finie, passee ou fermee (Echap), la visite est retenue pour ce compte.
 const tourTemplate = document.getElementById("visite");
 if (tourTemplate) {
   const shown = (element) => element && element.getClientRects().length > 0;
+  // Cible : « selecteur » ou « selecteur|texte » (premier element qui contient ce texte) ; un titre designe sa carte.
+  const find = (spec) => {
+    if (!spec) return null;
+    const [css, text] = spec.split("|");
+    let candidates;
+    try { candidates = Array.from(document.querySelectorAll(css)).filter(shown); } catch { return null; }
+    const element = text ? candidates.find((candidate) => candidate.textContent.includes(text)) : candidates[0];
+    if (!element) return null;
+    return /^H[1-3]$/.test(element.tagName) ? element.closest(".card, section, details") || element : element;
+  };
   const stops = Array.from(tourTemplate.content.querySelectorAll("[data-stop]"))
-    .filter((stop) => !stop.dataset.target || shown(document.querySelector(stop.dataset.target)));
+    .map((stop) => ({ stop, target: find(stop.dataset.target) }))
+    .filter(({ stop, target }) => !stop.dataset.target || target);
+  const spot = document.createElement("div");
+  spot.className = "tour-spot";
+  spot.setAttribute("aria-hidden", "true");
+  const arrow = document.createElement("div");
+  arrow.className = "tour-arrow";
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V4M5 11l7-7 7 7"/></svg>';
   const bubble = document.createElement("div");
   bubble.className = "tour";
   bubble.setAttribute("role", "dialog");
   bubble.setAttribute("aria-live", "polite");
   let index = 0;
   let target = null;
+  const gap = 52;
   const place = () => {
     const width = bubble.offsetWidth;
     const height = bubble.offsetHeight;
     if (!target) {
+      spot.style.cssText = `left:${innerWidth / 2}px;top:${innerHeight / 2}px;width:0;height:0`;
+      spot.classList.add("empty");
+      arrow.hidden = true;
       bubble.style.left = `${Math.max(16, (innerWidth - width) / 2)}px`;
       bubble.style.top = `${Math.max(16, (innerHeight - height) / 2)}px`;
       return;
     }
+    spot.classList.remove("empty");
     const box = target.getBoundingClientRect();
-    let top = box.bottom + 12;
-    if (top + height > innerHeight - 16) top = Math.max(16, box.top - height - 12);
+    const pad = 6;
+    spot.style.cssText = `left:${box.left - pad}px;top:${box.top - pad}px;width:${box.width + 2 * pad}px;height:${box.height + 2 * pad}px`;
+    // Sous l'element si la place le permet, sinon au-dessus, sinon en bas de l'ecran (element tres haut).
+    const visibleTop = Math.max(box.top, 0);
+    const visibleBottom = Math.min(box.bottom, innerHeight);
+    let top;
+    let below = true;
+    if (visibleBottom + gap + height <= innerHeight - 12) top = visibleBottom + gap;
+    else if (visibleTop - gap - height >= 12) { top = visibleTop - gap - height; below = false; }
+    else top = innerHeight - height - 16;
+    const left = Math.min(Math.max(16, box.left + box.width / 2 - width / 2), innerWidth - width - 16);
     bubble.style.top = `${top}px`;
-    bubble.style.left = `${Math.min(Math.max(16, box.left + box.width / 2 - width / 2), innerWidth - width - 16)}px`;
+    bubble.style.left = `${left}px`;
+    const inside = top < visibleBottom && top + height > visibleTop;
+    arrow.hidden = inside;
+    if (!inside) {
+      const x = Math.min(Math.max(box.left + box.width / 2, left + 24), left + width - 24);
+      arrow.classList.toggle("down", !below);
+      arrow.style.left = `${x - 17}px`;
+      arrow.style.top = `${below ? top - gap + 9 : top + height + 9}px`;
+    }
+  };
+  const seen = () => {
+    const csrf = document.querySelector('input[name="csrf"]')?.value || "";
+    fetch("/visites/vues", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "csrf=" + encodeURIComponent(csrf) + "&visites=" + encodeURIComponent(tourTemplate.dataset.tours || "") }).catch(() => {});
   };
   const end = () => {
-    target?.classList.remove("tour-target");
+    spot.remove();
+    arrow.remove();
     bubble.remove();
     removeEventListener("resize", place);
+    removeEventListener("scroll", place, true);
     document.removeEventListener("keydown", keys);
+    seen();
     const url = new URL(location.href);
-    url.searchParams.delete("visite");
-    history.replaceState(null, "", url);
+    if (url.searchParams.has("visite")) {
+      url.searchParams.delete("visite");
+      history.replaceState(null, "", url);
+    }
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.setAttribute("role", "status");
+    toast.textContent = "Visite terminée. Pour la revoir : Mon compte → Revoir les visites guidées.";
+    let stack = document.querySelector(".toasts");
+    if (!stack) {
+      stack = document.createElement("div");
+      stack.className = "toasts";
+      document.body.append(stack);
+    }
+    stack.append(toast);
+    setTimeout(() => { toast.classList.add("leaving"); setTimeout(() => toast.remove(), 320); }, 5200);
   };
   const button = (label, css, action) => {
     const element = document.createElement("button");
@@ -641,12 +705,13 @@ if (tourTemplate) {
   };
   const show = (next) => {
     index = next;
-    target?.classList.remove("tour-target");
-    const stop = stops[index];
-    target = stop.dataset.target ? document.querySelector(stop.dataset.target) : null;
+    ({ target } = stops[index]);
+    const { stop } = stops[index];
     if (target) {
-      target.classList.add("tour-target");
-      target.scrollIntoView({ block: "nearest" });
+      // Element plus haut que l'ecran : son debut sous la barre du haut ; sinon, au milieu.
+      const tall = target.getBoundingClientRect().height > innerHeight * 0.55;
+      target.scrollIntoView({ block: tall ? "start" : "center", behavior: "instant" });
+      if (tall && !target.closest(".topbar")) scrollBy({ top: -90, behavior: "instant" });
     }
     bubble.replaceChildren(...Array.from(stop.children, (child) => child.cloneNode(true)));
     const heading = bubble.querySelector("h2");
@@ -673,15 +738,24 @@ if (tourTemplate) {
     }
     bubble.append(actions);
     if (!last) bubble.append(button("Passer la visite", "quiet tour-skip", end));
+    // Relance l'animation de la fleche et du halo a chaque etape.
+    for (const element of [spot, arrow]) {
+      element.classList.remove("moving");
+      void element.offsetWidth;
+      element.classList.add("moving");
+    }
     place();
     heading.focus({ preventScroll: true });
   };
   const keys = (event) => {
     if (event.key === "Escape") end();
+    else if (event.key === "ArrowRight" && index < stops.length - 1) show(index + 1);
+    else if (event.key === "ArrowLeft" && index > 0) show(index - 1);
   };
   if (stops.length) {
-    document.body.append(bubble);
+    document.body.append(spot, arrow, bubble);
     addEventListener("resize", place);
+    addEventListener("scroll", place, true);
     document.addEventListener("keydown", keys);
     show(0);
   }

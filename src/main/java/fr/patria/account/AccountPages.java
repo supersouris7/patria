@@ -59,7 +59,8 @@ final class AccountPages {
                         password("Nouveau mot de passe", "password", "new-password", "Au moins " + AccountRepository.MIN_PASSWORD + " caractères."),
                         password("Confirmation", "confirm", "new-password", null)), "Changer le mot de passe");
         Html content = Html.concat(Components.heading("Mon compte", name, login,
-                        Html.of("<a class=\"button secondary\" href=\"%s?visite=1\">Revoir la visite guidée</a>", admin ? "/administration/securite" : "/")),
+                        Html.of("<form method=\"post\" action=\"/visites/revoir\">%s<button class=\"secondary\" type=\"submit\">Revoir les visites guidées</button></form>",
+                                Components.csrfField(csrf))),
                 Components.notice(notice), profile,
                 Components.card("Mot de passe", null, Html.EMPTY, body),
                 email == null ? Html.EMPTY : Components.card("E-mail", null, Html.EMPTY, emailForm(email, mailActive, csrf)),

@@ -165,7 +165,24 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .tour-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .tour-actions .muted { margin-right: auto; }
 .tour-skip { display: block; font-size: .8rem; margin: 6px auto 0; }
-.tour-target { border-radius: 10px; box-shadow: 0 0 0 3px var(--blue), 0 0 0 9px rgb(26 120 220 / 22%); }
+/* Voile : l'element montre reste net, le reste de la page est assombri ; halo bleu qui pulse autour. */
+.tour-spot { border-radius: 12px; box-shadow: 0 0 0 200vmax rgb(4 8 14 / 58%); pointer-events: none; position: fixed; z-index: 58;
+    transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.tour-spot::after { border: 3px solid var(--blue); border-radius: inherit; content: ""; inset: 0; position: absolute; }
+.tour-spot.empty::after { display: none; }
+.tour-spot.moving::after { animation: tour-halo 1.6s ease-out infinite; }
+/* Fleche entre la bulle et l'element, qui rebondit vers lui. */
+.tour-arrow { color: var(--blue); filter: drop-shadow(0 2px 6px #0007); height: 34px; pointer-events: none; position: fixed; width: 34px; z-index: 59; }
+.tour-arrow.down svg { transform: rotate(180deg); }
+.tour-arrow.moving { animation: tour-bounce-up .9s ease-in-out infinite; }
+.tour-arrow.down.moving { animation-name: tour-bounce-down; }
+@keyframes tour-halo { 0% { box-shadow: 0 0 0 0 rgb(58 168 255 / 55%); } 100% { box-shadow: 0 0 0 16px rgb(58 168 255 / 0%); } }
+@keyframes tour-bounce-up { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-4px); } }
+@keyframes tour-bounce-down { 0%, 100% { transform: translateY(-6px); } 50% { transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) {
+    .tour-spot { transition: none; }
+    .tour-spot.moving::after, .tour-arrow.moving { animation: none; }
+}
 /* Avatar rond : photo, ou initiales sur une couleur stable */
 .avatar { align-items: center; background: hsl(var(--avatar-hue, 210) 55% 42%); border-radius: 50%; color: #fff; display: inline-flex; flex: none;
     font-size: .8rem; font-weight: 750; height: 40px; justify-content: center; letter-spacing: .02em; object-fit: cover; width: 40px; }

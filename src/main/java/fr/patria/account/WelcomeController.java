@@ -31,8 +31,19 @@ public final class WelcomeController {
             if (next != null) return Response.redirect(next);
             // Visite de l'administrateur depuis Securite : Foyers peut renvoyer vers Installation au premier lancement.
             boolean tour = !request.form().raw("visite").isEmpty();
+            // « Passer » : la visite de la barre du haut ne se lance pas ; celle de chaque page, courte, reste proposee une fois.
+            if (!tour) accounts.setToursSeen(request.viewer().userId(), java.util.List.of(fr.patria.ui.Tours.BAR, fr.patria.ui.Tours.ADMIN));
             if (request.viewer().isAdministrator()) return Response.redirect(tour ? "/administration/securite?visite=1" : "/administration/foyers");
             return Response.redirect(tour ? "/?visite=1" : "/");
+        });
+        // Visites guidees : finie ou passee, une visite ne revient plus ; « Revoir les visites » (Mon compte) les relance toutes.
+        router.userPost("/visites/vues", request -> {
+            accounts.setToursSeen(request.viewer().userId(), java.util.Arrays.asList(request.form().raw("visites").split(",")));
+            return Response.noContent();
+        });
+        router.userPost("/visites/revoir", request -> {
+            accounts.setToursSeen(request.viewer().userId(), null);
+            return Response.redirect(request.viewer().isAdministrator() ? "/administration/securite" : "/");
         });
     }
 }

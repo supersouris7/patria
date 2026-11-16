@@ -51,11 +51,12 @@ public record Viewer(Long userId, String name, Household household, List<Househo
      * @param audience           qui voit quoi dans ce foyer (icone d'information de l'en-tete)
      * @param notice             avis a lire une fois (double authentification retiree par l'administrateur), ou {@code null}
      * @param emailToConfirm     e-mail a confirmer avant toute autre page (exige par l'administrateur a la creation du compte)
+     * @param tours              visites guidees deja vues (une par page)
      */
     public record Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm, boolean avatar,
-                          java.time.LocalDate birthDate) {
+                          java.time.LocalDate birthDate, java.util.Set<String> tours) {
         public Signals(boolean mustChangePassword, Audience audience, String notice, boolean emailToConfirm) {
-            this(mustChangePassword, audience, notice, emailToConfirm, false, null);
+            this(mustChangePassword, audience, notice, emailToConfirm, false, null, java.util.Set.of());
         }
     }
 
@@ -76,7 +77,11 @@ public record Viewer(Long userId, String name, Household household, List<Househo
 
     /** L'administrateur : aucune vue dans les foyers. */
     public static Viewer admin(String name, Household household, List<Household> households) {
-        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, null, false));
+        return admin(name, household, households, java.util.Set.of());
+    }
+
+    public static Viewer admin(String name, Household household, List<Household> households, java.util.Set<String> tours) {
+        return new Viewer(null, name, household, households, Rights.NONE, new Signals(false, Audience.NONE, null, false, false, null, tours));
     }
 
     public boolean wholeHousehold() {

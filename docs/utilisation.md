@@ -15,7 +15,7 @@ Les captures de cette page montrent un foyer fictif (Claire, Thomas et leur comp
 
 Quand l'installation sait envoyer des e-mails, l'**e-mail est obligatoire** : il sert à retrouver votre mot de passe. Un lien de confirmation vous est envoyé ; si vous créez votre compte avec l'adresse où vous avez reçu l'invitation, elle est confirmée d'office. Une barre d'étapes (Compte, E-mail, Sécurité, Découverte) vous accompagne : confirmation de l'e-mail si l'administrateur l'exige, proposition de double authentification, puis un écran d'accueil.
 
-**La visite guidée.** « Visiter Patria » pose des bulles sur les vrais boutons de l'écran ; « Passer » l'évite. Mon compte → « Revoir la visite guidée » la relance.
+**Les visites guidées.** Chaque page se présente toute seule la première fois que vous l'ouvrez : la page s'assombrit, une flèche et un halo montrent chaque bouton, et une bulle explique à quoi il sert. « Suivant » et « Précédent » (ou les flèches du clavier) avancent, « Passer la visite » ou Échap la ferment. Une visite finie ou passée ne revient plus, sur aucun de vos appareils. La première montre aussi la barre du haut ; « Passer » sur l'écran d'accueil évite seulement celle-là. Mon compte → « Revoir les visites guidées » les relance toutes.
 
 **Qui est qui :**
 

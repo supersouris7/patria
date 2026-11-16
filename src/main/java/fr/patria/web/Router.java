@@ -197,7 +197,7 @@ public final class Router implements HttpHandler {
                         viewer.userId(), viewer.signals().avatar()),
                 viewer.households().stream().map(household -> new Layout.Choice(household.id(), household.name(), household.managed())).toList(), viewer.household().id(),
                 new Layout.Chrome.Alerts(insecure, viewer.audience().lines(), viewer.audience().changes(), viewer.notice()),
-                location);
+                location, viewer.signals().tours());
     }
 
     /**
