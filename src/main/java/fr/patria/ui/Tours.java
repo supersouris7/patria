@@ -57,8 +57,8 @@ public final class Tours {
     }
 
     /**
-     * Gabarit de la visite a montrer sur cette page : la barre du haut si elle n'a pas ete vue, puis la page. Tout est
-     * montre de nouveau avec {@code ?visite=1}. Vide si tout a deja ete vu.
+     * Gabarit de la visite a montrer sur cette page : la barre du haut si elle n'a pas ete vue (ou avec {@code ?visite=1}),
+     * sinon celle de la page. Vide si tout a deja ete vu.
      */
     static Html template(Layout.Chrome chrome) {
         String[] location = chrome.location().split("\\?", 2);
@@ -73,12 +73,12 @@ public final class Tours {
                 stops.addAll(admin());
             }
         } else {
-            // La barre du haut passe en premier, une seule fois, sur n'importe quelle page qui a une visite.
+            // La barre du haut passe en premier, une seule fois, sur n'importe quelle page qui a une visite. Montree seule,
+            // pour rester courte : la visite de la page viendra a sa prochaine ouverture.
             if (page != null && (forced || !seen.contains(BAR))) {
                 keys.add(BAR);
                 stops.addAll(bar(chrome));
-            }
-            if (page != null && (forced || !seen.contains(page))) {
+            } else if (page != null && !seen.contains(page)) {
                 keys.add(page);
                 stops.addAll(page(page, chrome));
             }
