@@ -628,6 +628,7 @@ if (tourTemplate) {
   bubble.setAttribute("aria-live", "polite");
   let index = 0;
   let target = null;
+  const previous = document.activeElement;
   const gap = 52;
   const place = () => {
     const width = bubble.offsetWidth;
@@ -666,7 +667,7 @@ if (tourTemplate) {
   };
   const seen = () => {
     const csrf = document.querySelector('input[name="csrf"]')?.value || "";
-    fetch("/visites/vues", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    fetch("/visites/vues", { method: "POST", keepalive: true, headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "csrf=" + encodeURIComponent(csrf) + "&visites=" + encodeURIComponent(tourTemplate.dataset.tours || "") }).catch(() => {});
   };
   const end = () => {
@@ -677,6 +678,7 @@ if (tourTemplate) {
     removeEventListener("scroll", place, true);
     document.removeEventListener("keydown", keys);
     seen();
+    if (previous?.isConnected) previous.focus({ preventScroll: true });
     const url = new URL(location.href);
     if (url.searchParams.has("visite")) {
       url.searchParams.delete("visite");
@@ -685,7 +687,7 @@ if (tourTemplate) {
     const toast = document.createElement("div");
     toast.className = "toast";
     toast.setAttribute("role", "status");
-    toast.textContent = "Visite terminée. Pour la revoir : Mon compte → Revoir les visites guidées.";
+    toast.textContent = "Pour revoir les visites : Mon compte → Revoir les visites guidées.";
     let stack = document.querySelector(".toasts");
     if (!stack) {
       stack = document.createElement("div");
@@ -749,6 +751,7 @@ if (tourTemplate) {
   };
   const keys = (event) => {
     if (event.key === "Escape") end();
+    else if (event.target.closest?.("input, textarea, select, [contenteditable]")) return;
     else if (event.key === "ArrowRight" && index < stops.length - 1) show(index + 1);
     else if (event.key === "ArrowLeft" && index > 0) show(index - 1);
   };

@@ -166,8 +166,7 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .tour-actions .muted { margin-right: auto; }
 .tour-skip { display: block; font-size: .8rem; margin: 6px auto 0; }
 /* Voile : l'element montre reste net, le reste de la page est assombri ; halo bleu qui pulse autour. */
-.tour-spot { border-radius: 12px; box-shadow: 0 0 0 200vmax rgb(4 8 14 / 58%); pointer-events: none; position: fixed; z-index: 58;
-    transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.tour-spot { border-radius: 12px; box-shadow: 0 0 0 200vmax rgb(4 8 14 / 58%); pointer-events: none; position: fixed; z-index: 58; }
 .tour-spot::after { border: 3px solid var(--blue); border-radius: inherit; content: ""; inset: 0; position: absolute; }
 .tour-spot.empty::after { display: none; }
 .tour-spot.moving::after { animation: tour-halo 1.6s ease-out infinite; }
@@ -180,7 +179,6 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 @keyframes tour-bounce-up { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-4px); } }
 @keyframes tour-bounce-down { 0%, 100% { transform: translateY(-6px); } 50% { transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) {
-    .tour-spot { transition: none; }
     .tour-spot.moving::after, .tour-arrow.moving { animation: none; }
 }
 /* Avatar rond : photo, ou initiales sur une couleur stable */

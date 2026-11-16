@@ -284,7 +284,8 @@ public final class Layout {
                 Html.concat(audience(chrome, csrf), THEME_TOGGLE),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
-        Html tour = csrf == null || chrome == null || chrome.location() == null ? Html.EMPTY : Tours.template(chrome);
+        // Pas de visite sur les pages d'erreur ni d'accueil (section NONE) : « Accès réservé » ne doit pas la consommer.
+        Html tour = csrf == null || chrome == null || chrome.location() == null || section == Section.NONE ? Html.EMPTY : Tours.template(chrome);
         Html tabs = administrator || !wealth ? Html.EMPTY : wealthTabs(section, realEstate);
         return document(title, "", Html.concat(header, Html.of("<main class=\"shell\">%s%s%s</main>", accountNotice(chrome, csrf), tabs, content), footer(), overlay, tour));
     }

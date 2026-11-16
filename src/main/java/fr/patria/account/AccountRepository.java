@@ -239,7 +239,7 @@ public final class AccountRepository {
     /** Ajoute des visites vues ; {@code null} : les oublie toutes, pour les revoir. */
     public void setToursSeen(Long userId, java.util.Collection<String> tours) {
         java.util.TreeSet<String> seen = new java.util.TreeSet<>(tours == null ? Set.of() : toursSeen(userId));
-        if (tours != null) tours.stream().filter(tour -> tour.matches("[a-z-]{1,40}")).forEach(seen::add);
+        if (tours != null) tours.stream().filter(fr.patria.ui.Tours::known).forEach(seen::add);
         String value = String.join(",", seen);
         if (value.isEmpty()) {
             database.query(connection -> userId == null ? Sql.update(connection, "DELETE FROM settings WHERE key = 'admin_tours_seen'")

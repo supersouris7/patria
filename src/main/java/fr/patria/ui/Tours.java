@@ -26,11 +26,24 @@ public final class Tours {
     private Tours() {
     }
 
+    /** Toutes les visites : seules celles-ci sont retenues (le navigateur ne peut rien stocker d'autre). */
+    private static final Set<String> KEYS = Set.of(BAR, ADMIN, "previsionnel", "budget-moyen", "patrimoine", "epargne", "bourse", "bourse-import",
+            "bourse-ajout", "immobilier", "biens", "prets", "taxe-fonciere", "bien", "pret", "bien-modifier", "pret-nouveau", "pret-gerer", "economies",
+            "bilan", "guide", "documents", "revue-annuelle", "foyer", "revenus", "depenses", "virements", "repartition", "gerer-biens", "ligne", "compte");
+
+    public static boolean known(String key) {
+        return KEYS.contains(key);
+    }
+
     /** Visite de la page ({@code path} sans requete), ou {@code null} si elle n'en a pas. */
     static String key(String path, boolean administrator) {
         if (administrator) return path.startsWith("/administration") ? ADMIN : null;
         if (path.matches("/bien/\\d+")) return "bien";
         if (path.matches("/pret/\\d+")) return "pret";
+        if (path.matches("/pret/\\d+/gerer")) return "pret-gerer";
+        if (path.matches("/bien/\\d+/prets/nouveau")) return "pret-nouveau";
+        if (path.matches("/administration/bien/(\\d+|nouveau)")) return "bien-modifier";
+        if (path.matches("/(depense|revenu|virement)/\\d+")) return "ligne";
         return switch (path) {
             case "/" -> "previsionnel";
             case "/budget" -> "budget-moyen";
@@ -38,6 +51,9 @@ public final class Tours {
             case "/epargne" -> "epargne";
             case "/bourse" -> "bourse";
             case "/bourse/importer" -> "bourse-import";
+            case "/bourse/ajouter" -> "bourse-ajout";
+            case "/assistant/documents" -> "documents";
+            case "/assistant/revue-annuelle" -> "revue-annuelle";
             case "/immobilier" -> "immobilier";
             case "/immobilier/biens" -> "biens";
             case "/immobilier/prets" -> "prets";
@@ -84,7 +100,8 @@ public final class Tours {
             }
         }
         if (stops.isEmpty()) return Html.EMPTY;
-        boolean home = !chrome.administrator() && keys.contains(BAR) && "previsionnel".equals(page);
+        // Apres la barre du haut : un bouton vers le Guide de saisie, sauf si on y est deja.
+        boolean home = !chrome.administrator() && keys.contains(BAR) && !"guide".equals(page);
         return Html.of("<template id=\"visite\" data-tours=\"%s\" data-final-href=\"%s\" data-final-label=\"%s\">%s</template>", String.join(",", keys),
                 home ? "/assistant" : "", home ? "Ouvrir le Guide de saisie" : "",
                 stops.stream().map(stop -> Html.of("<div data-stop data-target=\"%s\"><h2>%s</h2><p>%s</p></div>", stop.target(), stop.title(), stop.body()))
@@ -118,7 +135,8 @@ public final class Tours {
         stops.add(stop("", "Bienvenue dans Patria",
                 "Patria vous dit combien il vous reste chaque mois, prépare les grosses dépenses et suit ce que vous possédez. "
                         + "Cette petite visite montre où se trouve chaque chose. Elle ne revient plus ensuite."));
-        stops.add(stop(".nav-hamburger > summary", "Le menu", "Toutes les pages sont ici. La pastille compte vos notifications."));
+        stops.add(stop(".nav-hamburger > summary", "Le menu",
+                "Toutes les pages sont ici (sur téléphone, la recherche et Mon compte aussi). La pastille compte vos notifications."));
         stops.add(stop(".primary-navigation > a:first-child", "Budget",
                 "Combien vous reste-t-il ? Le mois en cours et les 12 suivants, ou un mois type, pour tout le foyer ou une seule personne."));
         stops.add(stop(".primary-navigation a[href='/patrimoine']", "Patrimoine",
@@ -126,7 +144,7 @@ public final class Tours {
         stops.add(stop(".primary-navigation a[href='/economies']", "Économies",
                 "Comment payer moins : vos contrats (électricité, box, assurances…) comparés à des prix courants, avec la démarche pour changer."));
         stops.add(stop(".primary-navigation a[href='/bilan']", "Bilan de santé",
-                "Est-ce que vos finances vont bien ? Endettement, épargne de secours, impôts à ne pas oublier. La pastille compte les points à corriger."));
+                "Est-ce que vos finances vont bien ? Endettement, épargne de secours, impôts à ne pas oublier. La pastille compte les points à regarder."));
         stops.add(stop(".primary-navigation a[href='/administration']", "Gérer",
                 manager ? "Les listes de vos revenus, dépenses et virements, et les réglages du foyer : membres, invitations, droits."
                         : "Les listes de vos revenus, dépenses et virements, pour les modifier."));
@@ -143,6 +161,10 @@ public final class Tours {
                 : "Ce que chaque compte du foyer voit, réglé par le gestionnaire. Un point signale un changement récent."));
         stops.add(stop(".account-bar > .theme-toggle", "Clair ou sombre", "Ce bouton passe du thème de l'appareil au thème clair, puis sombre."));
         stops.add(stop(".account-bar .logout", "Quitter", "Pour vous déconnecter. Par sécurité, la session se ferme seule au bout de 12 heures."));
+        stops.add(stop("", "Par où commencer ?", (manager
+                ? "Le Guide de saisie remplit Patria pas à pas : avec le fichier de votre banque, avec une IA, ou à la main. Comptez 15 à 30 minutes. "
+                : "Le Guide de saisie vous accompagne pas à pas pour vos propres revenus et dépenses. ")
+                + "Ensuite, chaque page se présentera elle-même la première fois que vous l'ouvrirez."));
         return stops;
     }
 
@@ -202,13 +224,17 @@ public final class Tours {
             case "bourse" -> List.of(
                     stop("", "Votre bourse",
                             "PEA, comptes-titres et cryptos, à part parce que leur valeur peut baisser. Ajoutez un titre par « + Ajouter » ou importez le relevé de votre courtier."),
-                    stop(".heading-actions a[href='/bourse/importer']", "Importer un relevé", "Déposez le fichier de votre courtier tel quel (Trade Republic, Degiro, Boursorama, Binance…) : tout se remplit."),
+                    stop(".heading-actions a[href='/bourse/importer']", "Importer un relevé", "Déposez le fichier de votre courtier tel quel (Trade Republic, Degiro, BoursoBank, Binance…) : tout se remplit."),
                     stop("section.metrics", "Les tuiles",
                             "Valeur au cours du jour, gain si vous vendiez aujourd'hui (rien n'est gagné ni perdu tant que vous ne vendez pas), montant investi et argent non placé."),
                     stop("h2|Est-ce que vos efforts", "Est-ce que ça vaut le coup ?",
                             "Votre portefeuille comparé à un repère simple (MSCI World, CAC 40, Livret A…), sur 1 mois, 1 an ou 5 ans, avec une phrase de verdict."),
                     stop(".positions-table", "Vos titres", "Chaque titre, sa quantité, son prix moyen et sa valeur. « Courbe du cours » montre son évolution."),
-                    stop("details.row-menu > summary", "Gérer un compte", "Mettre à jour l'argent non placé, programmer un versement ou supprimer le compte."));
+                    stop("details.row-menu > summary", "Gérer un compte", "Mettre à jour le compte, programmer un versement chaque mois ou le supprimer."));
+            case "bourse-ajout" -> List.of(
+                    stop("", "Ajouter un titre", "Deux étapes : trouver le titre, puis indiquer combien de parts vous avez et à quel prix moyen vous les avez achetées."),
+                    stop("form.title-search", "Trouver le titre", "Tapez son nom, son ISIN ou son code : « MSCI World », « FR0010315770 », « BTC »."),
+                    stop("summary|pas trouvé", "Pas trouvé ?", "Saisissez directement son code de cotation."));
             case "bourse-import" -> List.of(
                     stop("", "Importer un relevé de bourse", "Déposez le fichier exporté depuis le site de votre courtier : Patria reconnaît les colonnes et montre un aperçu avant d'enregistrer."),
                     stop("summary|Comment obtenir l'export", "Où trouver le fichier ?", "Les étapes, courtier par courtier, pour télécharger le bon export."),
@@ -232,6 +258,26 @@ public final class Tours {
             case "taxe-fonciere" -> List.of(
                     stop("", "Taxe foncière",
                             "Le montant de chaque bien, année par année. Une seule année suffit : Patria la revalorise chaque année. Qui la paie se règle dans Gérer → Répartition."));
+            case "bien-modifier" -> List.of(
+                    stop("", "Fiche du bien à remplir", "Les informations du bien : plus vous en donnez, plus les calculs sont justes."),
+                    stop(".admin-nav", "Les autres onglets", "Prêts et apports, Charges (taxe foncière, copropriété, assurance) et Occupation (location ou habitation)."),
+                    stop("h2|Acquisition", "Acquisition", "Le prix d'achat, les frais de notaire et la date : ils servent à calculer ce que le bien vous a rapporté."),
+                    stop("h2|Estimation", "Estimation", "Une valeur prudente et une optimiste. Patria les actualise ensuite avec les ventes du département."),
+                    stop("h2|Valeur nette", "Valeur nette", "Les frais de vente (agence, impôt sur la plus-value) déduits pour savoir ce qui vous resterait vraiment."));
+            case "pret-nouveau" -> List.of(
+                    stop("", "Ajouter un prêt",
+                            "Patria a besoin du tableau d'amortissement de la banque (toutes les échéances). Il est dans votre espace client ou dans l'offre de prêt."),
+                    stop("input[type=file]", "Le fichier", "Un fichier CSV. Vous n'avez que le PDF ? Une consigne pour IA le convertit ; vérifiez ensuite les dates et les montants."),
+                    stop("details.help-block > summary", "Format du fichier", "Les colonnes attendues, si vous préparez le fichier vous-même."));
+            case "pret-gerer" -> List.of(
+                    stop("", "Gérer le prêt", "Renommer le prêt, remplacer son échéancier (après une renégociation par exemple) ou le supprimer."),
+                    stop("h2|Remplacer l'échéancier", "Remplacer l'échéancier", "Un nouveau fichier remplace toutes les anciennes lignes de ce prêt."));
+            case "ligne" -> List.of(
+                    stop("", "Modifier une ligne", "Le libellé, le montant, la fréquence, les dates et la répartition."),
+                    stop("label|valable à partir", "Le montant change ?",
+                            "Indiquez la date du nouveau montant : l'ancien reste avant cette date, pour l'historique. Videz ce champ pour corriger une simple faute de frappe."),
+                    stop("fieldset.shares", "Répartition", "La part de chaque membre. Vide : à parts égales."),
+                    stop(".danger-zone", "Supprimer", "Pour une ligne qui n'existe plus. Si elle s'arrête seulement, mettez plutôt une date de fin."));
             case "bien" -> List.of(
                     stop("", "La fiche du bien", "Tout sur ce bien : sa valeur, le marché autour, ses prêts, ses apports et ce qu'il vous a rapporté."),
                     stop(".hero .chips", "Valeur retenue",
@@ -273,6 +319,21 @@ public final class Tours {
                     stop("#ignores", "Points ignorés", "Les points que vous avez ignorés ; « Rétablir » les remet."),
                     stop("#evolution", "Votre évolution", "Une note sur 100, votre pouvoir d'achat, votre patrimoine, votre reste à vivre et le prévu face au réel, mois après mois."),
                     stop(pdf, "Exporter en PDF", "Le bilan sur une page A4, à garder ou imprimer."));
+            case "documents" -> List.of(
+                    stop("", "Vos documents", "La façon la plus rapide de tout remplir. Choisissez une des trois méthodes ; ce qui est trouvé attend ensuite dans « À trier », à valider étape par étape."),
+                    stop("details.import-method > summary|banque", "Avec le fichier de votre banque",
+                            "Le plus simple, sans IA. Sur le site de la banque : liste des opérations → Exporter (CSV, OFX ou QIF), sur 3 à 12 mois. "
+                                    + "Patria repère les prélèvements et revenus qui reviennent."),
+                    stop("details.import-method > summary|IA", "Avec une IA",
+                            "Copiez la consigne, donnez-la à une IA avec vos documents, puis collez sa réponse ici. Retirez d'abord ce qui est sensible (IBAN, adresse)."),
+                    stop("details.import-method > summary|main", "À la main", "Le guide passe directement aux écrans de saisie."),
+                    stop("section.disclosure|Quels documents", "Quels documents ?", "La liste des documents utiles et, banque par banque, où les télécharger."),
+                    stop(".wizard-plan > summary", "Plan du guide", "Toutes les étapes du guide, pour sauter directement à l'une d'elles."));
+            case "revue-annuelle" -> List.of(
+                    stop("", "La revue annuelle", "Une fois par an, mettez tout à jour d'un coup : pour chaque ligne, le nouveau montant et sa date, ou « Arrêtée » si elle n'existe plus."),
+                    stop("form.review-row", "Une ligne", "Changez le montant et la date, ou cliquez « Arrêtée ». L'ancien montant reste dans l'historique."),
+                    stop("#biens", "Vos biens", "La taxe foncière de l'année et une nouvelle estimation de chaque bien."),
+                    stop(".wizard-footer button", "Revue terminée", "Cliquez quand vous avez fini : Patria vous la rappellera dans un an."));
             case "guide" -> List.of(
                     stop("", "Le Guide de saisie",
                             "Il vous fait tout remplir pas à pas, en 15 à 30 minutes. Le plus rapide : déposer le fichier de votre banque (CSV, OFX ou QIF), "

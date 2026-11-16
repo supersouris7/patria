@@ -8,6 +8,23 @@ import org.junit.jupiter.api.Test;
 
 class NavigationTest {
     @Test
+    void toursShowTheBarFirstThenEachPageOnceAndNeverOnErrorPages() {
+        try {
+            Layout.Chrome.Person person = new Layout.Chrome.Person("Claire", false, true, true, true, 1L, false);
+            Layout.CHROME.set(new Layout.Chrome(person, List.of(), 1, Layout.Chrome.Alerts.NONE, "/bilan", java.util.Set.of()));
+            assertTrue(Layout.page("Bilan", Layout.Section.HEALTH, "csrf", Html.EMPTY).toString().contains("data-tours=\"barre\""), "la barre seule d'abord");
+            Layout.CHROME.set(new Layout.Chrome(person, List.of(), 1, Layout.Chrome.Alerts.NONE, "/bilan", java.util.Set.of("barre")));
+            assertTrue(Layout.page("Bilan", Layout.Section.HEALTH, "csrf", Html.EMPTY).toString().contains("data-tours=\"bilan\""), "puis la page");
+            assertFalse(Layout.message("Accès réservé", "Non.", "csrf").toString().contains("id=\"visite\""), "jamais sur une page d'erreur");
+            Layout.CHROME.set(new Layout.Chrome(person, List.of(), 1, Layout.Chrome.Alerts.NONE, "/bilan", java.util.Set.of("barre", "bilan")));
+            assertFalse(Layout.page("Bilan", Layout.Section.HEALTH, "csrf", Html.EMPTY).toString().contains("id=\"visite\""), "une seule fois");
+            assertTrue(Tours.known("bilan") && !Tours.known("n-importe-quoi"), "seules les visites connues sont retenues");
+        } finally {
+            Layout.CHROME.remove();
+        }
+    }
+
+    @Test
     void categoriesRespectAccountRights() {
         try {
             Layout.CHROME.set(new Layout.Chrome(new Layout.Chrome.Person("Admin", true, false, false),
