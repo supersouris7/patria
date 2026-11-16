@@ -37,9 +37,9 @@ class NavigationTest {
             assertTrue(management.contains("href=\"/immobilier/taxe-fonciere\""));
             assertTrue(management.indexOf(">Patrimoine</a>") < management.indexOf(">Économies</a>"));
             assertTrue(management.indexOf("aria-label=\"Bilan de santé\"") < management.indexOf(">Gérer</a>"), "cinq entrées, Gérer en dernier");
-            assertTrue(management.indexOf("class=\"audience\"") < management.indexOf("class=\"account-link"));
+            assertTrue(management.indexOf("class=\"account-link") < management.indexOf("class=\"audience\""), "qui voit quoi et thème juste avant Quitter");
             assertTrue(management.contains("aria-label=\"Menu principal\""));
-            assertTrue(management.indexOf("class=\"account-link") < management.indexOf("action=\"/deconnexion\""));
+            assertTrue(management.indexOf("data-theme-toggle") < management.indexOf("action=\"/deconnexion\""));
         } finally {
             Layout.CHROME.remove();
         }

@@ -275,8 +275,8 @@ public final class Layout {
                 <form method="post" action="/deconnexion">%s<button class="quiet logout" type="submit" aria-label="Déconnexion" title="Déconnexion">%s</button></form>
                 </div></div></header>""",
                 Html.raw(administrator ? "" : " data-navigation-status"), brand(), Html.concat(burger, search(searchLinks)), links,
-                administrator || chrome == null ? Html.EMPTY : addMenu(realEstate), audience(chrome, csrf),
-                Html.concat(THEME_TOGGLE, account(chrome, section == Section.ACCOUNT)),
+                administrator || chrome == null ? Html.EMPTY : addMenu(realEstate), account(chrome, section == Section.ACCOUNT),
+                Html.concat(audience(chrome, csrf), THEME_TOGGLE),
                 Components.csrfField(csrf), LOGOUT_ICON);
         Html overlay = csrf == null ? Html.EMPTY : SecurityPages.overlay(csrf);
         Html tour = csrf == null || chrome == null || chrome.location() == null || !chrome.location().matches(".*[?&]visite=1(&.*)?") ? Html.EMPTY : tour(chrome);

@@ -56,12 +56,12 @@ html { scrollbar-gutter: stable; } /* la barre ne se decale plus quand une page 
 /* Dans les liens (barre et menu), la pastille suit le texte ; seul le bouton du menu la porte sur son coin. */
 .navigation a > .nav-count { margin-left: 6px; position: static; vertical-align: middle; }
 .primary-navigation a.nav-guide:has(> .guide-count:not([hidden])) { border-radius: 999px; gap: 2px; padding: 0 10px; width: auto; }
-/* Ajouter : « + Ajouter », simple, sans animation, de la hauteur de l'avatar. */
-.navigation .add-menu > summary { background: var(--blue-deep); border-radius: 999px; color: #fff; font-size: .9rem; font-weight: 650; gap: 6px; height: 32px;
+/* Ajouter : « + Ajouter », discret (teinte bleue legere), sans animation, de la hauteur de l'avatar. */
+.navigation .add-menu > summary { background: var(--blue-tint); border-radius: 999px; color: var(--accent-text); font-size: .9rem; font-weight: 650; gap: 6px; height: 32px;
     min-height: 32px; padding: 0 14px; width: auto; }
 .navigation .add-menu > summary span[aria-hidden] { font-size: 1.1rem; }
 .navigation .add-menu > summary, .add-menu[open] > .nav-panel { animation: none; transition: none; }
-.navigation .add-menu > summary:hover, .navigation .add-menu[open] > summary { background: var(--blue); color: #fff; }
+.navigation .add-menu > summary:hover, .navigation .add-menu[open] > summary { background: var(--surface-raised); color: var(--text); }
 .navigation .account-link .avatar-small, .navigation .account-link > svg { height: 32px; width: 32px; }
 .navigation .account-link .avatar-small { font-size: .78rem; }
 /* Guide : l'icone seule, le pourcentage en pastille. */
