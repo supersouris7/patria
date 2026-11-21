@@ -5,16 +5,5 @@
 
 - Mis à jour : 2026-11-21
 - Maturité : mature — Java/Maven, tests JUnit, CI Docker (Trivy), 5 versions étiquetées.
-- Environnement de test : à définir avec le client (l'instance auto-hébergée existante est traitée comme
-  production : aucune action sans accord).
-- Tableau de suivi : à créer (droit GitHub « project » en attente).
-
-## En cours
-- Intégration à la fabrique logicielle (PR `chore/fabrique-integration`).
-- 8 PR Dependabot ouvertes, dont des versions majeures (JUnit 6, OpenPDF 3, JDK 22/26) à évaluer.
-
-## Anomalies connues
-- Aucune bloquante. Contrôle sécurité du 21/11 : 0 critique/haute ; 3 faux positifs documentés.
-
-## Prochaine action
-- Trier les PR Dependabot (mineures d'abord), définir l'environnement de test.
+- Environnement de test : instance auto-hébergée du client (décision du 22/11), détails dans
+  `CLAUDE.local.md` (hors dépôt).
