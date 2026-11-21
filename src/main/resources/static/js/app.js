@@ -596,11 +596,10 @@ document.querySelectorAll(".login-card input[type=password]").forEach((input) =>
   input.addEventListener("input", update);
 });
 
-// Visites guidees : une par page, lancee seule la premiere fois (le serveur n'envoie le gabarit que si elle n'a pas ete
-// vue). Un voile assombrit la page sauf l'element montre, entoure d'un halo ; une fleche rebondit vers lui. Les etapes
-// dont l'element n'est pas affiche sont sautees. Finie, passee ou fermee (Echap), la visite est retenue pour ce compte.
-const tourTemplate = document.getElementById("visite");
-if (tourTemplate) {
+// Visites guidees. Celle de la barre du haut se lance seule une fois (le serveur n'envoie le gabarit #visite que si elle
+// n'a pas ete vue) ; celle de la page attend un clic sur le « ? » de son titre (#visite-page). Un voile assombrit la page
+// sauf l'element montre, entoure d'un halo ; une fleche rebondit vers lui. Les etapes sans element affiche sont sautees.
+const runTour = (tourTemplate, automatic) => {
   const shown = (element) => element && element.getClientRects().length > 0;
   // Cible : « selecteur » ou « selecteur|texte » (premier element qui contient ce texte) ; un titre designe sa carte.
   const find = (spec) => {
@@ -677,6 +676,10 @@ if (tourTemplate) {
     removeEventListener("resize", place);
     removeEventListener("scroll", place, true);
     document.removeEventListener("keydown", keys);
+    if (!automatic) {
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      return;
+    }
     seen();
     if (previous?.isConnected) previous.focus({ preventScroll: true });
     const url = new URL(location.href);
@@ -687,7 +690,7 @@ if (tourTemplate) {
     const toast = document.createElement("div");
     toast.className = "toast";
     toast.setAttribute("role", "status");
-    toast.textContent = "Pour revoir les visites : Mon compte → Revoir les visites guidées.";
+    toast.textContent = "Pour la revoir : Mon compte → Revoir la visite guidée. Sur chaque page, le « ? » du titre la présente.";
     let stack = document.querySelector(".toasts");
     if (!stack) {
       stack = document.createElement("div");
@@ -762,6 +765,20 @@ if (tourTemplate) {
     document.addEventListener("keydown", keys);
     show(0);
   }
+};
+const startTour = document.getElementById("visite");
+if (startTour) runTour(startTour, true);
+const pageTour = document.getElementById("visite-page");
+const pageTitle = document.querySelector("main h1");
+if (pageTour && pageTitle) {
+  const help = document.createElement("button");
+  help.type = "button";
+  help.className = "tour-help";
+  help.textContent = "?";
+  help.title = "Visite guidée de cette page";
+  help.setAttribute("aria-label", "Visite guidée de cette page");
+  help.addEventListener("click", () => { if (!document.querySelector(".tour")) runTour(pageTour, false); });
+  pageTitle.append(" ", help);
 }
 
 // Lien vers une ancre dans un depliant ferme : on l'ouvre avant d'y aller.

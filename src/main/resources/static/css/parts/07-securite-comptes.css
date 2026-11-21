@@ -190,3 +190,6 @@ code.secret { font-size: .95rem; letter-spacing: .06em; padding: 3px 8px; }
 .profile-head form { margin: 0; }
 .user-cell { align-items: center; display: flex; gap: 10px; }
 .api-token { display: block; font-size: .95rem; margin: 6px 0; padding: 8px 10px; user-select: all; }
+/* Bouton « ? » du titre : lance la visite de la page, a la demande. */
+.tour-help { background: var(--blue-tint); border: 0; border-radius: 999px; color: var(--accent-text); cursor: pointer; font-size: 0.95rem; font-weight: 700; height: 1.7rem; line-height: 1; margin-left: 0.3rem; min-height: 0; padding: 0; vertical-align: middle; width: 1.7rem; }
+.tour-help:hover { background: var(--surface-raised); color: var(--text); }

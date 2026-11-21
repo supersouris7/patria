@@ -73,39 +73,30 @@ public final class Tours {
     }
 
     /**
-     * Gabarit de la visite a montrer sur cette page : la barre du haut si elle n'a pas ete vue (ou avec {@code ?visite=1}),
-     * sinon celle de la page. Vide si tout a deja ete vu.
+     * Gabarits de visite de cette page. Seule la barre du haut (ou l'administration) se lance d'elle-meme, une fois ou
+     * avec {@code ?visite=1} ; la visite de la page attend un clic sur le bouton « ? » de son titre.
      */
     static Html template(Layout.Chrome chrome) {
         String[] location = chrome.location().split("\\?", 2);
         boolean forced = location.length > 1 && location[1].matches("(.*&)?visite=1(&.*)?");
         String page = key(location[0], chrome.administrator());
+        if (page == null) return Html.EMPTY;
         Set<String> seen = chrome.tours();
-        List<String> keys = new ArrayList<>();
-        List<Stop> stops = new ArrayList<>();
-        if (chrome.administrator()) {
-            if (page != null && (forced || !seen.contains(ADMIN))) {
-                keys.add(ADMIN);
-                stops.addAll(admin());
-            }
-        } else {
-            // La barre du haut passe en premier, une seule fois, sur n'importe quelle page qui a une visite. Montree seule,
-            // pour rester courte : la visite de la page viendra a sa prochaine ouverture.
-            if (page != null && (forced || !seen.contains(BAR))) {
-                keys.add(BAR);
-                stops.addAll(bar(chrome));
-            } else if (page != null && !seen.contains(page)) {
-                keys.add(page);
-                stops.addAll(page(page, chrome));
-            }
+        String auto = chrome.administrator() ? ADMIN : BAR;
+        Html automatic = Html.EMPTY;
+        if (forced || !seen.contains(auto)) {
+            // Apres la barre du haut : un bouton vers le Guide de saisie, sauf si on y est deja.
+            boolean home = !chrome.administrator() && !"guide".equals(page);
+            automatic = Html.of("<template id=\"visite\" data-tours=\"%s\" data-final-href=\"%s\" data-final-label=\"%s\">%s</template>", auto,
+                    home ? "/assistant" : "", home ? "Ouvrir le Guide de saisie" : "", stops(chrome.administrator() ? admin() : bar(chrome)));
         }
-        if (stops.isEmpty()) return Html.EMPTY;
-        // Apres la barre du haut : un bouton vers le Guide de saisie, sauf si on y est deja.
-        boolean home = !chrome.administrator() && keys.contains(BAR) && !"guide".equals(page);
-        return Html.of("<template id=\"visite\" data-tours=\"%s\" data-final-href=\"%s\" data-final-label=\"%s\">%s</template>", String.join(",", keys),
-                home ? "/assistant" : "", home ? "Ouvrir le Guide de saisie" : "",
-                stops.stream().map(stop -> Html.of("<div data-stop data-target=\"%s\"><h2>%s</h2><p>%s</p></div>", stop.target(), stop.title(), stop.body()))
-                        .collect(Html.joining()));
+        List<Stop> own = chrome.administrator() ? admin() : page(page, chrome);
+        return Html.concat(automatic, own.isEmpty() ? Html.EMPTY : Html.of("<template id=\"visite-page\">%s</template>", stops(own)));
+    }
+
+    private static Html stops(List<Stop> stops) {
+        return stops.stream().map(stop -> Html.of("<div data-stop data-target=\"%s\"><h2>%s</h2><p>%s</p></div>", stop.target(), stop.title(), stop.body()))
+                .collect(Html.joining());
     }
 
     private static Stop stop(String target, String title, String body) {
@@ -132,39 +123,21 @@ public final class Tours {
     private static List<Stop> bar(Layout.Chrome chrome) {
         boolean manager = chrome.householdManager();
         List<Stop> stops = new ArrayList<>();
-        stops.add(stop("", "Bienvenue dans Patria",
-                "Patria vous dit combien il vous reste chaque mois, prépare les grosses dépenses et suit ce que vous possédez. "
-                        + "Cette petite visite montre où se trouve chaque chose. Elle ne revient plus ensuite."));
-        stops.add(stop(".nav-hamburger > summary", "Le menu",
-                "Toutes les pages sont ici (sur téléphone, la recherche et Mon compte aussi). La pastille compte vos notifications."));
-        stops.add(stop(".primary-navigation > a:first-child", "Budget",
-                "Combien vous reste-t-il ? Le mois en cours et les 12 suivants, ou un mois type, pour tout le foyer ou une seule personne."));
-        stops.add(stop(".primary-navigation a[href='/patrimoine']", "Patrimoine",
-                "Ce que vous possédez moins ce que vous devez. Ses onglets : épargne, bourse" + (chrome.realEstate() ? " et immobilier." : ".")));
-        stops.add(stop(".primary-navigation a[href='/economies']", "Économies",
-                "Comment payer moins : vos contrats (électricité, box, assurances…) comparés à des prix courants, avec la démarche pour changer."));
-        stops.add(stop(".primary-navigation a[href='/bilan']", "Bilan de santé",
-                "Est-ce que vos finances vont bien ? Endettement, épargne de secours, impôts à ne pas oublier. La pastille compte les points à regarder."));
-        stops.add(stop(".primary-navigation a[href='/administration']", "Gérer",
-                manager ? "Les listes de vos revenus, dépenses et virements, et les réglages du foyer : membres, invitations, droits."
-                        : "Les listes de vos revenus, dépenses et virements, pour les modifier."));
-        stops.add(stop(".primary-navigation a.nav-guide", "Guide de saisie",
-                "L'assistant qui vous fait tout remplir pas à pas. Le pourcentage montre où vous en êtes."));
-        stops.add(stop(".nav-search-menu > summary", "Recherche", "Tapez le nom d'une page ou d'un bien pour y aller directement, sans vous soucier des accents."));
+        stops.add(stop(".nav-hamburger > summary, .primary-navigation", "Bienvenue : le menu",
+                "Patria vous dit combien il vous reste chaque mois et suit ce que vous possédez. Toutes les pages sont ici "
+                        + "(sur téléphone, la recherche et Mon compte aussi)."));
         stops.add(stop(".add-menu > summary", "Ajouter",
-                "Le seul bouton pour saisir quelque chose : une dépense, un revenu, un relevé bancaire, un placement, un titre en bourse, un objectif… "
-                        + "Astuce : vous pouvez aussi glisser le fichier de votre banque sur n'importe quelle page."));
-        stops.add(stop(".account-bar > .account-link", "Mon compte",
-                "Votre profil, votre photo, votre mot de passe, la double authentification et vos dernières connexions."));
+                "Le seul bouton pour saisir quelque chose : une dépense, un revenu, un relevé bancaire, un placement… "
+                        + "Vous pouvez aussi glisser le fichier de votre banque sur n'importe quelle page."));
+        stops.add(stop(".nav-search-menu > summary", "Recherche", "Tapez le nom d'une page ou d'un bien pour y aller directement."));
+        stops.add(stop(".account-bar > .account-link", "Mon compte", "Votre profil, votre mot de passe et la double authentification."));
         stops.add(stop(".audience > summary", "Qui voit quoi", manager
                 ? "Ce que chaque compte du foyer voit. Vous le réglez dans Gérer → Mon foyer et les droits."
-                : "Ce que chaque compte du foyer voit, réglé par le gestionnaire. Un point signale un changement récent."));
-        stops.add(stop(".account-bar > .theme-toggle", "Clair ou sombre", "Ce bouton passe du thème de l'appareil au thème clair, puis sombre."));
-        stops.add(stop(".account-bar .logout", "Quitter", "Pour vous déconnecter. Par sécurité, la session se ferme seule au bout de 12 heures."));
+                : "Ce que chaque compte du foyer voit, réglé par le gestionnaire."));
         stops.add(stop("", "Par où commencer ?", (manager
-                ? "Le Guide de saisie remplit Patria pas à pas : avec le fichier de votre banque, avec une IA, ou à la main. Comptez 15 à 30 minutes. "
+                ? "Le Guide de saisie remplit Patria pas à pas : avec le fichier de votre banque, avec une IA, ou à la main. "
                 : "Le Guide de saisie vous accompagne pas à pas pour vos propres revenus et dépenses. ")
-                + "Ensuite, chaque page se présentera elle-même la première fois que vous l'ouvrirez."));
+                + "Besoin d'aide sur une page ? Cliquez sur le « ? » à côté de son titre."));
         return stops;
     }
 

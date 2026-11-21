@@ -59,7 +59,7 @@ final class AccountPages {
                         password("Nouveau mot de passe", "password", "new-password", "Au moins " + AccountRepository.MIN_PASSWORD + " caractères."),
                         password("Confirmation", "confirm", "new-password", null)), "Changer le mot de passe");
         Html content = Html.concat(Components.heading("Mon compte", name, login,
-                        Html.of("<form method=\"post\" action=\"/visites/revoir\">%s<button class=\"secondary\" type=\"submit\">Revoir les visites guidées</button></form>",
+                        Html.of("<form method=\"post\" action=\"/visites/revoir\">%s<button class=\"secondary\" type=\"submit\">Revoir la visite guidée</button></form>",
                                 Components.csrfField(csrf))),
                 Components.notice(notice), profile,
                 Components.card("Mot de passe", null, Html.EMPTY, body),
