@@ -1,0 +1,4 @@
+# Faux positifs Semgrep examinés (fabrique, 2026-11-21). Format : chemin règle # raison
+scripts/captures/shoot.mjs react-insecure-request # script local de captures, requête vers 127.0.0.1 uniquement
+src/main/java/fr/patria/storage/Encryption.java formatted-sql-string # PRAGMA rekey non paramétrable, apostrophes échappées
+src/main/java/fr/patria/storage/Migrations.java formatted-sql-string # noms de tables/colonnes issus de constantes internes
