@@ -6,6 +6,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Java : on reste sur une version LTS ; un changement de version majeure se decide explicitement.
+    ignore:
+      - dependency-name: eclipse-temurin
+        update-types: ['version-update:semver-major']
+      - dependency-name: maven
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
   - package-ecosystem: github-actions
     directory: /
     schedule:

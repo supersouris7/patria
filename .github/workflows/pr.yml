@@ -1,0 +1,49 @@
+name: Controle des pull requests
+
+# Tests Maven et construction de l'image (sans publication) sur chaque PR, y compris celles de Dependabot :
+# une mise a jour n'est fusionnee que si ces controles passent.
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests Maven
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn --batch-mode verify
+
+  image:
+    name: Construction de l'image (amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: patria:pr
+          cache-from: type=gha,scope=linux/amd64
+      - name: Demarrage de l'image sur des donnees de test
+        run: python3 scripts/smoke_image.py patria:pr --platform linux/amd64
