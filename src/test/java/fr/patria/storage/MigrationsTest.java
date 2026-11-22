@@ -84,6 +84,8 @@ class MigrationsTest {
     private Path legacyDatabase() throws Exception {
         Path file = directory.resolve("legacy.sqlite3");
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + file); Statement statement = connection.createStatement()) {
+            // Les anciennes versions n'appliquaient pas les cles etrangeres : la base d'origine contient un pret orphelin.
+            statement.execute("PRAGMA foreign_keys = OFF");
             statement.execute("""
                     CREATE TABLE properties (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL, commune TEXT NOT NULL,
                         insee TEXT NOT NULL, area REAL NOT NULL, purchase REAL NOT NULL, purchase_date TEXT NOT NULL, estimate REAL NOT NULL,
@@ -185,6 +187,32 @@ class MigrationsTest {
         }
         try (Stream<Path> files = Files.list(directory)) {
             assertTrue(files.anyMatch(path -> path.getFileName().toString().equals("legacy.sqlite3.avant-migration-v0-20261102-110000")));
+        }
+    }
+
+    @Test
+    void migratedLegacyDatabaseHasNoForeignKeyViolationAndKeepsLinkedData() throws Exception {
+        Path file = legacyDatabase();
+        try (Database database = Database.open(file)) {
+            Migrations.apply(database, CLOCK);
+            database.query(connection -> {
+                try (Statement statement = connection.createStatement()) {
+                    try (ResultSet violations = statement.executeQuery("PRAGMA foreign_key_check")) {
+                        assertTrue(!violations.next(), "aucune violation de cle etrangere apres migration");
+                    }
+                    try (ResultSet enabled = statement.executeQuery("PRAGMA foreign_keys")) {
+                        assertEquals(1, enabled.getInt(1), "cles etrangeres reactivees");
+                    }
+                    try (ResultSet linked = statement.executeQuery(
+                            "SELECT count(*) FROM schedule_lines s JOIN loans l ON l.id = s.loan_id JOIN properties p ON p.id = l.property_id")) {
+                        assertEquals(1, linked.getInt(1), "echeance, pret et bien restent lies");
+                    }
+                }
+                return null;
+            });
+        }
+        try (Stream<Path> files = Files.list(directory)) {
+            assertTrue(files.anyMatch(path -> path.getFileName().toString().startsWith("legacy.sqlite3.avant-migration-v0-")), "sauvegarde faite");
         }
     }
 

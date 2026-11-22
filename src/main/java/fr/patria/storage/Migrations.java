@@ -200,6 +200,9 @@ public final class Migrations {
                 statement.execute("DROP TABLE expenses");
                 statement.execute("ALTER TABLE expenses_v5 RENAME TO expenses");
                 statement.execute("CREATE INDEX expenses_by_property ON expenses(property_id)");
+                try (ResultSet violations = statement.executeQuery("PRAGMA foreign_key_check")) {
+                    if (violations.next()) throw new SQLException("Cles etrangeres invalides apres migration.");
+                }
                 setUserVersion(connection, 5);
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {
