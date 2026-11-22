@@ -32,7 +32,7 @@ RUN $JAVA_HOME/bin/jlink \
 # paquets ; reconstruite chaque jour avec les correctifs (amd64 et arm64). Figee par son empreinte, mise a jour par
 # Dependabot (.github/dependabot.yml). L'utilisateur 10001 et le dossier /data restent ceux des versions precedentes
 # (volumes existants).
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:aab5cd0b4cc5edd9c87b6e7aa9ddaa3fb6ffcec559b9e5473c55bbc937b65399
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:3359c6ba6b3bcf3b1d2179849f782365564cb262789e732e2833b25b9a8c00f1
 
 # Fichiers du programme a root ; l'application tourne ensuite sous 10001, sans droit d'ecriture hors de /data et /tmp.
 USER 0:0
