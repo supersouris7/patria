@@ -146,6 +146,40 @@ Pour quelques proches, l'option la plus sûre reste de **ne rien ouvrir** : un V
    - Sécurité → Connexions : les adresses affichées sont celles des visiteurs, pas celle du proxy.
 6. **Ensuite** : surveillez Sécurité → Connexions échouées. Les essais de mot de passe sont limités (10 échecs par adresse et 30 par identifiant en 15 minutes) et les codes de double authentification aussi.
 
+### Installation derrière un frontal HTTPS
+
+Schéma recommandé pour une instance de test ou de famille exposée sur Internet, avec un frontal (Caddy, Nginx…) installé **sur le serveur** :
+
+1. **Compte système dédié**, sans droit d'administration ni shell interactif, qui fait tourner Docker (idéalement en mode *rootless*). Il ne doit pas pouvoir lire les dossiers des autres comptes. Gardez `compose.yaml` tel quel : système de fichiers en lecture seule, `cap_drop: ALL`, `no-new-privileges`, port publié sur `127.0.0.1` seulement.
+2. **`.env`** (droits 600) : `APP_PASSWORD` et `DB_ENCRYPTION_KEY` aléatoires, générés avant le premier lancement ; `OFFLINE=true` si l'instance n'a pas besoin des données de marché (aucun appel sortant) ; pas de réglage SMTP pour ne rien envoyer (les invitations se transmettent par lien). Conservez la clé hors des sauvegardes.
+3. **Frontal** : il est le seul accès réseau à Patria, redirige HTTP vers HTTPS, remplace les en-têtes `X-Forwarded-*` reçus des clients et pose `Strict-Transport-Security`. Patria envoie déjà sa propre `Content-Security-Policy` : ne la doublez pas. Exemple Caddy :
+
+```caddyfile
+patria.example.fr {
+    basic_auth {
+        import /etc/caddy/patria-acces.conf   # facultatif : porte d'accès devant l'application
+    }
+    @admin path /administration /administration/*
+    handle @admin {
+        # Administration réservée à un compte de la porte d'accès (ici « admin »)
+        @interdit not expression {http.auth.user.id} == "admin"
+        respond @interdit "403 Forbidden" 403
+        reverse_proxy 127.0.0.1:8101 {
+            header_up -Authorization
+        }
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8101 {
+            header_up -Authorization
+        }
+    }
+}
+```
+
+4. **Premier compte** : connectez-vous avec l'administrateur (`admin` et `APP_PASSWORD`), vérifiez Sécurité → *Bases chiffrées*, réglez l'**adresse publique** (Installation), puis Foyers → « Inviter une personne à créer son foyer » et transmettez le lien. L'administrateur ne crée pas de compte à la place des autres.
+5. **Sauvegarde** : arrêtez le conteneur quelques secondes, copiez `/data`, redémarrez (voir [Sauvegarde cohérente](#sauvegarde-cohérente)), à heure fixe, avec une rétention limitée et une copie avant chaque mise à jour.
+6. **Contrôles** : sans identifiant, le frontal répond 401 ; `/sante` répond `ok` en local ; les adresses des visiteurs affichées dans Sécurité → Connexions sont les leurs, pas celle du frontal ; le port `8101` n'est joignable que depuis le serveur.
+
 ## Inscriptions privées ou publiques
 
 Au premier lancement, Foyers ouvre **Installation** (Gérer → Installation, modifiable ensuite) :
