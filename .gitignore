@@ -8,3 +8,6 @@ data/
 target/
 .idea/
 *.iml
+
+# Carte du code Graphify (locale, regeneree par la fabrique)
+graphify-out/
